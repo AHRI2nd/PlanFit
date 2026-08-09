@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Deep ink — matches the dark theme background. -->
+    <color name="launchBackground">#0E1116</color>
+
+    <!-- HomeScreen widget dark-mode overrides — mirrors AppPalette.dark. -->
+    <color name="widget_background">#161A22</color>
+    <color name="widget_ink">#F3F1EC</color>
+    <color name="widget_ink_faint">#777C88</color>
+    <color name="widget_accent">#4B5FD6</color>
+    <color name="widget_danger">#E5646E</color>
+</resources>

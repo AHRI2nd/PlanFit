@@ -1,0 +1,17 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Android adaptive icon foreground: transparent background, mark only,
+       kept within the ~66% safe zone so masking (circle/squircle) never
+       clips the clock ring. -->
+  <circle cx="512" cy="512" r="268" fill="none" stroke="#FBFAF6" stroke-width="34" opacity="0.95"/>
+  <g stroke="#FBFAF6" stroke-width="20" stroke-linecap="round" opacity="0.95">
+    <line x1="512" y1="212" x2="512" y2="256"/>
+    <line x1="812" y1="512" x2="768" y2="512"/>
+    <line x1="512" y1="812" x2="512" y2="768"/>
+    <line x1="212" y1="512" x2="256" y2="512"/>
+  </g>
+  <g stroke="#FBFAF6" stroke-linecap="round">
+    <line x1="512" y1="512" x2="512" y2="330" stroke-width="34"/>
+    <line x1="512" y1="512" x2="650" y2="430" stroke-width="26"/>
+  </g>
+  <circle cx="512" cy="512" r="28" fill="#FBFAF6"/>
+</svg>

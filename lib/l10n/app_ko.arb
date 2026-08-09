@@ -1,0 +1,326 @@
+{
+  "@@locale": "ko",
+  "appName": "플랜핏",
+
+  "onboardingSkip": "건너뛰기",
+  "onboardingNext": "다음",
+  "onboardingGetStarted": "시작하기",
+  "onboardingPage1Title": "하루를 시간의 흐름으로",
+  "onboardingPage1Body": "새벽부터 밤까지, 하루의 색이 자연스럽게 흐르는 캘린더예요",
+  "onboardingPage2Title": "일정과 할 일을 한 곳에",
+  "onboardingPage2Body": "일/월/년 어디서든 보고, 시간대별 할 일까지 함께 관리해요",
+  "onboardingPage3Title": "놓치지 않게 알려드려요",
+  "onboardingPage3Body": "일정이 시작되기 전, 원하는 시점에 알림을 보내드려요",
+  "tabHome": "홈",
+  "tabSchedule": "시간표",
+  "tabSocial": "소셜",
+  "tabSettings": "설정",
+
+  "homeGreetingDawn": "고요한 새벽이에요",
+  "homeGreetingMorning": "좋은 아침이에요",
+  "homeGreetingAfternoon": "기분좋은 오후예요",
+  "homeGreetingEvening": "저녁이 찾아왔어요",
+  "homeGreetingNight": "깊은 밤이에요",
+  "homeUpcoming": "다가오는 일정",
+  "homeUpcomingEmpty": "예정된 일정이 없어요",
+  "homeTodayTodos": "오늘의 할 일",
+  "homeTodosDone": "{done}/{total} 완료",
+  "@homeTodosDone": {
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "homeNoTodos": "오늘 등록된 할 일이 없어요",
+  "homeTodosOverdue": "{count}개 기한 지남",
+  "@homeTodosOverdue": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "homeNowLabel": "지금",
+  "homeTodosViewAll": "할 일 전체 보기",
+  "homeWeekTitle": "이번 주",
+  "homeWeekSummary": "일정 {events}개 · 할 일 {done}/{total} 완료",
+  "@homeWeekSummary": {
+    "placeholders": {
+      "events": { "type": "int" },
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "homeWeekEmpty": "이번 주는 아직 조용하네요",
+
+  "scheduleTitle": "시간표",
+  "viewDay": "일",
+  "viewWeek": "주",
+  "viewMonth": "월",
+  "viewYear": "년",
+  "viewAgenda": "목록",
+  "dayEmpty": "이 날은 아직 비어 있어요",
+  "dayAddHint": "오른쪽 아래 + 로 일정을 더해보세요",
+  "agendaEmpty": "예정된 일정이 없어요",
+  "commonTomorrow": "내일",
+  "todosSectionTitle": "할 일",
+  "searchTooltip": "검색",
+  "quickAddEventTitle": "빠른 추가",
+  "quickAddEventHint": "날짜와 시간을 자동으로 알아들어요",
+  "quickAddEventExample": "내일 오후 3시 회의",
+  "quickAddEventCreated": "\"{title}\" · {day} {time}에 추가했어요",
+  "@quickAddEventCreated": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "day": {"type": "String"},
+      "time": {"type": "String"}
+    }
+  },
+  "searchHint": "제목이나 메모로 검색",
+  "searchEmpty": "검색 결과가 없어요",
+  "searchPrompt": "제목이나 메모를 입력해보세요",
+  "searchSectionEvents": "일정",
+  "searchSectionTodos": "할 일",
+  "searchFilterAll": "전체",
+  "searchFilterTagLabel": "태그",
+  "searchFilterDateRangePick": "기간 선택",
+  "searchFilterDateRangeClear": "기간 필터 지우기",
+
+  "socialTitle": "소셜",
+  "socialComingSoonTitle": "곧 만나요",
+  "socialComingSoonBody": "친구를 추가하고 일정을 나누는 기능을 준비하고 있어요. 지금은 나만의 시간에 집중해보세요.",
+
+  "settingsTitle": "설정",
+  "settingsNotifications": "알림",
+  "settingsNotificationSound": "알림 소리",
+  "settingsNotificationSoundDesc": "일정이 시작될 때 소리로 알려드려요",
+  "settingsExactAlarm": "정확한 시각 알림",
+  "settingsExactAlarmDesc": "정시에 정확히 알리려면 권한이 필요해요",
+  "settingsCalendar": "캘린더 연동",
+  "settingsCalendarSync": "기기 캘린더와 동기화",
+  "settingsCalendarSyncDesc": "PlanFit 일정을 기기 캘린더에 함께 담아요",
+  "settingsSyncLog": "동기화 기록",
+  "settingsLastSync": "마지막 동기화",
+  "settingsLastSyncNever": "아직 동기화한 적 없어요",
+  "settingsCalendarTarget": "동기화 캘린더",
+  "settingsCalendarTargetAuto": "자동",
+  "settingsCalendarTargetDisabledHint": "동기화를 켜면 선택할 수 있어요",
+  "settingsCalendarTargetEmpty": "선택할 수 있는 캘린더가 없어요",
+  "settingsCalendarImport": "다른 캘린더에서 가져오기",
+  "settingsCalendarImportDesc": "기존 캘린더에서 가져오거나 계속 구독해요",
+  "calendarImportTitle": "가져오기 · 구독할 캘린더",
+  "calendarImportEmpty": "가져올 수 있는 캘린더가 없어요",
+  "calendarImportConfirmTitle": "{calendarName}에서 가져올까요?",
+  "@calendarImportConfirmTitle": {
+    "placeholders": {
+      "calendarName": {"type": "String"}
+    }
+  },
+  "calendarImportConfirmBody": "최근 30일부터 앞으로 1년까지의 일정을 PlanFit에 복사해요. 알림은 꺼진 채로 들어오고, 나중에 다시 가져오면 겹치는 항목은 갱신돼요.",
+  "calendarImportConfirmAction": "가져오기",
+  "calendarImportInProgress": "가져오는 중이에요…",
+  "calendarImportSuccess": "{count}개의 일정을 가져왔어요",
+  "@calendarImportSuccess": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "calendarImportFailed": "가져오기에 실패했어요",
+  "calendarImportSubscribedHint": "구독 중 — 계속 최신 상태로 유지돼요",
+  "calendarImportMirroredReadOnlyNote": "구독한 캘린더에서 가져온 일정이라 PlanFit에서는 읽기 전용이에요. 수정하려면 원본 캘린더 앱에서 바꿔주세요.",
+  "settingsPermissionGranted": "허용됨",
+  "settingsPermissionDenied": "허용 안 됨",
+  "settingsGrant": "허용하기",
+  "settingsAppearance": "화면",
+  "settingsWeekStart": "주 시작 요일",
+  "settingsWeekStartMonday": "월요일",
+  "settingsWeekStartSunday": "일요일",
+  "settingsThemeSystem": "시스템 설정",
+  "settingsThemeLight": "밝게",
+  "settingsThemeDark": "어둡게",
+  "settingsTodo": "할 일",
+  "settingsTodoRetention": "완료된 할 일 자동 정리",
+  "settingsTodoRetentionDesc": "완료한 지 일정 기간이 지난 할 일을 자동으로 삭제해요",
+  "settingsTodoRetentionOff": "사용 안 함",
+  "settingsTodoRetentionDays": "{days}일 후",
+  "@settingsTodoRetentionDays": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "settingsAbout": "정보",
+  "settingsVersion": "버전",
+
+  "settingsData": "데이터",
+  "settingsExport": "내보내기",
+  "settingsExportDesc": "모든 일정과 할 일을 파일 하나로 저장해요",
+  "settingsImport": "가져오기",
+  "settingsImportDesc": "내보낸 파일에서 일정과 할 일을 복원해요",
+  "settingsExportIcs": "캘린더 파일로 내보내기",
+  "settingsExportIcsDesc": "다른 캘린더 앱에서 열 수 있는 표준 파일(.ics)이에요",
+  "settingsImportIcs": "캘린더 파일 가져오기",
+  "settingsImportIcsDesc": "다른 캘린더 앱에서 내보낸 .ics 파일을 새 일정으로 추가해요",
+  "icsImportSuccess": "{count}개의 일정을 가져왔어요",
+  "@icsImportSuccess": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "icsImportSkipped": "{count}개는 형식을 알 수 없어 건너뛰었어요",
+  "@icsImportSkipped": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "icsImportFailed": "가져오기에 실패했어요",
+  "settingsAutoBackup": "자동 백업 기록",
+  "autoBackupTitle": "자동 백업",
+  "autoBackupEmpty": "아직 자동 백업이 없어요",
+  "autoBackupDesc": "24시간마다 자동으로 백업하고, 최근 7개만 보관해요",
+  "autoBackupRestore": "이 백업으로 복원",
+  "autoBackupRestoreConfirmTitle": "이 백업으로 복원할까요?",
+  "autoBackupRestoreConfirmBody": "지금 있는 일정/할 일에 이 백업 내용이 합쳐져요. 같은 항목은 백업 시점 내용으로 덮어써요.",
+  "backupExportFailed": "내보내기에 실패했어요",
+  "backupImportSuccess": "일정 {events}개, 할 일 {todos}개를 가져왔어요",
+  "@backupImportSuccess": {
+    "placeholders": {
+      "events": { "type": "int" },
+      "todos": { "type": "int" }
+    }
+  },
+  "backupImportFailed": "가져오기에 실패했어요. 파일 형식을 확인해주세요",
+
+  "eventNew": "새 일정",
+  "eventEdit": "일정 편집",
+  "eventDuplicate": "일정 복제",
+  "eventShare": "일정 공유",
+  "eventShareFailed": "공유에 실패했어요",
+  "eventTemplates": "템플릿",
+  "templatesTitle": "자주 쓰는 일정",
+  "templatesEmpty": "저장된 템플릿이 없어요",
+  "templatesSaveCurrent": "현재 내용을 템플릿으로 저장",
+  "templatesNameHint": "템플릿 이름 (예: 헬스)",
+  "templatesNameRequired": "템플릿 이름을 입력해주세요",
+  "templatesSaved": "템플릿을 저장했어요",
+  "templatesDeleted": "템플릿을 삭제했어요",
+  "eventTitle": "제목",
+  "eventTitleHint": "무엇을 하나요?",
+  "eventMemo": "메모",
+  "eventMemoHint": "메모를 남겨보세요",
+  "eventLocation": "장소",
+  "eventLocationHint": "장소를 입력해보세요",
+  "eventAllDay": "종일",
+  "eventStart": "시작",
+  "eventEnd": "종료",
+  "eventNotify": "시작할 때 알림",
+  "eventReminderLead": "알림 시점",
+  "eventReminderAtStart": "정시",
+  "eventReminderMinutesBefore": "{minutes}분 전",
+  "@eventReminderMinutesBefore": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "eventReminderHoursBefore": "{hours}시간 전",
+  "@eventReminderHoursBefore": {
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "eventReminderDayBefore": "하루 전",
+  "eventReminderAdditional": "추가 알림 (여러 개 선택 가능)",
+  "eventRepeat": "반복",
+  "eventRepeatNone": "안 함",
+  "eventRepeatDaily": "매일",
+  "eventRepeatWeekly": "매주",
+  "eventRepeatMonthly": "매월",
+  "eventRepeatYearly": "매년",
+  "eventRepeatUntil": "종료일",
+  "eventRepeatWeekdays": "반복 요일",
+  "eventRepeatEndLabel": "종료 조건",
+  "eventRepeatEndByDate": "날짜까지",
+  "eventRepeatEndByCount": "횟수만큼",
+  "eventRepeatCountTimes": "{count}회",
+  "@eventRepeatCountTimes": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "eventDeleteSeriesTitle": "반복 일정 삭제",
+  "eventDeleteSeriesBody": "이 일정은 반복 일정의 일부예요. 어떻게 삭제할까요?",
+  "eventDeleteThisOnly": "이 일정만 삭제",
+  "eventDeleteThisAndFuture": "이후 모든 반복 삭제",
+  "eventSaveSeriesTitle": "반복 일정 저장",
+  "eventSaveSeriesBody": "이 일정은 반복 일정의 일부예요. 변경 사항을 어떻게 적용할까요?",
+  "eventSaveThisOnly": "이 일정만 저장",
+  "eventSaveThisAndFuture": "이후 모든 반복에 적용",
+  "eventColor": "색상",
+  "eventColorAuto": "자동",
+  "eventColorCustom": "직접 선택",
+  "eventColorPickerTitle": "색상 선택",
+  "eventSave": "저장",
+  "eventDelete": "삭제",
+  "eventDeleted": "일정을 삭제했어요",
+  "eventUndo": "실행 취소",
+  "eventSelectionCount": "{count}개 선택됨",
+  "@eventSelectionCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "eventSelectionDelete": "삭제",
+  "eventSelectionDeleted": "{count}개를 삭제했어요",
+  "@eventSelectionDeleted": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "eventTitleRequired": "제목을 입력해주세요",
+  "eventRecurrenceTruncated": "반복 횟수가 많아 최대 200회까지만 생성했어요",
+
+  "todoAdd": "할 일 추가",
+  "todoHint": "할 일을 입력하세요",
+  "todoRepeat": "반복",
+  "todoNoTime": "시간 없음",
+  "todoRepeatIndicator": "반복되는 할 일",
+  "todoDragHandle": "순서 변경",
+  "todoDeleteSeriesTitle": "반복 할 일 삭제",
+  "todoDeleteSeriesBody": "이 항목은 반복되는 할 일의 일부예요. 어떻게 삭제할까요?",
+  "todoDeleteThisOnly": "이 항목만 삭제",
+  "todoDeleteThisAndFuture": "이후 모든 반복 삭제",
+  "todoDeleted": "할 일을 삭제했어요",
+  "todoQuickAddAddedToOtherDay": "{day}에 추가했어요",
+  "@todoQuickAddAddedToOtherDay": {
+    "placeholders": {
+      "day": {"type": "String"}
+    }
+  },
+
+  "todoSelectionCount": "{count}개 선택됨",
+  "@todoSelectionCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "todoSelectionComplete": "완료 처리",
+  "todoSelectionDelete": "삭제",
+  "todoSelectionDeleted": "{count}개를 삭제했어요",
+  "@todoSelectionDeleted": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "todoEditTitle": "할 일 편집",
+  "todoTitleLabel": "제목",
+  "todoReminderAdditional": "추가 알림 (여러 개 선택 가능)",
+  "todoPriorityLabel": "우선순위",
+  "todoPriorityNone": "없음",
+  "todoPriorityLow": "낮음",
+  "todoPriorityMedium": "보통",
+  "todoPriorityHigh": "높음",
+  "todoTagsLabel": "태그",
+  "todoTagsHint": "쉼표로 구분해 입력 (예: 업무,급함)",
+  "todoSubtasksLabel": "하위 작업",
+  "todoSubtaskHint": "하위 작업 추가",
+  "todoSubtaskDelete": "하위 작업 삭제",
+  "todoNotify": "정해진 시간에 알림",
+  "todoNotifyNoTimeHint": "시간을 정해야 알림을 켤 수 있어요",
+  "todoPin": "고정",
+  "todoUnpin": "고정 해제",
+  "todoPinned": "고정됨",
+
+  "smartListTitle": "할 일 모아보기",
+  "smartListToday": "오늘",
+  "smartListOverdue": "기한 지남",
+  "smartListHighPriority": "우선순위 높음",
+  "smartListPinned": "고정됨",
+  "smartListByTag": "태그별",
+  "smartListEmptyToday": "오늘 할 일이 없어요",
+  "smartListEmptyOverdue": "기한 지난 할 일이 없어요",
+  "smartListEmptyHighPriority": "우선순위 높은 할 일이 없어요",
+  "smartListEmptyPinned": "고정된 할 일이 없어요",
+  "smartListEmptyByTag": "이 태그의 할 일이 없어요",
+  "smartListNoTags": "아직 등록된 태그가 없어요",
+  "smartListPickTag": "태그를 선택하세요",
+
+  "commonCancel": "취소",
+  "commonDone": "완료",
+  "commonToday": "오늘"
+}

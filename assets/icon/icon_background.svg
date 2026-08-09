@@ -1,0 +1,15 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dayArc" x1="120" y1="120" x2="904" y2="904" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4B5FD6"/>
+      <stop offset="0.5" stop-color="#F2A65A"/>
+      <stop offset="1" stop-color="#7C5CBF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="512" cy="380" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#dayArc)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+</svg>

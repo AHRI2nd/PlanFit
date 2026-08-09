@@ -1,0 +1,70 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Internal working notes — not meant for the public repo. README.md at the
+# project root is the exception (that's the public-facing doc) and Flutter's
+# own generated asset READMEs (e.g. under ios/Runner/Assets.xcassets/) are
+# left alone since they're routine template boilerplate, not project notes.
+/docs/*.md
+
+# Secrets and machine-local config — never commit these. android/.gitignore
+# already covers local.properties/key.properties/*.keystore/*.jks for the
+# Android module specifically; these are broader, defense-in-depth patterns
+# for anything similar that might show up elsewhere (e.g. if a Firebase
+# config or iOS signing asset is added later).
+*.env
+.env.*
+*.pem
+*.p12
+*.mobileprovision
+*.cer
+**/google-services.json
+**/GoogleService-Info.plist
+secrets.*
+*_secrets.*
+
+# etc
+CLAUDE.md

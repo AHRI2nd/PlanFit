@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Soft paper — matches the light theme background. -->
+    <color name="launchBackground">#F5F3EE</color>
+
+    <!-- HomeScreen widget — mirrors lib/design/tokens/app_colors.dart -->
+    <color name="widget_background">#F5F3EE</color>
+    <color name="widget_ink">#0E1116</color>
+    <color name="widget_ink_faint">#8A8F98</color>
+    <color name="widget_accent">#4B5FD6</color>
+    <color name="widget_danger">#D72432</color>
+</resources>

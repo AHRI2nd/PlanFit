@@ -1,0 +1,377 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/db/app_database.dart';
+import '../../../../core/di.dart';
+import '../../../../core/format.dart';
+import '../../../../design/tokens/app_colors.dart';
+import '../../../../design/tokens/app_spacing.dart';
+import '../../../../design/tokens/event_color_tag.dart';
+import '../../../../design/widgets/section_header.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../application/schedule_providers.dart';
+import '../../domain/agenda_grouping.dart';
+import '../event_edit/event_editor_sheet.dart';
+
+/// A flat, scrollable list of upcoming events grouped under date headers —
+/// the "everything at a glance" counterpart to the day/week/month/year
+/// grids, closer to how most calendar apps' list view reads. See
+/// [eventsForAgendaProvider] for the window this covers.
+///
+/// Also the one event surface with a multi-select mode (long-press a tile):
+/// unlike the day/week grids, these tiles have no drag-to-move/resize or
+/// swipe-to-delete gesture of their own to fight over the same touch input,
+/// so selection can safely repurpose tap/long-press here without conflict.
+class AgendaView extends ConsumerStatefulWidget {
+  const AgendaView({super.key, required this.anchor});
+
+  final DateTime anchor;
+
+  @override
+  ConsumerState<AgendaView> createState() => _AgendaViewState();
+}
+
+class _AgendaViewState extends ConsumerState<AgendaView> {
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
+
+  void _enterSelection(String id) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds
+        ..clear()
+        ..add(id);
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  Future<void> _bulkDelete(List<EventRow> current) async {
+    final l10n = AppL10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(eventRepositoryProvider);
+    final byId = {for (final e in current) e.id: e};
+    final removed = [for (final id in _selectedIds) ?byId[id]];
+
+    for (final e in removed) {
+      await repo.delete(e.id);
+    }
+    if (mounted) _exitSelection();
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(l10n.eventSelectionDeleted(removed.length)),
+        action: SnackBarAction(
+          label: l10n.eventUndo,
+          // restoreEvent(), not save() — see day_view.dart's _EventCard._delete
+          // for why save() would silently sever recurrence/OS-calendar links.
+          onPressed: () async {
+            for (final e in removed) {
+              await repo.restoreEvent(e);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final eventsAsync = ref.watch(eventsForAgendaProvider(widget.anchor));
+
+    return eventsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('$e')),
+      data: (events) {
+        final groups = groupEventsByDay(events);
+        if (groups.isEmpty) {
+          return _AgendaEmpty(l10n: l10n);
+        }
+        return Column(
+          children: [
+            if (_selectionMode)
+              _AgendaSelectionToolbar(
+                count: _selectedIds.length,
+                l10n: l10n,
+                onCancel: _exitSelection,
+                onDelete: () => _bulkDelete(events),
+              ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.gutter,
+                  AppSpacing.xs,
+                  AppSpacing.gutter,
+                  140,
+                ),
+                children: [
+                  for (final (day, dayEvents) in groups) ...[
+                    _DayHeader(day: day),
+                    for (final e in dayEvents)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: _AgendaTile(
+                          event: e,
+                          selectionMode: _selectionMode,
+                          selected: _selectedIds.contains(e.id),
+                          onToggleSelected: () => _toggleSelected(e.id),
+                          onEnterSelection: () => _enterSelection(e.id),
+                        ),
+                      ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Mirrors `_SelectionToolbar` in hourly_todo_list.dart, minus the "mark
+/// done" action — events have no done state to bulk-toggle, only delete.
+class _AgendaSelectionToolbar extends StatelessWidget {
+  const _AgendaSelectionToolbar({
+    required this.count,
+    required this.l10n,
+    required this.onCancel,
+    required this.onDelete,
+  });
+
+  final int count;
+  final AppL10n l10n;
+  final VoidCallback onCancel;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.gutter,
+        vertical: AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: l10n.commonCancel,
+            onPressed: onCancel,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.close, size: 20, color: palette.inkFaint),
+          ),
+          Expanded(
+            child: Text(
+              l10n.eventSelectionCount(count),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: palette.inkSoft),
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.eventSelectionDelete,
+            onPressed: onDelete,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.delete_outline, color: palette.danger),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayHeader extends StatelessWidget {
+  const _DayHeader({required this.day});
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final today = dateOnly(DateTime.now());
+    final tomorrow = today.add(const Duration(days: 1));
+
+    final label = day == today
+        ? '${l10n.commonToday} · ${Fmt.monthDay(day, locale)}'
+        : day == tomorrow
+        ? '${l10n.commonTomorrow} · ${Fmt.monthDay(day, locale)}'
+        : '${Fmt.monthDay(day, locale)} ${Fmt.weekdayShort(day, locale)}';
+
+    return SectionHeader(label);
+  }
+}
+
+class _AgendaTile extends StatelessWidget {
+  const _AgendaTile({
+    required this.event,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelected,
+    this.onEnterSelection,
+  });
+
+  final EventRow event;
+
+  /// Whether the agenda view is in multi-select mode — while true, tapping
+  /// this tile toggles [selected] instead of opening the editor, and
+  /// long-press is disabled (there's no "enter" to do from inside the mode
+  /// that's already active).
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelected;
+
+  /// Long-pressing the tile while not already in selection mode enters it,
+  /// pre-selecting this event.
+  final VoidCallback? onEnterSelection;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final l10n = AppL10n.of(context);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final accent = EventColorTag.resolve(event.colorTag, event.startAt);
+
+    return Container(
+      color: selected ? palette.accent.withValues(alpha: 0.1) : null,
+      child: InkWell(
+        onTap: selectionMode
+            ? onToggleSelected
+            : () => showEventEditor(context, existing: event),
+        onLongPress: selectionMode ? null : onEnterSelection,
+        borderRadius: AppRadius.cardMd,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxs,
+            vertical: AppSpacing.xs,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (selectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.xs),
+                  child: Icon(
+                    selected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 20,
+                    color: selected ? palette.accent : palette.inkFaint,
+                  ),
+                ),
+              SizedBox(
+                width: 52,
+                child: Text(
+                  event.isAllDay
+                      ? l10n.eventAllDay
+                      : Fmt.time(event.startAt, locale),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: palette.inkSoft,
+                  ),
+                ),
+              ),
+              Container(
+                width: 3,
+                height: 30,
+                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: AppRadius.allPill,
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title.isEmpty ? '—' : event.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    if (event.location != null && event.location!.isNotEmpty)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.place_outlined,
+                            size: 12,
+                            color: palette.inkFaint,
+                          ),
+                          const SizedBox(width: 2),
+                          Flexible(
+                            child: Text(
+                              event.location!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: palette.inkFaint,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              if (event.notify)
+                Icon(
+                  Icons.notifications_active_outlined,
+                  size: 15,
+                  color: palette.inkFaint,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgendaEmpty extends StatelessWidget {
+  const _AgendaEmpty({required this.l10n});
+  final AppL10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.event_available_outlined,
+              size: 40,
+              color: palette.inkFaint,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              l10n.agendaEmpty,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

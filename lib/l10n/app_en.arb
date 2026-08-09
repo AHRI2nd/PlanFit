@@ -1,0 +1,326 @@
+{
+  "@@locale": "en",
+  "appName": "PlanFit",
+
+  "onboardingSkip": "Skip",
+  "onboardingNext": "Next",
+  "onboardingGetStarted": "Get started",
+  "onboardingPage1Title": "A day as a river of time",
+  "onboardingPage1Body": "From dawn to night, your calendar's color flows with the day",
+  "onboardingPage2Title": "Events and to-dos, together",
+  "onboardingPage2Body": "See day, month, or year at a glance, with to-dos alongside your schedule",
+  "onboardingPage3Title": "Never miss a moment",
+  "onboardingPage3Body": "Get a reminder before each event starts, exactly when you want it",
+  "tabHome": "Home",
+  "tabSchedule": "Schedule",
+  "tabSocial": "Social",
+  "tabSettings": "Settings",
+
+  "homeGreetingDawn": "A quiet dawn",
+  "homeGreetingMorning": "Good morning",
+  "homeGreetingAfternoon": "Good afternoon",
+  "homeGreetingEvening": "Good evening",
+  "homeGreetingNight": "Late night",
+  "homeUpcoming": "Up next",
+  "homeUpcomingEmpty": "Nothing scheduled",
+  "homeTodayTodos": "Today's to-dos",
+  "homeTodosDone": "{done}/{total} done",
+  "@homeTodosDone": {
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "homeNoTodos": "No to-dos for today",
+  "homeTodosOverdue": "{count} overdue",
+  "@homeTodosOverdue": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "homeNowLabel": "now",
+  "homeTodosViewAll": "View all to-dos",
+  "homeWeekTitle": "This week",
+  "homeWeekSummary": "{events} events · {done}/{total} to-dos done",
+  "@homeWeekSummary": {
+    "placeholders": {
+      "events": { "type": "int" },
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "homeWeekEmpty": "Quiet week so far",
+
+  "scheduleTitle": "Schedule",
+  "viewDay": "Day",
+  "viewWeek": "Week",
+  "viewMonth": "Month",
+  "viewYear": "Year",
+  "viewAgenda": "Agenda",
+  "dayEmpty": "This day is still empty",
+  "dayAddHint": "Tap + to add something",
+  "agendaEmpty": "No events coming up",
+  "commonTomorrow": "Tomorrow",
+  "todosSectionTitle": "To-dos",
+  "searchTooltip": "Search",
+  "quickAddEventTitle": "Quick add",
+  "quickAddEventHint": "Understands dates and times automatically",
+  "quickAddEventExample": "Meeting tomorrow 3pm",
+  "quickAddEventCreated": "Added \"{title}\" · {day} {time}",
+  "@quickAddEventCreated": {
+    "placeholders": {
+      "title": {"type": "String"},
+      "day": {"type": "String"},
+      "time": {"type": "String"}
+    }
+  },
+  "searchHint": "Search by title or notes",
+  "searchEmpty": "No results",
+  "searchPrompt": "Type a title or note to search",
+  "searchSectionEvents": "Events",
+  "searchSectionTodos": "To-dos",
+  "searchFilterAll": "All",
+  "searchFilterTagLabel": "Tag",
+  "searchFilterDateRangePick": "Pick date range",
+  "searchFilterDateRangeClear": "Clear date range filter",
+
+  "socialTitle": "Social",
+  "socialComingSoonTitle": "Coming soon",
+  "socialComingSoonBody": "Adding friends and sharing schedules is on the way. For now, focus on your own time.",
+
+  "settingsTitle": "Settings",
+  "settingsNotifications": "Notifications",
+  "settingsNotificationSound": "Notification sound",
+  "settingsNotificationSoundDesc": "Play a sound when an event starts",
+  "settingsExactAlarm": "Exact-time alerts",
+  "settingsExactAlarmDesc": "Needs permission to alert right on time",
+  "settingsCalendar": "Calendar",
+  "settingsCalendarSync": "Sync with device calendar",
+  "settingsCalendarSyncDesc": "Keep PlanFit events in your device calendar too",
+  "settingsSyncLog": "Sync activity",
+  "settingsLastSync": "Last synced",
+  "settingsLastSyncNever": "Not synced yet",
+  "settingsCalendarTarget": "Sync calendar",
+  "settingsCalendarTargetAuto": "Auto",
+  "settingsCalendarTargetDisabledHint": "Turn on sync to choose",
+  "settingsCalendarTargetEmpty": "No calendars available to choose from",
+  "settingsCalendarImport": "Import from another calendar",
+  "settingsCalendarImportDesc": "Import from or subscribe to an existing calendar",
+  "calendarImportTitle": "Import or subscribe",
+  "calendarImportEmpty": "No calendars available to import from",
+  "calendarImportConfirmTitle": "Import from {calendarName}?",
+  "@calendarImportConfirmTitle": {
+    "placeholders": {
+      "calendarName": {"type": "String"}
+    }
+  },
+  "calendarImportConfirmBody": "Copies events from the last 30 days through a year ahead into PlanFit. They come in with notifications off, and importing again later updates anything that overlaps.",
+  "calendarImportConfirmAction": "Import",
+  "calendarImportInProgress": "Importing…",
+  "calendarImportSuccess": "Imported {count} events",
+  "@calendarImportSuccess": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "calendarImportFailed": "Import failed",
+  "calendarImportSubscribedHint": "Subscribed — kept up to date automatically",
+  "calendarImportMirroredReadOnlyNote": "This event came from a calendar you subscribed to, so it's read-only in PlanFit. Edit it in the original calendar app instead.",
+  "settingsPermissionGranted": "Granted",
+  "settingsPermissionDenied": "Not granted",
+  "settingsGrant": "Grant",
+  "settingsAppearance": "Appearance",
+  "settingsWeekStart": "Week starts on",
+  "settingsWeekStartMonday": "Monday",
+  "settingsWeekStartSunday": "Sunday",
+  "settingsThemeSystem": "Follow system",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsTodo": "To-dos",
+  "settingsTodoRetention": "Auto-clean completed to-dos",
+  "settingsTodoRetentionDesc": "Automatically delete to-dos a while after they're completed",
+  "settingsTodoRetentionOff": "Off",
+  "settingsTodoRetentionDays": "After {days}d",
+  "@settingsTodoRetentionDays": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "settingsAbout": "About",
+  "settingsVersion": "Version",
+
+  "settingsData": "Data",
+  "settingsExport": "Export",
+  "settingsExportDesc": "Save every event and to-do into one file",
+  "settingsImport": "Import",
+  "settingsImportDesc": "Restore events and to-dos from an exported file",
+  "settingsExportIcs": "Export as calendar file",
+  "settingsExportIcsDesc": "A standard file (.ics) other calendar apps can open",
+  "settingsImportIcs": "Import calendar file",
+  "settingsImportIcsDesc": "Add events from a .ics file exported by another calendar app",
+  "icsImportSuccess": "Imported {count} events",
+  "@icsImportSuccess": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "icsImportSkipped": "Skipped {count} with an unrecognized format",
+  "@icsImportSkipped": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "icsImportFailed": "Import failed",
+  "settingsAutoBackup": "Automatic backups",
+  "autoBackupTitle": "Automatic backups",
+  "autoBackupEmpty": "No automatic backups yet",
+  "autoBackupDesc": "Backs up automatically every 24 hours, keeping the last 7",
+  "autoBackupRestore": "Restore this backup",
+  "autoBackupRestoreConfirmTitle": "Restore this backup?",
+  "autoBackupRestoreConfirmBody": "This backup's contents will be merged into what you have now. Matching items get overwritten with the backup's version.",
+  "backupExportFailed": "Export failed",
+  "backupImportSuccess": "Imported {events} events and {todos} to-dos",
+  "@backupImportSuccess": {
+    "placeholders": {
+      "events": { "type": "int" },
+      "todos": { "type": "int" }
+    }
+  },
+  "backupImportFailed": "Import failed — check the file format",
+
+  "eventNew": "New event",
+  "eventEdit": "Edit event",
+  "eventDuplicate": "Duplicate event",
+  "eventShare": "Share event",
+  "eventShareFailed": "Share failed",
+  "eventTemplates": "Templates",
+  "templatesTitle": "Frequently used",
+  "templatesEmpty": "No saved templates yet",
+  "templatesSaveCurrent": "Save current as template",
+  "templatesNameHint": "Template name (e.g. Gym)",
+  "templatesNameRequired": "Please enter a template name",
+  "templatesSaved": "Template saved",
+  "templatesDeleted": "Template deleted",
+  "eventTitle": "Title",
+  "eventTitleHint": "What's happening?",
+  "eventMemo": "Notes",
+  "eventMemoHint": "Add a note",
+  "eventLocation": "Location",
+  "eventLocationHint": "Add a location",
+  "eventAllDay": "All-day",
+  "eventStart": "Starts",
+  "eventEnd": "Ends",
+  "eventNotify": "Notify at start",
+  "eventReminderLead": "Remind me",
+  "eventReminderAtStart": "At start",
+  "eventReminderMinutesBefore": "{minutes}m before",
+  "@eventReminderMinutesBefore": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "eventReminderHoursBefore": "{hours}h before",
+  "@eventReminderHoursBefore": {
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "eventReminderDayBefore": "1 day before",
+  "eventReminderAdditional": "Additional reminders (pick any)",
+  "eventRepeat": "Repeat",
+  "eventRepeatNone": "Never",
+  "eventRepeatDaily": "Daily",
+  "eventRepeatWeekly": "Weekly",
+  "eventRepeatMonthly": "Monthly",
+  "eventRepeatYearly": "Yearly",
+  "eventRepeatUntil": "Ends",
+  "eventRepeatWeekdays": "Repeat on",
+  "eventRepeatEndLabel": "Ends",
+  "eventRepeatEndByDate": "On date",
+  "eventRepeatEndByCount": "After N times",
+  "eventRepeatCountTimes": "{count} times",
+  "@eventRepeatCountTimes": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "eventDeleteSeriesTitle": "Delete recurring event",
+  "eventDeleteSeriesBody": "This event is part of a series. How should it be deleted?",
+  "eventDeleteThisOnly": "This event only",
+  "eventDeleteThisAndFuture": "This and future events",
+  "eventSaveSeriesTitle": "Save repeating event",
+  "eventSaveSeriesBody": "This event is part of a repeating series. How should the changes apply?",
+  "eventSaveThisOnly": "Just this event",
+  "eventSaveThisAndFuture": "This and future events",
+  "eventColor": "Color",
+  "eventColorAuto": "Auto",
+  "eventColorCustom": "Custom",
+  "eventColorPickerTitle": "Pick a color",
+  "eventSave": "Save",
+  "eventDelete": "Delete",
+  "eventDeleted": "Event deleted",
+  "eventUndo": "Undo",
+  "eventSelectionCount": "{count} selected",
+  "@eventSelectionCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "eventSelectionDelete": "Delete",
+  "eventSelectionDeleted": "Deleted {count}",
+  "@eventSelectionDeleted": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "eventTitleRequired": "Please enter a title",
+  "eventRecurrenceTruncated": "Repeat only generated the first 200 occurrences",
+
+  "todoAdd": "Add to-do",
+  "todoHint": "Enter a to-do",
+  "todoRepeat": "Repeat",
+  "todoNoTime": "No time",
+  "todoRepeatIndicator": "Recurring to-do",
+  "todoDragHandle": "Reorder",
+  "todoDeleteSeriesTitle": "Delete recurring to-do",
+  "todoDeleteSeriesBody": "This item is part of a recurring to-do. How should it be deleted?",
+  "todoDeleteThisOnly": "This item only",
+  "todoDeleteThisAndFuture": "This and future items",
+  "todoDeleted": "To-do deleted",
+  "todoQuickAddAddedToOtherDay": "Added to {day}",
+  "@todoQuickAddAddedToOtherDay": {
+    "placeholders": {
+      "day": {"type": "String"}
+    }
+  },
+
+  "todoSelectionCount": "{count} selected",
+  "@todoSelectionCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "todoSelectionComplete": "Mark done",
+  "todoSelectionDelete": "Delete",
+  "todoSelectionDeleted": "Deleted {count}",
+  "@todoSelectionDeleted": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "todoEditTitle": "Edit to-do",
+  "todoTitleLabel": "Title",
+  "todoReminderAdditional": "Additional reminders (pick any number)",
+  "todoPriorityLabel": "Priority",
+  "todoPriorityNone": "None",
+  "todoPriorityLow": "Low",
+  "todoPriorityMedium": "Medium",
+  "todoPriorityHigh": "High",
+  "todoTagsLabel": "Tags",
+  "todoTagsHint": "Comma-separated (e.g. work,urgent)",
+  "todoSubtasksLabel": "Subtasks",
+  "todoSubtaskHint": "Add a subtask",
+  "todoSubtaskDelete": "Delete subtask",
+  "todoNotify": "Notify at due time",
+  "todoNotifyNoTimeHint": "Set a time to turn on notifications",
+  "todoPin": "Pin",
+  "todoUnpin": "Unpin",
+  "todoPinned": "Pinned",
+
+  "smartListTitle": "All to-dos",
+  "smartListToday": "Today",
+  "smartListOverdue": "Overdue",
+  "smartListHighPriority": "High priority",
+  "smartListPinned": "Pinned",
+  "smartListByTag": "By tag",
+  "smartListEmptyToday": "No to-dos today",
+  "smartListEmptyOverdue": "Nothing overdue",
+  "smartListEmptyHighPriority": "No high-priority to-dos",
+  "smartListEmptyPinned": "No pinned to-dos",
+  "smartListEmptyByTag": "No to-dos with this tag",
+  "smartListNoTags": "No tags yet",
+  "smartListPickTag": "Pick a tag",
+
+  "commonCancel": "Cancel",
+  "commonDone": "Done",
+  "commonToday": "Today"
+}

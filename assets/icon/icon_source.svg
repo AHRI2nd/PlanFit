@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dayArc" x1="120" y1="120" x2="904" y2="904" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4B5FD6"/>
+      <stop offset="0.5" stop-color="#F2A65A"/>
+      <stop offset="1" stop-color="#7C5CBF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="512" cy="380" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Full-bleed background: the day's arc gradient -->
+  <rect width="1024" height="1024" fill="url(#dayArc)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- Signature mark: a clock ring with hands pointing to the day's arc -->
+  <circle cx="512" cy="512" r="268" fill="none" stroke="#FBFAF6" stroke-width="34" opacity="0.95"/>
+
+  <!-- Hour ticks at 12/3/6/9 -->
+  <g stroke="#FBFAF6" stroke-width="20" stroke-linecap="round" opacity="0.95">
+    <line x1="512" y1="212" x2="512" y2="256"/>
+    <line x1="812" y1="512" x2="768" y2="512"/>
+    <line x1="512" y1="812" x2="512" y2="768"/>
+    <line x1="212" y1="512" x2="256" y2="512"/>
+  </g>
+
+  <!-- Clock hands: hour hand toward dawn, minute hand toward day -->
+  <g stroke="#FBFAF6" stroke-linecap="round">
+    <line x1="512" y1="512" x2="512" y2="330" stroke-width="34"/>
+    <line x1="512" y1="512" x2="650" y2="430" stroke-width="26"/>
+  </g>
+  <circle cx="512" cy="512" r="28" fill="#FBFAF6"/>
+</svg>

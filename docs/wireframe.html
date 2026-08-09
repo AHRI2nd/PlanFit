@@ -1,0 +1,542 @@
+<title>PlanFit 전체 화면 흐름</title>
+<style>
+  :root {
+    --paper: #ffffff;
+    --ink: #161616;
+    --ink-soft: #6f6f6f;
+    --ink-faint: #a8a8a8;
+    --line: #d8d8d8;
+    --line-strong: #b2b2b2;
+    --arrow: #c8291f;
+    --sans: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#131313; --ink:#f0f0f0; --ink-soft:#a8a8a8; --ink-faint:#6f6f6f; --line:#333333; --line-strong:#4a4a4a; --arrow:#ff6a5e; }
+  }
+  :root[data-theme="dark"] { --paper:#131313; --ink:#f0f0f0; --ink-soft:#a8a8a8; --ink-faint:#6f6f6f; --line:#333333; --line-strong:#4a4a4a; --arrow:#ff6a5e; }
+  :root[data-theme="light"] { --paper:#ffffff; --ink:#161616; --ink-soft:#6f6f6f; --ink-faint:#a8a8a8; --line:#d8d8d8; --line-strong:#b2b2b2; --arrow:#c8291f; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  .page { max-width: 1360px; margin: 0 auto; padding: 36px 24px 70px; }
+
+  header { margin-bottom: 22px; }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; }
+  h1 { font-size: clamp(22px, 3.4vw, 30px); margin: 0 0 8px; text-wrap: balance; }
+  p.sub { margin: 0 0 4px; color: var(--ink-soft); font-size: 13.5px; max-width: 72ch; }
+  .key { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--ink-soft); }
+  .key b { color: var(--ink); }
+  .key .swf { display:inline-block; width:12px; height:12px; border:1.6px solid var(--ink); border-radius:3px; vertical-align:-1px; margin-right:5px; }
+  .key .swp { display:inline-block; width:12px; height:12px; border:1.6px dashed var(--ink-soft); border-radius:3px; vertical-align:-1px; margin-right:5px; }
+  .key .swa { display:inline-block; width:16px; height:2px; background:var(--arrow); vertical-align:2px; margin-right:5px; }
+
+  .scroller { overflow-x: auto; padding-bottom: 8px; }
+  .canvas { position: relative; width: 1300px; height: 2440px; }
+
+  .phone {
+    position: absolute;
+    width: 220px;
+    border: 3px solid var(--ink);
+    border-radius: 24px;
+    background: var(--paper);
+    padding: 12px 9px 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .phone.future { border-style: dashed; border-color: var(--ink-soft); }
+  .notch { width: 40px; height: 5px; border-radius: 3px; background: var(--ink); margin: 0 auto 8px; opacity: .85; }
+  .homebtn { width: 14px; height: 14px; border: 2.2px solid var(--ink); border-radius: 50%; margin: 8px auto 0; opacity: .85; }
+  .scr { flex: 1; border: 1.4px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden; }
+
+  .cap { position:absolute; width:220px; text-align:center; font-size:12.5px; font-weight:700; }
+  .cap small { display:block; font-weight:400; color:var(--ink-soft); font-size:10.5px; margin-top:2px; }
+  .fp-tag { position:absolute; top:-11px; right:8px; font-size:9px; font-weight:700; color:var(--arrow); background:var(--paper); padding:0 6px; border:1.2px dashed var(--arrow); border-radius:9px; }
+
+  .blk { padding: 6px 2px; border-bottom: 1px solid var(--line); }
+  .blk:last-child { border-bottom: none; }
+  .lbl { font-size: 7.5px; letter-spacing:.03em; color: var(--ink-faint); text-transform: uppercase; margin-bottom: 3px; display:block; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .txt { font-size: 9px; }
+  .txt.soft { color: var(--ink-soft); }
+  .txt.b { font-weight: 700; }
+  .strip { height:6px; border-radius:2px; background: var(--line); }
+  .w80{width:80%;} .w60{width:60%;} .w50{width:50%;} .w40{width:40%;} .w30{width:30%;}
+  .card { border:1px solid var(--line); border-radius:7px; padding:5px 7px; }
+
+  .chip { display:inline-flex; align-items:center; padding:2px 7px; border-radius:999px; border:1px solid var(--line-strong); font-size:7.5px; color:var(--ink-soft); }
+  .chip.on { background:var(--ink); border-color:var(--ink); color:var(--paper); font-weight:700; }
+  .chip.dashed { border-style:dashed; }
+  .toggle { width:22px; height:13px; border-radius:999px; border:1.3px solid var(--line-strong); position:relative; flex-shrink:0; }
+  .toggle::after { content:""; position:absolute; top:1px; left:1px; width:9px; height:9px; border-radius:50%; background:var(--ink-faint); }
+  .toggle.on { background:var(--ink); border-color:var(--ink); }
+  .toggle.on::after { left:10px; background:var(--paper); }
+
+  .seg { display:flex; gap:3px; }
+  .seg span { flex:1; text-align:center; font-size:7.5px; border:1px solid var(--line); border-radius:5px; padding:2px 0; color:var(--ink-soft); }
+  .seg span.on { border-color:var(--ink); background:var(--ink); color:var(--paper); font-weight:700; }
+  .seg span.hit { border-color:var(--arrow); color:var(--arrow); font-weight:700; }
+
+  .monthgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .monthgrid div { aspect-ratio:1; border:1px solid var(--line); border-radius:3px; font-size:5.6px; color:var(--ink-faint); display:flex; align-items:center; justify-content:center; }
+  .monthgrid div.sel { background:var(--ink); border-color:var(--ink); color:var(--paper); font-weight:700; }
+  .monthgrid div.hit { border-color:var(--arrow); border-width:1.6px; color:var(--arrow); font-weight:700; }
+
+  .yeargrid { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; flex:1; }
+  .yeargrid div { border:1px solid var(--line); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:7px; color:var(--ink-faint); }
+  .yeargrid div.sel { border-color:var(--ink); color:var(--ink); font-weight:700; }
+
+  .tl { position:relative; flex:1; padding-left: 16px; }
+  .hourline { position:relative; height:15px; border-top:1px solid var(--line); }
+  .hourline .h { position:absolute; left:-16px; top:-4px; font-size:5.6px; color:var(--ink-faint); }
+  .evcard { position:absolute; left:16px; right:2px; top:15px; height:24px; background:var(--paper); border:1.3px solid var(--ink); border-radius:5px; padding:2px 5px; }
+  .evcard .t { font-size:7px; font-weight:700; }
+  .evcard .s { font-size:6px; color:var(--ink-soft); }
+  .nowline { position:absolute; left:12px; right:2px; height:1.3px; background:var(--arrow); }
+
+  .fab { position:absolute; right:6px; bottom:6px; width:22px; height:22px; border-radius:50%; background:var(--ink); color:var(--paper); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+  .fab.hit { outline:2.2px solid var(--arrow); outline-offset:2px; }
+
+  .rowlist { display:flex; flex-direction:column; gap:6px; }
+  .rlist-r { display:flex; align-items:center; justify-content:space-between; font-size:8.5px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  .rlist-r:last-child { border-bottom:none; }
+  .rlist-r.hit { color:var(--arrow); font-weight:700; }
+  .rlist-r.future { color: var(--ink-soft); }
+  .chev { color:var(--ink-faint); }
+
+  .field { border:1px solid var(--line); border-radius:5px; padding:4px 6px; font-size:7.5px; color:var(--ink-soft); }
+  .save-btn { text-align:center; padding:6px 0; border-radius:6px; font-size:9px; font-weight:700; background:var(--ink); color:var(--paper); }
+  .save-btn.outline { background:var(--paper); color:var(--ink); border:1.3px solid var(--ink); }
+  .hit-note { font-size:6.5px; color:var(--arrow); font-weight:700; text-align:center; margin-top:3px; }
+
+  .radio { width:10px; height:10px; border-radius:50%; border:1.3px solid var(--ink); flex-shrink:0; }
+  .radio.on { background:var(--ink); }
+  .dot9 { width:9px; height:9px; border-radius:50%; border:1.3px solid var(--ink-faint); flex-shrink:0; }
+  .dot9.on { border-color:var(--ink); }
+  .tagmini { font-size:6px; font-weight:700; color:var(--arrow); border:1px dashed var(--arrow); border-radius:4px; padding:0 3px; margin-left:4px; }
+
+  .swatchrow { display:flex; gap:4px; align-items:center; }
+  .swatch { width:16px; height:16px; border-radius:50%; border:1px solid var(--line-strong); }
+  .swatch.on { border:2px solid var(--ink); }
+  .swatch.pick { border:1.3px dashed var(--ink-soft); display:flex; align-items:center; justify-content:center; font-size:8px; color:var(--ink-soft); }
+
+  .center-icon { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+  .ring { width:30px; height:30px; border-radius:50%; border:2px solid var(--ink); }
+
+  .callout { border:1px solid var(--ink); border-radius:6px; padding:5px 6px; font-size:6.8px; color:var(--ink-soft); line-height:1.5; }
+  .callout b { color:var(--ink); }
+
+  .colorwheel { flex:1; border:1.3px solid var(--ink); border-radius:8px; background:
+    conic-gradient(var(--line-strong),var(--line),var(--line-strong),var(--line),var(--line-strong)); opacity:.5; min-height:56px; }
+
+  /* widget mockup */
+  .widget-sec { margin-top: 40px; }
+  .widget { width:236px; aspect-ratio:4/2.1; border:1.6px dashed var(--ink-soft); border-radius:18px; padding:12px 14px; display:flex; flex-direction:column; justify-content:space-between; }
+  .widget .wt { font-size:8px; color:var(--ink-soft); }
+  .widget .wtitle { font-size:13px; font-weight:700; }
+  .widget .wsub { font-size:8px; color:var(--ink-soft); }
+
+  svg.flow { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+  .flow path { fill:none; stroke:var(--arrow); stroke-width:3; }
+  .flow text { fill:var(--arrow); font-size:11.5px; font-weight:700; font-family:var(--sans); }
+  .flow text.bg { fill:var(--paper); stroke:var(--paper); stroke-width:5; stroke-linejoin:round; }
+
+  footer { margin-top:34px; padding-top:16px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-soft); }
+</style>
+
+<div class="page">
+  <header>
+    <div class="eyebrow">PlanFit · Full Flow Sketch</div>
+    <h1>전체 화면 구성 · 흐름도</h1>
+    <p class="sub">앱을 구성하는 화면(모달·다이얼로그 포함) 16개를 실제 구성요소 그대로 펼쳐서, 빨간 화살표로 이동 경로를 이어 붙인 버전입니다. 저장/완료처럼 원래 화면으로 되돌아가는 동작은 버튼 옆 <span style="color:var(--arrow); font-weight:700;">↩</span> 표기로 대신했습니다.</p>
+    <div class="key">
+      <span><span class="swf"></span><b>완료</b> (#1–22, 실선)</span>
+      <span><span class="swp"></span><b>예정</b> (#23–28, 점선)</span>
+      <span><span class="swa"></span><b>화살표</b> = 탭/버튼으로 다음 화면 이동</span>
+    </div>
+  </header>
+
+  <div class="scroller">
+    <div class="canvas" id="canvas">
+
+      <svg class="flow" id="flowsvg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--arrow)"></path>
+          </marker>
+        </defs>
+        <!-- 1 A->B -->
+        <path d="M260,190 L360,190" marker-end="url(#arrow)"/>
+        <text class="bg" x="270" y="182">실행</text><text x="270" y="182">실행</text>
+        <!-- 2 B->C -->
+        <path d="M580,275 L680,275" marker-end="url(#arrow)"/>
+        <text class="bg" x="588" y="267">시간표 탭</text><text x="588" y="267">시간표 탭</text>
+        <!-- 3 C->D -->
+        <path d="M900,275 L1000,275" marker-end="url(#arrow)"/>
+        <text class="bg" x="905" y="267">월 세그먼트</text><text x="905" y="267">월 세그먼트</text>
+        <!-- 4 C->E -->
+        <path d="M760,490 L760,540 L150,540 L150,660" marker-end="url(#arrow)"/>
+        <text class="bg" x="380" y="533">년 세그먼트</text><text x="380" y="533">년 세그먼트</text>
+        <!-- 5 C->F -->
+        <path d="M800,490 L800,565 L470,565 L470,660" marker-end="url(#arrow)"/>
+        <text class="bg" x="580" y="558">검색 아이콘</text><text x="580" y="558">검색 아이콘</text>
+        <!-- 6 C->G -->
+        <path d="M840,490 L840,600 L790,600 L790,660" marker-end="url(#arrow)"/>
+        <text class="bg" x="815" y="614">＋ FAB</text><text x="815" y="614">＋ FAB</text>
+        <!-- 7 C->H -->
+        <path d="M900,320 L950,320 L950,630 L1105,630 L1105,660" marker-end="url(#arrow)"/>
+        <text class="bg" x="958" y="313">기존 일정 탭</text><text x="958" y="313">기존 일정 탭</text>
+        <!-- 8 G->I -->
+        <path d="M760,1220 L760,1260 L150,1260 L150,1390" marker-end="url(#arrow)"/>
+        <text class="bg" x="380" y="1253">커스텀 색상</text><text x="380" y="1253">커스텀 색상</text>
+        <!-- 9 G->J -->
+        <path d="M840,1220 L840,1300 L470,1300 L470,1390" marker-end="url(#arrow)"/>
+        <text class="bg" x="600" y="1293">템플릿 아이콘</text><text x="600" y="1293">템플릿 아이콘</text>
+        <!-- 10 H->K -->
+        <path d="M1040,1220 L1040,1330 L790,1330 L790,1390" marker-end="url(#arrow)"/>
+        <text class="bg" x="850" y="1323">삭제 버튼</text><text x="850" y="1323">삭제 버튼</text>
+        <!-- 11 B->L (dip below row0 first, then right margin route, avoids crossing D) -->
+        <path d="M550,490 L550,615 L1270,615 L1270,1520 L1220,1520" marker-end="url(#arrow)"/>
+        <text class="bg" x="1050" y="608">소셜 탭</text><text x="1050" y="608">소셜 탭</text>
+        <!-- 12 B->M (left margin route) -->
+        <path d="M360,450 L20,450 L20,2120 L40,2120" marker-end="url(#arrow)"/>
+        <text class="bg" x="26" y="443">설정 탭</text><text x="26" y="443">설정 탭</text>
+        <!-- 13 M->N -->
+        <path d="M260,2080 L310,2080 L310,2040 L360,2040" marker-end="url(#arrow)"/>
+        <text class="bg" x="270" y="2073">동기화 기록</text><text x="270" y="2073">동기화 기록</text>
+        <!-- 14 M->O -->
+        <path d="M150,2360 L150,2400 L790,2400 L790,2200" marker-end="url(#arrow)"/>
+        <text class="bg" x="400" y="2393">캘린더 연동</text><text x="400" y="2393">캘린더 연동</text>
+      </svg>
+
+      <!-- A 홈 화면 아이콘 -->
+      <div class="phone" style="left:40px; top:60px; height:260px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:7px; flex:1; align-content:center;">
+            <div style="aspect-ratio:1; border:1.3px solid var(--ink); border-radius:7px;"></div>
+            <div style="aspect-ratio:1; border:2.4px solid var(--arrow); border-radius:7px;"></div>
+            <div style="aspect-ratio:1; border:1.3px solid var(--ink); border-radius:7px;"></div>
+            <div style="aspect-ratio:1; border:1.3px solid var(--ink); border-radius:7px;"></div>
+            <div style="aspect-ratio:1; border:1.3px solid var(--ink); border-radius:7px;"></div>
+            <div style="aspect-ratio:1; border:1.3px solid var(--ink); border-radius:7px;"></div>
+          </div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:40px; top:328px;">A · 홈 화면 아이콘<small>PlanFit 실행</small></div>
+
+      <!-- B 홈 탭 -->
+      <div class="phone" style="left:360px; top:60px; height:430px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk"><span class="txt soft">22:09 · 기분좋은 오후예요</span></div>
+          <div class="blk"><span class="txt b" style="font-size:15px;">오후 10:08</span><div class="txt soft">2026년 7월 23일 목요일</div></div>
+          <div class="blk"><span class="lbl">다가오는 일정</span><div class="card"><span class="txt soft">예정된 일정이 없어요</span></div></div>
+          <div class="blk"><span class="lbl">오늘의 할 일</span><div class="card"><span class="txt soft">0/0 완료</span></div></div>
+          <div class="blk" style="border:1.3px dashed var(--ink-soft); border-radius:7px; margin-top:2px;">
+            <span class="lbl">이번 주 통계<span class="tagmini">#24</span></span>
+            <div class="row" style="align-items:flex-end; height:22px; gap:3px;">
+              <div style="width:12%;height:40%;border:1.2px dashed var(--ink-soft);"></div>
+              <div style="width:12%;height:75%;border:1.2px dashed var(--ink-soft);"></div>
+              <div style="width:12%;height:30%;border:1.2px dashed var(--ink-soft);"></div>
+              <div style="width:12%;height:90%;border:1.2px dashed var(--ink-soft);"></div>
+              <div style="width:12%;height:55%;border:1.2px dashed var(--ink-soft);"></div>
+            </div>
+          </div>
+          <div style="flex:1;"></div>
+          <div class="seg">
+            <span class="on">홈</span><span class="hit">시간표</span><span>소셜</span><span>설정</span>
+          </div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:360px; top:498px;">B · 홈 탭<small>인사말 · 요약 · (예정)주간통계</small></div>
+
+      <!-- C 시간표 일별 -->
+      <div class="phone" style="left:680px; top:60px; height:430px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk row"><span class="txt b">7월 23일 (목)</span><span class="dot9" style="border-radius:50%;">⌕</span></div>
+          <div class="blk"><div class="seg"><span class="on">일</span><span class="hit">월</span><span class="hit">년</span></div></div>
+          <div class="blk" style="position:relative; height:110px;">
+            <div class="tl">
+              <div class="hourline"><span class="h">09</span></div>
+              <div class="hourline"><span class="h">10</span></div>
+              <div class="hourline"><span class="h">11</span></div>
+              <div class="hourline"><span class="h">12</span></div>
+              <div class="hourline"><span class="h">13</span></div>
+              <div class="evcard hit"><div class="t">주간 스탠드업</div><div class="s">10:00–11:00</div></div>
+            </div>
+          </div>
+          <div class="blk"><span class="lbl">할 일</span>
+            <div class="rowlist">
+              <div class="row"><span class="dot9 on"></span><div class="strip w60" style="margin-left:5px;"></div></div>
+              <div class="row"><span class="dot9"></span><div class="strip w40" style="margin-left:5px;"></div><span class="tagmini">#23</span></div>
+            </div>
+          </div>
+          <div class="fab hit">＋</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:680px; top:498px;">C · 시간표 · 일별 뷰<small>타임라인 + 할 일 (허브 화면)</small></div>
+
+      <!-- D 시간표 월별 -->
+      <div class="phone" style="left:1000px; top:60px; height:430px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk row"><span class="txt b">2026년 7월</span><span class="txt soft" style="font-size:7px;">오늘</span></div>
+          <div class="blk"><div class="seg"><span>일</span><span class="on">월</span><span>년</span></div></div>
+          <div class="blk">
+            <div class="monthgrid">
+              <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+              <div></div><div></div><div></div><div>1</div><div>2</div><div>3</div><div>4</div>
+              <div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div><div>11</div>
+              <div>12</div><div>13</div><div>14</div><div>15</div><div>16</div><div>17</div><div>18</div>
+              <div>19</div><div>20</div><div>21</div><div>22</div><div class="sel hit">23</div><div>24</div><div>25</div>
+              <div>26</div><div>27</div><div>28</div><div>29</div><div>30</div><div>31</div><div></div>
+            </div>
+          </div>
+          <div class="blk"><span class="lbl">23일 일정<span class="tagmini" style="color:var(--ink-soft); border-color:var(--ink-soft);">↩ C</span></span><div class="card"><div class="strip w60"></div></div></div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:1000px; top:498px;">D · 시간표 · 월별 뷰<small>달력 그리드 + 선택일 패널</small></div>
+
+      <!-- E 시간표 연간 -->
+      <div class="phone" style="left:40px; top:660px; height:300px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk"><span class="txt b">2026년</span></div>
+          <div class="blk"><div class="seg"><span>일</span><span>월</span><span class="on">년</span></div></div>
+          <div class="yeargrid">
+            <div>1월</div><div>2월</div><div>3월</div>
+            <div>4월</div><div>5월</div><div>6월</div>
+            <div class="sel">7월</div><div>8월</div><div>9월</div>
+            <div>10월</div><div>11월</div><div>12월</div>
+          </div>
+          <div class="hit-note">탭 ↩ 월별 뷰</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:40px; top:968px;">E · 시간표 · 연간 뷰<small>12개월 미니 그리드</small></div>
+
+      <!-- F 검색 -->
+      <div class="phone" style="left:360px; top:660px; height:260px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk row"><span class="txt soft" style="font-size:8px;">‹</span><div class="field" style="flex:1; margin-left:6px;">일정 검색</div></div>
+          <div class="center-icon">
+            <div class="ring"></div>
+            <div class="txt soft">일정 제목이나 메모를 입력해보세요</div>
+          </div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:360px; top:928px;">F · 검색<small>제목·메모 검색</small></div>
+
+      <!-- G 새 일정 시트 -->
+      <div class="phone" style="left:680px; top:660px; height:560px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk row"><span class="txt b">새 일정</span><span class="dot9 hit" style="border-radius:2px 2px 0 6px;"></span></div>
+          <div class="blk field">제목</div>
+          <div class="blk field" style="border:none; padding-top:0;">메모</div>
+          <div class="blk row"><span class="txt">종일</span><div class="toggle"></div></div>
+          <div class="blk row"><span class="txt">시작</span><span class="txt soft">7/23 오후 11:00</span></div>
+          <div class="blk row"><span class="txt">종료</span><span class="txt soft">7/24 오전 12:00</span></div>
+          <div class="blk"><span class="lbl">반복</span><div class="seg"><span class="on">안 함</span><span>매주</span><span>매월</span></div></div>
+          <div class="blk row"><span class="txt">시작할 때 알림</span><div class="toggle on"></div></div>
+          <div class="blk"><span class="lbl">알림 시점</span><div class="seg"><span class="on">정시</span><span>5분전</span><span>1시간전</span></div></div>
+          <div class="blk"><span class="lbl">색상</span>
+            <div class="swatchrow">
+              <div class="swatch on" style="background:var(--line-strong);"></div>
+              <div class="swatch" style="background:var(--line);"></div>
+              <div class="swatch" style="background:var(--line);"></div>
+              <div class="swatch pick hit">✎</div>
+            </div>
+          </div>
+          <div style="flex:1;"></div>
+          <div class="save-btn hit">저장</div>
+          <div class="hit-note">↩ 일별 뷰 (C)</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:680px; top:1228px;">G · 새 일정 편집 시트<small>필드 전체 · FAB로 진입</small></div>
+
+      <!-- H 기존 일정 수정 -->
+      <div class="phone" style="left:1000px; top:660px; height:560px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk row"><span class="txt b">일정 편집</span><span class="dot9 hit" style="border-radius:2px;"></span></div>
+          <div class="blk field">주간 스탠드업</div>
+          <div class="blk field" style="border:none; padding-top:0;">메모 없음</div>
+          <div class="blk row"><span class="txt">종일</span><div class="toggle"></div></div>
+          <div class="blk row"><span class="txt">시작</span><span class="txt soft">7/23 오전 10:00</span></div>
+          <div class="blk row"><span class="txt">종료</span><span class="txt soft">7/23 오전 11:00</span></div>
+          <div class="blk row"><span class="txt">시작할 때 알림</span><div class="toggle on"></div></div>
+          <div class="blk"><span class="lbl">알림 시점</span><div class="seg"><span class="on">10분전</span><span>30분전</span><span>1시간전</span></div></div>
+          <div class="blk"><span class="lbl">색상</span>
+            <div class="swatchrow">
+              <div class="swatch" style="background:var(--line);"></div>
+              <div class="swatch on" style="background:var(--line-strong);"></div>
+              <div class="swatch" style="background:var(--line);"></div>
+              <div class="swatch pick">✎</div>
+            </div>
+          </div>
+          <div class="callout"><b>△ 알림·색상 섹션</b> — 반복 일정에선 이 아래가 비어 보이는 미해결 버그 있음 (PROGRESS.md §3)</div>
+          <div style="flex:1;"></div>
+          <div class="row" style="gap:6px;">
+            <div class="save-btn outline hit" style="flex:1;">삭제</div>
+            <div class="save-btn hit" style="flex:1;">저장</div>
+          </div>
+          <div class="hit-note">↩ 일별 뷰 (C)</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:1000px; top:1228px;">H · 기존 일정 수정<small>복제 아이콘 · 삭제 버튼 포함</small></div>
+
+      <!-- I 색상 피커 -->
+      <div class="phone" style="left:40px; top:1390px; height:300px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk"><span class="txt b">색상 선택</span></div>
+          <div class="colorwheel"></div>
+          <div class="blk field" style="border:none;">#4B5FD6</div>
+          <div class="row" style="gap:6px;">
+            <div class="save-btn outline" style="flex:1;">취소</div>
+            <div class="save-btn hit" style="flex:1;">완료</div>
+          </div>
+          <div class="hit-note">↩ 편집 시트 (G·H)</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:40px; top:1698px;">I · 커스텀 색상 다이얼로그<small>flutter_colorpicker</small></div>
+
+      <!-- J 템플릿 시트 -->
+      <div class="phone" style="left:360px; top:1390px; height:320px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk"><span class="txt b">자주 쓰는 일정</span></div>
+          <div class="rowlist">
+            <div class="rlist-r hit"><span>헬스 · 60분</span><span class="chev">›</span></div>
+            <div class="rlist-r"><span>주간 회의 · 30분</span><span class="chev">›</span></div>
+          </div>
+          <div style="flex:1;"></div>
+          <div class="save-btn outline">+ 현재 내용을 템플릿으로</div>
+          <div class="hit-note">선택 ↩ 편집 시트 (채움)</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:360px; top:1718px;">J · 템플릿 선택 시트<small>저장 · 적용 · 스와이프 삭제</small></div>
+
+      <!-- K 삭제 확인 -->
+      <div class="phone" style="left:680px; top:1390px; height:260px;">
+        <div class="notch"></div>
+        <div class="scr" style="justify-content:center;">
+          <div class="blk" style="border:none; text-align:center;"><span class="txt b">반복 일정 삭제</span></div>
+          <div class="blk" style="border:none; text-align:center;"><span class="txt soft">이 일정은 반복 일정의 일부예요</span></div>
+          <div class="save-btn outline hit" style="margin-bottom:5px;">이 일정만 삭제</div>
+          <div class="save-btn outline hit">이후 모든 반복 삭제</div>
+          <div class="hit-note">선택 ↩ 삭제 실행</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:680px; top:1658px;">K · 반복 삭제 확인<small>이 일정만 / 이후 전체</small></div>
+
+      <!-- L 소셜 -->
+      <div class="phone" style="left:1000px; top:1390px; height:260px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="center-icon">
+            <div class="ring"></div>
+            <div class="txt b">곧 만나요</div>
+            <div class="strip w60"></div>
+          </div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:1000px; top:1658px;">L · 소셜 탭<small>대기 화면 (변경 없음)</small></div>
+
+      <!-- M 설정 -->
+      <div class="phone" style="left:40px; top:1880px; height:480px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk"><span class="txt b">설정</span></div>
+          <div class="blk"><span class="lbl">알림</span>
+            <div class="row" style="margin-bottom:5px;"><span class="txt">알림 소리</span><div class="toggle on"></div></div>
+            <div class="row"><span class="txt">정확한 시각 알림</span><span class="chip">허용됨</span></div>
+          </div>
+          <div class="blk"><span class="lbl">캘린더 연동</span>
+            <div class="rowlist">
+              <div class="row"><span class="txt">기기 캘린더 동기화</span><div class="toggle on"></div></div>
+              <div class="rlist-r hit"><span>동기화 기록</span><span class="chev">›</span></div>
+              <div class="rlist-r future"><span>캘린더 선택<span class="tagmini">#26</span></span><span class="chev">›</span></div>
+            </div>
+          </div>
+          <div class="blk"><span class="lbl">화면</span>
+            <div class="seg" style="margin-bottom:5px;"><span class="on">시스템</span><span>밝게</span><span>어둡게</span></div>
+            <div class="rlist-r future"><span>주 시작 요일<span class="tagmini">#27</span></span><span class="chip dashed">월</span></div>
+          </div>
+          <div class="blk"><span class="lbl">데이터</span>
+            <div class="rowlist">
+              <div class="row"><span class="txt">내보내기</span><span class="chev">›</span></div>
+              <div class="row"><span class="txt">가져오기</span><span class="chev">›</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:40px; top:2368px;">M · 설정 탭<small>알림 · 연동 · 화면 · 데이터</small></div>
+
+      <!-- N 동기화 기록 -->
+      <div class="phone" style="left:360px; top:1880px; height:320px;">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk row"><span class="txt soft" style="font-size:8px;">‹</span><span class="txt b">동기화 기록</span></div>
+          <div class="rowlist">
+            <div class="row"><span class="txt soft">22:03</span><span class="chip">해결됨</span></div>
+            <div class="row"><span class="txt soft">21:40</span><span class="chip">동기화됨</span></div>
+            <div class="row"><span class="txt soft">09:12</span><span class="chip">동기화됨</span></div>
+          </div>
+          <div style="flex:1;"></div>
+          <div class="hit-note">‹ ↩ 설정 (M)</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:360px; top:2208px;">N · 동기화 기록<small>충돌 해결 로그</small></div>
+
+      <!-- O 캘린더 선택 (예정) -->
+      <div class="phone future" style="left:680px; top:1880px; height:320px;">
+        <span class="fp-tag">예정 #26</span>
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="blk row"><span class="txt soft" style="font-size:8px;">‹</span><span class="txt b">동기화 대상 캘린더</span></div>
+          <div class="rowlist">
+            <div class="row"><span class="txt">PlanFit</span><span class="radio on"></span></div>
+            <div class="row"><span class="txt">iCloud 캘린더</span><span class="radio"></span></div>
+            <div class="row"><span class="txt">가족 캘린더</span><span class="radio"></span></div>
+          </div>
+          <div style="flex:1;"></div>
+          <div class="hit-note">‹ ↩ 설정 (M)</div>
+        </div>
+        <div class="homebtn"></div>
+      </div>
+      <div class="cap" style="left:680px; top:2208px;">O · 캘린더 선택<small>writableCalendars() 노출 예정</small></div>
+
+    </div>
+  </div>
+
+  <div class="widget-sec">
+    <span class="fp-tag" style="position:static; display:inline-block; margin-bottom:10px;">예정 #28</span>
+    <div class="cap" style="position:static; text-align:left; margin-bottom:10px;">P · 홈 화면 위젯<small>OS 홈 화면 · 인앱 내비게이션 대상 아님</small></div>
+    <div class="widget">
+      <div class="wt">7월 23일 (목) · PlanFit</div>
+      <div>
+        <div class="wtitle">주간 스탠드업</div>
+        <div class="wsub">오전 10:00 시작 · 30분 후</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>PlanFit · 전체 구성요소 흐름 스케치 — 세부 버그·백로그는 docs/PROGRESS.md 참고</footer>
+</div>

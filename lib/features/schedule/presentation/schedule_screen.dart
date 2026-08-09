@@ -1,0 +1,199 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/format.dart';
+import '../../../design/tokens/app_colors.dart';
+import '../../../design/tokens/app_motion.dart';
+import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/time_gradient_background.dart';
+import '../../../l10n/app_localizations.dart';
+import '../application/schedule_providers.dart';
+import 'agenda_view/agenda_view.dart';
+import 'day_view/day_view.dart';
+import 'event_edit/event_editor_sheet.dart';
+import 'event_edit/quick_add_sheet.dart';
+import 'month_view/month_view.dart';
+import 'search/event_search_screen.dart';
+import 'week_view/week_view.dart';
+import 'year_view/year_view.dart';
+
+class ScheduleScreen extends ConsumerWidget {
+  const ScheduleScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppL10n.of(context);
+    final palette = context.palette;
+    final view = ref.watch(scheduleViewProvider);
+    final selected = ref.watch(selectedDateProvider);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final weekStartWeekday = ref.watch(weekStartWeekdayProvider);
+
+    final title = switch (view) {
+      ScheduleView.day => Fmt.fullDate(selected, locale),
+      ScheduleView.week => () {
+        final start = startOfWeek(selected, startWeekday: weekStartWeekday);
+        final end = start.add(const Duration(days: 6));
+        return '${Fmt.monthDay(start, locale)} – ${Fmt.monthDay(end, locale)}';
+      }(),
+      ScheduleView.month => Fmt.yearMonth(selected, locale),
+      ScheduleView.year => '${selected.year}',
+      ScheduleView.agenda => l10n.viewAgenda,
+    };
+
+    return TimeGradientBackground(
+      intensity: 0.7,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        // Lifted clear of the floating glass nav bar, which lives outside this
+        // nested Scaffold (in AppShell) so it isn't reserved for automatically.
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 88),
+          child: FloatingActionButton(
+            onPressed: () => showEventEditor(context, initialDay: selected),
+            child: const Icon(Icons.add),
+          ),
+        ),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.gutter,
+                  AppSpacing.sm,
+                  AppSpacing.gutter,
+                  AppSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.quickAddEventTitle,
+                      icon: const Icon(Icons.bolt_outlined),
+                      onPressed: () =>
+                          showQuickAddEvent(context, anchorDay: selected),
+                    ),
+                    IconButton(
+                      tooltip: l10n.searchTooltip,
+                      icon: const Icon(Icons.search),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const EventSearchScreen(),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          ref.read(selectedDateProvider.notifier).jumpToToday(),
+                      child: Text(l10n.commonToday),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.gutter,
+                ),
+                child: _ViewSwitcher(
+                  current: view,
+                  accent: palette.accent,
+                  labels: (
+                    l10n.viewDay,
+                    l10n.viewWeek,
+                    l10n.viewMonth,
+                    l10n.viewYear,
+                    l10n.viewAgenda,
+                  ),
+                  onChanged: (v) =>
+                      ref.read(scheduleViewProvider.notifier).set(v),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: switch (view) {
+                  ScheduleView.day => DayView(day: selected),
+                  ScheduleView.week => WeekView(anchor: selected),
+                  ScheduleView.month => const MonthView(),
+                  ScheduleView.year => const YearView(),
+                  ScheduleView.agenda => AgendaView(anchor: selected),
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewSwitcher extends StatelessWidget {
+  const _ViewSwitcher({
+    required this.current,
+    required this.accent,
+    required this.labels,
+    required this.onChanged,
+  });
+
+  final ScheduleView current;
+  final Color accent;
+  final (String, String, String, String, String) labels;
+  final ValueChanged<ScheduleView> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final entries = [
+      (ScheduleView.day, labels.$1),
+      (ScheduleView.week, labels.$2),
+      (ScheduleView.month, labels.$3),
+      (ScheduleView.year, labels.$4),
+      (ScheduleView.agenda, labels.$5),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: AppRadius.allPill,
+        border: Border.all(color: palette.hairline),
+      ),
+      child: Row(
+        children: [
+          for (final (v, label) in entries)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(v),
+                child: AnimatedContainer(
+                  duration: context.motionDuration(
+                    const Duration(milliseconds: 220),
+                  ),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  decoration: BoxDecoration(
+                    color: v == current ? accent : Colors.transparent,
+                    borderRadius: AppRadius.allPill,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: v == current ? Colors.white : palette.inkSoft,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
