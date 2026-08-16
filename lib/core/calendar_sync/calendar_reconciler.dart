@@ -149,25 +149,50 @@ class CalendarReconciler {
 
     // 3) Auto-import (opt-in, off by default — see
     //    AppSettings.autoImportCalendarEnabled's doc): events created
-    //    *directly* in the target calendar, rather than through PlanFit,
-    //    have no local row at all — step 2 above only walks rows we already
-    //    know about, so it can never notice these. Scan the target calendar
-    //    itself and materialize anything not already linked.
-    if (_service.autoImportEnabled && _service.targetCalendarId != null) {
-      final osEvents = await _service.listEvents(
-        _service.targetCalendarId!,
-        from: from,
-        to: to,
-      );
-      final linkedOsIds = linked.map((r) => r.osEventId).whereType<String>().toSet();
-      for (final osEvent in osEvents) {
-        if (linkedOsIds.contains(osEvent.eventId)) continue;
-        await _importNewEvent(osEvent, at);
-        changes++;
+    //    *directly* in the calendar app, rather than through PlanFit, have
+    //    no local row at all — step 2 above only walks rows we already know
+    //    about, so it can never notice these. Scan the relevant calendars
+    //    (see _autoImportCalendarIds's doc on why it's not just the target
+    //    calendar) and materialize anything not already linked.
+    if (_service.autoImportEnabled) {
+      final calendarIds = await _autoImportCalendarIds();
+      final linkedOsIds =
+          linked.map((r) => r.osEventId).whereType<String>().toSet();
+      for (final calendarId in calendarIds) {
+        final osEvents =
+            await _service.listEvents(calendarId, from: from, to: to);
+        for (final osEvent in osEvents) {
+          if (linkedOsIds.contains(osEvent.eventId)) continue;
+          await _importNewEvent(osEvent, at);
+          changes++;
+        }
       }
     }
 
     return changes;
+  }
+
+  /// Calendars step 3 scans: the sync target itself (an event added straight
+  /// into "PlanFit" in the calendar app) plus the device's primary/default
+  /// calendar(s) — the OS's actual destination for an event created via the
+  /// calendar app's own "+" button or Siri, not the PlanFit-dedicated
+  /// calendar most users never explicitly pick. Scanning only the target
+  /// calendar (the original, narrower version of this feature) meant it
+  /// silently never noticed anything a user added the ordinary way.
+  ///
+  /// Excludes calendars already covered by a read-only subscription
+  /// ([CalendarService.subscribedCalendarIds]) so the same OS event doesn't
+  /// materialize twice — once as a mirror row via [CalendarImportService],
+  /// once as a real PlanFit-owned row here.
+  Future<Set<String>> _autoImportCalendarIds() async {
+    final ids = <String>{};
+    final target = _service.targetCalendarId;
+    if (target != null) ids.add(target);
+    for (final c in await _service.writableCalendars()) {
+      if (c.isPrimary) ids.add(c.id);
+    }
+    ids.removeWhere(_service.subscribedCalendarIds.contains);
+    return ids;
   }
 
   /// Materializes a PlanFit event for [osEvent], an event found in the

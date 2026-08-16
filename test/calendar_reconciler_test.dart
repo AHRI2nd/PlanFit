@@ -329,6 +329,7 @@ void main() {
         when(service.isEnabled).thenReturn(true);
         when(service.autoImportEnabled).thenReturn(true);
         when(service.targetCalendarId).thenReturn('cal-1');
+        when(service.writableCalendars()).thenAnswer((_) async => <dc.Calendar>[]);
         final now = DateTime(2026, 1, 1);
         final start = now.add(const Duration(days: 2));
         when(dao.needingPush()).thenAnswer((_) async => []);
@@ -360,6 +361,7 @@ void main() {
         when(service.isEnabled).thenReturn(true);
         when(service.autoImportEnabled).thenReturn(true);
         when(service.targetCalendarId).thenReturn('cal-1');
+        when(service.writableCalendars()).thenAnswer((_) async => <dc.Calendar>[]);
         final now = DateTime(2026, 1, 1);
         final start = now.add(const Duration(days: 2));
         final existing = row(
@@ -382,6 +384,78 @@ void main() {
 
         expect(changes, 0);
         verifyNever(dao.upsert(any));
+      },
+    );
+
+    test(
+      'on — an event added directly to the device\'s primary calendar '
+      '(not the PlanFit target calendar) is imported too',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        when(service.autoImportEnabled).thenReturn(true);
+        when(service.targetCalendarId).thenReturn('cal-planfit');
+        when(service.writableCalendars()).thenAnswer((_) async => [
+              const dc.Calendar(
+                id: 'cal-default',
+                name: 'Calendar',
+                readOnly: false,
+                isPrimary: true,
+              ),
+            ]);
+        final now = DateTime(2026, 1, 1);
+        final start = now.add(const Duration(days: 2));
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => []);
+        when(service.listEvents('cal-planfit', from: anyNamed('from'), to: anyNamed('to')))
+            .thenAnswer((_) async => []);
+        when(service.listEvents('cal-default', from: anyNamed('from'), to: anyNamed('to')))
+            .thenAnswer((_) async =>
+                [osEvent(eventId: 'os-default', start: start, title: '밥먹기')]);
+        when(dao.upsert(any)).thenAnswer((_) async {});
+        when(syncLogDao.add(any)).thenAnswer((_) async {});
+
+        final changes = await reconciler.reconcile(now: now);
+
+        expect(changes, 1);
+        final captured =
+            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+        expect(captured.title.value, '밥먹기');
+        expect(captured.osEventId.value, 'os-default');
+        expect(captured.osCalendarId.value, 'cal-1');
+      },
+    );
+
+    test(
+      'on — a primary calendar the user already subscribed to is not '
+      'double-scanned by auto-import',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        when(service.autoImportEnabled).thenReturn(true);
+        when(service.targetCalendarId).thenReturn('cal-planfit');
+        when(service.subscribedCalendarIds).thenReturn({'cal-default'});
+        when(service.writableCalendars()).thenAnswer((_) async => [
+              const dc.Calendar(
+                id: 'cal-default',
+                name: 'Calendar',
+                readOnly: false,
+                isPrimary: true,
+              ),
+            ]);
+        final now = DateTime(2026, 1, 1);
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => []);
+        when(calendarImportService.syncMirroredCalendars(
+          {'cal-default'},
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        )).thenAnswer((_) async {});
+        when(service.listEvents('cal-planfit', from: anyNamed('from'), to: anyNamed('to')))
+            .thenAnswer((_) async => []);
+
+        await reconciler.reconcile(now: now);
+
+        verifyNever(service.listEvents('cal-default',
+            from: anyNamed('from'), to: anyNamed('to')));
       },
     );
   });
