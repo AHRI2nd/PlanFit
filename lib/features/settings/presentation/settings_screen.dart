@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,6 +47,22 @@ class SettingsScreen extends ConsumerWidget {
         await controller.setTargetCalendar(calendarId);
       }
       await controller.setCalendarSyncEnabled(value);
+    }
+
+    // iOS only — Android has no OS reminders concept to sync to at all, so
+    // this is never even offered there (see the settings row below).
+    Future<void> toggleReminderSync(bool value) async {
+      if (value) {
+        final granted = await ref
+            .read(remindersServiceProvider)
+            .requestAccess();
+        if (!granted) return;
+        final listId = await ref
+            .read(remindersServiceProvider)
+            .resolveTargetListId();
+        if (listId == null) return;
+      }
+      await controller.setRemindersSyncEnabled(value);
     }
 
     Future<void> toggleSound(bool value) async {
@@ -236,6 +254,16 @@ class SettingsScreen extends ConsumerWidget {
             SectionHeader(l10n.settingsTodo),
             _Card(
               children: [
+                // iOS only — Android has no OS reminders app/API to sync to.
+                if (Platform.isIOS) ...[
+                  _SwitchRow(
+                    title: l10n.settingsReminderSync,
+                    subtitle: l10n.settingsReminderSyncDesc,
+                    value: settings.remindersSyncEnabled,
+                    onChanged: toggleReminderSync,
+                  ),
+                  const _RowDivider(),
+                ],
                 _TodoRetentionRow(
                   days: settings.completedTodoRetentionDays,
                   l10n: l10n,

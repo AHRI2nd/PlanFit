@@ -1444,6 +1444,49 @@ class $TodoItemsTable extends TodoItems
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _osReminderIdMeta = const VerificationMeta(
+    'osReminderId',
+  );
+  @override
+  late final GeneratedColumn<String> osReminderId = GeneratedColumn<String>(
+    'os_reminder_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _osReminderListIdMeta = const VerificationMeta(
+    'osReminderListId',
+  );
+  @override
+  late final GeneratedColumn<String> osReminderListId = GeneratedColumn<String>(
+    'os_reminder_list_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _osReminderLastKnownModifiedMeta =
+      const VerificationMeta('osReminderLastKnownModified');
+  @override
+  late final GeneratedColumn<DateTime> osReminderLastKnownModified =
+      GeneratedColumn<DateTime>(
+        'os_reminder_last_known_modified',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<SyncStatus, String>
+  reminderSyncStatus = GeneratedColumn<String>(
+    'reminder_sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: Constant(SyncStatus.pendingPush.name),
+  ).withConverter<SyncStatus>($TodoItemsTable.$converterreminderSyncStatus);
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1474,6 +1517,10 @@ class $TodoItemsTable extends TodoItems
     recurrenceRule,
     recurrenceGroupId,
     isPinned,
+    osReminderId,
+    osReminderListId,
+    osReminderLastKnownModified,
+    reminderSyncStatus,
     createdAt,
   ];
   @override
@@ -1597,6 +1644,33 @@ class $TodoItemsTable extends TodoItems
         isPinned.isAcceptableOrUnknown(data['is_pinned']!, _isPinnedMeta),
       );
     }
+    if (data.containsKey('os_reminder_id')) {
+      context.handle(
+        _osReminderIdMeta,
+        osReminderId.isAcceptableOrUnknown(
+          data['os_reminder_id']!,
+          _osReminderIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('os_reminder_list_id')) {
+      context.handle(
+        _osReminderListIdMeta,
+        osReminderListId.isAcceptableOrUnknown(
+          data['os_reminder_list_id']!,
+          _osReminderListIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('os_reminder_last_known_modified')) {
+      context.handle(
+        _osReminderLastKnownModifiedMeta,
+        osReminderLastKnownModified.isAcceptableOrUnknown(
+          data['os_reminder_last_known_modified']!,
+          _osReminderLastKnownModifiedMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1676,6 +1750,24 @@ class $TodoItemsTable extends TodoItems
         DriftSqlType.bool,
         data['${effectivePrefix}is_pinned'],
       )!,
+      osReminderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}os_reminder_id'],
+      ),
+      osReminderListId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}os_reminder_list_id'],
+      ),
+      osReminderLastKnownModified: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}os_reminder_last_known_modified'],
+      ),
+      reminderSyncStatus: $TodoItemsTable.$converterreminderSyncStatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}reminder_sync_status'],
+        )!,
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1687,6 +1779,11 @@ class $TodoItemsTable extends TodoItems
   $TodoItemsTable createAlias(String alias) {
     return $TodoItemsTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<SyncStatus, String, String>
+  $converterreminderSyncStatus = const EnumNameConverter<SyncStatus>(
+    SyncStatus.values,
+  );
 }
 
 class TodoRow extends DataClass implements Insertable<TodoRow> {
@@ -1756,6 +1853,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
   /// `sortOrder` drag reorder, which has no chronological meaning to
   /// protect).
   final bool isPinned;
+  final String? osReminderId;
+  final String? osReminderListId;
+  final DateTime? osReminderLastKnownModified;
+  final SyncStatus reminderSyncStatus;
   final DateTime createdAt;
   const TodoRow({
     required this.id,
@@ -1774,6 +1875,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     this.recurrenceRule,
     this.recurrenceGroupId,
     required this.isPinned,
+    this.osReminderId,
+    this.osReminderListId,
+    this.osReminderLastKnownModified,
+    required this.reminderSyncStatus,
     required this.createdAt,
   });
   @override
@@ -1811,6 +1916,22 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       map['recurrence_group_id'] = Variable<String>(recurrenceGroupId);
     }
     map['is_pinned'] = Variable<bool>(isPinned);
+    if (!nullToAbsent || osReminderId != null) {
+      map['os_reminder_id'] = Variable<String>(osReminderId);
+    }
+    if (!nullToAbsent || osReminderListId != null) {
+      map['os_reminder_list_id'] = Variable<String>(osReminderListId);
+    }
+    if (!nullToAbsent || osReminderLastKnownModified != null) {
+      map['os_reminder_last_known_modified'] = Variable<DateTime>(
+        osReminderLastKnownModified,
+      );
+    }
+    {
+      map['reminder_sync_status'] = Variable<String>(
+        $TodoItemsTable.$converterreminderSyncStatus.toSql(reminderSyncStatus),
+      );
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -1846,6 +1967,17 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           ? const Value.absent()
           : Value(recurrenceGroupId),
       isPinned: Value(isPinned),
+      osReminderId: osReminderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(osReminderId),
+      osReminderListId: osReminderListId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(osReminderListId),
+      osReminderLastKnownModified:
+          osReminderLastKnownModified == null && nullToAbsent
+          ? const Value.absent()
+          : Value(osReminderLastKnownModified),
+      reminderSyncStatus: Value(reminderSyncStatus),
       createdAt: Value(createdAt),
     );
   }
@@ -1876,6 +2008,14 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
         json['recurrenceGroupId'],
       ),
       isPinned: serializer.fromJson<bool>(json['isPinned']),
+      osReminderId: serializer.fromJson<String?>(json['osReminderId']),
+      osReminderListId: serializer.fromJson<String?>(json['osReminderListId']),
+      osReminderLastKnownModified: serializer.fromJson<DateTime?>(
+        json['osReminderLastKnownModified'],
+      ),
+      reminderSyncStatus: $TodoItemsTable.$converterreminderSyncStatus.fromJson(
+        serializer.fromJson<String>(json['reminderSyncStatus']),
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -1901,6 +2041,14 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       'recurrenceRule': serializer.toJson<String?>(recurrenceRule),
       'recurrenceGroupId': serializer.toJson<String?>(recurrenceGroupId),
       'isPinned': serializer.toJson<bool>(isPinned),
+      'osReminderId': serializer.toJson<String?>(osReminderId),
+      'osReminderListId': serializer.toJson<String?>(osReminderListId),
+      'osReminderLastKnownModified': serializer.toJson<DateTime?>(
+        osReminderLastKnownModified,
+      ),
+      'reminderSyncStatus': serializer.toJson<String>(
+        $TodoItemsTable.$converterreminderSyncStatus.toJson(reminderSyncStatus),
+      ),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -1922,6 +2070,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     Value<String?> recurrenceRule = const Value.absent(),
     Value<String?> recurrenceGroupId = const Value.absent(),
     bool? isPinned,
+    Value<String?> osReminderId = const Value.absent(),
+    Value<String?> osReminderListId = const Value.absent(),
+    Value<DateTime?> osReminderLastKnownModified = const Value.absent(),
+    SyncStatus? reminderSyncStatus,
     DateTime? createdAt,
   }) => TodoRow(
     id: id ?? this.id,
@@ -1946,6 +2098,14 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
         ? recurrenceGroupId.value
         : this.recurrenceGroupId,
     isPinned: isPinned ?? this.isPinned,
+    osReminderId: osReminderId.present ? osReminderId.value : this.osReminderId,
+    osReminderListId: osReminderListId.present
+        ? osReminderListId.value
+        : this.osReminderListId,
+    osReminderLastKnownModified: osReminderLastKnownModified.present
+        ? osReminderLastKnownModified.value
+        : this.osReminderLastKnownModified,
+    reminderSyncStatus: reminderSyncStatus ?? this.reminderSyncStatus,
     createdAt: createdAt ?? this.createdAt,
   );
   TodoRow copyWithCompanion(TodoItemsCompanion data) {
@@ -1974,6 +2134,18 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           ? data.recurrenceGroupId.value
           : this.recurrenceGroupId,
       isPinned: data.isPinned.present ? data.isPinned.value : this.isPinned,
+      osReminderId: data.osReminderId.present
+          ? data.osReminderId.value
+          : this.osReminderId,
+      osReminderListId: data.osReminderListId.present
+          ? data.osReminderListId.value
+          : this.osReminderListId,
+      osReminderLastKnownModified: data.osReminderLastKnownModified.present
+          ? data.osReminderLastKnownModified.value
+          : this.osReminderLastKnownModified,
+      reminderSyncStatus: data.reminderSyncStatus.present
+          ? data.reminderSyncStatus.value
+          : this.reminderSyncStatus,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -1997,13 +2169,17 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('recurrenceGroupId: $recurrenceGroupId, ')
           ..write('isPinned: $isPinned, ')
+          ..write('osReminderId: $osReminderId, ')
+          ..write('osReminderListId: $osReminderListId, ')
+          ..write('osReminderLastKnownModified: $osReminderLastKnownModified, ')
+          ..write('reminderSyncStatus: $reminderSyncStatus, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     eventId,
     title,
@@ -2020,8 +2196,12 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     recurrenceRule,
     recurrenceGroupId,
     isPinned,
+    osReminderId,
+    osReminderListId,
+    osReminderLastKnownModified,
+    reminderSyncStatus,
     createdAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2042,6 +2222,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           other.recurrenceRule == this.recurrenceRule &&
           other.recurrenceGroupId == this.recurrenceGroupId &&
           other.isPinned == this.isPinned &&
+          other.osReminderId == this.osReminderId &&
+          other.osReminderListId == this.osReminderListId &&
+          other.osReminderLastKnownModified ==
+              this.osReminderLastKnownModified &&
+          other.reminderSyncStatus == this.reminderSyncStatus &&
           other.createdAt == this.createdAt);
 }
 
@@ -2062,6 +2247,10 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
   final Value<String?> recurrenceRule;
   final Value<String?> recurrenceGroupId;
   final Value<bool> isPinned;
+  final Value<String?> osReminderId;
+  final Value<String?> osReminderListId;
+  final Value<DateTime?> osReminderLastKnownModified;
+  final Value<SyncStatus> reminderSyncStatus;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const TodoItemsCompanion({
@@ -2081,6 +2270,10 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
     this.recurrenceRule = const Value.absent(),
     this.recurrenceGroupId = const Value.absent(),
     this.isPinned = const Value.absent(),
+    this.osReminderId = const Value.absent(),
+    this.osReminderListId = const Value.absent(),
+    this.osReminderLastKnownModified = const Value.absent(),
+    this.reminderSyncStatus = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2101,6 +2294,10 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
     this.recurrenceRule = const Value.absent(),
     this.recurrenceGroupId = const Value.absent(),
     this.isPinned = const Value.absent(),
+    this.osReminderId = const Value.absent(),
+    this.osReminderListId = const Value.absent(),
+    this.osReminderLastKnownModified = const Value.absent(),
+    this.reminderSyncStatus = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -2122,6 +2319,10 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
     Expression<String>? recurrenceRule,
     Expression<String>? recurrenceGroupId,
     Expression<bool>? isPinned,
+    Expression<String>? osReminderId,
+    Expression<String>? osReminderListId,
+    Expression<DateTime>? osReminderLastKnownModified,
+    Expression<String>? reminderSyncStatus,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -2143,6 +2344,12 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
       if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
       if (recurrenceGroupId != null) 'recurrence_group_id': recurrenceGroupId,
       if (isPinned != null) 'is_pinned': isPinned,
+      if (osReminderId != null) 'os_reminder_id': osReminderId,
+      if (osReminderListId != null) 'os_reminder_list_id': osReminderListId,
+      if (osReminderLastKnownModified != null)
+        'os_reminder_last_known_modified': osReminderLastKnownModified,
+      if (reminderSyncStatus != null)
+        'reminder_sync_status': reminderSyncStatus,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2165,6 +2372,10 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
     Value<String?>? recurrenceRule,
     Value<String?>? recurrenceGroupId,
     Value<bool>? isPinned,
+    Value<String?>? osReminderId,
+    Value<String?>? osReminderListId,
+    Value<DateTime?>? osReminderLastKnownModified,
+    Value<SyncStatus>? reminderSyncStatus,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -2186,6 +2397,11 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       recurrenceGroupId: recurrenceGroupId ?? this.recurrenceGroupId,
       isPinned: isPinned ?? this.isPinned,
+      osReminderId: osReminderId ?? this.osReminderId,
+      osReminderListId: osReminderListId ?? this.osReminderListId,
+      osReminderLastKnownModified:
+          osReminderLastKnownModified ?? this.osReminderLastKnownModified,
+      reminderSyncStatus: reminderSyncStatus ?? this.reminderSyncStatus,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -2244,6 +2460,24 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
     if (isPinned.present) {
       map['is_pinned'] = Variable<bool>(isPinned.value);
     }
+    if (osReminderId.present) {
+      map['os_reminder_id'] = Variable<String>(osReminderId.value);
+    }
+    if (osReminderListId.present) {
+      map['os_reminder_list_id'] = Variable<String>(osReminderListId.value);
+    }
+    if (osReminderLastKnownModified.present) {
+      map['os_reminder_last_known_modified'] = Variable<DateTime>(
+        osReminderLastKnownModified.value,
+      );
+    }
+    if (reminderSyncStatus.present) {
+      map['reminder_sync_status'] = Variable<String>(
+        $TodoItemsTable.$converterreminderSyncStatus.toSql(
+          reminderSyncStatus.value,
+        ),
+      );
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2272,6 +2506,10 @@ class TodoItemsCompanion extends UpdateCompanion<TodoRow> {
           ..write('recurrenceRule: $recurrenceRule, ')
           ..write('recurrenceGroupId: $recurrenceGroupId, ')
           ..write('isPinned: $isPinned, ')
+          ..write('osReminderId: $osReminderId, ')
+          ..write('osReminderListId: $osReminderListId, ')
+          ..write('osReminderLastKnownModified: $osReminderLastKnownModified, ')
+          ..write('reminderSyncStatus: $reminderSyncStatus, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -4324,6 +4562,10 @@ typedef $$TodoItemsTableCreateCompanionBuilder =
       Value<String?> recurrenceRule,
       Value<String?> recurrenceGroupId,
       Value<bool> isPinned,
+      Value<String?> osReminderId,
+      Value<String?> osReminderListId,
+      Value<DateTime?> osReminderLastKnownModified,
+      Value<SyncStatus> reminderSyncStatus,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -4345,6 +4587,10 @@ typedef $$TodoItemsTableUpdateCompanionBuilder =
       Value<String?> recurrenceRule,
       Value<String?> recurrenceGroupId,
       Value<bool> isPinned,
+      Value<String?> osReminderId,
+      Value<String?> osReminderListId,
+      Value<DateTime?> osReminderLastKnownModified,
+      Value<SyncStatus> reminderSyncStatus,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -4471,6 +4717,27 @@ class $$TodoItemsTableFilterComposer
   ColumnFilters<bool> get isPinned => $composableBuilder(
     column: $table.isPinned,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get osReminderId => $composableBuilder(
+    column: $table.osReminderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get osReminderListId => $composableBuilder(
+    column: $table.osReminderListId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get osReminderLastKnownModified => $composableBuilder(
+    column: $table.osReminderLastKnownModified,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SyncStatus, SyncStatus, String>
+  get reminderSyncStatus => $composableBuilder(
+    column: $table.reminderSyncStatus,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
@@ -4611,6 +4878,27 @@ class $$TodoItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get osReminderId => $composableBuilder(
+    column: $table.osReminderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get osReminderListId => $composableBuilder(
+    column: $table.osReminderListId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get osReminderLastKnownModified =>
+      $composableBuilder(
+        column: $table.osReminderLastKnownModified,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<String> get reminderSyncStatus => $composableBuilder(
+    column: $table.reminderSyncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4701,6 +4989,28 @@ class $$TodoItemsTableAnnotationComposer
 
   GeneratedColumn<bool> get isPinned =>
       $composableBuilder(column: $table.isPinned, builder: (column) => column);
+
+  GeneratedColumn<String> get osReminderId => $composableBuilder(
+    column: $table.osReminderId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get osReminderListId => $composableBuilder(
+    column: $table.osReminderListId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get osReminderLastKnownModified =>
+      $composableBuilder(
+        column: $table.osReminderLastKnownModified,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<SyncStatus, String> get reminderSyncStatus =>
+      $composableBuilder(
+        column: $table.reminderSyncStatus,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -4798,6 +5108,11 @@ class $$TodoItemsTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<String?> recurrenceGroupId = const Value.absent(),
                 Value<bool> isPinned = const Value.absent(),
+                Value<String?> osReminderId = const Value.absent(),
+                Value<String?> osReminderListId = const Value.absent(),
+                Value<DateTime?> osReminderLastKnownModified =
+                    const Value.absent(),
+                Value<SyncStatus> reminderSyncStatus = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodoItemsCompanion(
@@ -4817,6 +5132,10 @@ class $$TodoItemsTableTableManager
                 recurrenceRule: recurrenceRule,
                 recurrenceGroupId: recurrenceGroupId,
                 isPinned: isPinned,
+                osReminderId: osReminderId,
+                osReminderListId: osReminderListId,
+                osReminderLastKnownModified: osReminderLastKnownModified,
+                reminderSyncStatus: reminderSyncStatus,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -4838,6 +5157,11 @@ class $$TodoItemsTableTableManager
                 Value<String?> recurrenceRule = const Value.absent(),
                 Value<String?> recurrenceGroupId = const Value.absent(),
                 Value<bool> isPinned = const Value.absent(),
+                Value<String?> osReminderId = const Value.absent(),
+                Value<String?> osReminderListId = const Value.absent(),
+                Value<DateTime?> osReminderLastKnownModified =
+                    const Value.absent(),
+                Value<SyncStatus> reminderSyncStatus = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodoItemsCompanion.insert(
@@ -4857,6 +5181,10 @@ class $$TodoItemsTableTableManager
                 recurrenceRule: recurrenceRule,
                 recurrenceGroupId: recurrenceGroupId,
                 isPinned: isPinned,
+                osReminderId: osReminderId,
+                osReminderListId: osReminderListId,
+                osReminderLastKnownModified: osReminderLastKnownModified,
+                reminderSyncStatus: reminderSyncStatus,
                 createdAt: createdAt,
                 rowid: rowid,
               ),

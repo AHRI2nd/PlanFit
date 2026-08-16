@@ -12,6 +12,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kSound = 'settings.notificationSound';
   static const _kSync = 'settings.calendarSyncEnabled';
   static const _kCalendar = 'settings.targetCalendarId';
+  static const _kReminderSync = 'settings.remindersSyncEnabled';
   static const _kWeekStart = 'settings.weekStartsMonday';
   static const _kSubscribed = 'settings.subscribedCalendarIds';
   static const _kTodoRetention = 'settings.completedTodoRetentionDays';
@@ -24,6 +25,7 @@ class SettingsController extends Notifier<AppSettings> {
       notificationSound: prefs.getBool(_kSound) ?? true,
       calendarSyncEnabled: prefs.getBool(_kSync) ?? false,
       targetCalendarId: prefs.getString(_kCalendar),
+      remindersSyncEnabled: prefs.getBool(_kReminderSync) ?? false,
       weekStartsMonday: prefs.getBool(_kWeekStart) ?? true,
       subscribedCalendarIds: (prefs.getStringList(_kSubscribed) ?? const [])
           .toSet(),
@@ -40,6 +42,7 @@ class SettingsController extends Notifier<AppSettings> {
     calendar.enabled = s.calendarSyncEnabled;
     calendar.targetCalendarId = s.targetCalendarId;
     calendar.subscribedCalendarIds = s.subscribedCalendarIds;
+    ref.read(remindersServiceProvider).enabled = s.remindersSyncEnabled;
   }
 
   Future<void> _persist(AppSettings s) async {
@@ -52,6 +55,7 @@ class SettingsController extends Notifier<AppSettings> {
     } else {
       await prefs.setString(_kCalendar, s.targetCalendarId!);
     }
+    await prefs.setBool(_kReminderSync, s.remindersSyncEnabled);
     await prefs.setBool(_kWeekStart, s.weekStartsMonday);
     await prefs.setStringList(_kSubscribed, s.subscribedCalendarIds.toList());
     if (s.completedTodoRetentionDays == null) {
@@ -82,6 +86,12 @@ class SettingsController extends Notifier<AppSettings> {
       clearTargetCalendar: calendarId == null,
     ),
   );
+
+  /// Flips to-do/reminders sync — access request and reminders-list
+  /// resolution happen in the settings screen before this is called, same
+  /// split as calendar sync's `toggleSync`.
+  Future<void> setRemindersSyncEnabled(bool enabled) =>
+      _update(state.copyWith(remindersSyncEnabled: enabled));
 
   Future<void> setWeekStartsMonday(bool monday) =>
       _update(state.copyWith(weekStartsMonday: monday));

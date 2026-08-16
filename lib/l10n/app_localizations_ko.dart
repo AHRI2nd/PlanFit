@@ -315,6 +315,12 @@ class AppL10nKo extends AppL10n {
   String get settingsTodo => '할 일';
 
   @override
+  String get settingsReminderSync => '기기 미리알림과 동기화';
+
+  @override
+  String get settingsReminderSyncDesc => 'PlanFit 할 일을 기기 미리알림에 함께 담아요';
+
+  @override
   String get settingsTodoRetention => '완료된 할 일 자동 정리';
 
   @override

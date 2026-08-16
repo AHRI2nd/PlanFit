@@ -8,6 +8,7 @@ class AppSettings {
     this.notificationSound = true,
     this.calendarSyncEnabled = false,
     this.targetCalendarId,
+    this.remindersSyncEnabled = false,
     this.weekStartsMonday = true,
     this.subscribedCalendarIds = const {},
     this.completedTodoRetentionDays,
@@ -17,6 +18,11 @@ class AppSettings {
   final bool notificationSound;
   final bool calendarSyncEnabled;
   final String? targetCalendarId;
+
+  /// Whether to-dos sync with the OS reminders list — iOS only (Android has
+  /// no OS reminders concept), independent of [calendarSyncEnabled]. See
+  /// `RemindersService`/`RemindersReconciler`.
+  final bool remindersSyncEnabled;
 
   /// Which day the week/month grid and the home screen's weekly stats treat
   /// as day one — `true` for Monday, `false` for Sunday.
@@ -40,6 +46,7 @@ class AppSettings {
     bool? calendarSyncEnabled,
     String? targetCalendarId,
     bool clearTargetCalendar = false,
+    bool? remindersSyncEnabled,
     bool? weekStartsMonday,
     Set<String>? subscribedCalendarIds,
     int? completedTodoRetentionDays,
@@ -52,6 +59,7 @@ class AppSettings {
       targetCalendarId: clearTargetCalendar
           ? null
           : (targetCalendarId ?? this.targetCalendarId),
+      remindersSyncEnabled: remindersSyncEnabled ?? this.remindersSyncEnabled,
       weekStartsMonday: weekStartsMonday ?? this.weekStartsMonday,
       subscribedCalendarIds:
           subscribedCalendarIds ?? this.subscribedCalendarIds,

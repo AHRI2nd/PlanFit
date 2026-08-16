@@ -135,6 +135,8 @@
   "settingsThemeLight": "Light",
   "settingsThemeDark": "Dark",
   "settingsTodo": "To-dos",
+  "settingsReminderSync": "Sync with device reminders",
+  "settingsReminderSyncDesc": "Keep PlanFit to-dos in your device's Reminders app too",
   "settingsTodoRetention": "Auto-clean completed to-dos",
   "settingsTodoRetentionDesc": "Automatically delete to-dos a while after they're completed",
   "settingsTodoRetentionOff": "Off",

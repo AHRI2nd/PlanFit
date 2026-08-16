@@ -135,6 +135,8 @@
   "settingsThemeLight": "밝게",
   "settingsThemeDark": "어둡게",
   "settingsTodo": "할 일",
+  "settingsReminderSync": "기기 미리알림과 동기화",
+  "settingsReminderSyncDesc": "PlanFit 할 일을 기기 미리알림에 함께 담아요",
   "settingsTodoRetention": "완료된 할 일 자동 정리",
   "settingsTodoRetentionDesc": "완료한 지 일정 기간이 지난 할 일을 자동으로 삭제해요",
   "settingsTodoRetentionOff": "사용 안 함",

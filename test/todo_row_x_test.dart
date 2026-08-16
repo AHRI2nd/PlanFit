@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planfit/core/db/app_database.dart';
+import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/db/todo_row_x.dart';
 
 void main() {
@@ -20,6 +21,7 @@ void main() {
       isPinned: false,
       recurrenceRule: null,
       recurrenceGroupId: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
       createdAt: DateTime(2020),
     );
   }

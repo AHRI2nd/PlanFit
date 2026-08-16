@@ -142,6 +142,18 @@ class TodoItems extends Table {
   /// protect).
   BoolColumn get isPinned => boolean().withDefault(const Constant(false))();
 
+  // --- OS Reminders linkage (iOS EventKit reminders — see
+  // RemindersService.resolveTargetListId). Same shape as Events' os*/
+  // syncStatus columns; a separate set since a to-do's OS counterpart is a
+  // Reminders list, not a calendar. Android has no OS reminders concept, so
+  // these simply stay null there. ---
+  TextColumn get osReminderId => text().nullable()();
+  TextColumn get osReminderListId => text().nullable()();
+  DateTimeColumn get osReminderLastKnownModified => dateTime().nullable()();
+  TextColumn get reminderSyncStatus => textEnum<SyncStatus>().withDefault(
+    Constant(SyncStatus.pendingPush.name),
+  )();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

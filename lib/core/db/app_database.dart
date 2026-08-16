@@ -21,7 +21,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -69,6 +69,12 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 14) {
         await m.addColumn(todoItems, todoItems.isPinned);
+      }
+      if (from < 15) {
+        await m.addColumn(todoItems, todoItems.osReminderId);
+        await m.addColumn(todoItems, todoItems.osReminderListId);
+        await m.addColumn(todoItems, todoItems.osReminderLastKnownModified);
+        await m.addColumn(todoItems, todoItems.reminderSyncStatus);
       }
     },
     // sqlite ships FK enforcement off by default, per-connection — every

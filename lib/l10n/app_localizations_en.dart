@@ -324,6 +324,13 @@ class AppL10nEn extends AppL10n {
   String get settingsTodo => 'To-dos';
 
   @override
+  String get settingsReminderSync => 'Sync with device reminders';
+
+  @override
+  String get settingsReminderSyncDesc =>
+      'Keep PlanFit to-dos in your device\'s Reminders app too';
+
+  @override
   String get settingsTodoRetention => 'Auto-clean completed to-dos';
 
   @override

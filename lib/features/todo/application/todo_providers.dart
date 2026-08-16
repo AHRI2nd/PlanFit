@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/db/app_database.dart';
+import '../../../core/db/sync_status.dart';
 import '../../../core/di.dart';
 import '../../../core/notifications/notification_window.dart';
 import '../../schedule/application/schedule_providers.dart';
@@ -126,6 +127,7 @@ class TodoController {
         ),
       );
       if (effectiveNotify) await _syncNotification(id);
+      await _syncReminder(id);
       return;
     }
 
@@ -171,21 +173,27 @@ class TodoController {
         await _syncNotification(id);
       }
     }
+    for (final id in ids) {
+      await _syncReminder(id);
+    }
   }
 
   Future<void> toggle(String id, bool done) async {
     await _ref.read(todoDaoProvider).setDone(id, done);
     await _syncNotification(id);
+    await _syncReminder(id);
   }
 
   Future<void> updateTime(String id, DateTime slotStart) async {
     await _ref.read(todoDaoProvider).updateSlotStart(id, slotStart);
     await _syncNotification(id);
+    await _syncReminder(id);
   }
 
   Future<void> clearTime(String id) async {
     await _ref.read(todoDaoProvider).clearTime(id);
     await _syncNotification(id);
+    await _syncReminder(id);
   }
 
   Future<void> setPriority(String id, int priority) =>
@@ -248,6 +256,7 @@ class TodoController {
     // stale title in a pending notification would otherwise linger until
     // it fires.
     await _syncNotification(id);
+    await _syncReminder(id);
   }
 
   /// Schedules or cancels [id]'s due-time alert based on its current
@@ -258,6 +267,37 @@ class TodoController {
     final row = await _ref.read(todoDaoProvider).findById(id);
     if (row == null) return;
     await syncTodoNotification(_ref.read(notificationPortProvider), row);
+  }
+
+  /// Pushes [id]'s current title/due date/done state to the OS reminders
+  /// list when sync is on — the to-do equivalent of [_syncNotification],
+  /// called from the same write paths. Best-effort and immediate (unlike
+  /// events' calendar push, which the caller awaits inline too — see
+  /// `EventRepositoryImpl._applySideEffects`): a failure here must not
+  /// surface as a save failure, since the local write already succeeded and
+  /// `RemindersReconciler` retries anything left `pendingPush` on the next
+  /// foreground resume.
+  Future<void> _syncReminder(String id) async {
+    final reminders = _ref.read(remindersPortProvider);
+    if (!reminders.isEnabled) return;
+    final dao = _ref.read(todoDaoProvider);
+    final row = await dao.findById(id);
+    if (row == null) return;
+    try {
+      final osId = await reminders.pushTodo(row);
+      if (osId != null) {
+        await dao.patch(
+          id,
+          TodoItemsCompanion(
+            osReminderId: Value(osId),
+            reminderSyncStatus: const Value(SyncStatus.synced),
+          ),
+        );
+      }
+    } on Exception {
+      // See doc comment above — left pendingPush (the table default), the
+      // reconciler will retry.
+    }
   }
 
   /// Widest possible reminder lead time (see
@@ -302,9 +342,15 @@ class TodoController {
     final cutoff = DateTime.now().subtract(retention);
     final stale = await dao.completedBefore(cutoff);
     final notifications = _ref.read(notificationPortProvider);
+    final reminders = _ref.read(remindersPortProvider);
     for (final row in stale) {
       await dao.deleteById(row.id);
       await notifications.cancelForTodo(row.id);
+      try {
+        await reminders.deleteTodo(row);
+      } on Exception {
+        // Best-effort, same reasoning as _removeWithSubtasks.
+      }
     }
     return stale.length;
   }
@@ -330,6 +376,14 @@ class TodoController {
     final subtasks = await dao.watchSubtasks(row.id).first;
     await dao.deleteById(row.id);
     await _ref.read(notificationPortProvider).cancelForTodo(row.id);
+    // Best-effort, same reasoning as EventRepository.delete()'s calendar
+    // delete: the local delete already succeeded, so a Reminders-side
+    // failure must not surface as a delete failure.
+    try {
+      await _ref.read(remindersPortProvider).deleteTodo(row);
+    } on Exception {
+      // Nothing to reconcile after this — the row is gone either way.
+    }
     return (todo: row, subtasks: subtasks);
   }
 
@@ -403,6 +457,14 @@ class TodoController {
       );
     }
     await _syncNotification(todo.id);
+    // Not carried over from `todo` — same reasoning as
+    // `EventRepository.restoreEvent`'s OS-calendar linkage: the old
+    // `osReminderId` is already gone (deleted alongside the row — see
+    // `_removeWithSubtasks`), so this pushes a fresh reminder rather than
+    // risk patching a stale/wrong one. `upsert` above already omits
+    // `osReminderId`/`reminderSyncStatus`, so the fresh row lands with the
+    // table defaults (null / pendingPush) exactly as if newly created.
+    await _syncReminder(todo.id);
   }
 }
 

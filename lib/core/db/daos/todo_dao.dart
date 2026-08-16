@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../../features/todo/domain/todo_tag_match.dart';
 import '../app_database.dart';
+import '../sync_status.dart';
 import '../tables.dart';
 
 part 'todo_dao.g.dart';
@@ -46,6 +47,39 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
 
   Future<TodoRow?> findById(String id) =>
       (select(todoItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  /// Partial update of an existing row (e.g. writing back OS-reminder
+  /// linkage without re-supplying every required column) — the to-do
+  /// equivalent of `EventDao.patch`.
+  Future<void> patch(String id, TodoItemsCompanion companion) =>
+      (update(todoItems)..where((t) => t.id.equals(id))).write(companion);
+
+  /// To-dos created/edited locally that still need pushing to the OS
+  /// reminders list — the to-do equivalent of `EventDao.needingPush`.
+  Future<List<TodoRow>> needingReminderPush() {
+    return (select(todoItems)
+          ..where(
+            (t) => t.reminderSyncStatus.equalsValue(SyncStatus.pendingPush),
+          ))
+        .get();
+  }
+
+  /// The local row linked to one OS reminder, if any — used by the
+  /// reconciler to decide update vs. detach when pulling changes back.
+  Future<TodoRow?> findByOsReminderId(String osReminderId) =>
+      (select(
+        todoItems,
+      )..where((t) => t.osReminderId.equals(osReminderId))).getSingleOrNull();
+
+  /// Every to-do currently linked to an OS reminder — the reconciler's pull
+  /// scan. Unlike events (windowed by date), to-dos have no natural time
+  /// bound to scan within, and a personal to-do list is small enough that
+  /// scanning every linked row on each foreground resume is cheap.
+  Future<List<TodoRow>> linkedToReminders() {
+    return (select(
+      todoItems,
+    )..where((t) => t.osReminderId.isNotNull())).get();
+  }
 
   Future<void> setDone(String id, bool done) =>
       (update(todoItems)..where((t) => t.id.equals(id))).write(

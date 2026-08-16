@@ -42,3 +42,34 @@ class DisabledCalendarPort implements CalendarPort {
   @override
   Future<void> deleteEvent(EventRow event) async {}
 }
+
+/// Writes to-dos through to the OS reminders list (iOS EventKit only — see
+/// `RemindersService`). Same shape as [CalendarPort]; a separate interface
+/// because a to-do's OS counterpart is a reminder, not a calendar event, and
+/// because this is off by default and independently toggled from calendar
+/// sync in settings.
+abstract class RemindersPort {
+  bool get isEnabled;
+
+  /// Returns the OS reminder id for the written to-do, or null if not
+  /// written.
+  Future<String?> pushTodo(TodoRow todo);
+
+  Future<void> deleteTodo(TodoRow todo);
+}
+
+/// A no-op reminders port used when to-do/reminders sync is disabled or
+/// unavailable (Android has no OS reminders concept at all). Keeps
+/// [TodoController] logic uniform (it always calls the port).
+class DisabledRemindersPort implements RemindersPort {
+  const DisabledRemindersPort();
+
+  @override
+  bool get isEnabled => false;
+
+  @override
+  Future<String?> pushTodo(TodoRow todo) async => null;
+
+  @override
+  Future<void> deleteTodo(TodoRow todo) async {}
+}

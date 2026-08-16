@@ -16,6 +16,8 @@ import 'db/daos/event_template_dao.dart';
 import 'db/daos/sync_log_dao.dart';
 import 'db/daos/todo_dao.dart';
 import 'notifications/notification_service.dart';
+import 'reminders_sync/reminders_reconciler.dart';
+import 'reminders_sync/reminders_service.dart';
 import 'sync_prefs.dart';
 
 /// Infrastructure wiring. Kept as plain providers (no codegen) so the object
@@ -63,6 +65,16 @@ final notificationPortProvider = Provider<NotificationPort>(
   (ref) => ref.watch(notificationServiceProvider),
 );
 
+final remindersServiceProvider = Provider<RemindersService>((ref) {
+  return RemindersService();
+});
+
+/// The port [TodoController] sees. Same instance as [remindersServiceProvider],
+/// so toggling sync in settings takes effect immediately.
+final remindersPortProvider = Provider<RemindersPort>(
+  (ref) => ref.watch(remindersServiceProvider),
+);
+
 final eventRepositoryProvider = Provider<EventRepository>((ref) {
   return EventRepositoryImpl(
     dao: ref.watch(eventDaoProvider),
@@ -78,6 +90,15 @@ final calendarReconcilerProvider = Provider<CalendarReconciler>((ref) {
     syncLogDao: ref.watch(syncLogDaoProvider),
     notifications: ref.watch(notificationPortProvider),
     calendarImportService: ref.watch(calendarImportServiceProvider),
+  );
+});
+
+final remindersReconcilerProvider = Provider<RemindersReconciler>((ref) {
+  return RemindersReconciler(
+    service: ref.watch(remindersServiceProvider),
+    todoDao: ref.watch(todoDaoProvider),
+    syncLogDao: ref.watch(syncLogDaoProvider),
+    notifications: ref.watch(notificationPortProvider),
   );
 });
 

@@ -46,6 +46,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
         _maybeRequestNotificationPermission();
       }
       _reconcile();
+      _reconcileReminders();
       _syncHomeWidget();
       _syncAppBadge();
       _handleColdStartFromWidget();
@@ -69,6 +70,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _reconcile();
+      _reconcileReminders();
       _syncHomeWidget();
       _syncAppBadge();
       _runAutoBackup();
@@ -100,6 +102,16 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
             .read(lastCalendarSyncAtProvider.notifier)
             .record(DateTime.now());
       }
+    } catch (_) {
+      // Sync is best-effort; never surface reconciliation failures to the user.
+    }
+  }
+
+  /// The to-do equivalent of [_reconcile] — a no-op when reminders sync is
+  /// off or on Android (see `RemindersService._supported`).
+  Future<void> _reconcileReminders() async {
+    try {
+      await ref.read(remindersReconcilerProvider).reconcile();
     } catch (_) {
       // Sync is best-effort; never surface reconciliation failures to the user.
     }

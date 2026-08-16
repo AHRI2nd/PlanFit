@@ -679,6 +679,18 @@ abstract class AppL10n {
   /// **'할 일'**
   String get settingsTodo;
 
+  /// No description provided for @settingsReminderSync.
+  ///
+  /// In ko, this message translates to:
+  /// **'기기 미리알림과 동기화'**
+  String get settingsReminderSync;
+
+  /// No description provided for @settingsReminderSyncDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'PlanFit 할 일을 기기 미리알림에 함께 담아요'**
+  String get settingsReminderSyncDesc;
+
   /// No description provided for @settingsTodoRetention.
   ///
   /// In ko, this message translates to:
