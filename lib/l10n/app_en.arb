@@ -95,6 +95,8 @@
   "settingsCalendar": "Calendar",
   "settingsCalendarSync": "Sync with device calendar",
   "settingsCalendarSyncDesc": "Keep PlanFit events in your device calendar too",
+  "settingsCalendarAutoImport": "Auto-import from device calendar",
+  "settingsCalendarAutoImportDesc": "Also bring in events added directly in the calendar app",
   "settingsSyncLog": "Sync activity",
   "settingsLastSync": "Last synced",
   "settingsLastSyncNever": "Not synced yet",

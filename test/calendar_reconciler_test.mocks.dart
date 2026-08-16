@@ -169,6 +169,14 @@ class MockCalendarService extends _i1.Mock implements _i8.CalendarService {
           as bool);
 
   @override
+  bool get autoImportEnabled =>
+      (super.noSuchMethod(
+            Invocation.getter(#autoImportEnabled),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
   Set<String> get subscribedCalendarIds =>
       (super.noSuchMethod(
             Invocation.getter(#subscribedCalendarIds),
@@ -190,6 +198,12 @@ class MockCalendarService extends _i1.Mock implements _i8.CalendarService {
   @override
   set targetCalendarId(String? value) => super.noSuchMethod(
     Invocation.setter(#targetCalendarId, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  set autoImportEnabled(bool? value) => super.noSuchMethod(
+    Invocation.setter(#autoImportEnabled, value),
     returnValueForMissingStub: null,
   );
 

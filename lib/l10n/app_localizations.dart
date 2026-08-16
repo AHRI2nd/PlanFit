@@ -499,6 +499,18 @@ abstract class AppL10n {
   /// **'PlanFit 일정을 기기 캘린더에 함께 담아요'**
   String get settingsCalendarSyncDesc;
 
+  /// No description provided for @settingsCalendarAutoImport.
+  ///
+  /// In ko, this message translates to:
+  /// **'기기 캘린더 자동 불러오기'**
+  String get settingsCalendarAutoImport;
+
+  /// No description provided for @settingsCalendarAutoImportDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'캘린더 앱에서 직접 추가한 일정도 PlanFit으로 가져와요'**
+  String get settingsCalendarAutoImportDesc;
+
   /// No description provided for @settingsSyncLog.
   ///
   /// In ko, this message translates to:

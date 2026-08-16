@@ -75,6 +75,8 @@ void main() {
     when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
     // No subscribed calendars by default — most tests aren't about mirroring.
     when(service.subscribedCalendarIds).thenReturn(<String>{});
+    // Off by default — most tests aren't about auto-import.
+    when(service.autoImportEnabled).thenReturn(false);
   });
 
   group('notification refill', () {
@@ -285,5 +287,102 @@ void main() {
       verify(notifications.scheduleForEvent(pulled)).called(1);
       verifyNever(notifications.cancelForEvent('e12'));
     });
+  });
+
+  group('auto-import from the calendar app', () {
+    dc.Event osEvent({
+      required String eventId,
+      required DateTime start,
+      String title = 'Off-app event',
+    }) {
+      return dc.Event(
+        eventId: eventId,
+        instanceId: eventId,
+        calendarId: 'cal-1',
+        title: title,
+        startDate: start,
+        endDate: start.add(const Duration(hours: 1)),
+        isAllDay: false,
+        availability: dc.EventAvailability.busy,
+        status: dc.EventStatus.none,
+        isRecurring: false,
+      );
+    }
+
+    test('off by default — an unlinked OS event is left alone', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(service.autoImportEnabled).thenReturn(false);
+      when(service.targetCalendarId).thenReturn('cal-1');
+      when(dao.needingPush()).thenAnswer((_) async => []);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+
+      await reconciler.reconcile(now: DateTime(2026, 1, 1));
+
+      verifyNever(service.listEvents(any, from: anyNamed('from'), to: anyNamed('to')));
+      verifyNever(dao.upsert(any));
+    });
+
+    test(
+      'on — an event added directly in the target calendar is imported as '
+      'a new PlanFit event, notifications off',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        when(service.autoImportEnabled).thenReturn(true);
+        when(service.targetCalendarId).thenReturn('cal-1');
+        final now = DateTime(2026, 1, 1);
+        final start = now.add(const Duration(days: 2));
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => []);
+        when(service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')))
+            .thenAnswer((_) async => [osEvent(eventId: 'os-new', start: start)]);
+        when(dao.upsert(any)).thenAnswer((_) async {});
+        when(syncLogDao.add(any)).thenAnswer((_) async {});
+
+        final changes = await reconciler.reconcile(now: now);
+
+        expect(changes, 1);
+        final captured =
+            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+        expect(captured.title.value, 'Off-app event');
+        expect(captured.osEventId.value, 'os-new');
+        expect(captured.osCalendarId.value, 'cal-1');
+        expect(captured.syncStatus.value, SyncStatus.synced);
+        // Not created through the user, so it must not silently start
+        // alerting them — same reasoning as CalendarImportService's mirror
+        // rows.
+        expect(captured.notify.value, isFalse);
+      },
+    );
+
+    test(
+      'on — an OS event already linked to a local row is not re-imported',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        when(service.autoImportEnabled).thenReturn(true);
+        when(service.targetCalendarId).thenReturn('cal-1');
+        final now = DateTime(2026, 1, 1);
+        final start = now.add(const Duration(days: 2));
+        final existing = row(
+          id: 'e-existing',
+          startAt: start,
+          osEventId: 'os-existing',
+          syncStatus: SyncStatus.synced,
+        );
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => [existing]);
+        when(service.fetchEvent('os-existing')).thenAnswer(
+          (_) async => osEvent(eventId: 'os-existing', start: start, title: existing.title),
+        );
+        when(service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')))
+            .thenAnswer((_) async => [
+                  osEvent(eventId: 'os-existing', start: start, title: existing.title),
+                ]);
+
+        final changes = await reconciler.reconcile(now: now);
+
+        expect(changes, 0);
+        verifyNever(dao.upsert(any));
+      },
+    );
   });
 }

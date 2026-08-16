@@ -8,6 +8,7 @@ class AppSettings {
     this.notificationSound = true,
     this.calendarSyncEnabled = false,
     this.targetCalendarId,
+    this.autoImportCalendarEnabled = false,
     this.remindersSyncEnabled = false,
     this.weekStartsMonday = true,
     this.subscribedCalendarIds = const {},
@@ -18,6 +19,15 @@ class AppSettings {
   final bool notificationSound;
   final bool calendarSyncEnabled;
   final String? targetCalendarId;
+
+  /// Whether the reconciler also imports events created *directly* in the
+  /// device calendar app's PlanFit calendar as new PlanFit events — off by
+  /// default, and only ever meaningful while [calendarSyncEnabled] is also
+  /// on (the settings screen only shows the toggle then). Independent of
+  /// [calendarSyncEnabled] itself so it persists its own on/off choice
+  /// separately: turning calendar sync off and back on doesn't silently
+  /// re-enable auto-import if the user had deliberately left it off.
+  final bool autoImportCalendarEnabled;
 
   /// Whether to-dos sync with the OS reminders list — iOS only (Android has
   /// no OS reminders concept), independent of [calendarSyncEnabled]. See
@@ -46,6 +56,7 @@ class AppSettings {
     bool? calendarSyncEnabled,
     String? targetCalendarId,
     bool clearTargetCalendar = false,
+    bool? autoImportCalendarEnabled,
     bool? remindersSyncEnabled,
     bool? weekStartsMonday,
     Set<String>? subscribedCalendarIds,
@@ -59,6 +70,8 @@ class AppSettings {
       targetCalendarId: clearTargetCalendar
           ? null
           : (targetCalendarId ?? this.targetCalendarId),
+      autoImportCalendarEnabled:
+          autoImportCalendarEnabled ?? this.autoImportCalendarEnabled,
       remindersSyncEnabled: remindersSyncEnabled ?? this.remindersSyncEnabled,
       weekStartsMonday: weekStartsMonday ?? this.weekStartsMonday,
       subscribedCalendarIds:

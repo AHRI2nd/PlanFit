@@ -203,6 +203,18 @@ class SettingsScreen extends ConsumerWidget {
                   value: settings.calendarSyncEnabled,
                   onChanged: toggleSync,
                 ),
+                // Only meaningful (and only shown) while calendar sync
+                // itself is on — see AppSettings.autoImportCalendarEnabled's
+                // doc for why turning sync off doesn't clear this choice.
+                if (settings.calendarSyncEnabled) ...[
+                  const _RowDivider(),
+                  _SwitchRow(
+                    title: l10n.settingsCalendarAutoImport,
+                    subtitle: l10n.settingsCalendarAutoImportDesc,
+                    value: settings.autoImportCalendarEnabled,
+                    onChanged: controller.setAutoImportCalendarEnabled,
+                  ),
+                ],
                 const _RowDivider(),
                 _CalendarTargetRow(
                   enabled: settings.calendarSyncEnabled,

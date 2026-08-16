@@ -95,6 +95,8 @@
   "settingsCalendar": "캘린더 연동",
   "settingsCalendarSync": "기기 캘린더와 동기화",
   "settingsCalendarSyncDesc": "PlanFit 일정을 기기 캘린더에 함께 담아요",
+  "settingsCalendarAutoImport": "기기 캘린더 자동 불러오기",
+  "settingsCalendarAutoImportDesc": "캘린더 앱에서 직접 추가한 일정도 PlanFit으로 가져와요",
   "settingsSyncLog": "동기화 기록",
   "settingsLastSync": "마지막 동기화",
   "settingsLastSyncNever": "아직 동기화한 적 없어요",

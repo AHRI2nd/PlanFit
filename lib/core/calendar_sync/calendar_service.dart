@@ -11,6 +11,7 @@ class CalendarService implements CalendarPort {
   CalendarService({
     this.enabled = false,
     this.targetCalendarId,
+    this.autoImportEnabled = false,
     this.subscribedCalendarIds = const {},
   });
 
@@ -21,6 +22,12 @@ class CalendarService implements CalendarPort {
 
   /// The calendar events are written to; resolved lazily if unset.
   String? targetCalendarId;
+
+  /// Whether [CalendarReconciler] also imports events created *directly* in
+  /// [targetCalendarId] (the calendar app, not PlanFit) as new PlanFit
+  /// events — see `AppSettings.autoImportCalendarEnabled`'s doc. Flipped
+  /// from settings, off by default.
+  bool autoImportEnabled;
 
   /// Calendars continuously mirrored *in* (read-only) — see
   /// [AppSettings.subscribedCalendarIds]/[CalendarImportService]. The

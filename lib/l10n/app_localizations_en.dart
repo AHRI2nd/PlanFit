@@ -225,6 +225,13 @@ class AppL10nEn extends AppL10n {
       'Keep PlanFit events in your device calendar too';
 
   @override
+  String get settingsCalendarAutoImport => 'Auto-import from device calendar';
+
+  @override
+  String get settingsCalendarAutoImportDesc =>
+      'Also bring in events added directly in the calendar app';
+
+  @override
   String get settingsSyncLog => 'Sync activity';
 
   @override

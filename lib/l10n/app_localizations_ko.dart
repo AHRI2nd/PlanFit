@@ -219,6 +219,13 @@ class AppL10nKo extends AppL10n {
   String get settingsCalendarSyncDesc => 'PlanFit 일정을 기기 캘린더에 함께 담아요';
 
   @override
+  String get settingsCalendarAutoImport => '기기 캘린더 자동 불러오기';
+
+  @override
+  String get settingsCalendarAutoImportDesc =>
+      '캘린더 앱에서 직접 추가한 일정도 PlanFit으로 가져와요';
+
+  @override
   String get settingsSyncLog => '동기화 기록';
 
   @override

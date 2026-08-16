@@ -1,5 +1,6 @@
 import 'package:device_calendar_plus/device_calendar_plus.dart' as dc;
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../features/schedule/domain/ports.dart';
 import '../db/app_database.dart';
@@ -39,6 +40,8 @@ class CalendarReconciler {
   final SyncLogDao _syncLogDao;
   final NotificationPort _notifications;
   final CalendarImportService _calendarImportService;
+
+  static const _uuid = Uuid();
 
   /// Reconcile events within a rolling window around now. Returns the number of
   /// changes applied (useful for tests and a subtle "synced" affordance).
@@ -144,7 +147,60 @@ class CalendarReconciler {
       }
     }
 
+    // 3) Auto-import (opt-in, off by default — see
+    //    AppSettings.autoImportCalendarEnabled's doc): events created
+    //    *directly* in the target calendar, rather than through PlanFit,
+    //    have no local row at all — step 2 above only walks rows we already
+    //    know about, so it can never notice these. Scan the target calendar
+    //    itself and materialize anything not already linked.
+    if (_service.autoImportEnabled && _service.targetCalendarId != null) {
+      final osEvents = await _service.listEvents(
+        _service.targetCalendarId!,
+        from: from,
+        to: to,
+      );
+      final linkedOsIds = linked.map((r) => r.osEventId).whereType<String>().toSet();
+      for (final osEvent in osEvents) {
+        if (linkedOsIds.contains(osEvent.eventId)) continue;
+        await _importNewEvent(osEvent, at);
+        changes++;
+      }
+    }
+
     return changes;
+  }
+
+  /// Materializes a PlanFit event for [osEvent], an event found in the
+  /// target calendar with no corresponding local row — see step 3 above.
+  /// Notifications default off, same reasoning as
+  /// `CalendarImportService._upsertMirrorRow`: the user didn't create this
+  /// through PlanFit, so it shouldn't silently start alerting them without
+  /// an explicit opt-in.
+  Future<void> _importNewEvent(dc.Event osEvent, DateTime at) async {
+    final id = _uuid.v4();
+    await _eventDao.upsert(
+      EventsCompanion(
+        id: Value(id),
+        title: Value(osEvent.title),
+        memo: Value(osEvent.description),
+        location: Value(osEvent.location),
+        startAt: Value(osEvent.startDate),
+        endAt: Value(osEvent.endDate),
+        isAllDay: Value(osEvent.isAllDay),
+        notify: const Value(false),
+        osCalendarId: Value(osEvent.calendarId),
+        osEventId: Value(osEvent.eventId),
+        osLastKnownModified: Value(at),
+        syncStatus: const Value(SyncStatus.synced),
+        createdAt: Value(at),
+        updatedAt: Value(at),
+      ),
+    );
+    await _log(
+      osEvent.title,
+      SyncResolution.pulled,
+      'Added directly in the calendar app',
+    );
   }
 
   /// Whether the stored row already agrees with the OS event on the fields we

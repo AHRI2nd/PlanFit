@@ -12,6 +12,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kSound = 'settings.notificationSound';
   static const _kSync = 'settings.calendarSyncEnabled';
   static const _kCalendar = 'settings.targetCalendarId';
+  static const _kAutoImportCalendar = 'settings.autoImportCalendarEnabled';
   static const _kReminderSync = 'settings.remindersSyncEnabled';
   static const _kWeekStart = 'settings.weekStartsMonday';
   static const _kSubscribed = 'settings.subscribedCalendarIds';
@@ -25,6 +26,7 @@ class SettingsController extends Notifier<AppSettings> {
       notificationSound: prefs.getBool(_kSound) ?? true,
       calendarSyncEnabled: prefs.getBool(_kSync) ?? false,
       targetCalendarId: prefs.getString(_kCalendar),
+      autoImportCalendarEnabled: prefs.getBool(_kAutoImportCalendar) ?? false,
       remindersSyncEnabled: prefs.getBool(_kReminderSync) ?? false,
       weekStartsMonday: prefs.getBool(_kWeekStart) ?? true,
       subscribedCalendarIds: (prefs.getStringList(_kSubscribed) ?? const [])
@@ -41,6 +43,7 @@ class SettingsController extends Notifier<AppSettings> {
     final calendar = ref.read(calendarServiceProvider);
     calendar.enabled = s.calendarSyncEnabled;
     calendar.targetCalendarId = s.targetCalendarId;
+    calendar.autoImportEnabled = s.autoImportCalendarEnabled;
     calendar.subscribedCalendarIds = s.subscribedCalendarIds;
     ref.read(remindersServiceProvider).enabled = s.remindersSyncEnabled;
   }
@@ -55,6 +58,7 @@ class SettingsController extends Notifier<AppSettings> {
     } else {
       await prefs.setString(_kCalendar, s.targetCalendarId!);
     }
+    await prefs.setBool(_kAutoImportCalendar, s.autoImportCalendarEnabled);
     await prefs.setBool(_kReminderSync, s.remindersSyncEnabled);
     await prefs.setBool(_kWeekStart, s.weekStartsMonday);
     await prefs.setStringList(_kSubscribed, s.subscribedCalendarIds.toList());
@@ -86,6 +90,14 @@ class SettingsController extends Notifier<AppSettings> {
       clearTargetCalendar: calendarId == null,
     ),
   );
+
+  /// Only meaningful while [AppSettings.calendarSyncEnabled] is also on —
+  /// see that field's doc. The settings screen only shows this toggle then,
+  /// but nothing stops the persisted flag from staying on if the user later
+  /// turns calendar sync off; `CalendarReconciler` itself re-checks
+  /// `CalendarService.isEnabled` before ever acting on it, so that's safe.
+  Future<void> setAutoImportCalendarEnabled(bool enabled) =>
+      _update(state.copyWith(autoImportCalendarEnabled: enabled));
 
   /// Flips to-do/reminders sync — access request and reminders-list
   /// resolution happen in the settings screen before this is called, same
