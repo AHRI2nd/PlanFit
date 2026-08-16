@@ -50,6 +50,10 @@ app.*.map.json
 # left alone since they're routine template boilerplate, not project notes.
 /docs/*.md
 
+# Local-only command reference (build/run/simulator commands, paths specific
+# to this machine) — not meant for the public repo either.
+/COMMAND.md
+
 # Secrets and machine-local config — never commit these. android/.gitignore
 # already covers local.properties/key.properties/*.keystore/*.jks for the
 # Android module specifically; these are broader, defense-in-depth patterns
