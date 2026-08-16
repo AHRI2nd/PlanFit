@@ -85,13 +85,20 @@ class EventRepositoryImpl implements EventRepository {
 
     // A failure partway through (e.g. occurrence 50 of 200 hits a constraint
     // error) must not leave the series half-materialized in the DB — either
-    // every occurrence lands or none do.
-    return _dao.transaction(() async {
-      EventRow? first;
+    // every occurrence lands or none do. Only the DB writes happen inside
+    // the transaction, though: notification scheduling and the calendar
+    // push are platform-channel round trips, and holding the single sqlite
+    // writer connection open across up to 200 of those would block every
+    // other write in the app for the duration, and risks an unrelated late
+    // IO hiccup rolling back an otherwise-successful batch. Those side
+    // effects run afterward instead, per row, outside the transaction.
+    final rowsToSync = <EventRow>[];
+    final first = await _dao.transaction(() async {
+      EventRow? firstRow;
       for (var i = 0; i < occurrences.length; i++) {
         final (start, end) = occurrences[i];
         final id = i == 0 ? input.id : _uuid.v4();
-        final row = await _saveSingle(
+        final row = await _upsertRow(
           id: id,
           input: input,
           startAt: start,
@@ -100,10 +107,16 @@ class EventRepositoryImpl implements EventRepository {
           recurrenceGroupId: groupId,
           recurrenceRule: rrule,
         );
-        first ??= row;
+        rowsToSync.add(row);
+        firstRow ??= row;
       }
-      return first!;
+      return firstRow!;
     });
+
+    for (final row in rowsToSync) {
+      await _applySideEffects(row, notify: input.notify);
+    }
+    return (await _dao.findById(first.id)) ?? first;
   }
 
   @override
@@ -120,9 +133,12 @@ class EventRepositoryImpl implements EventRepository {
       return;
     }
 
-    // Only the time-of-day (not the date) and the duration carry across
-    // occurrences — each keeps its own date. Computed once against the
-    // occurrence being edited, then re-applied to every later one.
+    // Time-of-day (not the date) and the duration carry across *future*
+    // occurrences — each of those keeps its own date. The occurrence being
+    // edited is the one exception: it's written exactly as input says,
+    // date included, since that's what the user is looking at when they
+    // choose "this and future" — silently reverting a date change they can
+    // see on screen would contradict the edit they just made.
     final timeOfDayDelta =
         Duration(hours: input.startAt.hour, minutes: input.startAt.minute) -
         Duration(
@@ -133,25 +149,33 @@ class EventRepositoryImpl implements EventRepository {
 
     final occurrences = await _dao.seriesFrom(groupId, existing.startAt);
 
-    // Same all-or-nothing guarantee as the other series-wide operations
-    // (save()'s recurring branch, deleteSeriesFrom()) — a mid-loop failure
-    // shouldn't leave "this and future" half applied.
+    // Same all-or-nothing guarantee (for the DB writes) and same
+    // side-effects-outside-the-transaction reasoning as save()'s recurring
+    // branch above.
+    final rowsToSync = <EventRow>[];
     await _dao.transaction(() async {
       for (final occurrence in occurrences) {
-        final occurrenceDay = DateTime(
-          occurrence.startAt.year,
-          occurrence.startAt.month,
-          occurrence.startAt.day,
-        );
-        final newStart = occurrenceDay.add(
-          Duration(
-                hours: occurrence.startAt.hour,
-                minutes: occurrence.startAt.minute,
-              ) +
-              timeOfDayDelta,
-        );
-        final newEnd = newStart.add(duration);
-        await _saveSingle(
+        final DateTime newStart;
+        final DateTime newEnd;
+        if (occurrence.id == id) {
+          newStart = input.startAt;
+          newEnd = input.endAt;
+        } else {
+          final occurrenceDay = DateTime(
+            occurrence.startAt.year,
+            occurrence.startAt.month,
+            occurrence.startAt.day,
+          );
+          newStart = occurrenceDay.add(
+            Duration(
+                  hours: occurrence.startAt.hour,
+                  minutes: occurrence.startAt.minute,
+                ) +
+                timeOfDayDelta,
+          );
+          newEnd = newStart.add(duration);
+        }
+        final row = await _upsertRow(
           id: occurrence.id,
           input: input,
           startAt: newStart,
@@ -160,16 +184,21 @@ class EventRepositoryImpl implements EventRepository {
           recurrenceGroupId: occurrence.recurrenceGroupId,
           recurrenceRule: occurrence.recurrenceRule,
         );
+        rowsToSync.add(row);
       }
     });
+
+    for (final row in rowsToSync) {
+      await _applySideEffects(row, notify: input.notify);
+    }
   }
 
-  /// Writes one occurrence and keeps its notification and OS-calendar
-  /// linkage in step. Each occurrence of a recurring series is pushed to the
-  /// calendar as its own plain (non-recurring) event — recurring-event
-  /// support is the flakiest part of the calendar-plugin ecosystem, so we
-  /// sidestep it entirely by materializing rows instead of an RRULE.
-  Future<EventRow> _saveSingle({
+  /// Writes one occurrence's row only — no notification/calendar side
+  /// effects. Batch callers ([save]'s recurring branch, [saveSeriesFrom])
+  /// use this inside their transaction and run [_applySideEffects]
+  /// afterward, per row; single-occurrence callers go through [_saveSingle]
+  /// instead, which does both in sequence.
+  Future<EventRow> _upsertRow({
     required String id,
     required EventInput input,
     required DateTime startAt,
@@ -208,26 +237,27 @@ class EventRepositoryImpl implements EventRepository {
       ),
     );
 
-    var row = (await _dao.findById(id))!;
+    return (await _dao.findById(id))!;
+  }
 
-    // Notification: schedule when opted-in — scheduleForEvent judges each of
-    // the event's (possibly several, see EventAlertX.reminderOffsets)
-    // reminders on its own, only actually arming the ones that are still in
-    // the future and within the near-term scheduling window (see
-    // notificationSchedulingWindow's doc; CalendarReconciler's refill picks
-    // up anything further out once it rolls inside that window). Otherwise
-    // clear every one of them.
-    if (input.notify) {
-      await _notifications.scheduleForEvent(row);
-    } else {
-      await _notifications.cancelForEvent(id);
+  /// Notification scheduling and the OS-calendar push for one already-
+  /// written row. Both are best-effort: the local save already succeeded,
+  /// so a failure here (permission revoked between check and call, a
+  /// transient plugin error, ...) must not surface as a save failure to the
+  /// caller — CalendarReconciler retries the calendar push on the next
+  /// foreground resume, and the notification refill picks up anything that
+  /// didn't get scheduled.
+  Future<void> _applySideEffects(EventRow row, {required bool notify}) async {
+    try {
+      if (notify) {
+        await _notifications.scheduleForEvent(row);
+      } else {
+        await _notifications.cancelForEvent(row.id);
+      }
+    } on Exception {
+      // See doc comment above.
     }
 
-    // Push through to the OS calendar when sync is enabled. Best-effort: the
-    // local save above already succeeded, so a calendar-side failure (e.g.
-    // permission revoked, a transient plugin error) must not surface as a
-    // save failure to the caller — syncStatus stays pendingPush and
-    // CalendarReconciler retries it on the next foreground resume.
     if (_calendar.isEnabled) {
       try {
         final osEventId = await _calendar.pushEvent(row);
@@ -240,14 +270,38 @@ class EventRepositoryImpl implements EventRepository {
               syncStatus: const Value(SyncStatus.synced),
             ),
           );
-          row = (await _dao.findById(row.id))!;
         }
       } on Exception {
-        // See comment above — swallow and let the reconciler retry.
+        // See doc comment above.
       }
     }
+  }
 
-    return row;
+  /// Writes one occurrence and keeps its notification and OS-calendar
+  /// linkage in step. Each occurrence of a recurring series is pushed to the
+  /// calendar as its own plain (non-recurring) event — recurring-event
+  /// support is the flakiest part of the calendar-plugin ecosystem, so we
+  /// sidestep it entirely by materializing rows instead of an RRULE.
+  Future<EventRow> _saveSingle({
+    required String id,
+    required EventInput input,
+    required DateTime startAt,
+    required DateTime endAt,
+    required EventRow? existing,
+    String? recurrenceGroupId,
+    String? recurrenceRule,
+  }) async {
+    final row = await _upsertRow(
+      id: id,
+      input: input,
+      startAt: startAt,
+      endAt: endAt,
+      existing: existing,
+      recurrenceGroupId: recurrenceGroupId,
+      recurrenceRule: recurrenceRule,
+    );
+    await _applySideEffects(row, notify: input.notify);
+    return (await _dao.findById(id)) ?? row;
   }
 
   @override
@@ -280,15 +334,28 @@ class EventRepositoryImpl implements EventRepository {
       return;
     }
 
-    // Same all-or-nothing guarantee as the recurring save path (see save()):
-    // a mid-loop failure shouldn't leave "delete this and future" half
-    // applied. delete() itself is now resilient to calendar-side failures
-    // (see its comment), so this is mainly defense against a DB-level
-    // problem partway through — but costs nothing to guarantee either way.
     final rows = await _dao.seriesFrom(groupId, row.startAt);
+
+    // Side effects (best-effort, same reasoning as delete()) run first,
+    // outside the transaction — a platform-channel round trip per row must
+    // not hold the single sqlite writer connection open for the whole loop.
+    for (final r in rows) {
+      await _notifications.cancelForEvent(r.id);
+      if (_calendar.isEnabled && r.osEventId != null) {
+        try {
+          await _calendar.deleteEvent(r);
+        } on Exception {
+          // Nothing to reconcile after this — the row is gone either way.
+        }
+      }
+    }
+
+    // Same all-or-nothing guarantee as the recurring save path (see save()):
+    // a mid-loop DB failure shouldn't leave "delete this and future" half
+    // applied.
     await _dao.transaction(() async {
       for (final r in rows) {
-        await delete(r.id);
+        await _dao.deleteById(r.id);
       }
     });
   }
@@ -321,13 +388,7 @@ class EventRepositoryImpl implements EventRepository {
       ),
     );
 
-    // See the equivalent comment in _saveSingle above — scheduleForEvent
-    // judges each reminder offset on its own.
     final restored = (await _dao.findById(row.id))!;
-    if (restored.notify) {
-      await _notifications.scheduleForEvent(restored);
-    } else {
-      await _notifications.cancelForEvent(row.id);
-    }
+    await _applySideEffects(restored, notify: restored.notify);
   }
 }

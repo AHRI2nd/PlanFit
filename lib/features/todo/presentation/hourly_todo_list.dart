@@ -130,6 +130,13 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
       _addRecurrence = RecurrenceFrequency.none;
       _addHasTime = true;
       _addPriority = TodoPriority.none;
+      // This widget instance is reused (no key at either DayView call site)
+      // when the selected day changes, so any selection made on the
+      // previous day must be cleared here too — otherwise the toolbar stays
+      // open and a bulk action would silently complete/delete a to-do that
+      // belongs to a day no longer even visible on screen.
+      _selectionMode = false;
+      _selectedIds.clear();
     }
   }
 

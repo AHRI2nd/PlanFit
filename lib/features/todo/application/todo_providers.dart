@@ -106,13 +106,19 @@ class TodoController {
   }) async {
     final dao = _ref.read(todoDaoProvider);
     final effectiveNotify = notify ?? hasTime;
+    // No-time to-dos must all share the same slotStart clock time (midnight)
+    // within a day — see TodoDao.clearTime's doc for why: watchBetween's
+    // ORDER BY sorts by slotStart ahead of sortOrder, so leaving whatever
+    // clock time the (unused) time picker happened to show would silently
+    // break manual drag reorder for that day's no-time bucket.
+    final effectiveSlotStart = hasTime ? slotStart : dateOnly(slotStart);
     if (frequency == RecurrenceFrequency.none) {
       final id = _uuid.v4();
       await dao.upsert(
         TodoItemsCompanion(
           id: Value(id),
           title: Value(title),
-          slotStart: Value(slotStart),
+          slotStart: Value(effectiveSlotStart),
           hasTime: Value(hasTime),
           priority: Value(priority),
           tags: Value(tags),
@@ -124,10 +130,11 @@ class TodoController {
     }
 
     final groupId = _uuid.v4();
-    final until = recurrenceUntil ?? slotStart.add(const Duration(days: 365));
+    final until =
+        recurrenceUntil ?? effectiveSlotStart.add(const Duration(days: 365));
     final occurrences = RecurrenceExpansion.occurrences(
-      start: slotStart,
-      end: slotStart,
+      start: effectiveSlotStart,
+      end: effectiveSlotStart,
       frequency: frequency,
       until: until,
     );

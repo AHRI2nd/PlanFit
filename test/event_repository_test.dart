@@ -487,6 +487,73 @@ void main() {
       expect(store['occ-3']!.startAt, DateTime(2026, 8, 17, 10));
       expect(store['occ-3']!.endAt, DateTime(2026, 8, 17, 10, 30));
     });
+
+    test(
+      'a date change on the occurrence being edited is honored exactly, '
+      'not silently reverted to its original date — future occurrences '
+      'still keep their own date (only the time-of-day delta carries)',
+      () async {
+        final occ2Start = DateTime(2026, 8, 10, 9); // edited: moved a day
+        final occ3Start = DateTime(2026, 8, 17, 9); // future, untouched date
+
+        final store = <String, EventRow>{
+          'occ-2': row(
+            id: 'occ-2',
+            title: 'Standup',
+            startAt: occ2Start,
+            endAt: occ2Start.add(const Duration(hours: 1)),
+            recurrenceGroupId: 'group-x',
+            recurrenceRule: 'FREQ=WEEKLY;UNTIL=20261231T000000Z',
+          ),
+          'occ-3': row(
+            id: 'occ-3',
+            title: 'Standup',
+            startAt: occ3Start,
+            endAt: occ3Start.add(const Duration(hours: 1)),
+            recurrenceGroupId: 'group-x',
+            recurrenceRule: 'FREQ=WEEKLY;UNTIL=20261231T000000Z',
+          ),
+        };
+        when(dao.findById(any)).thenAnswer(
+          (inv) async => store[inv.positionalArguments[0] as String],
+        );
+        when(dao.upsert(any)).thenAnswer((inv) async {
+          final c = inv.positionalArguments[0] as EventsCompanion;
+          final prior = store[c.id.value]!;
+          store[c.id.value] = row(
+            id: c.id.value,
+            title: c.title.value,
+            startAt: c.startAt.value,
+            endAt: c.endAt.value,
+            recurrenceGroupId: c.recurrenceGroupId.value,
+            recurrenceRule: c.recurrenceRule.value,
+            syncStatus: c.syncStatus.value,
+            osEventId: prior.osEventId,
+          );
+        });
+        when(
+          dao.seriesFrom('group-x', occ2Start),
+        ).thenAnswer((_) async => [store['occ-2']!, store['occ-3']!]);
+
+        // Same time-of-day (9:00), but moved from Aug 10 to Aug 11.
+        final newStart = DateTime(2026, 8, 11, 9);
+        final newEnd = newStart.add(const Duration(hours: 1));
+        await repo.saveSeriesFrom(
+          'occ-2',
+          EventInput(id: 'occ-2', title: 'Standup', startAt: newStart, endAt: newEnd),
+        );
+
+        // The edited occurrence gets exactly the date the user set — not
+        // silently reverted to Aug 10 because the time-of-day delta was 0.
+        expect(store['occ-2']!.startAt, DateTime(2026, 8, 11, 9));
+        expect(store['occ-2']!.endAt, DateTime(2026, 8, 11, 10));
+
+        // occ-3 is genuinely in the future (not the occurrence being
+        // edited): it keeps its own Aug 17 date, since the time-of-day
+        // delta between the edit and the original occ-2 time is zero.
+        expect(store['occ-3']!.startAt, DateTime(2026, 8, 17, 9));
+      },
+    );
   });
 
   group('save — OS calendar push', () {

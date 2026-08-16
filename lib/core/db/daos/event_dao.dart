@@ -40,7 +40,7 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   /// Next [limit] events starting at or after [from].
   Stream<List<EventRow>> watchUpcoming(DateTime from, {int limit = 5}) {
     return (select(events)
-          ..where((t) => t.endAt.isBiggerOrEqualValue(from))
+          ..where((t) => t.startAt.isBiggerOrEqualValue(from))
           ..orderBy([(t) => OrderingTerm(expression: t.startAt)])
           ..limit(limit))
         .watch();

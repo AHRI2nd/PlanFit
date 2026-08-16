@@ -71,6 +71,41 @@ void main() {
     });
   });
 
+  group('EventDao.watchUpcoming', () {
+    test(
+      'only counts events starting at or after "from", not merely still '
+      'ongoing — an already-started multi-day event must not push a '
+      'genuinely upcoming one out of a capped result',
+      () async {
+        final now = DateTime(2026, 3, 10, 12);
+        // Started yesterday, still ongoing (ends well after "now").
+        await db.eventDao.upsert(
+          event(
+            id: 'ongoing-trip',
+            startAt: now.subtract(const Duration(days: 1)),
+            endAt: now.add(const Duration(days: 2)),
+          ),
+        );
+        for (var i = 1; i <= 4; i++) {
+          await db.eventDao.upsert(
+            event(
+              id: 'upcoming-$i',
+              startAt: now.add(Duration(hours: i)),
+              endAt: now.add(Duration(hours: i + 1)),
+            ),
+          );
+        }
+
+        final result = await db.eventDao.watchUpcoming(now, limit: 4).first;
+
+        expect(
+          result.map((e) => e.id).toList(),
+          ['upcoming-1', 'upcoming-2', 'upcoming-3', 'upcoming-4'],
+        );
+      },
+    );
+  });
+
   group('TodoDao.search', () {
     TodoItemsCompanion todo({required String id, required String title}) {
       return TodoItemsCompanion.insert(
@@ -430,25 +465,63 @@ void main() {
       },
     );
 
-    test('clearTime turns hasTime off without changing the date', () async {
-      final start = day.add(const Duration(hours: 9));
-      await db.todoDao.upsert(
-        TodoItemsCompanion.insert(
-          id: 'c1',
-          title: const Value('Standup'),
-          slotStart: start,
-        ),
-      );
+    test(
+      'clearTime turns hasTime off, keeps the date, but normalizes the '
+      'time-of-day to midnight',
+      () async {
+        final start = day.add(const Duration(hours: 9));
+        await db.todoDao.upsert(
+          TodoItemsCompanion.insert(
+            id: 'c1',
+            title: const Value('Standup'),
+            slotStart: start,
+          ),
+        );
 
-      await db.todoDao.clearTime('c1');
+        await db.todoDao.clearTime('c1');
 
-      final row = (await db.todoDao.between(
-        day,
-        day.add(const Duration(days: 1)),
-      )).single;
-      expect(row.hasTime, isFalse);
-      expect(row.slotStart, start);
-    });
+        final row = (await db.todoDao.between(
+          day,
+          day.add(const Duration(days: 1)),
+        )).single;
+        expect(row.hasTime, isFalse);
+        // Normalized to that day's midnight, not left at 9am — every
+        // no-time to-do on the same day must share the exact same
+        // slotStart, since watchBetween's ORDER BY sorts by slotStart ahead
+        // of sortOrder (see TodoDao.clearTime's doc).
+        expect(row.slotStart, day);
+      },
+    );
+
+    test(
+      'two no-time to-dos cleared from different original times sort by '
+      'sortOrder, not by their old slotStart',
+      () async {
+        await db.todoDao.upsert(
+          TodoItemsCompanion.insert(
+            id: 'late',
+            title: const Value('Cleared from 2pm'),
+            slotStart: day.add(const Duration(hours: 14)),
+            sortOrder: const Value(0),
+          ),
+        );
+        await db.todoDao.upsert(
+          TodoItemsCompanion.insert(
+            id: 'early',
+            title: const Value('Cleared from 9am'),
+            slotStart: day.add(const Duration(hours: 9)),
+            sortOrder: const Value(1),
+          ),
+        );
+        await db.todoDao.clearTime('late');
+        await db.todoDao.clearTime('early');
+
+        final rows = await db.todoDao
+            .watchBetween(day, day.add(const Duration(days: 1)))
+            .first;
+        expect(rows.map((r) => r.id).toList(), ['late', 'early']);
+      },
+    );
   });
 
   group('TodoDao series delete + restore (undo mechanics)', () {

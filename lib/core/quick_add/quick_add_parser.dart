@@ -58,6 +58,19 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
     return replaced;
   }
 
+  // --- Tags: #업무 #급함 — any number, order preserved. Stripped out first,
+  // before any date/time phrase is matched, so a tag whose text happens to
+  // contain a date/time word (e.g. "#내일신문") can't have that word torn out
+  // from inside the tag by the parsers below — that left the tag emptied
+  // (dropped entirely, since `#` followed by whitespace no longer matches
+  // the tag pattern) while wrongly setting the date/time anyway. ---
+  final tags = [
+    for (final m in RegExp(r'#(\S+)').allMatches(text)) m.group(1)!,
+  ];
+  if (tags.isNotEmpty) {
+    text = text.replaceAll(RegExp(r'#\S+'), ' ');
+  }
+
   // --- Relative day: 오늘/내일/모레, today/tomorrow ---
   final relative = RegExp(
     r'(오늘|내일|모레|today|tomorrow)',
@@ -136,7 +149,10 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
   // --- Time: (오전|오후|아침|저녁|밤) N시(반| N분)? ---
   if (time == null) {
     final koTime = RegExp(
-      r'(오전|오후|아침|저녁|밤)\s?(\d{1,2})시\s?(반|\d{1,2}분)?',
+      // (?!간) so "시" isn't matched as an hour marker when it's actually
+      // the start of "시간" (a duration word, "N hours") — e.g. "오후 3시간
+      // 후" ("in 3 hours, PM-ish phrasing") must not be read as 3:00 PM.
+      r'(오전|오후|아침|저녁|밤)\s?(\d{1,2})시(?!간)\s?(반|\d{1,2}분)?',
     ).firstMatch(text);
     if (koTime != null) {
       final isPm =
@@ -160,7 +176,9 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
 
   // --- Time: 24-hour bare "N시" where N >= 13 (unambiguous) ---
   if (time == null) {
-    final h24 = RegExp(r'(\d{1,2})시\s?(\d{1,2}분)?').firstMatch(text);
+    // (?!간) — see the comment on the koTime regex above: without it, "18시
+    // 간" would misparse "18시간" ("18 hours", a duration) as 18:00.
+    final h24 = RegExp(r'(\d{1,2})시(?!간)\s?(\d{1,2}분)?').firstMatch(text);
     if (h24 != null) {
       final hour = int.parse(h24.group(1)!);
       if (hour >= 13 && hour <= 23) {
@@ -189,17 +207,6 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
         text = strip(enTime);
       }
     }
-  }
-
-  // --- Tags: #업무 #급함 — any number, order preserved. Matched before
-  // priority so a tag that happens to contain "!" text isn't mistaken for a
-  // priority marker (moot with today's word list, but keeps the ordering
-  // intentional rather than accidental). ---
-  final tags = [
-    for (final m in RegExp(r'#(\S+)').allMatches(text)) m.group(1)!,
-  ];
-  if (tags.isNotEmpty) {
-    text = text.replaceAll(RegExp(r'#\S+'), ' ');
   }
 
   // --- Priority: !낮음/!low, !보통/!medium, !높음/!high ---

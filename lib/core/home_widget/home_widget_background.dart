@@ -2,7 +2,9 @@ import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 
 import '../../features/schedule/application/schedule_providers.dart'
     show dateOnly;
+import '../../features/todo/domain/todo_notification_sync.dart';
 import '../db/app_database.dart';
+import '../notifications/notification_service.dart';
 import 'home_widget_sync.dart';
 
 /// Runs two kinds of HomeScreen widget background work — registered once
@@ -46,7 +48,20 @@ Future<void> homeWidgetBackgroundCallback(Uri? uri) async {
       // and the tap landing — nothing to toggle, but still worth falling
       // through to refresh in case the deletion itself hasn't been pushed
       // to the widget yet.
-      if (todo != null) await db.todoDao.setDone(id, !todo.isDone);
+      if (todo != null) {
+        await db.todoDao.setDone(id, !todo.isDone);
+        // Every other place that can flip isDone (TodoController.toggle)
+        // keeps the due-time reminder in step — marking done here cancels
+        // it too, so a to-do checked off from the widget doesn't still fire
+        // a "you forgot this" alert for something already done. Fresh
+        // NotificationService instance, same as this whole callback getting
+        // its own fresh AppDatabase — nothing survives between invocations
+        // of a headless background isolate.
+        final updated = await db.todoDao.findById(id);
+        if (updated != null) {
+          await syncTodoNotification(NotificationService(), updated);
+        }
+      }
     } else if (uri.host != 'refresh-widget') {
       return;
     }

@@ -65,13 +65,27 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
         ),
       );
 
-  /// Clears the time-of-day, keeping the to-do on the same day (its date
-  /// half of [TodoItems.slotStart] is untouched) but moving it into that
-  /// day's "no time" group.
-  Future<void> clearTime(String id) =>
-      (update(todoItems)..where((t) => t.id.equals(id))).write(
-        const TodoItemsCompanion(hasTime: Value(false)),
-      );
+  /// Clears the time-of-day, keeping the to-do on the same day but moving it
+  /// into that day's "no time" group — and normalizes [TodoItems.slotStart]
+  /// down to that day's midnight rather than leaving whatever clock time it
+  /// had before. [watchBetween]'s ORDER BY sorts by `hasTime`, then
+  /// `slotStart`, then `sortOrder`: without this, two no-time to-dos that
+  /// happened to have different slotStart clock times (e.g. one cleared from
+  /// 9am, one from 2pm) would keep those as an invisible sort key ahead of
+  /// `sortOrder`, silently breaking manual drag reorder within that day's
+  /// no-time bucket.
+  Future<void> clearTime(String id) async {
+    final existing = await findById(id);
+    if (existing == null) return;
+    final day = DateTime(
+      existing.slotStart.year,
+      existing.slotStart.month,
+      existing.slotStart.day,
+    );
+    await (update(todoItems)..where((t) => t.id.equals(id))).write(
+      TodoItemsCompanion(hasTime: const Value(false), slotStart: Value(day)),
+    );
+  }
 
   Future<void> deleteById(String id) =>
       (delete(todoItems)..where((t) => t.id.equals(id))).go();

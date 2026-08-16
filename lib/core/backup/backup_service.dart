@@ -86,38 +86,49 @@ class BackupService {
     final todosJson = (json['todos'] as List?) ?? const [];
     final subtasksJson = (json['todoSubtasks'] as List?) ?? const [];
 
-    final knownEventIds = <String>{};
-    for (final e in eventsJson) {
-      final row = _eventFromJson(e as Map<String, dynamic>);
+    // Parse every record *before* writing anything. A single malformed
+    // field (a hand-edited file, corruption, a future schema version with a
+    // renamed field) must fail the whole import cleanly — not throw partway
+    // through the write loops below, leaving some rows already overwritten
+    // in the DB and others not, silently merged into existing data behind a
+    // generic "복원 실패" toast that gives no hint a partial write happened.
+    final events = [
+      for (final e in eventsJson) _eventFromJson(e as Map<String, dynamic>),
+    ];
+    final knownEventIds = events.map((e) => e.id).toSet();
+    final todoCompanions = [
+      for (final t in todosJson)
+        _todoFromCompanion(t as Map<String, dynamic>, knownEventIds),
+    ];
+    final knownTodoIds = todoCompanions.map((c) => c.id.value).toSet();
+    // Guards against a hand-edited or corrupted backup referencing a to-do
+    // that never made it into todosJson — same defensive dropping
+    // knownEventIds gets above for a to-do's dangling eventId.
+    final subtaskCompanions = [
+      for (final s in subtasksJson)
+        if (knownTodoIds.contains(
+          (s as Map<String, dynamic>)['todoId'] as String?,
+        ))
+          _subtaskFromJson(s),
+    ];
+
+    for (final row in events) {
       await eventRepository.restoreEvent(row);
-      knownEventIds.add(row.id);
     }
-    final knownTodoIds = <String>{};
-    for (final t in todosJson) {
-      final companion = _todoFromCompanion(
-        t as Map<String, dynamic>,
-        knownEventIds,
-      );
+    for (final companion in todoCompanions) {
       await todoDao.upsert(companion);
-      knownTodoIds.add(companion.id.value);
       final restored = await todoDao.findById(companion.id.value);
       if (restored != null) {
         await syncTodoNotification(notifications, restored);
       }
     }
-    // Guards against a hand-edited or corrupted backup referencing a to-do
-    // that never made it into todosJson — same defensive dropping
-    // knownEventIds does above for a to-do's dangling eventId.
-    for (final s in subtasksJson) {
-      final j = s as Map<String, dynamic>;
-      final todoId = j['todoId'] as String?;
-      if (todoId == null || !knownTodoIds.contains(todoId)) continue;
-      await todoDao.upsertSubtask(_subtaskFromJson(j));
+    for (final companion in subtaskCompanions) {
+      await todoDao.upsertSubtask(companion);
     }
 
     return BackupImportSummary(
-      eventCount: eventsJson.length,
-      todoCount: todosJson.length,
+      eventCount: events.length,
+      todoCount: todoCompanions.length,
     );
   }
 
