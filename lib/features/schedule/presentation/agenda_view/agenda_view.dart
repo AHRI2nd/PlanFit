@@ -8,6 +8,7 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
+import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/agenda_grouping.dart';
@@ -74,7 +75,7 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
     }
     if (mounted) _exitSelection();
 
-    messenger.showSnackBar(
+    messenger.showAutoDismissSnackBar(
       SnackBar(
         content: Text(l10n.eventSelectionDeleted(removed.length)),
         action: SnackBarAction(

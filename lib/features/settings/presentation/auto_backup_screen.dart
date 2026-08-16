@@ -7,6 +7,7 @@ import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 
 /// Lists PlanFit's own rolling automatic backups (see [AutoBackupService])
@@ -56,15 +57,16 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
       final summary =
           await ref.read(backupServiceProvider).importFromFile(file.path);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
+      messenger.showAutoDismissSnackBar(SnackBar(
         content: Text(
           l10n.backupImportSuccess(summary.eventCount, summary.todoCount),
         ),
       ));
     } catch (_) {
       if (!mounted) return;
-      messenger
-          .showSnackBar(SnackBar(content: Text(l10n.backupImportFailed)));
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.backupImportFailed)),
+      );
     } finally {
       if (mounted) setState(() => _restoring = false);
     }

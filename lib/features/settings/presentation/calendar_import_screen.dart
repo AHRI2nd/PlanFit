@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
 
@@ -61,13 +62,14 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
                 to: DateTime.now().add(const Duration(days: 365)),
               );
       if (!mounted) return;
-      messenger.showSnackBar(
+      messenger.showAutoDismissSnackBar(
         SnackBar(content: Text(l10n.calendarImportSuccess(count))),
       );
     } catch (_) {
       if (!mounted) return;
-      messenger
-          .showSnackBar(SnackBar(content: Text(l10n.calendarImportFailed)));
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.calendarImportFailed)),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -84,7 +86,7 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
           .setCalendarSubscribed(calendarId, subscribed);
     } catch (_) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
+      messenger.showAutoDismissSnackBar(SnackBar(
         content: Text(AppL10n.of(context).calendarImportFailed),
       ));
     } finally {

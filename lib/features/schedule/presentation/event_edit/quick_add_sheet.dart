@@ -6,6 +6,7 @@ import '../../../../core/format.dart';
 import '../../../../core/quick_add/quick_add_parser.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
+import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/event_input.dart';
 
@@ -69,7 +70,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
           ));
       if (!mounted) return;
       navigator.pop();
-      messenger.showSnackBar(SnackBar(
+      messenger.showAutoDismissSnackBar(SnackBar(
         content: Text(l10n.quickAddEventCreated(
           title,
           Fmt.monthDay(day, locale),

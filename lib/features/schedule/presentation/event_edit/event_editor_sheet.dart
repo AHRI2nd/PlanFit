@@ -12,6 +12,7 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/multi_chip_row.dart';
+import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/event_input.dart';
@@ -406,7 +407,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     if (!mounted) return;
     navigator.pop();
     if (truncated) {
-      messenger.showSnackBar(
+      messenger.showAutoDismissSnackBar(
         SnackBar(content: Text(l10n.eventRecurrenceTruncated)),
       );
     }
@@ -441,7 +442,9 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
       );
     } catch (_) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(l10n.eventShareFailed)));
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.eventShareFailed)),
+      );
     }
   }
 
@@ -529,7 +532,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     }
     if (!mounted) return;
     navigator.pop();
-    messenger.showSnackBar(SnackBar(content: Text(l10n.eventDeleted)));
+    messenger.showAutoDismissSnackBar(SnackBar(content: Text(l10n.eventDeleted)));
   }
 
   @override
@@ -909,7 +912,7 @@ class _TemplatePickerSheet extends ConsumerWidget {
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(l10n.templatesNameRequired)));
+      ).showAutoDismissSnackBar(SnackBar(content: Text(l10n.templatesNameRequired)));
       return;
     }
     final snap = currentSnapshot();
@@ -931,7 +934,7 @@ class _TemplatePickerSheet extends ConsumerWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(l10n.templatesSaved)));
+      ).showAutoDismissSnackBar(SnackBar(content: Text(l10n.templatesSaved)));
     }
   }
 
@@ -1014,7 +1017,9 @@ class _TemplatePickerSheet extends ConsumerWidget {
                               ref
                                   .read(eventTemplateDaoProvider)
                                   .deleteById(t.id);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showAutoDismissSnackBar(
                                 SnackBar(content: Text(l10n.templatesDeleted)),
                               );
                             },

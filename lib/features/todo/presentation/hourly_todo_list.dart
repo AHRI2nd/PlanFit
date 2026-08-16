@@ -5,6 +5,7 @@ import '../../../core/db/app_database.dart';
 import '../../../core/quick_add/quick_add_parser.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/domain/recurrence.dart';
@@ -98,7 +99,7 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
     }
     if (mounted) _exitSelection();
 
-    messenger.showSnackBar(
+    messenger.showAutoDismissSnackBar(
       SnackBar(
         content: Text(l10n.todoSelectionDeleted(removed.length)),
         action: SnackBarAction(
@@ -205,7 +206,7 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
 
     if (parsed.date != null &&
         !dateOnly(base).isAtSameMomentAs(dateOnly(widget.day))) {
-      messenger.showSnackBar(
+      messenger.showAutoDismissSnackBar(
         SnackBar(
           content: Text(
             l10n.todoQuickAddAddedToOtherDay(Fmt.monthDay(base, locale)),
@@ -538,7 +539,7 @@ class _TodoTile extends ConsumerWidget {
           : await controller.remove(todo.id);
     }
 
-    messenger.showSnackBar(
+    messenger.showAutoDismissSnackBar(
       SnackBar(
         content: Text(l10n.todoDeleted),
         action: SnackBarAction(

@@ -10,6 +10,7 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
+import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../application/schedule_providers.dart';
 import '../../../todo/presentation/hourly_todo_list.dart';
@@ -430,7 +431,7 @@ class _EventCard extends ConsumerWidget {
     final repo = ref.read(eventRepositoryProvider);
     final removed = event;
     await repo.delete(removed.id);
-    messenger.showSnackBar(SnackBar(
+    messenger.showAutoDismissSnackBar(SnackBar(
       content: Text(l10n.eventDeleted),
       action: SnackBarAction(
         label: l10n.eventUndo,

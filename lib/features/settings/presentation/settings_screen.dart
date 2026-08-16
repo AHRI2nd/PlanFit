@@ -10,6 +10,7 @@ import '../../../design/glass/glass_surface.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/section_header.dart';
+import '../../../design/widgets/snackbar_x.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -68,7 +69,7 @@ class SettingsScreen extends ConsumerWidget {
           ShareParams(files: [XFile(file.path)], subject: 'PlanFit backup'),
         );
       } catch (_) {
-        messenger.showSnackBar(
+        messenger.showAutoDismissSnackBar(
           SnackBar(content: Text(l10n.backupExportFailed)),
         );
       }
@@ -84,7 +85,7 @@ class SettingsScreen extends ConsumerWidget {
         final summary = await ref
             .read(backupServiceProvider)
             .importFromFile(path);
-        messenger.showSnackBar(
+        messenger.showAutoDismissSnackBar(
           SnackBar(
             content: Text(
               l10n.backupImportSuccess(summary.eventCount, summary.todoCount),
@@ -92,7 +93,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         );
       } catch (_) {
-        messenger.showSnackBar(
+        messenger.showAutoDismissSnackBar(
           SnackBar(content: Text(l10n.backupImportFailed)),
         );
       }
@@ -106,7 +107,7 @@ class SettingsScreen extends ConsumerWidget {
           ShareParams(files: [XFile(file.path)], subject: 'PlanFit calendar'),
         );
       } catch (_) {
-        messenger.showSnackBar(
+        messenger.showAutoDismissSnackBar(
           SnackBar(content: Text(l10n.backupExportFailed)),
         );
       }
@@ -126,9 +127,9 @@ class SettingsScreen extends ConsumerWidget {
             ? l10n.icsImportSuccess(summary.eventCount)
             : '${l10n.icsImportSuccess(summary.eventCount)} '
                   '(${l10n.icsImportSkipped(summary.skippedCount)})';
-        messenger.showSnackBar(SnackBar(content: Text(message)));
+        messenger.showAutoDismissSnackBar(SnackBar(content: Text(message)));
       } catch (_) {
-        messenger.showSnackBar(SnackBar(content: Text(l10n.icsImportFailed)));
+        messenger.showAutoDismissSnackBar(SnackBar(content: Text(l10n.icsImportFailed)));
       }
     }
 
