@@ -58,9 +58,10 @@ class CalendarImportService {
   }) async {
     final events =
         await calendarService.listEvents(calendarId, from: from, to: to);
+    final colorHex = await _colorHexOf(calendarId);
     await eventDao.transaction(() async {
       for (final e in events) {
-        await _upsertMirrorRow(calendarId, e);
+        await _upsertMirrorRow(calendarId, e, colorHex);
       }
     });
     return events.length;
@@ -76,6 +77,7 @@ class CalendarImportService {
     required DateTime from,
     required DateTime to,
   }) async {
+    final colorByCalendar = await _colorHexByCalendar(calendarIds);
     for (final calendarId in calendarIds) {
       final events =
           await calendarService.listEvents(calendarId, from: from, to: to);
@@ -83,7 +85,7 @@ class CalendarImportService {
 
       await eventDao.transaction(() async {
         for (final e in events) {
-          await _upsertMirrorRow(calendarId, e);
+          await _upsertMirrorRow(calendarId, e, colorByCalendar[calendarId]);
         }
         final existingMirrors =
             await eventDao.mirroredFrom(calendarId, from, to);
@@ -114,7 +116,42 @@ class CalendarImportService {
     });
   }
 
-  Future<void> _upsertMirrorRow(String calendarId, Event e) async {
+  /// [calendarId]'s own OS color, if it has one — looked up once per
+  /// [importFrom] call rather than per event.
+  Future<String?> _colorHexOf(String calendarId) async {
+    final calendars = await calendarService.allCalendars();
+    for (final c in calendars) {
+      if (c.id == calendarId) return c.colorHex;
+    }
+    return null;
+  }
+
+  /// Batched counterpart to [_colorHexOf] for [syncMirroredCalendars],
+  /// which mirrors several calendars per pass — one [availableCalendars]
+  /// call covers all of them instead of one per calendar.
+  Future<Map<String, String?>> _colorHexByCalendar(
+    Set<String> calendarIds,
+  ) async {
+    final calendars = await calendarService.allCalendars();
+    final colors = <String, String?>{for (final id in calendarIds) id: null};
+    for (final c in calendars) {
+      if (colors.containsKey(c.id)) colors[c.id] = c.colorHex;
+    }
+    return colors;
+  }
+
+  /// [colorHex] is [calendarId]'s own OS color (`#RRGGBB`, straight from
+  /// [_colorHexOf]/[_colorHexByCalendar]) — stored as-is in
+  /// [Events.colorTag], which already accepts a hex string alongside its
+  /// preset tag names (see [EventColorTag]'s doc). Without this, a mirrored
+  /// row's `colorTag` was always left null, so every imported event fell
+  /// back to [EventColorTag.resolve]'s generic time-of-day gradient instead
+  /// of reading as belonging to the calendar it actually came from.
+  Future<void> _upsertMirrorRow(
+    String calendarId,
+    Event e,
+    String? colorHex,
+  ) async {
     final existing =
         await eventDao.findByImportSource(calendarId, e.instanceId);
     final now = DateTime.now();
@@ -127,6 +164,7 @@ class CalendarImportService {
       endAt: Value(e.endDate),
       isAllDay: Value(e.isAllDay),
       notify: const Value(false),
+      colorTag: Value(colorHex),
       syncStatus: const Value(SyncStatus.synced),
       importSourceCalendarId: Value(calendarId),
       importSourceEventId: Value(e.instanceId),

@@ -356,6 +356,38 @@ void main() {
     );
 
     test(
+      'on — the imported event is tagged with the target calendar\'s own '
+      'OS color, not left to fall back to the generic gradient',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        when(service.autoImportEnabled).thenReturn(true);
+        when(service.targetCalendarId).thenReturn('cal-1');
+        when(service.writableCalendars()).thenAnswer((_) async => [
+              const dc.Calendar(
+                id: 'cal-1',
+                name: 'PlanFit',
+                colorHex: '#4B5FD6',
+                readOnly: false,
+              ),
+            ]);
+        final now = DateTime(2026, 1, 1);
+        final start = now.add(const Duration(days: 2));
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => []);
+        when(service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')))
+            .thenAnswer((_) async => [osEvent(eventId: 'os-new', start: start)]);
+        when(dao.upsert(any)).thenAnswer((_) async {});
+        when(syncLogDao.add(any)).thenAnswer((_) async {});
+
+        await reconciler.reconcile(now: now);
+
+        final captured =
+            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+        expect(captured.colorTag.value, '#4B5FD6');
+      },
+    );
+
+    test(
       'on — an OS event already linked to a local row is not re-imported',
       () async {
         when(service.isEnabled).thenReturn(true);
@@ -398,6 +430,7 @@ void main() {
               const dc.Calendar(
                 id: 'cal-default',
                 name: 'Calendar',
+                colorHex: '#EA4335',
                 readOnly: false,
                 isPrimary: true,
               ),
@@ -422,6 +455,9 @@ void main() {
         expect(captured.title.value, '밥먹기');
         expect(captured.osEventId.value, 'os-default');
         expect(captured.osCalendarId.value, 'cal-1');
+        // Tagged with the primary calendar's own color, not left null to
+        // fall back to the generic time-of-day gradient.
+        expect(captured.colorTag.value, '#EA4335');
       },
     );
 

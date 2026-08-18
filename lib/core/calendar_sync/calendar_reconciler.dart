@@ -155,15 +155,15 @@ class CalendarReconciler {
     //    (see _autoImportCalendarIds's doc on why it's not just the target
     //    calendar) and materialize anything not already linked.
     if (_service.autoImportEnabled) {
-      final calendarIds = await _autoImportCalendarIds();
+      final calendarColors = await _autoImportCalendarColors();
       final linkedOsIds =
           linked.map((r) => r.osEventId).whereType<String>().toSet();
-      for (final calendarId in calendarIds) {
+      for (final entry in calendarColors.entries) {
         final osEvents =
-            await _service.listEvents(calendarId, from: from, to: to);
+            await _service.listEvents(entry.key, from: from, to: to);
         for (final osEvent in osEvents) {
           if (linkedOsIds.contains(osEvent.eventId)) continue;
-          await _importNewEvent(osEvent, at);
+          await _importNewEvent(osEvent, at, entry.value);
           changes++;
         }
       }
@@ -172,36 +172,60 @@ class CalendarReconciler {
     return changes;
   }
 
-  /// Calendars step 3 scans: the sync target itself (an event added straight
-  /// into "PlanFit" in the calendar app) plus the device's primary/default
-  /// calendar(s) — the OS's actual destination for an event created via the
-  /// calendar app's own "+" button or Siri, not the PlanFit-dedicated
-  /// calendar most users never explicitly pick. Scanning only the target
-  /// calendar (the original, narrower version of this feature) meant it
-  /// silently never noticed anything a user added the ordinary way.
+  /// Calendars step 3 scans, mapped to each one's own OS color (`#RRGGBB`,
+  /// or null if the OS didn't provide one) — the sync target itself (an
+  /// event added straight into "PlanFit" in the calendar app) plus the
+  /// device's primary/default calendar(s), the OS's actual destination for
+  /// an event created via the calendar app's own "+" button or Siri, not
+  /// the PlanFit-dedicated calendar most users never explicitly pick.
+  /// Scanning only the target calendar (the original, narrower version of
+  /// this feature) meant it silently never noticed anything a user added
+  /// the ordinary way.
+  ///
+  /// The color travels with the id so [_importNewEvent] can tag the
+  /// materialized row with the calendar it actually came from — see
+  /// [CalendarImportService]'s matching fix for why leaving `colorTag`
+  /// unset made every imported event fall back to
+  /// [EventColorTag.resolve]'s generic time-of-day gradient instead.
   ///
   /// Excludes calendars already covered by a read-only subscription
   /// ([CalendarService.subscribedCalendarIds]) so the same OS event doesn't
   /// materialize twice — once as a mirror row via [CalendarImportService],
   /// once as a real PlanFit-owned row here.
-  Future<Set<String>> _autoImportCalendarIds() async {
+  Future<Map<String, String?>> _autoImportCalendarColors() async {
     final ids = <String>{};
     final target = _service.targetCalendarId;
     if (target != null) ids.add(target);
-    for (final c in await _service.writableCalendars()) {
+    final writable = await _service.writableCalendars();
+    for (final c in writable) {
       if (c.isPrimary) ids.add(c.id);
     }
     ids.removeWhere(_service.subscribedCalendarIds.contains);
-    return ids;
+
+    final colors = <String, String?>{};
+    for (final id in ids) {
+      colors[id] = null;
+    }
+    for (final c in writable) {
+      if (colors.containsKey(c.id)) colors[c.id] = c.colorHex;
+    }
+    return colors;
   }
 
   /// Materializes a PlanFit event for [osEvent], an event found in the
   /// target calendar with no corresponding local row — see step 3 above.
-  /// Notifications default off, same reasoning as
-  /// `CalendarImportService._upsertMirrorRow`: the user didn't create this
-  /// through PlanFit, so it shouldn't silently start alerting them without
-  /// an explicit opt-in.
-  Future<void> _importNewEvent(dc.Event osEvent, DateTime at) async {
+  /// [colorHex] is that calendar's own OS color (from
+  /// [_autoImportCalendarColors]), stored as-is since [Events.colorTag]
+  /// already accepts a `#RRGGBB` hex string alongside its preset tag names
+  /// (see [EventColorTag]'s doc). Notifications default off, same reasoning
+  /// as `CalendarImportService._upsertMirrorRow`: the user didn't create
+  /// this through PlanFit, so it shouldn't silently start alerting them
+  /// without an explicit opt-in.
+  Future<void> _importNewEvent(
+    dc.Event osEvent,
+    DateTime at,
+    String? colorHex,
+  ) async {
     final id = _uuid.v4();
     await _eventDao.upsert(
       EventsCompanion(
@@ -213,6 +237,7 @@ class CalendarReconciler {
         endAt: Value(osEvent.endDate),
         isAllDay: Value(osEvent.isAllDay),
         notify: const Value(false),
+        colorTag: Value(colorHex),
         osCalendarId: Value(osEvent.calendarId),
         osEventId: Value(osEvent.eventId),
         osLastKnownModified: Value(at),

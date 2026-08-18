@@ -23,6 +23,8 @@ void main() {
       calendarService: service,
       eventDao: db.eventDao,
     );
+    // No calendars known by default — most tests aren't about color tagging.
+    when(service.allCalendars()).thenAnswer((_) async => <dc.Calendar>[]);
   });
 
   tearDown(() => db.close());
@@ -99,6 +101,41 @@ void main() {
     expect(rows.single.startAt, movedStart);
   });
 
+  test('importFrom tags the row with the source calendar\'s own OS color, '
+      'not left null to fall back to the generic gradient', () async {
+    when(service.allCalendars()).thenAnswer((_) async => [
+          const dc.Calendar(
+            id: 'work-cal',
+            name: 'Work',
+            colorHex: '#3355FF',
+            readOnly: true,
+          ),
+        ]);
+    when(service.listEvents('work-cal',
+            from: anyNamed('from'), to: anyNamed('to')))
+        .thenAnswer((_) async =>
+            [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
+
+    await importService.importFrom('work-cal',
+        from: DateTime(2026, 1, 1), to: DateTime(2027, 1, 1));
+
+    expect((await db.eventDao.all()).single.colorTag, '#3355FF');
+  });
+
+  test('importFrom leaves colorTag null when the source calendar isn\'t '
+      'known (falls back to the same gradient as before, not a crash)',
+      () async {
+    when(service.listEvents('work-cal',
+            from: anyNamed('from'), to: anyNamed('to')))
+        .thenAnswer((_) async =>
+            [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
+
+    await importService.importFrom('work-cal',
+        from: DateTime(2026, 1, 1), to: DateTime(2027, 1, 1));
+
+    expect((await db.eventDao.all()).single.colorTag, isNull);
+  });
+
   test('availableCalendars delegates to CalendarService.allCalendars', () async {
     when(service.allCalendars()).thenAnswer((_) async => []);
 
@@ -141,6 +178,25 @@ void main() {
 
       final rows = await db.eventDao.all();
       expect(rows.map((r) => r.importSourceEventId), ['occ-1']);
+    });
+
+    test('tags mirrored rows with the source calendar\'s own OS color',
+        () async {
+      when(service.allCalendars()).thenAnswer((_) async => [
+            const dc.Calendar(
+              id: 'work-cal',
+              name: 'Work',
+              colorHex: '#00A876',
+              readOnly: true,
+            ),
+          ]);
+      when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
+          (_) async =>
+              [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
+
+      await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
+
+      expect((await db.eventDao.all()).single.colorTag, '#00A876');
     });
 
     test('keeps the same local id across syncs (updates, not duplicates)',
