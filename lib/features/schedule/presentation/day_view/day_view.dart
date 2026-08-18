@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
+import '../../../../core/time_format.dart';
 import '../../../../design/glass/glass_surface.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
@@ -12,6 +13,7 @@ import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
 import '../../../todo/presentation/hourly_todo_list.dart';
 import '../../domain/drag_create.dart';
@@ -258,6 +260,12 @@ class _TimelineState extends ConsumerState<_Timeline> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final pendingCreate = _pendingCreateRange;
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return Stack(
       children: [
@@ -290,7 +298,7 @@ class _TimelineState extends ConsumerState<_Timeline> {
                   SizedBox(
                     width: widget.railInset - AppSpacing.sm,
                     child: Text(
-                      Fmt.hour(h, widget.locale),
+                      Fmt.hour(h, widget.locale, use24Hour: use24),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: palette.inkFaint,
                             fontFeatures: null,
@@ -330,7 +338,7 @@ class _TimelineState extends ConsumerState<_Timeline> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
                 child: Text(
-                  '${Fmt.time(pendingCreate.$1, widget.locale)} – ${Fmt.time(pendingCreate.$2, widget.locale)}',
+                  '${Fmt.time(pendingCreate.$1, widget.locale, use24Hour: use24)} – ${Fmt.time(pendingCreate.$2, widget.locale, use24Hour: use24)}',
                   style: Theme.of(context)
                       .textTheme
                       .labelMedium
@@ -454,6 +462,12 @@ class _EventCard extends ConsumerWidget {
     final accent = EventColorTag.resolve(event.colorTag, event.startAt);
     final theme = Theme.of(context);
     final draggable = onMoveStart != null;
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return Dismissible(
       key: ValueKey(event.id),
@@ -514,7 +528,7 @@ class _EventCard extends ConsumerWidget {
                         ),
                         if (!allDay)
                           Text(
-                            '${Fmt.time(event.startAt, locale)} – ${Fmt.time(event.endAt, locale)}',
+                            '${Fmt.time(event.startAt, locale, use24Hour: use24)} – ${Fmt.time(event.endAt, locale, use24Hour: use24)}',
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(color: palette.inkSoft),
                           ),

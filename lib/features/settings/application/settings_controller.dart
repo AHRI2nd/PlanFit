@@ -1,6 +1,7 @@
 import 'package:device_calendar_plus/device_calendar_plus.dart' show Calendar;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/di.dart';
 import 'app_settings.dart';
@@ -17,6 +18,16 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kWeekStart = 'settings.weekStartsMonday';
   static const _kSubscribed = 'settings.subscribedCalendarIds';
   static const _kTodoRetention = 'settings.completedTodoRetentionDays';
+  static const _kDialTimeFormat = 'settings.dialTimeFormatPreference';
+  static const _kDisplayTimeFormat = 'settings.displayTimeFormatPreference';
+
+  static TimeFormatPreference _readTimeFormat(SharedPreferences prefs, String key) {
+    final index = prefs.getInt(key);
+    if (index == null || index < 0 || index >= TimeFormatPreference.values.length) {
+      return TimeFormatPreference.system;
+    }
+    return TimeFormatPreference.values[index];
+  }
 
   @override
   AppSettings build() {
@@ -32,6 +43,8 @@ class SettingsController extends Notifier<AppSettings> {
       subscribedCalendarIds: (prefs.getStringList(_kSubscribed) ?? const [])
           .toSet(),
       completedTodoRetentionDays: prefs.getInt(_kTodoRetention),
+      dialTimeFormatPreference: _readTimeFormat(prefs, _kDialTimeFormat),
+      displayTimeFormatPreference: _readTimeFormat(prefs, _kDisplayTimeFormat),
     );
     _apply(settings);
     return settings;
@@ -67,6 +80,9 @@ class SettingsController extends Notifier<AppSettings> {
     } else {
       await prefs.setInt(_kTodoRetention, s.completedTodoRetentionDays!);
     }
+    await prefs.setInt(_kDialTimeFormat, s.dialTimeFormatPreference.index);
+    await prefs.setInt(
+        _kDisplayTimeFormat, s.displayTimeFormatPreference.index);
   }
 
   Future<void> _update(AppSettings next) async {
@@ -107,6 +123,13 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setWeekStartsMonday(bool monday) =>
       _update(state.copyWith(weekStartsMonday: monday));
+
+  Future<void> setDialTimeFormatPreference(TimeFormatPreference preference) =>
+      _update(state.copyWith(dialTimeFormatPreference: preference));
+
+  Future<void> setDisplayTimeFormatPreference(
+          TimeFormatPreference preference) =>
+      _update(state.copyWith(displayTimeFormatPreference: preference));
 
   /// `null` turns the sweep off entirely — see
   /// `AppSettings.completedTodoRetentionDays`.

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
+import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show dateOnly;
+import '../../settings/application/settings_controller.dart';
 import '../application/todo_providers.dart';
 import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
@@ -258,6 +260,12 @@ class _SmartTodoTile extends ConsumerWidget {
         .where((t) => t.isNotEmpty)
         .toList();
     final isOverdue = isTodoOverdue(todo, DateTime.now());
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return InkWell(
       onTap: () => showTodoDetailSheet(context, todo),
@@ -343,7 +351,7 @@ class _SmartTodoTile extends ConsumerWidget {
             const SizedBox(width: AppSpacing.xs),
             Text(
               todo.hasTime
-                  ? '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale)}'
+                  ? '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)}'
                   : Fmt.monthDay(todo.slotStart, locale),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: isOverdue ? palette.danger : palette.inkFaint,

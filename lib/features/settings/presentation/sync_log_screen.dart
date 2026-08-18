@@ -5,9 +5,11 @@ import '../../../core/db/app_database.dart';
 import '../../../core/db/sync_status.dart';
 import '../../../core/di.dart';
 import '../../../core/format.dart';
+import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
+import '../application/settings_controller.dart';
 
 /// A trail of what calendar reconciliation did — so last-write-wins is never
 /// fully silent.
@@ -19,6 +21,12 @@ class SyncLogScreen extends ConsumerWidget {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
     final locale = Localizations.localeOf(context).toLanguageTag();
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
     final logs =
         ref.watch(syncLogDaoProvider).watchRecent();
 
@@ -62,7 +70,7 @@ class SyncLogScreen extends ConsumerWidget {
                                   .bodyMedium
                                   ?.copyWith(color: palette.inkSoft)),
                         const SizedBox(height: 2),
-                        Text(Fmt.time(row.at, locale),
+                        Text(Fmt.time(row.at, locale, use24Hour: use24),
                             style: Theme.of(context)
                                 .textTheme
                                 .labelSmall

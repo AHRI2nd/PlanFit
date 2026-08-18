@@ -4,12 +4,21 @@ import 'package:intl/intl.dart';
 class Fmt {
   const Fmt._();
 
-  static String time(DateTime dt, String locale) =>
-      DateFormat.jm(locale).format(dt);
+  /// [use24Hour] `true` forces 24-hour (`DateFormat.Hm`, guaranteed 24h
+  /// regardless of locale — see intl's own doc on `Hm`). `false` or `null`
+  /// uses the locale's own preferred hour convention (`DateFormat.jm`) — for
+  /// this app's supported locales (ko/en) that's already always 12-hour, so
+  /// there's no separate "forced 12h" skeleton to reach for.
+  static String time(DateTime dt, String locale, {bool? use24Hour}) =>
+      (use24Hour == true ? DateFormat.Hm(locale) : DateFormat.jm(locale))
+          .format(dt);
 
-  static String hour(int hour24, String locale) {
+  /// Same `use24Hour` contract as [time], for an hour-only label (the
+  /// day/week timeline's axis).
+  static String hour(int hour24, String locale, {bool? use24Hour}) {
     final dt = DateTime(2000, 1, 1, hour24);
-    return DateFormat.j(locale).format(dt);
+    return (use24Hour == true ? DateFormat.H(locale) : DateFormat.j(locale))
+        .format(dt);
   }
 
   static String weekdayShort(DateTime dt, String locale) =>

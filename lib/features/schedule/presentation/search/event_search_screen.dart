@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
+import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
 import '../../../todo/domain/todo_priority.dart';
 import '../../../todo/domain/todo_tag_match.dart';
@@ -315,7 +317,7 @@ class _EventFilterRow extends StatelessWidget {
   }
 }
 
-class _EventResultTile extends StatelessWidget {
+class _EventResultTile extends ConsumerWidget {
   const _EventResultTile({
     required this.event,
     required this.locale,
@@ -327,10 +329,16 @@ class _EventResultTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final theme = Theme.of(context);
     final accent = EventColorTag.resolve(event.colorTag, event.startAt);
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -357,7 +365,7 @@ class _EventResultTile extends StatelessWidget {
                   Text(
                     event.isAllDay
                         ? Fmt.monthDay(event.startAt, locale)
-                        : '${Fmt.monthDay(event.startAt, locale)}  ${Fmt.time(event.startAt, locale)}',
+                        : '${Fmt.monthDay(event.startAt, locale)}  ${Fmt.time(event.startAt, locale, use24Hour: use24)}',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: palette.inkFaint,
                     ),
@@ -446,7 +454,7 @@ class _TodoFilterRow extends ConsumerWidget {
   }
 }
 
-class _TodoResultTile extends StatelessWidget {
+class _TodoResultTile extends ConsumerWidget {
   const _TodoResultTile({
     required this.todo,
     required this.locale,
@@ -458,9 +466,15 @@ class _TodoResultTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final theme = Theme.of(context);
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -488,7 +502,7 @@ class _TodoResultTile extends StatelessWidget {
                   ),
                   Text(
                     todo.hasTime
-                        ? '${Fmt.monthDay(todo.slotStart, locale)}  ${Fmt.time(todo.slotStart, locale)}'
+                        ? '${Fmt.monthDay(todo.slotStart, locale)}  ${Fmt.time(todo.slotStart, locale, use24Hour: use24)}'
                         : '${Fmt.monthDay(todo.slotStart, locale)}  ${AppL10n.of(context).todoNoTime}',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: palette.inkFaint,

@@ -328,6 +328,21 @@ class AppL10nEn extends AppL10n {
   String get settingsThemeDark => 'Dark';
 
   @override
+  String get settingsTimeFormatDisplay => 'Event/to-do time display';
+
+  @override
+  String get settingsTimeFormatDial => 'Time-picker dial';
+
+  @override
+  String get settingsTimeFormatSystem => 'Follow system';
+
+  @override
+  String get settingsTimeFormatH12 => '12-hour';
+
+  @override
+  String get settingsTimeFormatH24 => '24-hour';
+
+  @override
   String get settingsTodo => 'To-dos';
 
   @override

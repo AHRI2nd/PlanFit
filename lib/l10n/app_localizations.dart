@@ -685,6 +685,36 @@ abstract class AppL10n {
   /// **'어둡게'**
   String get settingsThemeDark;
 
+  /// No description provided for @settingsTimeFormatDisplay.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정/할 일 시간 표시'**
+  String get settingsTimeFormatDisplay;
+
+  /// No description provided for @settingsTimeFormatDial.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간 선택 다이얼'**
+  String get settingsTimeFormatDial;
+
+  /// No description provided for @settingsTimeFormatSystem.
+  ///
+  /// In ko, this message translates to:
+  /// **'시스템 설정'**
+  String get settingsTimeFormatSystem;
+
+  /// No description provided for @settingsTimeFormatH12.
+  ///
+  /// In ko, this message translates to:
+  /// **'12시간제'**
+  String get settingsTimeFormatH12;
+
+  /// No description provided for @settingsTimeFormatH24.
+  ///
+  /// In ko, this message translates to:
+  /// **'24시간제'**
+  String get settingsTimeFormatH24;
+
   /// No description provided for @settingsTodo.
   ///
   /// In ko, this message translates to:

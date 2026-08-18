@@ -319,6 +319,21 @@ class AppL10nKo extends AppL10n {
   String get settingsThemeDark => '어둡게';
 
   @override
+  String get settingsTimeFormatDisplay => '일정/할 일 시간 표시';
+
+  @override
+  String get settingsTimeFormatDial => '시간 선택 다이얼';
+
+  @override
+  String get settingsTimeFormatSystem => '시스템 설정';
+
+  @override
+  String get settingsTimeFormatH12 => '12시간제';
+
+  @override
+  String get settingsTimeFormatH24 => '24시간제';
+
+  @override
   String get settingsTodo => '할 일';
 
   @override

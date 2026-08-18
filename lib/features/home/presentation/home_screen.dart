@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/clock.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
+import '../../../core/time_format.dart';
 import '../../../design/glass/glass_surface.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
@@ -14,6 +15,7 @@ import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/presentation/event_edit/event_editor_sheet.dart';
+import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
 import '../../todo/domain/todo_overdue.dart';
 import '../../todo/presentation/todo_smart_list_screen.dart';
@@ -29,6 +31,12 @@ class HomeScreen extends ConsumerWidget {
     final l10n = AppL10n.of(context);
     final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
     final locale = Localizations.localeOf(context).toLanguageTag();
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return TimeGradientBackground(
       at: now,
@@ -44,11 +52,11 @@ class HomeScreen extends ConsumerWidget {
           children: [
             SafeArea(
               bottom: false,
-              child: _Hero(now: now, l10n: l10n),
+              child: _Hero(now: now, l10n: l10n, use24Hour: use24),
             ),
             const SizedBox(height: AppSpacing.xl),
             SectionHeader(l10n.homeUpcoming),
-            _UpcomingList(now: now, locale: locale, l10n: l10n),
+            _UpcomingList(now: now, locale: locale, l10n: l10n, use24Hour: use24),
             const SizedBox(height: AppSpacing.xl),
             SectionHeader(l10n.homeTodayTodos),
             _TodayTodos(l10n: l10n),
@@ -63,10 +71,11 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.now, required this.l10n});
+  const _Hero({required this.now, required this.l10n, required this.use24Hour});
 
   final DateTime now;
   final AppL10n l10n;
+  final bool use24Hour;
 
   String _greeting() {
     final h = now.hour;
@@ -94,7 +103,7 @@ class _Hero extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            Fmt.time(now, locale),
+            Fmt.time(now, locale, use24Hour: use24Hour),
             style: AppTypography.clock.copyWith(color: palette.ink),
           ),
           const SizedBox(height: AppSpacing.xxs),
@@ -115,11 +124,13 @@ class _UpcomingList extends ConsumerWidget {
     required this.now,
     required this.locale,
     required this.l10n,
+    required this.use24Hour,
   });
 
   final DateTime now;
   final String locale;
   final AppL10n l10n;
+  final bool use24Hour;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -138,7 +149,12 @@ class _UpcomingList extends ConsumerWidget {
         for (final e in events)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-            child: _UpcomingTile(event: e, now: now, locale: locale),
+            child: _UpcomingTile(
+              event: e,
+              now: now,
+              locale: locale,
+              use24Hour: use24Hour,
+            ),
           ),
       ],
     );
@@ -150,11 +166,13 @@ class _UpcomingTile extends StatelessWidget {
     required this.event,
     required this.now,
     required this.locale,
+    required this.use24Hour,
   });
 
   final EventRow event;
   final DateTime now;
   final String locale;
+  final bool use24Hour;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +190,7 @@ class _UpcomingTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  Fmt.time(event.startAt, locale),
+                  Fmt.time(event.startAt, locale, use24Hour: use24Hour),
                   style: AppTypography.clockSmall.copyWith(color: accent),
                 ),
                 Text(

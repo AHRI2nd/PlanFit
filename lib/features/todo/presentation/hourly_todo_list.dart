@@ -14,6 +14,8 @@ import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
 import 'todo_detail_sheet.dart';
 import '../../../core/format.dart';
+import '../../../core/time_format.dart';
+import '../../settings/application/settings_controller.dart';
 
 /// The day's to-dos with an inline "add" field. Lightweight checkboxes, tied to
 /// the selected day. New items default to 9am on that day, adjustable via the
@@ -148,9 +150,12 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
   }
 
   Future<void> _pickAddTime() async {
-    final picked = await showTimePicker(
+    final picked = await showAppTimePicker(
       context: context,
       initialTime: _addTime,
+      dialFormat: ref.read(
+        settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
+      ),
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -485,9 +490,12 @@ class _TodoTile extends ConsumerWidget {
   final VoidCallback? onEnterSelection;
 
   Future<void> _pickTime(BuildContext context, WidgetRef ref) async {
-    final picked = await showTimePicker(
+    final picked = await showAppTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(todo.slotStart),
+      dialFormat: ref.read(
+        settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
+      ),
     );
     if (picked == null) return;
     final s = todo.slotStart;
@@ -573,6 +581,12 @@ class _TodoTile extends ConsumerWidget {
         ? null
         : '${subtasks.where((s) => s.isDone).length}/${subtasks.length}';
     final isOverdue = isTodoOverdue(todo, DateTime.now());
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
     return Dismissible(
       key: ValueKey(todo.id),
       direction: selectionMode
@@ -744,7 +758,7 @@ class _TodoTile extends ConsumerWidget {
                   ),
                   child: Text(
                     todo.hasTime
-                        ? Fmt.time(todo.slotStart, locale)
+                        ? Fmt.time(todo.slotStart, locale, use24Hour: use24)
                         : l10n.todoNoTime,
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: isOverdue

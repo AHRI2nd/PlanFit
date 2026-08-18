@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/db/app_database.dart';
 import '../../../../core/format.dart';
+import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../settings/application/settings_controller.dart';
 
 /// Read-only detail view for an event mirrored in from a subscribed
 /// calendar — see CalendarImportService's doc comment for why these are
@@ -12,17 +15,23 @@ import '../../../../l10n/app_localizations.dart';
 /// through `EventRepository.save` would try to push it back out somewhere,
 /// which is exactly what a subscribed (often not even writable) calendar
 /// must not trigger.
-class MirroredEventDetailScreen extends StatelessWidget {
+class MirroredEventDetailScreen extends ConsumerWidget {
   const MirroredEventDetailScreen({super.key, required this.event});
 
   final EventRow event;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -44,8 +53,8 @@ class MirroredEventDetailScreen extends StatelessWidget {
                     event.isAllDay
                         ? Fmt.monthDay(event.startAt, locale)
                         : '${Fmt.monthDay(event.startAt, locale)}  '
-                            '${Fmt.time(event.startAt, locale)} – '
-                            '${Fmt.time(event.endAt, locale)}',
+                            '${Fmt.time(event.startAt, locale, use24Hour: use24)} – '
+                            '${Fmt.time(event.endAt, locale, use24Hour: use24)}',
                     style: theme.textTheme.bodyLarge
                         ?.copyWith(color: palette.inkSoft),
                   ),

@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
 import '../../../core/format.dart';
+import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
+import '../application/settings_controller.dart';
 
 /// Lists PlanFit's own rolling automatic backups (see [AutoBackupService])
 /// and lets the user restore from one — the safety net for when the manual
@@ -78,6 +80,12 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
     final palette = context.palette;
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.autoBackupTitle)),
@@ -129,7 +137,7 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
                                     title: Text(
                                       modified == null
                                           ? file.uri.pathSegments.last
-                                          : '${Fmt.monthDay(modified, locale)}  ${Fmt.time(modified, locale)}',
+                                          : '${Fmt.monthDay(modified, locale)}  ${Fmt.time(modified, locale, use24Hour: use24)}',
                                     ),
                                     subtitle: size == null
                                         ? null

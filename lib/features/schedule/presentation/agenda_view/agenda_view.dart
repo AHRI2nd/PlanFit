@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
+import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/agenda_grouping.dart';
 import '../event_edit/event_editor_sheet.dart';
@@ -220,7 +222,7 @@ class _DayHeader extends StatelessWidget {
   }
 }
 
-class _AgendaTile extends StatelessWidget {
+class _AgendaTile extends ConsumerWidget {
   const _AgendaTile({
     required this.event,
     this.selectionMode = false,
@@ -244,12 +246,18 @@ class _AgendaTile extends StatelessWidget {
   final VoidCallback? onEnterSelection;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final theme = Theme.of(context);
     final l10n = AppL10n.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final accent = EventColorTag.resolve(event.colorTag, event.startAt);
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return Container(
       color: selected ? palette.accent.withValues(alpha: 0.1) : null,
@@ -283,7 +291,7 @@ class _AgendaTile extends StatelessWidget {
                 child: Text(
                   event.isAllDay
                       ? l10n.eventAllDay
-                      : Fmt.time(event.startAt, locale),
+                      : Fmt.time(event.startAt, locale, use24Hour: use24),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: palette.inkSoft,
                   ),

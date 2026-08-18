@@ -8,6 +8,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
+import '../../../../core/time_format.dart';
+import '../../../settings/application/settings_controller.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
@@ -218,9 +220,12 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
       initial.minute,
     );
     if (!_allDay) {
-      final time = await showTimePicker(
+      final time = await showAppTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(initial),
+        dialFormat: ref.read(
+          settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
+        ),
       );
       if (time == null || !mounted) return;
       picked = DateTime(
@@ -542,6 +547,12 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final theme = Theme.of(context);
     final accent = AppColors.timeGradient(_start).first;
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     // A full-screen route, not a modal bottom sheet — see the doc comment on
     // showEventEditor() for why. Scaffold handles the keyboard inset and
@@ -644,7 +655,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                 label: l10n.eventStart,
                 value: _allDay
                     ? Fmt.monthDay(_start, locale)
-                    : '${Fmt.monthDay(_start, locale)}  ${Fmt.time(_start, locale)}',
+                    : '${Fmt.monthDay(_start, locale)}  ${Fmt.time(_start, locale, use24Hour: use24)}',
                 onTap: () => _pick(true),
                 accent: accent,
               ),
@@ -653,7 +664,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                 label: l10n.eventEnd,
                 value: _allDay
                     ? Fmt.monthDay(_end, locale)
-                    : '${Fmt.monthDay(_end, locale)}  ${Fmt.time(_end, locale)}',
+                    : '${Fmt.monthDay(_end, locale)}  ${Fmt.time(_end, locale, use24Hour: use24)}',
                 onTap: () => _pick(false),
                 accent: accent,
               ),

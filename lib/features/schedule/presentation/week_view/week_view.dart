@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/db/app_database.dart';
 import '../../../../core/format.dart';
+import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
+import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/drag_create.dart';
 import '../../domain/event_span.dart';
@@ -39,6 +41,12 @@ class WeekView extends ConsumerWidget {
     final eventsAsync = ref.watch(eventsForWeekProvider(anchor));
     final now = DateTime.now();
     final today = dateOnly(now);
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     void openDay(DateTime day) {
       ref.read(selectedDateProvider.notifier).select(day);
@@ -92,6 +100,7 @@ class WeekView extends ConsumerWidget {
                     railInset: _railInset,
                     accent: palette.accent,
                     onTapDay: openDay,
+                    use24Hour: use24,
                   ),
                 ),
               ),
@@ -260,6 +269,7 @@ class _WeekGrid extends StatefulWidget {
     required this.railInset,
     required this.accent,
     required this.onTapDay,
+    required this.use24Hour,
   });
 
   final List<DateTime> days;
@@ -271,6 +281,7 @@ class _WeekGrid extends StatefulWidget {
   final double railInset;
   final Color accent;
   final ValueChanged<DateTime> onTapDay;
+  final bool use24Hour;
 
   @override
   State<_WeekGrid> createState() => _WeekGridState();
@@ -340,6 +351,7 @@ class _WeekGridState extends State<_WeekGrid> {
     final now = widget.now;
     final byDay = widget.byDay;
     final onTapDay = widget.onTapDay;
+    final use24 = widget.use24Hour;
     final pendingCreate = _pendingCreateRange;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
@@ -361,7 +373,7 @@ class _WeekGridState extends State<_WeekGrid> {
                       SizedBox(
                         width: railInset - AppSpacing.xxs,
                         child: Text(
-                          Fmt.hour(h, locale),
+                          Fmt.hour(h, locale, use24Hour: use24),
                           style: Theme.of(context)
                               .textTheme
                               .labelSmall

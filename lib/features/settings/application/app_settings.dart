@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+/// Which hour format a `TimeOfDay`/hour-minute display uses. `system`
+/// follows the OS's own 24-hour setting (`MediaQuery.alwaysUse24HourFormat`)
+/// — same as before either of the two settings below existed.
+enum TimeFormatPreference { system, h12, h24 }
+
 /// User-tunable app settings, persisted across launches.
 @immutable
 class AppSettings {
@@ -13,6 +18,8 @@ class AppSettings {
     this.weekStartsMonday = true,
     this.subscribedCalendarIds = const {},
     this.completedTodoRetentionDays,
+    this.dialTimeFormatPreference = TimeFormatPreference.system,
+    this.displayTimeFormatPreference = TimeFormatPreference.system,
   });
 
   final ThemeMode themeMode;
@@ -50,6 +57,20 @@ class AppSettings {
   /// unless the user opts in from Settings).
   final int? completedTodoRetentionDays;
 
+  /// The time-picker dial's own hour format — applied by wrapping just that
+  /// dialog's `builder:` (see `showAppTimePicker` in
+  /// `core/time_format.dart`), never the whole app, so it can't leak into
+  /// [displayTimeFormatPreference]'s "system" resolution or vice versa.
+  final TimeFormatPreference dialTimeFormatPreference;
+
+  /// Every other hour-minute label in the app (day/week timeline, event and
+  /// to-do rows, search results, sync log, ...) — see `Fmt.time`/`Fmt.hour`'s
+  /// `use24Hour` param. Deliberately a separate setting from
+  /// [dialTimeFormatPreference]: someone may want a 24-hour dial (faster to
+  /// scrub through) while still reading "오후 3:00"-style labels elsewhere,
+  /// or vice versa.
+  final TimeFormatPreference displayTimeFormatPreference;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     bool? notificationSound,
@@ -62,6 +83,8 @@ class AppSettings {
     Set<String>? subscribedCalendarIds,
     int? completedTodoRetentionDays,
     bool clearCompletedTodoRetentionDays = false,
+    TimeFormatPreference? dialTimeFormatPreference,
+    TimeFormatPreference? displayTimeFormatPreference,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -79,6 +102,10 @@ class AppSettings {
       completedTodoRetentionDays: clearCompletedTodoRetentionDays
           ? null
           : (completedTodoRetentionDays ?? this.completedTodoRetentionDays),
+      dialTimeFormatPreference:
+          dialTimeFormatPreference ?? this.dialTimeFormatPreference,
+      displayTimeFormatPreference:
+          displayTimeFormatPreference ?? this.displayTimeFormatPreference,
     );
   }
 }

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
 import '../../../../core/quick_add/quick_add_parser.dart';
+import '../../../../core/time_format.dart';
+import '../../../settings/application/settings_controller.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/widgets/snackbar_x.dart';
@@ -70,11 +72,17 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
           ));
       if (!mounted) return;
       navigator.pop();
+      final use24 = resolveUse24Hour(
+        ref.read(
+          settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+        ),
+        context,
+      );
       messenger.showAutoDismissSnackBar(SnackBar(
         content: Text(l10n.quickAddEventCreated(
           title,
           Fmt.monthDay(day, locale),
-          Fmt.time(startAt, locale),
+          Fmt.time(startAt, locale, use24Hour: use24),
         )),
       ));
     } finally {

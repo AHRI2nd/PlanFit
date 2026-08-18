@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/di.dart';
 import '../../../core/format.dart';
+import '../../../core/time_format.dart';
 import '../../../design/glass/glass_surface.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
@@ -15,6 +16,7 @@ import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
+import '../application/app_settings.dart';
 import '../application/settings_controller.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -275,6 +277,20 @@ class SettingsScreen extends ConsumerWidget {
                   weekStartsMonday: settings.weekStartsMonday,
                   l10n: l10n,
                   onChanged: controller.setWeekStartsMonday,
+                ),
+                const _RowDivider(),
+                _TimeFormatRow(
+                  label: l10n.settingsTimeFormatDisplay,
+                  current: settings.displayTimeFormatPreference,
+                  l10n: l10n,
+                  onChanged: controller.setDisplayTimeFormatPreference,
+                ),
+                const _RowDivider(),
+                _TimeFormatRow(
+                  label: l10n.settingsTimeFormatDial,
+                  current: settings.dialTimeFormatPreference,
+                  l10n: l10n,
+                  onChanged: controller.setDialTimeFormatPreference,
                 ),
               ],
             ),
@@ -577,6 +593,90 @@ class _ThemeRow extends StatelessWidget {
   }
 }
 
+/// Three-way system/12-hour/24-hour toggle, reused for two independent
+/// settings — [AppSettings.displayTimeFormatPreference] (every hour-minute
+/// label in the app) and [AppSettings.dialTimeFormatPreference] (just the
+/// time-picker dial). They're kept separate rather than one shared setting
+/// because the dial has its own reason to want 24-hour specifically: in that
+/// mode Flutter's dial has to pack 24 hour values into one clock face, so it
+/// splits them into an outer ring (0–11) and an inner ring (12–23) shown at
+/// the same time — a tradeoff someone might accept for the dial (faster to
+/// scrub through) without wanting every label in the app to also switch to
+/// 24-hour, or the reverse.
+class _TimeFormatRow extends StatelessWidget {
+  const _TimeFormatRow({
+    required this.label,
+    required this.current,
+    required this.l10n,
+    required this.onChanged,
+  });
+
+  final String label;
+  final TimeFormatPreference current;
+  final AppL10n l10n;
+  final ValueChanged<TimeFormatPreference> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final entries = [
+      (TimeFormatPreference.system, l10n.settingsTimeFormatSystem),
+      (TimeFormatPreference.h12, l10n.settingsTimeFormatH12),
+      (TimeFormatPreference.h24, l10n.settingsTimeFormatH24),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: theme.textTheme.bodyLarge),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              for (final (pref, label) in entries)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.xs),
+                    child: GestureDetector(
+                      onTap: () => onChanged(pref),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: pref == current
+                              ? palette.accent.withValues(alpha: 0.18)
+                              : Colors.transparent,
+                          borderRadius: AppRadius.cardMd,
+                          border: Border.all(
+                            color: pref == current
+                                ? palette.accent
+                                : palette.hairline,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: pref == current
+                                ? palette.accent
+                                : palette.inkSoft,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Two-option Monday/Sunday toggle for which day starts the week — drives
 /// the month grid, year mini-grids, and the home screen's weekly stats card.
 class _WeekStartRow extends StatelessWidget {
@@ -793,6 +893,12 @@ class _LastSyncRow extends ConsumerWidget {
     final theme = Theme.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final lastSync = ref.watch(lastCalendarSyncAtProvider);
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -807,7 +913,7 @@ class _LastSyncRow extends ConsumerWidget {
           Text(
             lastSync == null
                 ? l10n.settingsLastSyncNever
-                : '${Fmt.monthDay(lastSync, locale)}  ${Fmt.time(lastSync, locale)}',
+                : '${Fmt.monthDay(lastSync, locale)}  ${Fmt.time(lastSync, locale, use24Hour: use24)}',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: palette.inkFaint,
             ),
