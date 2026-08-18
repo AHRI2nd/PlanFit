@@ -31,6 +31,48 @@ int monthRowCount(DateTime focusedDay, int startWeekday) {
   return (lastToDisplay.difference(firstToDisplay).inDays + 1) ~/ 7;
 }
 
+// table_calendar's own `daysOfWeekHeight` default — [MonthView] never
+// overrides it, so this stays in lockstep with the actual rendered height.
+const double _monthDowHeight = 16.0;
+
+// [_MonthSplitHandle]'s own rendered height: 8+8 vertical padding, a 4px
+// grip bar, an 8px gap, and a 1px divider.
+const double _monthHandleHeight = 32.0;
+
+// Floor reserved for [DayView] below the handle, so it's never squeezed to
+// nothing even at the calendar's tallest allowed rowHeight.
+const double _monthMinDayViewHeight = 96.0;
+
+/// Rendered height of [TableCalendar]'s own month-title/chevron header row
+/// (see `HeaderStyle.headerPadding`'s 8+8 default), scaled for the user's
+/// text-size setting so this stays accurate under larger accessibility
+/// fonts too.
+double _monthHeaderHeight(BuildContext context) {
+  final titleFontSize = Theme.of(context).textTheme.titleLarge?.fontSize ?? 22;
+  final scaledFontSize = MediaQuery.textScalerOf(context).scale(titleFontSize);
+  return scaledFontSize * 1.3 + 16;
+}
+
+/// The tallest [MonthCalendarRowHeight] can go without the grid + handle
+/// pushing [DayView] (and the handle itself) out of the viewport — see the
+/// doc on [_MonthSplitHandle] for why an unbounded rowHeight let the handle
+/// scroll itself below the visible area with no way back.
+double maxMonthRowHeight({
+  required double availableHeight,
+  required int rowCount,
+  required BuildContext context,
+}) {
+  if (rowCount <= 0) return MonthCalendarRowHeight.min;
+  final reserved = _monthHeaderHeight(context) +
+      _monthDowHeight +
+      _monthHandleHeight +
+      _monthMinDayViewHeight;
+  final forRows = availableHeight - reserved;
+  if (forRows <= 0) return MonthCalendarRowHeight.min;
+  return (forRows / rowCount)
+      .clamp(MonthCalendarRowHeight.min, MonthCalendarRowHeight.max);
+}
+
 /// Month grid with per-day event dots. Tapping a day selects it and reveals
 /// that day's detail below, so month and day stay one continuous surface.
 class MonthView extends ConsumerWidget {
@@ -67,7 +109,16 @@ class MonthView extends ConsumerWidget {
       }
     }
 
-    return Column(
+    return LayoutBuilder(builder: (context, constraints) {
+      final maxRowHeight = maxMonthRowHeight(
+        availableHeight: constraints.maxHeight,
+        rowCount: rowCount,
+        context: context,
+      );
+      final effectiveRowHeight =
+          rowHeight.clamp(MonthCalendarRowHeight.min, maxRowHeight);
+
+      return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
@@ -77,7 +128,7 @@ class MonthView extends ConsumerWidget {
           lastDay: DateTime(2100),
           focusedDay: selected,
           currentDay: DateTime.now(),
-          rowHeight: rowHeight,
+          rowHeight: effectiveRowHeight,
           selectedDayPredicate: (d) => dateOnly(d) == dateOnly(selected),
           eventLoader: (d) => byDay[dateOnly(d)] ?? const [],
           startingDayOfWeek: weekStartsMonday
@@ -198,11 +249,12 @@ class MonthView extends ConsumerWidget {
           },
         ),
         ),
-        _MonthSplitHandle(rowCount: rowCount),
+        _MonthSplitHandle(rowCount: rowCount, maxRowHeight: maxRowHeight),
         // Selected day's timeline flows directly below the month grid.
         Expanded(child: DayView(day: selected)),
       ],
-    );
+      );
+    });
   }
 }
 
@@ -214,9 +266,17 @@ class MonthView extends ConsumerWidget {
 /// cards: this strip has no scrollable content underneath it competing for
 /// the same gesture.
 class _MonthSplitHandle extends ConsumerWidget {
-  const _MonthSplitHandle({required this.rowCount});
+  const _MonthSplitHandle({required this.rowCount, required this.maxRowHeight});
 
   final int rowCount;
+
+  /// Clamps the drag the same way [MonthView.build] clamps what's actually
+  /// rendered — see [maxMonthRowHeight]'s doc. Without this, a drag could
+  /// keep pushing the *persisted* value past what's currently reachable, so
+  /// the handle would visually stop (clamped for display) while still
+  /// silently climbing underneath, one more reason the next drag-up
+  /// wouldn't budge it right away.
+  final double maxRowHeight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -232,9 +292,10 @@ class _MonthSplitHandle extends ConsumerWidget {
           // of it.
           if (rowCount <= 0) return;
           final notifier = ref.read(monthCalendarRowHeightProvider.notifier);
+          final next = ref.read(monthCalendarRowHeightProvider) +
+              details.delta.dy / rowCount;
           notifier.set(
-            ref.read(monthCalendarRowHeightProvider) +
-                details.delta.dy / rowCount,
+            next.clamp(MonthCalendarRowHeight.min, maxRowHeight),
           );
         },
         onVerticalDragEnd: (_) =>
