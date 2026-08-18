@@ -84,6 +84,20 @@ class AppTheme {
           borderSide: BorderSide(color: p.accent, width: 1.5),
         ),
       ),
+      timePickerTheme: TimePickerThemeData(
+        // Default M3 highlights the selected AM/PM segment with
+        // tertiaryContainer, which doesn't match the dial hand/selected
+        // number's primary (accent) blue. Force both to the same color.
+        dayPeriodColor: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? p.accent
+              : Colors.transparent,
+        ),
+        dayPeriodTextColor: WidgetStateColor.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? Colors.white : p.inkSoft,
+        ),
+      ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
