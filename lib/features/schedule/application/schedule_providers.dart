@@ -50,6 +50,45 @@ final scheduleViewProvider = NotifierProvider<ScheduleViewMode, ScheduleView>(
   ScheduleViewMode.new,
 );
 
+/// Height (in logical pixels) of a single week row in [MonthView]'s
+/// calendar grid — dragging the handle between the grid and the day
+/// timeline below it changes this, trading grid space for timeline space.
+/// [MonthView] doesn't have a "total height" knob to give the grid directly
+/// (`TableCalendar` sizes itself from `rowHeight`, not the other way
+/// around), so this is the actual lever: taller rows grow the whole grid,
+/// shorter rows shrink it. Persisted so the user's choice survives restarts,
+/// same as `weekStartsMonday` and the app's other display prefs.
+class MonthCalendarRowHeight extends Notifier<double> {
+  static const _key = 'schedule.monthCalendarRowHeight';
+
+  /// Below this, day-number/marker text starts clipping; above this, a
+  /// short month leaves little room for the day timeline underneath.
+  static const min = 32.0;
+  static const max = 96.0;
+
+  /// table_calendar's own built-in default — unadjusted rows match today's
+  /// look exactly.
+  static const defaultHeight = 52.0;
+
+  @override
+  double build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    return (prefs.getDouble(_key) ?? defaultHeight).clamp(min, max);
+  }
+
+  /// Live-updates while dragging; call [persist] once the drag ends rather
+  /// than writing to disk on every frame of movement.
+  void set(double value) => state = value.clamp(min, max);
+
+  Future<void> persist() =>
+      ref.read(sharedPreferencesProvider).setDouble(_key, state);
+}
+
+final monthCalendarRowHeightProvider =
+    NotifierProvider<MonthCalendarRowHeight, double>(
+  MonthCalendarRowHeight.new,
+);
+
 /// Events overlapping the given day.
 final eventsForDayProvider = StreamProvider.family<List<EventRow>, DateTime>((
   ref,

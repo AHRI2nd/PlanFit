@@ -26,6 +26,8 @@ class MonthView extends ConsumerWidget {
     final weekStartsMonday = ref.watch(
         settingsControllerProvider.select((s) => s.weekStartsMonday));
 
+    final rowHeight = ref.watch(monthCalendarRowHeightProvider);
+
     final monthEvents = eventsAsync.asData?.value ?? const <EventRow>[];
     final monthStart = DateTime(selected.year, selected.month, 1);
     final monthEnd = DateTime(selected.year, selected.month + 1, 1);
@@ -52,6 +54,7 @@ class MonthView extends ConsumerWidget {
           lastDay: DateTime(2100),
           focusedDay: selected,
           currentDay: DateTime.now(),
+          rowHeight: rowHeight,
           selectedDayPredicate: (d) => dateOnly(d) == dateOnly(selected),
           eventLoader: (d) => byDay[dateOnly(d)] ?? const [],
           startingDayOfWeek: weekStartsMonday
@@ -172,13 +175,60 @@ class MonthView extends ConsumerWidget {
           },
         ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-          child: const Divider(height: AppSpacing.md),
-        ),
+        const _MonthSplitHandle(),
         // Selected day's timeline flows directly below the month grid.
         Expanded(child: DayView(day: selected)),
       ],
+    );
+  }
+}
+
+/// Drag handle between the month grid and the day timeline below it —
+/// stands in for the plain divider that used to sit here, but also lets the
+/// user trade grid space for timeline space by dragging
+/// [MonthCalendarRowHeight] taller or shorter. A plain (not long-press)
+/// vertical drag is fine here, unlike the grips inside day-view event
+/// cards: this strip has no scrollable content underneath it competing for
+/// the same gesture.
+class _MonthSplitHandle extends ConsumerWidget {
+  const _MonthSplitHandle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeUpDown,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (details) {
+          final notifier = ref.read(monthCalendarRowHeightProvider.notifier);
+          notifier.set(
+            ref.read(monthCalendarRowHeightProvider) + details.delta.dy,
+          );
+        },
+        onVerticalDragEnd: (_) =>
+            ref.read(monthCalendarRowHeightProvider.notifier).persist(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.gutter,
+            vertical: AppSpacing.xs,
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: palette.inkFaint,
+                  borderRadius: AppRadius.allPill,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Divider(height: 1, color: palette.hairline),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
