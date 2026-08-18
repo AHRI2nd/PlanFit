@@ -126,6 +126,9 @@ class AppL10nEn extends AppL10n {
   String get viewAgenda => 'Agenda';
 
   @override
+  String get monthSplitHandleLabel => 'Adjust calendar size';
+
+  @override
   String get dayEmpty => 'This day is still empty';
 
   @override
@@ -580,6 +583,12 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get eventRepeatCountDecrease => 'Decrease repeat count';
+
+  @override
+  String get eventRepeatCountIncrease => 'Increase repeat count';
+
+  @override
   String get eventDeleteSeriesTitle => 'Delete recurring event';
 
   @override
@@ -695,6 +704,12 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get todoSelectionComplete => 'Mark done';
+
+  @override
+  String get todoMarkDone => 'Done';
+
+  @override
+  String get todoSelectItem => 'Select';
 
   @override
   String get todoSelectionDelete => 'Delete';

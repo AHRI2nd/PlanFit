@@ -313,6 +313,12 @@ abstract class AppL10n {
   /// **'목록'**
   String get viewAgenda;
 
+  /// No description provided for @monthSplitHandleLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'달력 크기 조절'**
+  String get monthSplitHandleLabel;
+
   /// No description provided for @dayEmpty.
   ///
   /// In ko, this message translates to:
@@ -1147,6 +1153,18 @@ abstract class AppL10n {
   /// **'{count}회'**
   String eventRepeatCountTimes(int count);
 
+  /// No description provided for @eventRepeatCountDecrease.
+  ///
+  /// In ko, this message translates to:
+  /// **'반복 횟수 줄이기'**
+  String get eventRepeatCountDecrease;
+
+  /// No description provided for @eventRepeatCountIncrease.
+  ///
+  /// In ko, this message translates to:
+  /// **'반복 횟수 늘리기'**
+  String get eventRepeatCountIncrease;
+
   /// No description provided for @eventDeleteSeriesTitle.
   ///
   /// In ko, this message translates to:
@@ -1356,6 +1374,18 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'완료 처리'**
   String get todoSelectionComplete;
+
+  /// No description provided for @todoMarkDone.
+  ///
+  /// In ko, this message translates to:
+  /// **'완료 여부'**
+  String get todoMarkDone;
+
+  /// No description provided for @todoSelectItem.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택'**
+  String get todoSelectItem;
 
   /// No description provided for @todoSelectionDelete.
   ///

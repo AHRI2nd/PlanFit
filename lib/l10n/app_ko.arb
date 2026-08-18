@@ -55,6 +55,7 @@
   "viewMonth": "월",
   "viewYear": "년",
   "viewAgenda": "목록",
+  "monthSplitHandleLabel": "달력 크기 조절",
   "dayEmpty": "이 날은 아직 비어 있어요",
   "dayAddHint": "오른쪽 아래 + 로 일정을 더해보세요",
   "agendaEmpty": "예정된 일정이 없어요",
@@ -239,6 +240,8 @@
   "@eventRepeatCountTimes": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "eventRepeatCountDecrease": "반복 횟수 줄이기",
+  "eventRepeatCountIncrease": "반복 횟수 늘리기",
   "eventDeleteSeriesTitle": "반복 일정 삭제",
   "eventDeleteSeriesBody": "이 일정은 반복 일정의 일부예요. 어떻게 삭제할까요?",
   "eventDeleteThisOnly": "이 일정만 삭제",
@@ -290,6 +293,8 @@
     "placeholders": { "count": { "type": "int" } }
   },
   "todoSelectionComplete": "완료 처리",
+  "todoMarkDone": "완료 여부",
+  "todoSelectItem": "선택",
   "todoSelectionDelete": "삭제",
   "todoSelectionDeleted": "{count}개를 삭제했어요",
   "@todoSelectionDeleted": {

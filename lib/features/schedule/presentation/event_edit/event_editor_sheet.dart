@@ -537,7 +537,9 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     }
     if (!mounted) return;
     navigator.pop();
-    messenger.showAutoDismissSnackBar(SnackBar(content: Text(l10n.eventDeleted)));
+    messenger.showAutoDismissSnackBar(
+      SnackBar(content: Text(l10n.eventDeleted)),
+    );
   }
 
   @override
@@ -921,9 +923,9 @@ class _TemplatePickerSheet extends ConsumerWidget {
     );
     if (name == null || !context.mounted) return;
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showAutoDismissSnackBar(SnackBar(content: Text(l10n.templatesNameRequired)));
+      ScaffoldMessenger.of(context).showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.templatesNameRequired)),
+      );
       return;
     }
     final snap = currentSnapshot();
@@ -1114,11 +1116,13 @@ class _CountStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final l10n = AppL10n.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
           onPressed: count > 1 ? () => onChanged(count - 1) : null,
+          tooltip: l10n.eventRepeatCountDecrease,
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
@@ -1135,6 +1139,7 @@ class _CountStepper extends StatelessWidget {
         ),
         IconButton(
           onPressed: count < max ? () => onChanged(count + 1) : null,
+          tooltip: l10n.eventRepeatCountIncrease,
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),

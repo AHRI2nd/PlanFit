@@ -605,32 +605,37 @@ class _TodoTile extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              InkWell(
-                onTap: selectionMode
-                    ? onToggleSelected
-                    : () => ref
-                          .read(todoControllerProvider)
-                          .toggle(todo.id, !todo.isDone),
-                onLongPress: selectionMode ? null : onEnterSelection,
-                customBorder: const CircleBorder(),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xxs),
-                  child: Icon(
-                    selectionMode
-                        ? (selected
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked)
-                        : (todo.isDone
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked),
-                    size: 22,
-                    color: selectionMode
-                        ? (selected ? palette.accent : palette.inkFaint)
-                        : (todo.isDone
-                              ? palette.accent
-                              : isOverdue
-                              ? palette.danger
-                              : palette.inkFaint),
+              Semantics(
+                button: true,
+                checked: selectionMode ? selected : todo.isDone,
+                label: selectionMode ? l10n.todoSelectItem : l10n.todoMarkDone,
+                child: InkWell(
+                  onTap: selectionMode
+                      ? onToggleSelected
+                      : () => ref
+                            .read(todoControllerProvider)
+                            .toggle(todo.id, !todo.isDone),
+                  onLongPress: selectionMode ? null : onEnterSelection,
+                  customBorder: const CircleBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xxs),
+                    child: Icon(
+                      selectionMode
+                          ? (selected
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked)
+                          : (todo.isDone
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked),
+                      size: 22,
+                      color: selectionMode
+                          ? (selected ? palette.accent : palette.inkFaint)
+                          : (todo.isDone
+                                ? palette.accent
+                                : isOverdue
+                                ? palette.danger
+                                : palette.inkFaint),
+                    ),
                   ),
                 ),
               ),

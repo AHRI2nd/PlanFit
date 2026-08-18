@@ -123,6 +123,9 @@ class AppL10nKo extends AppL10n {
   String get viewAgenda => '목록';
 
   @override
+  String get monthSplitHandleLabel => '달력 크기 조절';
+
+  @override
   String get dayEmpty => '이 날은 아직 비어 있어요';
 
   @override
@@ -565,6 +568,12 @@ class AppL10nKo extends AppL10n {
   }
 
   @override
+  String get eventRepeatCountDecrease => '반복 횟수 줄이기';
+
+  @override
+  String get eventRepeatCountIncrease => '반복 횟수 늘리기';
+
+  @override
   String get eventDeleteSeriesTitle => '반복 일정 삭제';
 
   @override
@@ -676,6 +685,12 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get todoSelectionComplete => '완료 처리';
+
+  @override
+  String get todoMarkDone => '완료 여부';
+
+  @override
+  String get todoSelectItem => '선택';
 
   @override
   String get todoSelectionDelete => '삭제';

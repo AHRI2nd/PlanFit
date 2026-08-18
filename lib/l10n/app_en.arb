@@ -55,6 +55,7 @@
   "viewMonth": "Month",
   "viewYear": "Year",
   "viewAgenda": "Agenda",
+  "monthSplitHandleLabel": "Adjust calendar size",
   "dayEmpty": "This day is still empty",
   "dayAddHint": "Tap + to add something",
   "agendaEmpty": "No events coming up",
@@ -239,6 +240,8 @@
   "@eventRepeatCountTimes": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "eventRepeatCountDecrease": "Decrease repeat count",
+  "eventRepeatCountIncrease": "Increase repeat count",
   "eventDeleteSeriesTitle": "Delete recurring event",
   "eventDeleteSeriesBody": "This event is part of a series. How should it be deleted?",
   "eventDeleteThisOnly": "This event only",
@@ -290,6 +293,8 @@
     "placeholders": { "count": { "type": "int" } }
   },
   "todoSelectionComplete": "Mark done",
+  "todoMarkDone": "Done",
+  "todoSelectItem": "Select",
   "todoSelectionDelete": "Delete",
   "todoSelectionDeleted": "Deleted {count}",
   "@todoSelectionDeleted": {
