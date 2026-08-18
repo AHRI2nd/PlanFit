@@ -95,11 +95,20 @@ class SettingsScreen extends ConsumerWidget {
 
     Future<void> importBackup() async {
       final messenger = ScaffoldMessenger.of(context);
-      const jsonTypeGroup = XTypeGroup(label: 'JSON', extensions: ['json']);
-      final file = await openFile(acceptedTypeGroups: [jsonTypeGroup]);
-      final path = file?.path;
-      if (path == null) return;
       try {
+        // uniformTypeIdentifiers is required on iOS — file_selector_ios
+        // throws an uncaught ArgumentError if a type group restricts by
+        // extension alone (see its `_allowedUtiListFromTypeGroups`), since
+        // iOS's document picker filters by UTI, not by file extension. Left
+        // unset, every iOS import silently crashed the moment this ran.
+        const jsonTypeGroup = XTypeGroup(
+          label: 'JSON',
+          extensions: ['json'],
+          uniformTypeIdentifiers: ['public.json'],
+        );
+        final file = await openFile(acceptedTypeGroups: [jsonTypeGroup]);
+        final path = file?.path;
+        if (path == null) return;
         final summary = await ref
             .read(backupServiceProvider)
             .importFromFile(path);
@@ -133,11 +142,19 @@ class SettingsScreen extends ConsumerWidget {
 
     Future<void> importIcs() async {
       final messenger = ScaffoldMessenger.of(context);
-      const icsTypeGroup = XTypeGroup(label: 'ICS', extensions: ['ics']);
-      final file = await openFile(acceptedTypeGroups: [icsTypeGroup]);
-      final path = file?.path;
-      if (path == null) return;
       try {
+        // See importBackup's matching comment — iOS needs
+        // uniformTypeIdentifiers or file_selector_ios throws before the
+        // picker even opens. com.apple.ical.ics is the system UTI Calendar
+        // itself registers for .ics files.
+        const icsTypeGroup = XTypeGroup(
+          label: 'ICS',
+          extensions: ['ics'],
+          uniformTypeIdentifiers: ['com.apple.ical.ics'],
+        );
+        final file = await openFile(acceptedTypeGroups: [icsTypeGroup]);
+        final path = file?.path;
+        if (path == null) return;
         final summary = await ref
             .read(icsExportServiceProvider)
             .importFromFile(path);
