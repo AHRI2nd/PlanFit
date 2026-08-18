@@ -11,6 +11,26 @@ import '../../application/schedule_providers.dart';
 import '../../domain/event_span.dart';
 import '../day_view/day_view.dart';
 
+/// Number of week-rows [TableCalendar] renders for the month containing
+/// [focusedDay], replicating its own internal `_getRowCount` (see
+/// `table_calendar_base.dart`) so the split handle can convert a drag delta
+/// in screen pixels into the matching per-row delta — without this, dragging
+/// the handle by X pixels moves the boundary by X*rowCount pixels, since
+/// every row grows by the same amount.
+int monthRowCount(DateTime focusedDay, int startWeekday) {
+  final first = DateTime(focusedDay.year, focusedDay.month, 1);
+  final daysBefore = (first.weekday + 7 - startWeekday) % 7;
+  final firstToDisplay = first.subtract(Duration(days: daysBefore));
+
+  final last = DateTime(focusedDay.year, focusedDay.month + 1, 0);
+  final invertedStartWeekday = 8 - startWeekday;
+  var daysAfter = 7 - ((last.weekday + invertedStartWeekday) % 7);
+  if (daysAfter == 7) daysAfter = 0;
+  final lastToDisplay = last.add(Duration(days: daysAfter));
+
+  return (lastToDisplay.difference(firstToDisplay).inDays + 1) ~/ 7;
+}
+
 /// Month grid with per-day event dots. Tapping a day selects it and reveals
 /// that day's detail below, so month and day stay one continuous surface.
 class MonthView extends ConsumerWidget {
@@ -25,6 +45,9 @@ class MonthView extends ConsumerWidget {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final weekStartsMonday = ref.watch(
         settingsControllerProvider.select((s) => s.weekStartsMonday));
+    final startWeekday =
+        weekStartsMonday ? DateTime.monday : DateTime.sunday;
+    final rowCount = monthRowCount(selected, startWeekday);
 
     final rowHeight = ref.watch(monthCalendarRowHeightProvider);
 
@@ -175,7 +198,7 @@ class MonthView extends ConsumerWidget {
           },
         ),
         ),
-        const _MonthSplitHandle(),
+        _MonthSplitHandle(rowCount: rowCount),
         // Selected day's timeline flows directly below the month grid.
         Expanded(child: DayView(day: selected)),
       ],
@@ -191,7 +214,9 @@ class MonthView extends ConsumerWidget {
 /// cards: this strip has no scrollable content underneath it competing for
 /// the same gesture.
 class _MonthSplitHandle extends ConsumerWidget {
-  const _MonthSplitHandle();
+  const _MonthSplitHandle({required this.rowCount});
+
+  final int rowCount;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -201,9 +226,15 @@ class _MonthSplitHandle extends ConsumerWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onVerticalDragUpdate: (details) {
+          // The grid grows by rowCount times whatever a single row grows by,
+          // so the delta has to be divided down to a per-row amount for the
+          // boundary to actually track the finger instead of running ahead
+          // of it.
+          if (rowCount <= 0) return;
           final notifier = ref.read(monthCalendarRowHeightProvider.notifier);
           notifier.set(
-            ref.read(monthCalendarRowHeightProvider) + details.delta.dy,
+            ref.read(monthCalendarRowHeightProvider) +
+                details.delta.dy / rowCount,
           );
         },
         onVerticalDragEnd: (_) =>
