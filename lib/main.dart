@@ -8,11 +8,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/di.dart';
 import 'core/home_widget/home_widget_background.dart';
+import 'design/widgets/friendly_error_widget.dart';
 import 'features/settings/application/settings_controller.dart';
 import 'core/time/timezone_setup.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // A single broken subtree (e.g. one malformed list tile) shouldn't read as
+  // a broken app — see the widget's own doc for why this replaces just the
+  // failed subtree rather than needing a top-level try/catch.
+  ErrorWidget.builder = buildFriendlyErrorWidget;
 
   // Locale-aware date formatting (used by the calendar and formatters).
   await initializeDateFormatting();

@@ -336,5 +336,6 @@
 
   "commonCancel": "취소",
   "commonDone": "완료",
-  "commonToday": "오늘"
+  "commonToday": "오늘",
+  "errorWidgetFallback": "문제가 발생했어요"
 }

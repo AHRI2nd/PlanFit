@@ -336,5 +336,6 @@
 
   "commonCancel": "Cancel",
   "commonDone": "Done",
-  "commonToday": "Today"
+  "commonToday": "Today",
+  "errorWidgetFallback": "Something went wrong"
 }

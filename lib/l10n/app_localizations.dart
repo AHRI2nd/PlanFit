@@ -1602,6 +1602,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'오늘'**
   String get commonToday;
+
+  /// No description provided for @errorWidgetFallback.
+  ///
+  /// In ko, this message translates to:
+  /// **'문제가 발생했어요'**
+  String get errorWidgetFallback;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

@@ -820,4 +820,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get commonToday => 'Today';
+
+  @override
+  String get errorWidgetFallback => 'Something went wrong';
 }

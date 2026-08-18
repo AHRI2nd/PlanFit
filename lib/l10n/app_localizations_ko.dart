@@ -801,4 +801,7 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get commonToday => '오늘';
+
+  @override
+  String get errorWidgetFallback => '문제가 발생했어요';
 }
