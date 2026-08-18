@@ -21,11 +21,14 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) => m.createAll(),
+    onCreate: (m) async {
+      await m.createAll();
+      await _createIndexes();
+    },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.addColumn(events, events.reminderMinutesBefore);
@@ -76,6 +79,9 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(todoItems, todoItems.osReminderLastKnownModified);
         await m.addColumn(todoItems, todoItems.reminderSyncStatus);
       }
+      if (from < 16) {
+        await _createIndexes();
+      }
     },
     // sqlite ships FK enforcement off by default, per-connection — every
     // `.references(...)` in tables.dart (TodoItems.eventId's setNull,
@@ -86,6 +92,34 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Indexes on the columns every windowed/lookup query (`watchBetween`,
+  /// `findByOsEventId`, `seriesFrom`, etc. — see `EventDao`/`TodoDao`) filters
+  /// or sorts by, so those stay fast as an installation's history grows over
+  /// years instead of degrading into a full-table scan. `IF NOT EXISTS` makes
+  /// this idempotent, since it's called from both `onCreate` (fresh installs
+  /// already got these columns via `createAll`) and the `from < 16` upgrade
+  /// step (existing installs).
+  Future<void> _createIndexes() async {
+    for (final stmt in const [
+      'CREATE INDEX IF NOT EXISTS idx_events_start_at ON events (start_at)',
+      'CREATE INDEX IF NOT EXISTS idx_events_end_at ON events (end_at)',
+      'CREATE INDEX IF NOT EXISTS idx_events_recurrence_group_id '
+          'ON events (recurrence_group_id)',
+      'CREATE INDEX IF NOT EXISTS idx_events_os_event_id '
+          'ON events (os_event_id)',
+      'CREATE INDEX IF NOT EXISTS idx_events_import_source '
+          'ON events (import_source_calendar_id, import_source_event_id)',
+      'CREATE INDEX IF NOT EXISTS idx_todo_items_slot_start '
+          'ON todo_items (slot_start)',
+      'CREATE INDEX IF NOT EXISTS idx_todo_items_recurrence_group_id '
+          'ON todo_items (recurrence_group_id)',
+      'CREATE INDEX IF NOT EXISTS idx_todo_items_os_reminder_id '
+          'ON todo_items (os_reminder_id)',
+    ]) {
+      await customStatement(stmt);
+    }
+  }
 
   static QueryExecutor _open() => driftDatabase(name: 'planfit');
 }
