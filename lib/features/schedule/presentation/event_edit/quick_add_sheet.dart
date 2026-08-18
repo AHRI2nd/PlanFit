@@ -8,6 +8,7 @@ import '../../../../core/time_format.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
+import '../../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/event_input.dart';
@@ -19,10 +20,8 @@ import '../../domain/event_input.dart';
 /// anchored on [anchorDay] at a default hour — never worse than typing the
 /// same text into the plain title field of the full editor.
 Future<void> showQuickAddEvent(BuildContext context, {required DateTime anchorDay}) {
-  return showModalBottomSheet<void>(
+  return showAdaptiveBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) => QuickAddEventSheet(anchorDay: anchorDay),
   );
 }

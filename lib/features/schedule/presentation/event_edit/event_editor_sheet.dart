@@ -13,6 +13,7 @@ import '../../../settings/application/settings_controller.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
+import '../../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../../design/widgets/multi_chip_row.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -454,11 +455,9 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   }
 
   Future<void> _openTemplates() async {
-    await showModalBottomSheet<void>(
+    await showAdaptiveBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      showDragHandle: true,
       builder: (sheetContext) => _TemplatePickerSheet(
         onApply: (t) {
           Navigator.of(sheetContext).pop();

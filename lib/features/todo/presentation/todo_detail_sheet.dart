@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/db/app_database.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../design/widgets/multi_chip_row.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/todo_providers.dart';
@@ -14,11 +15,9 @@ import '../domain/todo_priority.dart';
 /// "save" step), same as the rest of the to-do row's inline controls (time
 /// chip, repeat icon) — there's nothing to lose by closing the sheet early.
 Future<void> showTodoDetailSheet(BuildContext context, TodoRow todo) {
-  return showModalBottomSheet<void>(
+  return showAdaptiveBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    showDragHandle: true,
     builder: (_) => _TodoDetailSheet(todo: todo),
   );
 }
