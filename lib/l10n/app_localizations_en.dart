@@ -286,7 +286,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String calendarImportSuccess(int count) {
-    return 'Imported $count events';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count events',
+      one: 'Imported 1 event',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -408,7 +414,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String icsImportSuccess(int count) {
-    return 'Imported $count events';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count events',
+      one: 'Imported 1 event',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -579,7 +591,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String eventRepeatCountTimes(int count) {
-    return '$count times';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count times',
+      one: '1 time',
+    );
+    return '$_temp0';
   }
 
   @override

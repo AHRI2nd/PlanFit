@@ -118,7 +118,7 @@
   "calendarImportConfirmBody": "Copies events from the last 30 days through a year ahead into PlanFit. They come in with notifications off, and importing again later updates anything that overlaps.",
   "calendarImportConfirmAction": "Import",
   "calendarImportInProgress": "Importing…",
-  "calendarImportSuccess": "Imported {count} events",
+  "calendarImportSuccess": "{count, plural, =1{Imported 1 event} other{Imported {count} events}}",
   "@calendarImportSuccess": {
     "placeholders": {
       "count": {"type": "int"}
@@ -164,7 +164,7 @@
   "settingsExportIcsDesc": "A standard file (.ics) other calendar apps can open",
   "settingsImportIcs": "Import calendar file",
   "settingsImportIcsDesc": "Add events from a .ics file exported by another calendar app",
-  "icsImportSuccess": "Imported {count} events",
+  "icsImportSuccess": "{count, plural, =1{Imported 1 event} other{Imported {count} events}}",
   "@icsImportSuccess": {
     "placeholders": { "count": { "type": "int" } }
   },
@@ -236,7 +236,7 @@
   "eventRepeatEndLabel": "Ends",
   "eventRepeatEndByDate": "On date",
   "eventRepeatEndByCount": "After N times",
-  "eventRepeatCountTimes": "{count} times",
+  "eventRepeatCountTimes": "{count, plural, =1{1 time} other{{count} times}}",
   "@eventRepeatCountTimes": {
     "placeholders": { "count": { "type": "int" } }
   },
