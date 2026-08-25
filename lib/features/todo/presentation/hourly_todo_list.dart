@@ -497,7 +497,7 @@ class _TodoTile extends ConsumerWidget {
         settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
       ),
     );
-    if (picked == null) return;
+    if (picked == null || !context.mounted) return;
     final s = todo.slotStart;
     await ref
         .read(todoControllerProvider)
