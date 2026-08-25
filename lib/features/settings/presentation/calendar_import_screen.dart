@@ -170,7 +170,12 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
           ),
           if (_busy)
             Container(
-              color: Colors.black.withValues(alpha: 0.2),
+              // palette.ink, not a hardcoded black — ink is already the
+              // color that reads clearly against this theme's own
+              // background (near-black in light mode, near-white in dark),
+              // so a translucent wash of it dims visibly in both instead of
+              // vanishing against a near-black dark-mode background.
+              color: palette.ink.withValues(alpha: 0.2),
               child: Center(
                 child: Card(
                   child: Padding(

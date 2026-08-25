@@ -167,7 +167,9 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
           ),
           if (_restoring)
             Container(
-              color: Colors.black.withValues(alpha: 0.2),
+              // See calendar_import_screen.dart's identical busy-overlay for
+              // why this is palette.ink and not a hardcoded black.
+              color: palette.ink.withValues(alpha: 0.2),
               child: const Center(child: CircularProgressIndicator()),
             ),
         ],
