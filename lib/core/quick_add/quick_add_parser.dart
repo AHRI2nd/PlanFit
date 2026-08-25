@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
+import '../date_math.dart';
+
 /// What [parseQuickAdd] pulled out of a free-text line like "내일 오후 3시
 /// 회의" — plus [title], the leftover text with every matched phrase
 /// stripped out.
@@ -84,7 +86,7 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
       '모레' => 2,
       _ => 0,
     };
-    date = dateOnly(now).add(Duration(days: offset));
+    date = addCalendarDays(dateOnly(now), offset);
     text = strip(relative);
   }
 
@@ -255,11 +257,12 @@ DateTime _nextWeekday(
     // result, so this is already the closest occurrence on/after `from`
     // (0 when `from` itself is the target weekday).
     final delta = (targetWeekday - from.weekday) % 7;
-    return from.add(Duration(days: delta));
+    return addCalendarDays(from, delta);
   }
-  final thisWeekStart = from.subtract(
-    Duration(days: (from.weekday - DateTime.monday) % 7),
+  final thisWeekStart = addCalendarDays(
+    from,
+    -((from.weekday - DateTime.monday) % 7),
   );
-  final nextWeekStart = thisWeekStart.add(const Duration(days: 7));
-  return nextWeekStart.add(Duration(days: targetWeekday - DateTime.monday));
+  final nextWeekStart = addCalendarDays(thisWeekStart, 7);
+  return addCalendarDays(nextWeekStart, targetWeekday - DateTime.monday);
 }

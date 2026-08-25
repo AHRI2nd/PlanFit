@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/di.dart';
 import '../../settings/application/settings_controller.dart';
@@ -15,7 +16,7 @@ DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 DateTime startOfWeek(DateTime day, {int startWeekday = DateTime.monday}) {
   final d = dateOnly(day);
   final diff = (d.weekday - startWeekday) % 7;
-  return d.subtract(Duration(days: diff));
+  return addCalendarDays(d, -diff);
 }
 
 /// `DateTime.monday` or `DateTime.sunday`, per the user's week-start setting.
@@ -95,7 +96,7 @@ final eventsForDayProvider = StreamProvider.family<List<EventRow>, DateTime>((
   day,
 ) {
   final start = dateOnly(day);
-  final end = start.add(const Duration(days: 1));
+  final end = addCalendarDays(start, 1);
   return ref.watch(eventRepositoryProvider).watchBetween(start, end);
 });
 
@@ -137,7 +138,7 @@ final eventsForWeekProvider = StreamProvider.family<List<EventRow>, DateTime>((
     anyDayInWeek,
     startWeekday: ref.watch(weekStartWeekdayProvider),
   );
-  final end = start.add(const Duration(days: 7));
+  final end = addCalendarDays(start, 7);
   return ref.watch(eventRepositoryProvider).watchBetween(start, end);
 });
 
@@ -146,8 +147,8 @@ final eventsForWeekProvider = StreamProvider.family<List<EventRow>, DateTime>((
 /// instant it starts) through 6 months forward.
 final eventsForAgendaProvider = StreamProvider.family<List<EventRow>, DateTime>(
   (ref, anchor) {
-    final start = dateOnly(anchor).subtract(const Duration(days: 7));
-    final end = dateOnly(anchor).add(const Duration(days: 180));
+    final start = addCalendarDays(dateOnly(anchor), -7);
+    final end = addCalendarDays(dateOnly(anchor), 180);
     return ref.watch(eventRepositoryProvider).watchBetween(start, end);
   },
 );

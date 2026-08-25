@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import '../../features/schedule/application/schedule_providers.dart'
     show dateOnly;
 import '../../features/todo/domain/todo_notification_sync.dart';
+import '../date_math.dart';
 import '../db/app_database.dart';
 import '../notifications/notification_service.dart';
 import 'home_widget_sync.dart';
@@ -71,7 +72,7 @@ Future<void> homeWidgetBackgroundCallback(Uri? uri) async {
         .watchUpcoming(DateTime.now(), limit: 4)
         .first;
     final todayTodos = await db.todoDao
-        .watchBetween(today, today.add(const Duration(days: 1)))
+        .watchBetween(today, addCalendarDays(today, 1))
         .first;
     await HomeWidgetSync.push(upcomingEvents: upcoming, todayTodos: todayTodos);
   } finally {

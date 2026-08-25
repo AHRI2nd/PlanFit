@@ -1,3 +1,5 @@
+import '../../../core/date_math.dart';
+
 /// How often a newly-created event repeats. `none` means a one-off event —
 /// the pre-existing, default behavior.
 enum RecurrenceFrequency { none, daily, weekly, monthly, yearly }
@@ -154,7 +156,7 @@ class RecurrenceExpansion {
     while (result.length < limit &&
         (untilDate == null || !day.isAfter(untilDate))) {
       if (weekdays.contains(day.weekday)) result.add(day);
-      day = day.add(const Duration(days: 1));
+      day = addCalendarDays(day, 1);
     }
     return result;
   }
@@ -168,8 +170,8 @@ class RecurrenceExpansion {
   ) {
     return switch (frequency) {
       RecurrenceFrequency.none => start,
-      RecurrenceFrequency.daily => start.add(Duration(days: step)),
-      RecurrenceFrequency.weekly => start.add(Duration(days: step * 7)),
+      RecurrenceFrequency.daily => addCalendarDays(start, step),
+      RecurrenceFrequency.weekly => addCalendarDays(start, step * 7),
       RecurrenceFrequency.monthly => _sameDayOfMonth(
         start,
         start.year,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
@@ -21,13 +22,13 @@ import '../day_view/day_view.dart';
 int monthRowCount(DateTime focusedDay, int startWeekday) {
   final first = DateTime(focusedDay.year, focusedDay.month, 1);
   final daysBefore = (first.weekday + 7 - startWeekday) % 7;
-  final firstToDisplay = first.subtract(Duration(days: daysBefore));
+  final firstToDisplay = addCalendarDays(first, -daysBefore);
 
   final last = DateTime(focusedDay.year, focusedDay.month + 1, 0);
   final invertedStartWeekday = 8 - startWeekday;
   var daysAfter = 7 - ((last.weekday + invertedStartWeekday) % 7);
   if (daysAfter == 7) daysAfter = 0;
-  final lastToDisplay = last.add(Duration(days: daysAfter));
+  final lastToDisplay = addCalendarDays(last, daysAfter);
 
   return (lastToDisplay.difference(firstToDisplay).inDays + 1) ~/ 7;
 }

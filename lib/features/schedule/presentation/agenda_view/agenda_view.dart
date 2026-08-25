@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
@@ -210,7 +211,7 @@ class _DayHeader extends StatelessWidget {
     final l10n = AppL10n.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final today = dateOnly(DateTime.now());
-    final tomorrow = today.add(const Duration(days: 1));
+    final tomorrow = addCalendarDays(today, 1);
 
     final label = day == today
         ? '${l10n.commonToday} · ${Fmt.monthDay(day, locale)}'

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
@@ -166,7 +167,7 @@ class _TimelineState extends ConsumerState<_Timeline> {
       widget.day.month,
       widget.day.day,
     );
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    final dayEnd = addCalendarDays(dayStart, 1);
     final delta = Duration(minutes: _snappedDeltaMinutes);
 
     if (_dragMode == _DragMode.move) {

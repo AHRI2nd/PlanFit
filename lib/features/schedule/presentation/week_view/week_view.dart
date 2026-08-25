@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/format.dart';
 import '../../../../core/time_format.dart';
@@ -34,8 +35,10 @@ class WeekView extends ConsumerWidget {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final startWeekday = ref.watch(weekStartWeekdayProvider);
     final weekStart = startOfWeek(anchor, startWeekday: startWeekday);
-    final weekEnd = weekStart.add(const Duration(days: 7));
-    final days = [for (var i = 0; i < 7; i++) weekStart.add(Duration(days: i))];
+    final weekEnd = addCalendarDays(weekStart, 7);
+    final days = [
+      for (var i = 0; i < 7; i++) addCalendarDays(weekStart, i),
+    ];
     final eventsAsync = ref.watch(eventsForWeekProvider(anchor));
     final now = DateTime.now();
     final today = dateOnly(now);

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/daos/event_dao.dart';
 import '../../../core/db/sync_status.dart';
@@ -161,18 +162,7 @@ class EventRepositoryImpl implements EventRepository {
           newStart = input.startAt;
           newEnd = input.endAt;
         } else {
-          final occurrenceDay = DateTime(
-            occurrence.startAt.year,
-            occurrence.startAt.month,
-            occurrence.startAt.day,
-          );
-          newStart = occurrenceDay.add(
-            Duration(
-                  hours: occurrence.startAt.hour,
-                  minutes: occurrence.startAt.minute,
-                ) +
-                timeOfDayDelta,
-          );
+          newStart = shiftTimeOfDay(occurrence.startAt, timeOfDayDelta);
           newEnd = newStart.add(duration);
         }
         final row = await _upsertRow(

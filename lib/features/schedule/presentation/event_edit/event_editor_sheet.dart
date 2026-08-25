@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
@@ -347,7 +348,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     // half-open-interval convention EventDao's queries already use (and how
     // EventKit itself represents an all-day event's end).
     final startAt = _allDay ? dateOnly(_start) : _start;
-    final endAt = _allDay ? dateOnly(_end).add(const Duration(days: 1)) : _end;
+    final endAt = _allDay ? addCalendarDays(dateOnly(_end), 1) : _end;
 
     final input = EventInput(
       id: widget.existing?.id,

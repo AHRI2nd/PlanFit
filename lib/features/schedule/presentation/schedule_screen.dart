@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/date_math.dart';
 import '../../../core/format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
@@ -33,7 +34,7 @@ class ScheduleScreen extends ConsumerWidget {
       ScheduleView.day => Fmt.fullDate(selected, locale),
       ScheduleView.week => () {
         final start = startOfWeek(selected, startWeekday: weekStartWeekday);
-        final end = start.add(const Duration(days: 6));
+        final end = addCalendarDays(start, 6);
         return '${Fmt.monthDay(start, locale)} – ${Fmt.monthDay(end, locale)}';
       }(),
       ScheduleView.month => Fmt.yearMonth(selected, locale),

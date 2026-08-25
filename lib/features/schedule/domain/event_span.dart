@@ -1,3 +1,4 @@
+import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -23,14 +24,14 @@ List<DateTime> eventDaysInRange(
   final lastTouchedDay = _dateOnly(
     event.endAt.subtract(const Duration(microseconds: 1)),
   );
-  final exclusiveEnd = lastTouchedDay.add(const Duration(days: 1));
+  final exclusiveEnd = addCalendarDays(lastTouchedDay, 1);
   final end = exclusiveEnd.isAfter(rangeEnd) ? rangeEnd : exclusiveEnd;
 
   final days = <DateTime>[];
   var d = firstDay;
   while (d.isBefore(end)) {
     days.add(d);
-    d = d.add(const Duration(days: 1));
+    d = addCalendarDays(d, 1);
   }
   return days;
 }

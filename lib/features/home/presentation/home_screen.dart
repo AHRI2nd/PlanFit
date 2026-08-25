@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/clock.dart';
+import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
@@ -371,7 +372,7 @@ class _WeeklyStats extends ConsumerWidget {
                 Expanded(
                   child: Builder(
                     builder: (context) {
-                      final day = weekStart.add(Duration(days: i));
+                      final day = addCalendarDays(weekStart, i);
                       return _WeekDayBar(
                         day: day,
                         isToday: day == today,

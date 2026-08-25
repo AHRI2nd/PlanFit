@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/sync_status.dart';
 import '../../../core/di.dart';
@@ -18,7 +19,7 @@ final todosForDayProvider = StreamProvider.family<List<TodoRow>, DateTime>((
   day,
 ) {
   final start = dateOnly(day);
-  final end = start.add(const Duration(days: 1));
+  final end = addCalendarDays(start, 1);
   return ref.watch(todoDaoProvider).watchBetween(start, end);
 });
 
@@ -32,7 +33,7 @@ final todosForWeekProvider = StreamProvider.family<List<TodoRow>, DateTime>((
     anyDayInWeek,
     startWeekday: ref.watch(weekStartWeekdayProvider),
   );
-  final end = start.add(const Duration(days: 7));
+  final end = addCalendarDays(start, 7);
   return ref.watch(todoDaoProvider).watchBetween(start, end);
 });
 
@@ -133,7 +134,7 @@ class TodoController {
 
     final groupId = _uuid.v4();
     final until =
-        recurrenceUntil ?? effectiveSlotStart.add(const Duration(days: 365));
+        recurrenceUntil ?? addCalendarDays(effectiveSlotStart, 365);
     final occurrences = RecurrenceExpansion.occurrences(
       start: effectiveSlotStart,
       end: effectiveSlotStart,
