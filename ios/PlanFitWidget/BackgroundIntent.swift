@@ -40,7 +40,15 @@ public struct PlanFitBackgroundIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        await HomeWidgetBackgroundWorker.run(url: url, appGroup: appGroup!)
+        // appGroup is an Optional @Parameter (AppIntents requires that for
+        // its own persistence/reconstruction machinery) but
+        // HomeWidgetBackgroundWorker.run needs a non-optional String — guard
+        // rather than force-unwrap, since AppIntents can reconstruct this
+        // intent without appGroup populated (e.g. resuming a persisted/
+        // interrupted background execution), and this file isn't wired into
+        // any target yet to have exercised that path.
+        guard let appGroup else { return .result() }
+        await HomeWidgetBackgroundWorker.run(url: url, appGroup: appGroup)
         return .result()
     }
 }
