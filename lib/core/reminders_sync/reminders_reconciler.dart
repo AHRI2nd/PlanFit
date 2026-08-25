@@ -120,7 +120,8 @@ class RemindersReconciler {
     // normalize-to-midnight treatment as `TodoDao.clearTime`, so the
     // no-time bucket's manual drag reorder isn't silently broken by a
     // leftover time-of-day on `slotStart` (see that method's doc).
-    final slotStart = r.dueDate ??
+    final slotStart =
+        r.dueDate ??
         DateTime(row.slotStart.year, row.slotStart.month, row.slotStart.day);
     return TodoItemsCompanion(
       title: Value(r.title),

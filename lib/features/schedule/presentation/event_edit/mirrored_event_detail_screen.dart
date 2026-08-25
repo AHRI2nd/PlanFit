@@ -34,15 +34,15 @@ class MirroredEventDetailScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.calendarImportSubscribedHint),
-      ),
+      appBar: AppBar(title: Text(l10n.calendarImportSubscribedHint)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.gutter),
           children: [
-            Text(event.title.isEmpty ? '—' : event.title,
-                style: theme.textTheme.headlineSmall),
+            Text(
+              event.title.isEmpty ? '—' : event.title,
+              style: theme.textTheme.headlineSmall,
+            ),
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
@@ -53,10 +53,11 @@ class MirroredEventDetailScreen extends ConsumerWidget {
                     event.isAllDay
                         ? Fmt.monthDay(event.startAt, locale)
                         : '${Fmt.monthDay(event.startAt, locale)}  '
-                            '${Fmt.time(event.startAt, locale, use24Hour: use24)} – '
-                            '${Fmt.time(event.endAt, locale, use24Hour: use24)}',
-                    style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: palette.inkSoft),
+                              '${Fmt.time(event.startAt, locale, use24Hour: use24)} – '
+                              '${Fmt.time(event.endAt, locale, use24Hour: use24)}',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: palette.inkSoft,
+                    ),
                   ),
                 ),
               ],
@@ -68,9 +69,12 @@ class MirroredEventDetailScreen extends ConsumerWidget {
                   Icon(Icons.place_outlined, size: 18, color: palette.inkFaint),
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
-                    child: Text(event.location!,
-                        style: theme.textTheme.bodyLarge
-                            ?.copyWith(color: palette.inkSoft)),
+                    child: Text(
+                      event.location!,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: palette.inkSoft,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -94,8 +98,9 @@ class MirroredEventDetailScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       l10n.calendarImportMirroredReadOnlyNote,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: palette.inkFaint),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: palette.inkFaint,
+                      ),
                     ),
                   ),
                 ],

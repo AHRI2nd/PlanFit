@@ -37,20 +37,29 @@ class YearView extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.gutter, vertical: AppSpacing.xs),
+            horizontal: AppSpacing.gutter,
+            vertical: AppSpacing.xs,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('$year',
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontFeatures: null)),
+              Text(
+                '$year',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontFeatures: null,
+                ),
+              ),
             ],
           ),
         ),
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter, AppSpacing.xs, AppSpacing.gutter, 140),
+              AppSpacing.gutter,
+              AppSpacing.xs,
+              AppSpacing.gutter,
+              140,
+            ),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
               mainAxisSpacing: AppSpacing.md,
@@ -71,7 +80,9 @@ class YearView extends ConsumerWidget {
                   ref
                       .read(selectedDateProvider.notifier)
                       .select(DateTime(year, month, 1));
-                  ref.read(scheduleViewProvider.notifier).set(ScheduleView.month);
+                  ref
+                      .read(scheduleViewProvider.notifier)
+                      .set(ScheduleView.month);
                 },
               );
             },
@@ -123,8 +134,7 @@ class _MiniMonth extends StatelessWidget {
           Expanded(
             child: GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 7,
                 mainAxisSpacing: 2,
                 crossAxisSpacing: 2,
@@ -140,11 +150,14 @@ class _MiniMonth extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: count > 0
-                        ? (dayColors[date] ?? AppColors.timeGradient(date).first)
-                            .withValues(alpha: (0.30 + count * 0.18).clamp(0.3, 0.9))
+                        ? (dayColors[date] ??
+                                  AppColors.timeGradient(date).first)
+                              .withValues(
+                                alpha: (0.30 + count * 0.18).clamp(0.3, 0.9),
+                              )
                         : (isToday
-                            ? palette.accent.withValues(alpha: 0.18)
-                            : null),
+                              ? palette.accent.withValues(alpha: 0.18)
+                              : null),
                   ),
                   alignment: Alignment.center,
                   child: Text(

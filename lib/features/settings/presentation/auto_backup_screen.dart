@@ -56,14 +56,17 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _restoring = true);
     try {
-      final summary =
-          await ref.read(backupServiceProvider).importFromFile(file.path);
+      final summary = await ref
+          .read(backupServiceProvider)
+          .importFromFile(file.path);
       if (!mounted) return;
-      messenger.showAutoDismissSnackBar(SnackBar(
-        content: Text(
-          l10n.backupImportSuccess(summary.eventCount, summary.todoCount),
+      messenger.showAutoDismissSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.backupImportSuccess(summary.eventCount, summary.todoCount),
+          ),
         ),
-      ));
+      );
     } catch (_) {
       if (!mounted) return;
       messenger.showAutoDismissSnackBar(
@@ -105,8 +108,9 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
                     padding: const EdgeInsets.all(AppSpacing.gutter),
                     child: Text(
                       l10n.autoBackupDesc,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: palette.inkFaint),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: palette.inkFaint,
+                      ),
                     ),
                   ),
                   Expanded(
@@ -119,7 +123,8 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.gutter),
+                              horizontal: AppSpacing.gutter,
+                            ),
                             itemCount: files.length,
                             separatorBuilder: (_, _) =>
                                 Divider(height: 1, color: palette.hairline),
@@ -132,8 +137,10 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
                                   final size = statSnapshot.data?.size;
                                   return ListTile(
                                     contentPadding: EdgeInsets.zero,
-                                    leading: Icon(Icons.history,
-                                        color: palette.inkFaint),
+                                    leading: Icon(
+                                      Icons.history,
+                                      color: palette.inkFaint,
+                                    ),
                                     title: Text(
                                       modified == null
                                           ? file.uri.pathSegments.last

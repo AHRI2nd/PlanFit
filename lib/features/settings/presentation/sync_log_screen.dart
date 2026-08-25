@@ -27,8 +27,7 @@ class SyncLogScreen extends ConsumerWidget {
       ),
       context,
     );
-    final logs =
-        ref.watch(syncLogDaoProvider).watchRecent();
+    final logs = ref.watch(syncLogDaoProvider).watchRecent();
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsSyncLog)),
@@ -54,27 +53,32 @@ class SyncLogScreen extends ConsumerWidget {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(_iconFor(row.resolution),
-                      size: 18, color: _colorFor(row.resolution, palette)),
+                  Icon(
+                    _iconFor(row.resolution),
+                    size: 18,
+                    color: _colorFor(row.resolution, palette),
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(row.eventTitle ?? '—',
-                            style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          row.eventTitle ?? '—',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         if (row.detail != null)
-                          Text(row.detail!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: palette.inkSoft)),
+                          Text(
+                            row.detail!,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: palette.inkSoft),
+                          ),
                         const SizedBox(height: 2),
-                        Text(Fmt.time(row.at, locale, use24Hour: use24),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(color: palette.inkFaint)),
+                        Text(
+                          Fmt.time(row.at, locale, use24Hour: use24),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: palette.inkFaint),
+                        ),
                       ],
                     ),
                   ),
@@ -88,18 +92,17 @@ class SyncLogScreen extends ConsumerWidget {
   }
 
   IconData _iconFor(SyncResolution r) => switch (r) {
-        SyncResolution.pushed => Icons.upload_outlined,
-        SyncResolution.pulled => Icons.download_outlined,
-        SyncResolution.conflictLocalWon => Icons.merge_type,
-        SyncResolution.conflictRemoteWon => Icons.merge_type,
-        SyncResolution.deletedRemotely => Icons.delete_outline,
-      };
+    SyncResolution.pushed => Icons.upload_outlined,
+    SyncResolution.pulled => Icons.download_outlined,
+    SyncResolution.conflictLocalWon => Icons.merge_type,
+    SyncResolution.conflictRemoteWon => Icons.merge_type,
+    SyncResolution.deletedRemotely => Icons.delete_outline,
+  };
 
   Color _colorFor(SyncResolution r, AppPalette palette) => switch (r) {
-        SyncResolution.deletedRemotely => palette.danger,
-        SyncResolution.conflictLocalWon ||
-        SyncResolution.conflictRemoteWon =>
-          AppColors.dayAmber,
-        _ => palette.accent,
-      };
+    SyncResolution.deletedRemotely => palette.danger,
+    SyncResolution.conflictLocalWon ||
+    SyncResolution.conflictRemoteWon => AppColors.dayAmber,
+    _ => palette.accent,
+  };
 }

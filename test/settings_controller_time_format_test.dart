@@ -10,9 +10,9 @@ void main() {
       'restart) reads each persisted choice back independently', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
 
     expect(
@@ -50,9 +50,9 @@ void main() {
       TimeFormatPreference.h12,
     );
 
-    final restarted = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final restarted = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(restarted.dispose);
     expect(
       restarted.read(settingsControllerProvider).dialTimeFormatPreference,

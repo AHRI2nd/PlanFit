@@ -47,18 +47,24 @@ class SocialScreen extends StatelessWidget {
                             end: Alignment.bottomRight,
                           ),
                         ),
-                        child: const Icon(Icons.group_add,
-                            color: Colors.white, size: 30),
+                        child: const Icon(
+                          Icons.group_add,
+                          color: Colors.white,
+                          size: 30,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      Text(l10n.socialComingSoonTitle,
-                          style: theme.textTheme.titleLarge),
+                      Text(
+                        l10n.socialComingSoonTitle,
+                        style: theme.textTheme.titleLarge,
+                      ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         l10n.socialComingSoonBody,
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: palette.inkSoft),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: palette.inkSoft,
+                        ),
                       ),
                     ],
                   ),

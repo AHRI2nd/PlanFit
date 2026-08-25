@@ -9,21 +9,23 @@ void main() {
       'persist() carries the value to the next read (app restart)', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
 
-    expect(container.read(monthCalendarRowHeightProvider),
-        MonthCalendarRowHeight.defaultHeight);
+    expect(
+      container.read(monthCalendarRowHeightProvider),
+      MonthCalendarRowHeight.defaultHeight,
+    );
 
     container.read(monthCalendarRowHeightProvider.notifier).set(70);
     expect(container.read(monthCalendarRowHeightProvider), 70);
     await container.read(monthCalendarRowHeightProvider.notifier).persist();
 
-    final restarted = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final restarted = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(restarted.dispose);
     expect(restarted.read(monthCalendarRowHeightProvider), 70);
   });
@@ -32,18 +34,22 @@ void main() {
       'nothing or blow past a sane maximum', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
 
     container.read(monthCalendarRowHeightProvider.notifier).set(-500);
-    expect(container.read(monthCalendarRowHeightProvider),
-        MonthCalendarRowHeight.min);
+    expect(
+      container.read(monthCalendarRowHeightProvider),
+      MonthCalendarRowHeight.min,
+    );
 
     container.read(monthCalendarRowHeightProvider.notifier).set(500);
-    expect(container.read(monthCalendarRowHeightProvider),
-        MonthCalendarRowHeight.max);
+    expect(
+      container.read(monthCalendarRowHeightProvider),
+      MonthCalendarRowHeight.max,
+    );
   });
 
   test('a value persisted from an old build outside the current [min, max] '
@@ -52,12 +58,14 @@ void main() {
       'schedule.monthCalendarRowHeight': 500.0,
     });
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
 
-    expect(container.read(monthCalendarRowHeightProvider),
-        MonthCalendarRowHeight.max);
+    expect(
+      container.read(monthCalendarRowHeightProvider),
+      MonthCalendarRowHeight.max,
+    );
   });
 }

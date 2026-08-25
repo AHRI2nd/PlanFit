@@ -40,7 +40,6 @@ bool resolveUse24Hour(TimeFormatPreference preference, BuildContext context) {
   return switch (preference) {
     TimeFormatPreference.h24 => true,
     TimeFormatPreference.h12 => false,
-    TimeFormatPreference.system =>
-      MediaQuery.of(context).alwaysUse24HourFormat,
+    TimeFormatPreference.system => MediaQuery.of(context).alwaysUse24HourFormat,
   };
 }

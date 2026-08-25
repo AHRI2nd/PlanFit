@@ -18,11 +18,7 @@ class AppTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: p.accent,
       brightness: brightness,
-    ).copyWith(
-      surface: p.surface,
-      onSurface: p.ink,
-      primary: p.accent,
-    );
+    ).copyWith(surface: p.surface, onSurface: p.ink, primary: p.accent);
 
     return ThemeData(
       useMaterial3: true,

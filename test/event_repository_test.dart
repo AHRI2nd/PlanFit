@@ -540,7 +540,12 @@ void main() {
         final newEnd = newStart.add(const Duration(hours: 1));
         await repo.saveSeriesFrom(
           'occ-2',
-          EventInput(id: 'occ-2', title: 'Standup', startAt: newStart, endAt: newEnd),
+          EventInput(
+            id: 'occ-2',
+            title: 'Standup',
+            startAt: newStart,
+            endAt: newEnd,
+          ),
         );
 
         // The edited occurrence gets exactly the date the user set — not

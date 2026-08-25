@@ -37,8 +37,11 @@ class AppShell extends ConsumerWidget {
     // Today's undone to-dos, surfaced as a badge on the schedule tab so a
     // pending day is visible without opening it.
     final todayTodos =
-        ref.watch(todosForDayProvider(dateOnly(DateTime.now()))).asData?.value ??
-            const [];
+        ref
+            .watch(todosForDayProvider(dateOnly(DateTime.now())))
+            .asData
+            ?.value ??
+        const [];
     final undoneToday = todayTodos.where((t) => !t.isDone).length;
 
     final items = <GlassNavItem>[
@@ -66,9 +69,9 @@ class AppShell extends ConsumerWidget {
     ];
 
     void onTap(int index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
-        );
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
 
     return Scaffold(
       extendBody: true,
@@ -113,7 +116,9 @@ class _IosGlassTabBar extends StatelessWidget {
           GlassTab(
             icon: NavBadgeIcon(count: item.badgeCount, icon: Icon(item.icon)),
             activeIcon: NavBadgeIcon(
-                count: item.badgeCount, icon: Icon(item.activeIcon)),
+              count: item.badgeCount,
+              icon: Icon(item.activeIcon),
+            ),
             label: item.label,
             glowColor: accent,
           ),

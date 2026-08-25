@@ -83,7 +83,10 @@ void main() {
     test('runs even when calendar sync is disabled', () async {
       when(service.isEnabled).thenReturn(false);
       final now = DateTime(2026, 1, 1);
-      final inWindow = row(id: 'e1', startAt: now.add(const Duration(days: 30)));
+      final inWindow = row(
+        id: 'e1',
+        startAt: now.add(const Duration(days: 30)),
+      );
       when(dao.between(any, any)).thenAnswer((_) async => [inWindow]);
 
       await reconciler.reconcile(now: now);
@@ -95,18 +98,22 @@ void main() {
     });
 
     test(
-        'still calls scheduleForEvent for a candidate near the edge of the '
-        'window — scheduleForEvent itself judges each reminder offset',
-        () async {
-      when(service.isEnabled).thenReturn(false);
-      final now = DateTime(2026, 1, 1);
-      final farOut = row(id: 'e2', startAt: now.add(const Duration(days: 90)));
-      when(dao.between(any, any)).thenAnswer((_) async => [farOut]);
+      'still calls scheduleForEvent for a candidate near the edge of the '
+      'window — scheduleForEvent itself judges each reminder offset',
+      () async {
+        when(service.isEnabled).thenReturn(false);
+        final now = DateTime(2026, 1, 1);
+        final farOut = row(
+          id: 'e2',
+          startAt: now.add(const Duration(days: 90)),
+        );
+        when(dao.between(any, any)).thenAnswer((_) async => [farOut]);
 
-      await reconciler.reconcile(now: now);
+        await reconciler.reconcile(now: now);
 
-      verify(notifications.scheduleForEvent(farOut)).called(1);
-    });
+        verify(notifications.scheduleForEvent(farOut)).called(1);
+      },
+    );
 
     test('skips an event with notifications turned off', () async {
       when(service.isEnabled).thenReturn(false);
@@ -123,8 +130,7 @@ void main() {
       verifyNever(notifications.scheduleForEvent(any));
     });
 
-    test(
-        'still calls scheduleForEvent for a candidate whose primary alert '
+    test('still calls scheduleForEvent for a candidate whose primary alert '
         'has already passed — scheduleForEvent itself judges each reminder '
         'offset', () async {
       when(service.isEnabled).thenReturn(false);
@@ -150,19 +156,23 @@ void main() {
       when(service.subscribedCalendarIds).thenReturn({'work-cal'});
       final now = DateTime(2026, 1, 1);
       when(dao.between(any, any)).thenAnswer((_) async => []);
-      when(calendarImportService.syncMirroredCalendars(
-        {'work-cal'},
-        from: anyNamed('from'),
-        to: anyNamed('to'),
-      )).thenAnswer((_) async {});
+      when(
+        calendarImportService.syncMirroredCalendars(
+          {'work-cal'},
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      ).thenAnswer((_) async {});
 
       await reconciler.reconcile(now: now);
 
-      verify(calendarImportService.syncMirroredCalendars(
-        {'work-cal'},
-        from: anyNamed('from'),
-        to: anyNamed('to'),
-      )).called(1);
+      verify(
+        calendarImportService.syncMirroredCalendars(
+          {'work-cal'},
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      ).called(1);
     });
 
     test('is skipped entirely when nothing is subscribed', () async {
@@ -171,11 +181,13 @@ void main() {
 
       await reconciler.reconcile(now: DateTime(2026, 1, 1));
 
-      verifyNever(calendarImportService.syncMirroredCalendars(
-        any,
-        from: anyNamed('from'),
-        to: anyNamed('to'),
-      ));
+      verifyNever(
+        calendarImportService.syncMirroredCalendars(
+          any,
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      );
     });
   });
 
@@ -199,30 +211,31 @@ void main() {
       );
     }
 
-    test('cancels the notification when the OS event was deleted externally',
-        () async {
-      when(service.isEnabled).thenReturn(true);
-      final now = DateTime(2026, 1, 1);
-      final linked = row(
-        id: 'e10',
-        startAt: now.add(const Duration(days: 5)),
-        osEventId: 'os-1',
-        syncStatus: SyncStatus.synced,
-      );
-      when(dao.needingPush()).thenAnswer((_) async => []);
-      when(dao.between(any, any)).thenAnswer((_) async => [linked]);
-      when(service.fetchEvent('os-1')).thenAnswer((_) async => null);
-      when(dao.deleteById(any)).thenAnswer((_) async {});
-      when(syncLogDao.add(any)).thenAnswer((_) async {});
-
-      await reconciler.reconcile(now: now);
-
-      verify(notifications.cancelForEvent('e10')).called(1);
-      verify(dao.deleteById('e10')).called(1);
-    });
-
     test(
-        'reschedules the notification at the new time when the OS event was '
+      'cancels the notification when the OS event was deleted externally',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        final now = DateTime(2026, 1, 1);
+        final linked = row(
+          id: 'e10',
+          startAt: now.add(const Duration(days: 5)),
+          osEventId: 'os-1',
+          syncStatus: SyncStatus.synced,
+        );
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => [linked]);
+        when(service.fetchEvent('os-1')).thenAnswer((_) async => null);
+        when(dao.deleteById(any)).thenAnswer((_) async {});
+        when(syncLogDao.add(any)).thenAnswer((_) async {});
+
+        await reconciler.reconcile(now: now);
+
+        verify(notifications.cancelForEvent('e10')).called(1);
+        verify(dao.deleteById('e10')).called(1);
+      },
+    );
+
+    test('reschedules the notification at the new time when the OS event was '
         'edited externally', () async {
       when(service.isEnabled).thenReturn(true);
       final now = DateTime(2026, 1, 1);
@@ -242,8 +255,9 @@ void main() {
       );
       when(dao.needingPush()).thenAnswer((_) async => []);
       when(dao.between(any, any)).thenAnswer((_) async => [linked]);
-      when(service.fetchEvent('os-2'))
-          .thenAnswer((_) async => osEvent(eventId: 'os-2', start: newStart));
+      when(
+        service.fetchEvent('os-2'),
+      ).thenAnswer((_) async => osEvent(eventId: 'os-2', start: newStart));
       when(dao.patch(any, any)).thenAnswer((_) async {});
       when(dao.findById('e11')).thenAnswer((_) async => pulled);
       when(syncLogDao.add(any)).thenAnswer((_) async {});
@@ -254,8 +268,7 @@ void main() {
       verifyNever(notifications.cancelForEvent('e11'));
     });
 
-    test(
-        'still calls scheduleForEvent when the externally-edited time moved '
+    test('still calls scheduleForEvent when the externally-edited time moved '
         'far into the future — scheduleForEvent itself judges each reminder '
         'offset against the window', () async {
       when(service.isEnabled).thenReturn(true);
@@ -277,7 +290,8 @@ void main() {
       when(dao.needingPush()).thenAnswer((_) async => []);
       when(dao.between(any, any)).thenAnswer((_) async => [linked]);
       when(service.fetchEvent('os-3')).thenAnswer(
-          (_) async => osEvent(eventId: 'os-3', start: farFutureStart));
+        (_) async => osEvent(eventId: 'os-3', start: farFutureStart),
+      );
       when(dao.patch(any, any)).thenAnswer((_) async {});
       when(dao.findById('e12')).thenAnswer((_) async => pulled);
       when(syncLogDao.add(any)).thenAnswer((_) async {});
@@ -318,74 +332,76 @@ void main() {
 
       await reconciler.reconcile(now: DateTime(2026, 1, 1));
 
-      verifyNever(service.listEvents(any, from: anyNamed('from'), to: anyNamed('to')));
+      verifyNever(
+        service.listEvents(any, from: anyNamed('from'), to: anyNamed('to')),
+      );
       verifyNever(dao.upsert(any));
     });
 
-    test(
-      'on — an event added directly in the target calendar is imported as '
-      'a new PlanFit event, notifications off',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        when(service.autoImportEnabled).thenReturn(true);
-        when(service.targetCalendarId).thenReturn('cal-1');
-        when(service.writableCalendars()).thenAnswer((_) async => <dc.Calendar>[]);
-        final now = DateTime(2026, 1, 1);
-        final start = now.add(const Duration(days: 2));
-        when(dao.needingPush()).thenAnswer((_) async => []);
-        when(dao.between(any, any)).thenAnswer((_) async => []);
-        when(service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')))
-            .thenAnswer((_) async => [osEvent(eventId: 'os-new', start: start)]);
-        when(dao.upsert(any)).thenAnswer((_) async {});
-        when(syncLogDao.add(any)).thenAnswer((_) async {});
+    test('on — an event added directly in the target calendar is imported as '
+        'a new PlanFit event, notifications off', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(service.autoImportEnabled).thenReturn(true);
+      when(service.targetCalendarId).thenReturn('cal-1');
+      when(
+        service.writableCalendars(),
+      ).thenAnswer((_) async => <dc.Calendar>[]);
+      final now = DateTime(2026, 1, 1);
+      final start = now.add(const Duration(days: 2));
+      when(dao.needingPush()).thenAnswer((_) async => []);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+      when(
+        service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')),
+      ).thenAnswer((_) async => [osEvent(eventId: 'os-new', start: start)]);
+      when(dao.upsert(any)).thenAnswer((_) async {});
+      when(syncLogDao.add(any)).thenAnswer((_) async {});
 
-        final changes = await reconciler.reconcile(now: now);
+      final changes = await reconciler.reconcile(now: now);
 
-        expect(changes, 1);
-        final captured =
-            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
-        expect(captured.title.value, 'Off-app event');
-        expect(captured.osEventId.value, 'os-new');
-        expect(captured.osCalendarId.value, 'cal-1');
-        expect(captured.syncStatus.value, SyncStatus.synced);
-        // Not created through the user, so it must not silently start
-        // alerting them — same reasoning as CalendarImportService's mirror
-        // rows.
-        expect(captured.notify.value, isFalse);
-      },
-    );
+      expect(changes, 1);
+      final captured =
+          verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+      expect(captured.title.value, 'Off-app event');
+      expect(captured.osEventId.value, 'os-new');
+      expect(captured.osCalendarId.value, 'cal-1');
+      expect(captured.syncStatus.value, SyncStatus.synced);
+      // Not created through the user, so it must not silently start
+      // alerting them — same reasoning as CalendarImportService's mirror
+      // rows.
+      expect(captured.notify.value, isFalse);
+    });
 
-    test(
-      'on — the imported event is tagged with the target calendar\'s own '
-      'OS color, not left to fall back to the generic gradient',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        when(service.autoImportEnabled).thenReturn(true);
-        when(service.targetCalendarId).thenReturn('cal-1');
-        when(service.writableCalendars()).thenAnswer((_) async => [
-              const dc.Calendar(
-                id: 'cal-1',
-                name: 'PlanFit',
-                colorHex: '#4B5FD6',
-                readOnly: false,
-              ),
-            ]);
-        final now = DateTime(2026, 1, 1);
-        final start = now.add(const Duration(days: 2));
-        when(dao.needingPush()).thenAnswer((_) async => []);
-        when(dao.between(any, any)).thenAnswer((_) async => []);
-        when(service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')))
-            .thenAnswer((_) async => [osEvent(eventId: 'os-new', start: start)]);
-        when(dao.upsert(any)).thenAnswer((_) async {});
-        when(syncLogDao.add(any)).thenAnswer((_) async {});
+    test('on — the imported event is tagged with the target calendar\'s own '
+        'OS color, not left to fall back to the generic gradient', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(service.autoImportEnabled).thenReturn(true);
+      when(service.targetCalendarId).thenReturn('cal-1');
+      when(service.writableCalendars()).thenAnswer(
+        (_) async => [
+          const dc.Calendar(
+            id: 'cal-1',
+            name: 'PlanFit',
+            colorHex: '#4B5FD6',
+            readOnly: false,
+          ),
+        ],
+      );
+      final now = DateTime(2026, 1, 1);
+      final start = now.add(const Duration(days: 2));
+      when(dao.needingPush()).thenAnswer((_) async => []);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+      when(
+        service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')),
+      ).thenAnswer((_) async => [osEvent(eventId: 'os-new', start: start)]);
+      when(dao.upsert(any)).thenAnswer((_) async {});
+      when(syncLogDao.add(any)).thenAnswer((_) async {});
 
-        await reconciler.reconcile(now: now);
+      await reconciler.reconcile(now: now);
 
-        final captured =
-            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
-        expect(captured.colorTag.value, '#4B5FD6');
-      },
-    );
+      final captured =
+          verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+      expect(captured.colorTag.value, '#4B5FD6');
+    });
 
     test(
       'on — an OS event already linked to a local row is not re-imported',
@@ -393,7 +409,9 @@ void main() {
         when(service.isEnabled).thenReturn(true);
         when(service.autoImportEnabled).thenReturn(true);
         when(service.targetCalendarId).thenReturn('cal-1');
-        when(service.writableCalendars()).thenAnswer((_) async => <dc.Calendar>[]);
+        when(
+          service.writableCalendars(),
+        ).thenAnswer((_) async => <dc.Calendar>[]);
         final now = DateTime(2026, 1, 1);
         final start = now.add(const Duration(days: 2));
         final existing = row(
@@ -405,12 +423,27 @@ void main() {
         when(dao.needingPush()).thenAnswer((_) async => []);
         when(dao.between(any, any)).thenAnswer((_) async => [existing]);
         when(service.fetchEvent('os-existing')).thenAnswer(
-          (_) async => osEvent(eventId: 'os-existing', start: start, title: existing.title),
+          (_) async => osEvent(
+            eventId: 'os-existing',
+            start: start,
+            title: existing.title,
+          ),
         );
-        when(service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')))
-            .thenAnswer((_) async => [
-                  osEvent(eventId: 'os-existing', start: start, title: existing.title),
-                ]);
+        when(
+          service.listEvents(
+            'cal-1',
+            from: anyNamed('from'),
+            to: anyNamed('to'),
+          ),
+        ).thenAnswer(
+          (_) async => [
+            osEvent(
+              eventId: 'os-existing',
+              start: start,
+              title: existing.title,
+            ),
+          ],
+        );
 
         final changes = await reconciler.reconcile(now: now);
 
@@ -419,80 +452,103 @@ void main() {
       },
     );
 
-    test(
-      'on — an event added directly to the device\'s primary calendar '
-      '(not the PlanFit target calendar) is imported too',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        when(service.autoImportEnabled).thenReturn(true);
-        when(service.targetCalendarId).thenReturn('cal-planfit');
-        when(service.writableCalendars()).thenAnswer((_) async => [
-              const dc.Calendar(
-                id: 'cal-default',
-                name: 'Calendar',
-                colorHex: '#EA4335',
-                readOnly: false,
-                isPrimary: true,
-              ),
-            ]);
-        final now = DateTime(2026, 1, 1);
-        final start = now.add(const Duration(days: 2));
-        when(dao.needingPush()).thenAnswer((_) async => []);
-        when(dao.between(any, any)).thenAnswer((_) async => []);
-        when(service.listEvents('cal-planfit', from: anyNamed('from'), to: anyNamed('to')))
-            .thenAnswer((_) async => []);
-        when(service.listEvents('cal-default', from: anyNamed('from'), to: anyNamed('to')))
-            .thenAnswer((_) async =>
-                [osEvent(eventId: 'os-default', start: start, title: '밥먹기')]);
-        when(dao.upsert(any)).thenAnswer((_) async {});
-        when(syncLogDao.add(any)).thenAnswer((_) async {});
+    test('on — an event added directly to the device\'s primary calendar '
+        '(not the PlanFit target calendar) is imported too', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(service.autoImportEnabled).thenReturn(true);
+      when(service.targetCalendarId).thenReturn('cal-planfit');
+      when(service.writableCalendars()).thenAnswer(
+        (_) async => [
+          const dc.Calendar(
+            id: 'cal-default',
+            name: 'Calendar',
+            colorHex: '#EA4335',
+            readOnly: false,
+            isPrimary: true,
+          ),
+        ],
+      );
+      final now = DateTime(2026, 1, 1);
+      final start = now.add(const Duration(days: 2));
+      when(dao.needingPush()).thenAnswer((_) async => []);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+      when(
+        service.listEvents(
+          'cal-planfit',
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      ).thenAnswer((_) async => []);
+      when(
+        service.listEvents(
+          'cal-default',
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      ).thenAnswer(
+        (_) async => [
+          osEvent(eventId: 'os-default', start: start, title: '밥먹기'),
+        ],
+      );
+      when(dao.upsert(any)).thenAnswer((_) async {});
+      when(syncLogDao.add(any)).thenAnswer((_) async {});
 
-        final changes = await reconciler.reconcile(now: now);
+      final changes = await reconciler.reconcile(now: now);
 
-        expect(changes, 1);
-        final captured =
-            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
-        expect(captured.title.value, '밥먹기');
-        expect(captured.osEventId.value, 'os-default');
-        expect(captured.osCalendarId.value, 'cal-1');
-        // Tagged with the primary calendar's own color, not left null to
-        // fall back to the generic time-of-day gradient.
-        expect(captured.colorTag.value, '#EA4335');
-      },
-    );
+      expect(changes, 1);
+      final captured =
+          verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+      expect(captured.title.value, '밥먹기');
+      expect(captured.osEventId.value, 'os-default');
+      expect(captured.osCalendarId.value, 'cal-1');
+      // Tagged with the primary calendar's own color, not left null to
+      // fall back to the generic time-of-day gradient.
+      expect(captured.colorTag.value, '#EA4335');
+    });
 
-    test(
-      'on — a primary calendar the user already subscribed to is not '
-      'double-scanned by auto-import',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        when(service.autoImportEnabled).thenReturn(true);
-        when(service.targetCalendarId).thenReturn('cal-planfit');
-        when(service.subscribedCalendarIds).thenReturn({'cal-default'});
-        when(service.writableCalendars()).thenAnswer((_) async => [
-              const dc.Calendar(
-                id: 'cal-default',
-                name: 'Calendar',
-                readOnly: false,
-                isPrimary: true,
-              ),
-            ]);
-        final now = DateTime(2026, 1, 1);
-        when(dao.needingPush()).thenAnswer((_) async => []);
-        when(dao.between(any, any)).thenAnswer((_) async => []);
-        when(calendarImportService.syncMirroredCalendars(
+    test('on — a primary calendar the user already subscribed to is not '
+        'double-scanned by auto-import', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(service.autoImportEnabled).thenReturn(true);
+      when(service.targetCalendarId).thenReturn('cal-planfit');
+      when(service.subscribedCalendarIds).thenReturn({'cal-default'});
+      when(service.writableCalendars()).thenAnswer(
+        (_) async => [
+          const dc.Calendar(
+            id: 'cal-default',
+            name: 'Calendar',
+            readOnly: false,
+            isPrimary: true,
+          ),
+        ],
+      );
+      final now = DateTime(2026, 1, 1);
+      when(dao.needingPush()).thenAnswer((_) async => []);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+      when(
+        calendarImportService.syncMirroredCalendars(
           {'cal-default'},
           from: anyNamed('from'),
           to: anyNamed('to'),
-        )).thenAnswer((_) async {});
-        when(service.listEvents('cal-planfit', from: anyNamed('from'), to: anyNamed('to')))
-            .thenAnswer((_) async => []);
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        service.listEvents(
+          'cal-planfit',
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      ).thenAnswer((_) async => []);
 
-        await reconciler.reconcile(now: now);
+      await reconciler.reconcile(now: now);
 
-        verifyNever(service.listEvents('cal-default',
-            from: anyNamed('from'), to: anyNamed('to')));
-      },
-    );
+      verifyNever(
+        service.listEvents(
+          'cal-default',
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      );
+    });
   });
 }

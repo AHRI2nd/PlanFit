@@ -83,19 +83,21 @@ void main() {
       expect(days, [DateTime(2026, 3, 30), DateTime(2026, 3, 31)]);
     });
 
-    test('an event ending exactly at a day boundary does not spill into it',
-        () {
-      // Exclusive end — mirrors EventDao's half-open overlap convention.
-      final e = row(
-        startAt: DateTime(2026, 3, 10),
-        endAt: DateTime(2026, 3, 12),
-      );
-      final days = eventDaysInRange(
-        e,
-        DateTime(2026, 3, 1),
-        DateTime(2026, 4, 1),
-      );
-      expect(days, [DateTime(2026, 3, 10), DateTime(2026, 3, 11)]);
-    });
+    test(
+      'an event ending exactly at a day boundary does not spill into it',
+      () {
+        // Exclusive end — mirrors EventDao's half-open overlap convention.
+        final e = row(
+          startAt: DateTime(2026, 3, 10),
+          endAt: DateTime(2026, 3, 12),
+        );
+        final days = eventDaysInRange(
+          e,
+          DateTime(2026, 3, 1),
+          DateTime(2026, 4, 1),
+        );
+        expect(days, [DateTime(2026, 3, 10), DateTime(2026, 3, 11)]);
+      },
+    );
   });
 }

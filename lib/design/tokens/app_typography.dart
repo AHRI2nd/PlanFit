@@ -37,15 +37,14 @@ class AppTypography {
       double spacing = 0,
       Color? color,
       bool tabular = false,
-    }) =>
-        TextStyle(
-          fontSize: size,
-          fontWeight: weight,
-          height: height,
-          letterSpacing: spacing,
-          color: color ?? ink,
-          fontFeatures: tabular ? _tabular : null,
-        );
+    }) => TextStyle(
+      fontSize: size,
+      fontWeight: weight,
+      height: height,
+      letterSpacing: spacing,
+      color: color ?? ink,
+      fontFeatures: tabular ? _tabular : null,
+    );
 
     return TextTheme(
       displayLarge: s(40, FontWeight.w700, height: 1.05, spacing: -1.0),

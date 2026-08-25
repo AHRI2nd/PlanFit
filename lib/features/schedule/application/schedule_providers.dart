@@ -86,8 +86,8 @@ class MonthCalendarRowHeight extends Notifier<double> {
 
 final monthCalendarRowHeightProvider =
     NotifierProvider<MonthCalendarRowHeight, double>(
-  MonthCalendarRowHeight.new,
-);
+      MonthCalendarRowHeight.new,
+    );
 
 /// Events overlapping the given day.
 final eventsForDayProvider = StreamProvider.family<List<EventRow>, DateTime>((

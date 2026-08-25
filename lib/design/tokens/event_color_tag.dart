@@ -18,13 +18,13 @@ enum EventColorTag {
   sage;
 
   Color get color => switch (this) {
-        EventColorTag.indigo => AppColors.dawnIndigo,
-        EventColorTag.sky => AppColors.noonSky,
-        EventColorTag.amber => AppColors.dayAmber,
-        EventColorTag.violet => AppColors.nightViolet,
-        EventColorTag.rose => AppColors.dustyRose,
-        EventColorTag.sage => AppColors.sageGreen,
-      };
+    EventColorTag.indigo => AppColors.dawnIndigo,
+    EventColorTag.sky => AppColors.noonSky,
+    EventColorTag.amber => AppColors.dayAmber,
+    EventColorTag.violet => AppColors.nightViolet,
+    EventColorTag.rose => AppColors.dustyRose,
+    EventColorTag.sage => AppColors.sageGreen,
+  };
 
   static EventColorTag? tryParse(String? raw) {
     if (raw == null) return null;
@@ -40,7 +40,8 @@ enum EventColorTag {
   static Color resolve(String? rawTag, DateTime fallbackTime) {
     final custom = parseHex(rawTag);
     if (custom != null) return custom;
-    return tryParse(rawTag)?.color ?? AppColors.timeGradient(fallbackTime).first;
+    return tryParse(rawTag)?.color ??
+        AppColors.timeGradient(fallbackTime).first;
   }
 
   /// Parses a `#RRGGBB` or `#AARRGGBB` string. Returns null for anything else

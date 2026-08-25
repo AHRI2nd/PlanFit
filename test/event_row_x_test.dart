@@ -4,7 +4,10 @@ import 'package:planfit/core/db/event_row_x.dart';
 import 'package:planfit/core/db/sync_status.dart';
 
 void main() {
-  EventRow row({int reminderMinutesBefore = 0, String? additionalReminderMinutes}) {
+  EventRow row({
+    int reminderMinutesBefore = 0,
+    String? additionalReminderMinutes,
+  }) {
     final start = DateTime(2026, 1, 1, 9);
     return EventRow(
       id: 'e1',
@@ -35,32 +38,40 @@ void main() {
 
     test('combines the primary offset with the parsed extras, sorted', () {
       expect(
-        row(reminderMinutesBefore: 10, additionalReminderMinutes: '1440,60')
-            .reminderOffsets,
+        row(
+          reminderMinutesBefore: 10,
+          additionalReminderMinutes: '1440,60',
+        ).reminderOffsets,
         [10, 60, 1440],
       );
     });
 
     test('dedupes when an extra repeats the primary offset', () {
       expect(
-        row(reminderMinutesBefore: 60, additionalReminderMinutes: '60,60')
-            .reminderOffsets,
+        row(
+          reminderMinutesBefore: 60,
+          additionalReminderMinutes: '60,60',
+        ).reminderOffsets,
         [60],
       );
     });
 
     test('ignores malformed entries in the extras string', () {
       expect(
-        row(reminderMinutesBefore: 0, additionalReminderMinutes: '5,,abc, 10 ')
-            .reminderOffsets,
+        row(
+          reminderMinutesBefore: 0,
+          additionalReminderMinutes: '5,,abc, 10 ',
+        ).reminderOffsets,
         [0, 5, 10],
       );
     });
 
     test('treats an empty extras string the same as null', () {
       expect(
-        row(reminderMinutesBefore: 30, additionalReminderMinutes: '')
-            .reminderOffsets,
+        row(
+          reminderMinutesBefore: 30,
+          additionalReminderMinutes: '',
+        ).reminderOffsets,
         [30],
       );
     });

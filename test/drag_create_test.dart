@@ -52,8 +52,7 @@ void main() {
       expect(end, dayStart.add(const Duration(hours: 9, minutes: 30)));
     });
 
-    test(
-        'a tap right at the bottom of the day pulls the start back instead '
+    test('a tap right at the bottom of the day pulls the start back instead '
         'of pushing the end past midnight', () {
       final (start, end) = snappedCreateRange(
         dayStart,

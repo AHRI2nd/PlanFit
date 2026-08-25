@@ -4,8 +4,5 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// the gradient, the "now" line) stays live without a manual refresh.
 final nowTickerProvider = StreamProvider<DateTime>((ref) async* {
   yield DateTime.now();
-  yield* Stream.periodic(
-    const Duration(seconds: 30),
-    (_) => DateTime.now(),
-  );
+  yield* Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now());
 });

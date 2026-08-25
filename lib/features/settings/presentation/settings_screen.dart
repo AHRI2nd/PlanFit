@@ -166,7 +166,9 @@ class SettingsScreen extends ConsumerWidget {
                   '(${l10n.icsImportSkipped(summary.skippedCount)})';
         messenger.showAutoDismissSnackBar(SnackBar(content: Text(message)));
       } catch (_) {
-        messenger.showAutoDismissSnackBar(SnackBar(content: Text(l10n.icsImportFailed)));
+        messenger.showAutoDismissSnackBar(
+          SnackBar(content: Text(l10n.icsImportFailed)),
+        );
       }
     }
 

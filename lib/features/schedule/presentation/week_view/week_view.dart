@@ -35,9 +35,7 @@ class WeekView extends ConsumerWidget {
     final startWeekday = ref.watch(weekStartWeekdayProvider);
     final weekStart = startOfWeek(anchor, startWeekday: startWeekday);
     final weekEnd = weekStart.add(const Duration(days: 7));
-    final days = [
-      for (var i = 0; i < 7; i++) weekStart.add(Duration(days: i)),
-    ];
+    final days = [for (var i = 0; i < 7; i++) weekStart.add(Duration(days: i))];
     final eventsAsync = ref.watch(eventsForWeekProvider(anchor));
     final now = DateTime.now();
     final today = dateOnly(now);
@@ -59,9 +57,7 @@ class WeekView extends ConsumerWidget {
       data: (events) {
         final allDay = events.where((e) => e.isAllDay).toList();
         final timed = events.where((e) => !e.isAllDay).toList();
-        final byDay = <DateTime, List<EventRow>>{
-          for (final d in days) d: [],
-        };
+        final byDay = <DateTime, List<EventRow>>{for (final d in days) d: []};
         for (final e in timed) {
           final d = dateOnly(e.startAt);
           byDay[d]?.add(e);
@@ -133,7 +129,9 @@ class _WeekHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.gutter, vertical: AppSpacing.xs),
+        horizontal: AppSpacing.gutter,
+        vertical: AppSpacing.xs,
+      ),
       child: Row(
         children: [
           const SizedBox(width: WeekView._railInset),
@@ -146,8 +144,9 @@ class _WeekHeader extends StatelessWidget {
                   children: [
                     Text(
                       Fmt.weekdayShort(day, locale),
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: palette.inkFaint),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: palette.inkFaint,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Container(
@@ -162,8 +161,7 @@ class _WeekHeader extends StatelessWidget {
                         '${day.day}',
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: day == today ? Colors.white : null,
-                          fontWeight:
-                              day == today ? FontWeight.w700 : null,
+                          fontWeight: day == today ? FontWeight.w700 : null,
                         ),
                       ),
                     ),
@@ -200,7 +198,9 @@ class _AllDayStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.gutter, vertical: AppSpacing.xxs),
+        horizontal: AppSpacing.gutter,
+        vertical: AppSpacing.xxs,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -210,45 +210,48 @@ class _AllDayStrip extends StatelessWidget {
               child: Column(
                 children: [
                   for (final e in events)
-                    if (eventDaysInRange(e, weekStart, weekEnd)
-                        .contains(day))
-                      Builder(builder: (context) {
-                        final span = eventDaysInRange(e, weekStart, weekEnd);
-                        final isFirst = span.first == day;
-                        final isLast = span.last == day;
-                        final accent =
-                            EventColorTag.resolve(e.colorTag, e.startAt);
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 1),
-                          height: 16,
-                          padding: EdgeInsets.only(
-                            left: isFirst ? AppSpacing.xxs : 0,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.28),
-                            borderRadius: BorderRadius.horizontal(
-                              left: isFirst
-                                  ? const Radius.circular(4)
-                                  : Radius.zero,
-                              right: isLast
-                                  ? const Radius.circular(4)
-                                  : Radius.zero,
+                    if (eventDaysInRange(e, weekStart, weekEnd).contains(day))
+                      Builder(
+                        builder: (context) {
+                          final span = eventDaysInRange(e, weekStart, weekEnd);
+                          final isFirst = span.first == day;
+                          final isLast = span.last == day;
+                          final accent = EventColorTag.resolve(
+                            e.colorTag,
+                            e.startAt,
+                          );
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 1),
+                            height: 16,
+                            padding: EdgeInsets.only(
+                              left: isFirst ? AppSpacing.xxs : 0,
                             ),
-                          ),
-                          alignment: Alignment.centerLeft,
-                          child: isFirst
-                              ? Text(
-                                  e.title.isEmpty ? '—' : e.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(color: accent),
-                                )
-                              : null,
-                        );
-                      }),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.28),
+                              borderRadius: BorderRadius.horizontal(
+                                left: isFirst
+                                    ? const Radius.circular(4)
+                                    : Radius.zero,
+                                right: isLast
+                                    ? const Radius.circular(4)
+                                    : Radius.zero,
+                              ),
+                            ),
+                            alignment: Alignment.centerLeft,
+                            child: isFirst
+                                ? Text(
+                                    e.title.isEmpty ? '—' : e.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(color: accent),
+                                  )
+                                : null,
+                          );
+                        },
+                      ),
                 ],
               ),
             ),
@@ -318,8 +321,12 @@ class _WeekGridState extends State<_WeekGrid> {
     if (dayIndex == null || anchor == null || current == null) return null;
     final day = widget.days[dayIndex];
     final dayStart = DateTime(day.year, day.month, day.day);
-    return snappedCreateRange(dayStart, anchor, current,
-        hourHeight: widget.hourHeight);
+    return snappedCreateRange(
+      dayStart,
+      anchor,
+      current,
+      hourHeight: widget.hourHeight,
+    );
   }
 
   Future<void> _endCreate() async {
@@ -355,131 +362,140 @@ class _WeekGridState extends State<_WeekGrid> {
     final pendingCreate = _pendingCreateRange;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-      child: LayoutBuilder(builder: (context, constraints) {
-        final columnWidth = (constraints.maxWidth - railInset) / days.length;
-        return Stack(
-          children: [
-            // Hour gridlines + rail labels.
-            for (int h = 0; h < 24; h++)
-              Positioned(
-                top: h * hourHeight,
-                left: 0,
-                right: 0,
-                child: SizedBox(
-                  height: hourHeight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: railInset - AppSpacing.xxs,
-                        child: Text(
-                          Fmt.hour(h, locale, use24Hour: use24),
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(color: palette.inkFaint),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          height: 1,
-                          color: palette.hairline,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // One tap target per day column, behind the events. A plain tap
-            // jumps into that day (the precise-editing surface); a
-            // long-press-drag instead creates an event right here, spanning
-            // the dragged range — same gesture DayView's own timeline uses,
-            // so the two views behave consistently.
-            for (var i = 0; i < days.length; i++)
-              Positioned(
-                top: 0,
-                bottom: 0,
-                left: railInset + i * columnWidth,
-                width: columnWidth,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () => onTapDay(days[i]),
-                  onLongPressStart: (d) =>
-                      _startCreate(i, d.localPosition.dy),
-                  onLongPressMoveUpdate: (d) =>
-                      _updateCreate(d.localPosition.dy),
-                  onLongPressEnd: (_) => _endCreate(),
-                ),
-              ),
-
-            // Live preview of the event being drag-created — see DayView's
-            // own for why this (rather than opening the editor live) is the
-            // feedback shown while the finger is still down.
-            if (pendingCreate != null && _createDayIndex != null)
-              Positioned(
-                top: _offsetFor(days[_createDayIndex!], pendingCreate.$1) + 1,
-                left: railInset + _createDayIndex! * columnWidth + 1,
-                width: (columnWidth - 2).clamp(0, columnWidth),
-                height: (_offsetFor(days[_createDayIndex!], pendingCreate.$2) -
-                        _offsetFor(days[_createDayIndex!], pendingCreate.$1))
-                    .clamp(0, hourHeight * 24),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.22),
-                    border: Border.all(color: accent, width: 1.5),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-
-            // Events, positioned by day column + time.
-            for (var i = 0; i < days.length; i++)
-              for (final e in byDay[days[i]] ?? const <EventRow>[])
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columnWidth = (constraints.maxWidth - railInset) / days.length;
+          return Stack(
+            children: [
+              // Hour gridlines + rail labels.
+              for (int h = 0; h < 24; h++)
                 Positioned(
-                  top: _offsetFor(days[i], e.startAt) + 1,
-                  left: railInset + i * columnWidth + 1,
-                  width: (columnWidth - 2).clamp(0, columnWidth),
-                  child: IgnorePointer(
-                    ignoring: false,
-                    child: GestureDetector(
-                      onTap: () => showEventEditor(context, existing: e),
-                      child: Container(
-                        constraints: BoxConstraints(
-                          minHeight: (_offsetFor(days[i], e.endAt) -
-                                  _offsetFor(days[i], e.startAt))
-                              .clamp(14, hourHeight * 24),
+                  top: h * hourHeight,
+                  left: 0,
+                  right: 0,
+                  child: SizedBox(
+                    height: hourHeight,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: railInset - AppSpacing.xxs,
+                          child: Text(
+                            Fmt.hour(h, locale, use24Hour: use24),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: palette.inkFaint),
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 3, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: EventColorTag.resolve(e.colorTag, e.startAt)
-                              .withValues(alpha: palette.isDark ? 0.32 : 0.22),
-                          borderRadius: BorderRadius.circular(4),
+                        Expanded(
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            height: 1,
+                            color: palette.hairline,
+                          ),
                         ),
-                        child: Text(
-                          e.title.isEmpty ? '—' : e.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
 
-            // "Now" indicator, only in today's column when today is in view.
-            if (days.contains(today))
-              Positioned(
-                top: _offsetFor(today, now) - 1,
-                left: railInset + days.indexOf(today) * columnWidth,
-                width: columnWidth,
-                child: Container(height: 2, color: accent),
-              ),
-          ],
-        );
-      }),
+              // One tap target per day column, behind the events. A plain tap
+              // jumps into that day (the precise-editing surface); a
+              // long-press-drag instead creates an event right here, spanning
+              // the dragged range — same gesture DayView's own timeline uses,
+              // so the two views behave consistently.
+              for (var i = 0; i < days.length; i++)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: railInset + i * columnWidth,
+                  width: columnWidth,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => onTapDay(days[i]),
+                    onLongPressStart: (d) =>
+                        _startCreate(i, d.localPosition.dy),
+                    onLongPressMoveUpdate: (d) =>
+                        _updateCreate(d.localPosition.dy),
+                    onLongPressEnd: (_) => _endCreate(),
+                  ),
+                ),
+
+              // Live preview of the event being drag-created — see DayView's
+              // own for why this (rather than opening the editor live) is the
+              // feedback shown while the finger is still down.
+              if (pendingCreate != null && _createDayIndex != null)
+                Positioned(
+                  top: _offsetFor(days[_createDayIndex!], pendingCreate.$1) + 1,
+                  left: railInset + _createDayIndex! * columnWidth + 1,
+                  width: (columnWidth - 2).clamp(0, columnWidth),
+                  height:
+                      (_offsetFor(days[_createDayIndex!], pendingCreate.$2) -
+                              _offsetFor(
+                                days[_createDayIndex!],
+                                pendingCreate.$1,
+                              ))
+                          .clamp(0, hourHeight * 24),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.22),
+                      border: Border.all(color: accent, width: 1.5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+
+              // Events, positioned by day column + time.
+              for (var i = 0; i < days.length; i++)
+                for (final e in byDay[days[i]] ?? const <EventRow>[])
+                  Positioned(
+                    top: _offsetFor(days[i], e.startAt) + 1,
+                    left: railInset + i * columnWidth + 1,
+                    width: (columnWidth - 2).clamp(0, columnWidth),
+                    child: IgnorePointer(
+                      ignoring: false,
+                      child: GestureDetector(
+                        onTap: () => showEventEditor(context, existing: e),
+                        child: Container(
+                          constraints: BoxConstraints(
+                            minHeight:
+                                (_offsetFor(days[i], e.endAt) -
+                                        _offsetFor(days[i], e.startAt))
+                                    .clamp(14, hourHeight * 24),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: EventColorTag.resolve(
+                              e.colorTag,
+                              e.startAt,
+                            ).withValues(alpha: palette.isDark ? 0.32 : 0.22),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            e.title.isEmpty ? '—' : e.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+              // "Now" indicator, only in today's column when today is in view.
+              if (days.contains(today))
+                Positioned(
+                  top: _offsetFor(today, now) - 1,
+                  left: railInset + days.indexOf(today) * columnWidth,
+                  width: columnWidth,
+                  child: Container(height: 2, color: accent),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

@@ -17,7 +17,9 @@ void main() {
     test('parseScheduleDate rejects null, wrong scheme, and wrong host', () {
       expect(HomeWidgetSync.parseScheduleDate(null), isNull);
       expect(
-        HomeWidgetSync.parseScheduleDate(Uri.parse('https://schedule?date=2026-08-01')),
+        HomeWidgetSync.parseScheduleDate(
+          Uri.parse('https://schedule?date=2026-08-01'),
+        ),
         isNull,
       );
       expect(

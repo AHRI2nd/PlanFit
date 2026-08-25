@@ -32,16 +32,14 @@ void main() {
     }
   });
 
-  test(
-    'upgrading from schema v15 (pre-index) creates every index without '
-    'touching existing data',
-    () async {
-      // Build a v15 database by hand (the columns v15 already has), then
-      // open it through AppDatabase at the current schema version so its
-      // real onUpgrade path runs — the same path an existing install goes
-      // through after this update ships.
-      final raw = sqlite3.sqlite3.openInMemory();
-      raw.execute('''
+  test('upgrading from schema v15 (pre-index) creates every index without '
+      'touching existing data', () async {
+    // Build a v15 database by hand (the columns v15 already has), then
+    // open it through AppDatabase at the current schema version so its
+    // real onUpgrade path runs — the same path an existing install goes
+    // through after this update ships.
+    final raw = sqlite3.sqlite3.openInMemory();
+    raw.execute('''
         CREATE TABLE events (
           id TEXT NOT NULL PRIMARY KEY,
           title TEXT NOT NULL DEFAULT '',
@@ -66,7 +64,7 @@ void main() {
           updated_at INTEGER NOT NULL
         )
       ''');
-      raw.execute('''
+    raw.execute('''
         CREATE TABLE todo_items (
           id TEXT NOT NULL PRIMARY KEY,
           event_id TEXT NULL,
@@ -91,41 +89,46 @@ void main() {
           created_at INTEGER NOT NULL
         )
       ''');
-      raw.execute(
-        'CREATE TABLE todo_subtasks ('
-        'id TEXT NOT NULL PRIMARY KEY, todo_id TEXT NOT NULL, '
-        "title TEXT NOT NULL DEFAULT '', is_done INTEGER NOT NULL DEFAULT 0, "
-        'sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)',
-      );
-      raw.execute(
-        'CREATE TABLE event_templates ('
-        "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', "
-        'memo TEXT NULL, duration_minutes INTEGER NOT NULL DEFAULT 60, '
-        'is_all_day INTEGER NOT NULL DEFAULT 0, color_tag TEXT NULL, '
-        'notify INTEGER NOT NULL DEFAULT 1, reminder_minutes_before INTEGER NOT NULL DEFAULT 0, '
-        'created_at INTEGER NOT NULL)',
-      );
-      raw.execute(
-        'CREATE TABLE sync_logs ('
-        'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, '
-        'event_title TEXT NULL, resolution TEXT NOT NULL, detail TEXT NULL)',
-      );
-      raw.execute("INSERT INTO events (id, start_at, end_at, created_at, updated_at) "
-          "VALUES ('keep-me', 0, 3600, 0, 0)");
-      raw.userVersion = 15;
+    raw.execute(
+      'CREATE TABLE todo_subtasks ('
+      'id TEXT NOT NULL PRIMARY KEY, todo_id TEXT NOT NULL, '
+      "title TEXT NOT NULL DEFAULT '', is_done INTEGER NOT NULL DEFAULT 0, "
+      'sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)',
+    );
+    raw.execute(
+      'CREATE TABLE event_templates ('
+      "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', "
+      'memo TEXT NULL, duration_minutes INTEGER NOT NULL DEFAULT 60, '
+      'is_all_day INTEGER NOT NULL DEFAULT 0, color_tag TEXT NULL, '
+      'notify INTEGER NOT NULL DEFAULT 1, reminder_minutes_before INTEGER NOT NULL DEFAULT 0, '
+      'created_at INTEGER NOT NULL)',
+    );
+    raw.execute(
+      'CREATE TABLE sync_logs ('
+      'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, '
+      'event_title TEXT NULL, resolution TEXT NOT NULL, detail TEXT NULL)',
+    );
+    raw.execute(
+      "INSERT INTO events (id, start_at, end_at, created_at, updated_at) "
+      "VALUES ('keep-me', 0, 3600, 0, 0)",
+    );
+    raw.userVersion = 15;
 
-      final db = AppDatabase(NativeDatabase.opened(raw));
-      addTearDown(db.close);
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    addTearDown(db.close);
 
-      // Touching the database forces drift to run its migration.
-      final events = await db.eventDao.all();
-      expect(events, hasLength(1));
-      expect(events.single.id, 'keep-me');
+    // Touching the database forces drift to run its migration.
+    final events = await db.eventDao.all();
+    expect(events, hasLength(1));
+    expect(events.single.id, 'keep-me');
 
-      final names = await indexNames(db);
-      for (final name in expectedIndexes) {
-        expect(names, contains(name), reason: '$name missing after v15->v16 upgrade');
-      }
-    },
-  );
+    final names = await indexNames(db);
+    for (final name in expectedIndexes) {
+      expect(
+        names,
+        contains(name),
+        reason: '$name missing after v15->v16 upgrade',
+      );
+    }
+  });
 }

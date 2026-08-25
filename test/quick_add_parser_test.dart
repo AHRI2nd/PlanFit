@@ -123,24 +123,18 @@ void main() {
       expect(parseQuickAdd('3시 회의', now: now).title, '3시 회의');
     });
 
-    test(
-      '"N시간" (a duration word, not a clock time) is never mistaken for an '
-      'hour, even when N is in the unambiguous 13-23 range',
-      () {
-        final r = parseQuickAdd('18시간 후에 통화', now: now);
-        expect(r.time, isNull);
-        expect(r.title, '18시간 후에 통화');
-      },
-    );
+    test('"N시간" (a duration word, not a clock time) is never mistaken for an '
+        'hour, even when N is in the unambiguous 13-23 range', () {
+      final r = parseQuickAdd('18시간 후에 통화', now: now);
+      expect(r.time, isNull);
+      expect(r.title, '18시간 후에 통화');
+    });
 
-    test(
-      '"오후 3시간 후" (PM-looking prefix, still a duration word) is left '
-      'unparsed too',
-      () {
-        final r = parseQuickAdd('오후 3시간 후 통화', now: now);
-        expect(r.time, isNull);
-      },
-    );
+    test('"오후 3시간 후" (PM-looking prefix, still a duration word) is left '
+        'unparsed too', () {
+      final r = parseQuickAdd('오후 3시간 후 통화', now: now);
+      expect(r.time, isNull);
+    });
 
     test('정오/자정/noon/midnight', () {
       expect(
@@ -198,15 +192,12 @@ void main() {
       },
     );
 
-    test(
-      'a tag containing a weekday word is kept intact and does not set a '
-      'date',
-      () {
-        final r = parseQuickAdd('#월요일아침루틴 하기', now: now);
-        expect(r.tags, ['월요일아침루틴']);
-        expect(r.date, isNull);
-      },
-    );
+    test('a tag containing a weekday word is kept intact and does not set a '
+        'date', () {
+      final r = parseQuickAdd('#월요일아침루틴 하기', now: now);
+      expect(r.tags, ['월요일아침루틴']);
+      expect(r.date, isNull);
+    });
   });
 
   group('priority', () {

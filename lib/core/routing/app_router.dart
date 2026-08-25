@@ -28,7 +28,9 @@ import '../onboarding_prefs.dart';
 final appRouter = GoRouter(
   initialLocation: '/home',
   redirect: (context, state) {
-    final prefs = ProviderScope.containerOf(context).read(sharedPreferencesProvider);
+    final prefs = ProviderScope.containerOf(
+      context,
+    ).read(sharedPreferencesProvider);
     final completed = prefs.getBool(OnboardingPrefs.completed) ?? false;
     final onOnboarding = state.matchedLocation == '/onboarding';
     if (!completed && !onOnboarding) return '/onboarding';
@@ -36,8 +38,7 @@ final appRouter = GoRouter(
     return null;
   },
   routes: [
-    GoRoute(
-        path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
+    GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
           AppShell(navigationShell: navigationShell),
@@ -50,7 +51,9 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-                path: '/schedule', builder: (_, _) => const ScheduleScreen()),
+              path: '/schedule',
+              builder: (_, _) => const ScheduleScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(

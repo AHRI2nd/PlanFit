@@ -15,21 +15,20 @@ void main() {
 
   setUp(() {
     plugin = MockFlutterLocalNotificationsPlugin();
-    when(plugin.zonedSchedule(
-      id: anyNamed('id'),
-      title: anyNamed('title'),
-      body: anyNamed('body'),
-      scheduledDate: anyNamed('scheduledDate'),
-      notificationDetails: anyNamed('notificationDetails'),
-      androidScheduleMode: anyNamed('androidScheduleMode'),
-      payload: anyNamed('payload'),
-    )).thenAnswer((_) async {});
+    when(
+      plugin.zonedSchedule(
+        id: anyNamed('id'),
+        title: anyNamed('title'),
+        body: anyNamed('body'),
+        scheduledDate: anyNamed('scheduledDate'),
+        notificationDetails: anyNamed('notificationDetails'),
+        androidScheduleMode: anyNamed('androidScheduleMode'),
+        payload: anyNamed('payload'),
+      ),
+    ).thenAnswer((_) async {});
   });
 
-  NotificationResponse response({
-    String? actionId,
-    String? payload,
-  }) {
+  NotificationResponse response({String? actionId, String? payload}) {
     return NotificationResponse(
       notificationResponseType:
           NotificationResponseType.selectedNotificationAction,
@@ -47,12 +46,14 @@ void main() {
       plugin,
     );
 
-    verifyNever(plugin.zonedSchedule(
-      id: anyNamed('id'),
-      scheduledDate: anyNamed('scheduledDate'),
-      notificationDetails: anyNamed('notificationDetails'),
-      androidScheduleMode: anyNamed('androidScheduleMode'),
-    ));
+    verifyNever(
+      plugin.zonedSchedule(
+        id: anyNamed('id'),
+        scheduledDate: anyNamed('scheduledDate'),
+        notificationDetails: anyNamed('notificationDetails'),
+        androidScheduleMode: anyNamed('androidScheduleMode'),
+      ),
+    );
   });
 
   test('does nothing for an unrelated action id', () async {
@@ -64,12 +65,14 @@ void main() {
       plugin,
     );
 
-    verifyNever(plugin.zonedSchedule(
-      id: anyNamed('id'),
-      scheduledDate: anyNamed('scheduledDate'),
-      notificationDetails: anyNamed('notificationDetails'),
-      androidScheduleMode: anyNamed('androidScheduleMode'),
-    ));
+    verifyNever(
+      plugin.zonedSchedule(
+        id: anyNamed('id'),
+        scheduledDate: anyNamed('scheduledDate'),
+        notificationDetails: anyNamed('notificationDetails'),
+        androidScheduleMode: anyNamed('androidScheduleMode'),
+      ),
+    );
   });
 
   test('does nothing when the payload is missing or malformed', () async {
@@ -85,49 +88,55 @@ void main() {
       plugin,
     );
 
-    verifyNever(plugin.zonedSchedule(
-      id: anyNamed('id'),
-      scheduledDate: anyNamed('scheduledDate'),
-      notificationDetails: anyNamed('notificationDetails'),
-      androidScheduleMode: anyNamed('androidScheduleMode'),
-    ));
-  });
-
-  test('re-schedules the same notification id ~5 minutes out on snooze',
-      () async {
-    final before = DateTime.now();
-    await handleNotificationAction(
-      response(
-        actionId: NotificationService.snoozeActionId,
-        payload: jsonEncode({
-          'eventId': 'e42',
-          'title': 'Standup',
-          'body': 'Daily sync',
-        }),
+    verifyNever(
+      plugin.zonedSchedule(
+        id: anyNamed('id'),
+        scheduledDate: anyNamed('scheduledDate'),
+        notificationDetails: anyNamed('notificationDetails'),
+        androidScheduleMode: anyNamed('androidScheduleMode'),
       ),
-      plugin,
     );
-
-    final captured = verify(plugin.zonedSchedule(
-      id: captureAnyNamed('id'),
-      title: captureAnyNamed('title'),
-      body: captureAnyNamed('body'),
-      scheduledDate: captureAnyNamed('scheduledDate'),
-      notificationDetails: anyNamed('notificationDetails'),
-      androidScheduleMode: anyNamed('androidScheduleMode'),
-      payload: anyNamed('payload'),
-    )).captured;
-
-    final id = captured[0] as int;
-    final title = captured[1] as String?;
-    final body = captured[2] as String?;
-    final scheduledDate = captured[3] as TZDateTime;
-
-    expect(id, NotificationService.notificationId('e42', 0));
-    expect(title, 'Standup');
-    expect(body, 'Daily sync');
-    final deltaFromNow =
-        scheduledDate.difference(before) - NotificationService.snoozeDuration;
-    expect(deltaFromNow.inSeconds.abs(), lessThan(5));
   });
+
+  test(
+    're-schedules the same notification id ~5 minutes out on snooze',
+    () async {
+      final before = DateTime.now();
+      await handleNotificationAction(
+        response(
+          actionId: NotificationService.snoozeActionId,
+          payload: jsonEncode({
+            'eventId': 'e42',
+            'title': 'Standup',
+            'body': 'Daily sync',
+          }),
+        ),
+        plugin,
+      );
+
+      final captured = verify(
+        plugin.zonedSchedule(
+          id: captureAnyNamed('id'),
+          title: captureAnyNamed('title'),
+          body: captureAnyNamed('body'),
+          scheduledDate: captureAnyNamed('scheduledDate'),
+          notificationDetails: anyNamed('notificationDetails'),
+          androidScheduleMode: anyNamed('androidScheduleMode'),
+          payload: anyNamed('payload'),
+        ),
+      ).captured;
+
+      final id = captured[0] as int;
+      final title = captured[1] as String?;
+      final body = captured[2] as String?;
+      final scheduledDate = captured[3] as TZDateTime;
+
+      expect(id, NotificationService.notificationId('e42', 0));
+      expect(title, 'Standup');
+      expect(body, 'Daily sync');
+      final deltaFromNow =
+          scheduledDate.difference(before) - NotificationService.snoozeDuration;
+      expect(deltaFromNow.inSeconds.abs(), lessThan(5));
+    },
+  );
 }

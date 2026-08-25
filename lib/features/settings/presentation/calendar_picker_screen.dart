@@ -40,15 +40,18 @@ class CalendarPickerScreen extends ConsumerWidget {
               final calendar = calendars[i];
               final selected = calendar.id == settings.targetCalendarId;
               return ListTile(
-                leading: Icon(Icons.circle,
-                    size: 14, color: calendar.color ?? palette.inkFaint),
+                leading: Icon(
+                  Icons.circle,
+                  size: 14,
+                  color: calendar.color ?? palette.inkFaint,
+                ),
                 title: Text(calendar.name),
-                subtitle:
-                    calendar.accountName != null
-                        ? Text(calendar.accountName!)
-                        : null,
-                trailing:
-                    selected ? Icon(Icons.check, color: palette.accent) : null,
+                subtitle: calendar.accountName != null
+                    ? Text(calendar.accountName!)
+                    : null,
+                trailing: selected
+                    ? Icon(Icons.check, color: palette.accent)
+                    : null,
                 onTap: () async {
                   await ref
                       .read(settingsControllerProvider.notifier)

@@ -8,9 +8,9 @@ void main() {
       'persists it for the next read', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
 
     expect(container.read(lastCalendarSyncAtProvider), isNull);
@@ -22,9 +22,9 @@ void main() {
 
     // A fresh container (simulating an app restart) should read the
     // persisted value back rather than starting null again.
-    final restarted = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final restarted = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(restarted.dispose);
     expect(restarted.read(lastCalendarSyncAtProvider), now);
   });

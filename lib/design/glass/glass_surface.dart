@@ -48,13 +48,12 @@ class GlassSurface extends StatelessWidget {
   final bool showHighlight;
   final bool border;
 
-  bool get _isApplePlatform =>
-      !kIsWeb && (Platform.isIOS || Platform.isMacOS);
+  bool get _isApplePlatform => !kIsWeb && (Platform.isIOS || Platform.isMacOS);
 
   ({double blur, double highlight, double tintBoost}) get _glassProfile =>
       _isApplePlatform
-          ? (blur: AppBlur.heavy, highlight: 0.35, tintBoost: 1.0)
-          : (blur: AppBlur.regular, highlight: 0.16, tintBoost: 1.25);
+      ? (blur: AppBlur.heavy, highlight: 0.35, tintBoost: 1.0)
+      : (blur: AppBlur.regular, highlight: 0.16, tintBoost: 1.25);
 
   @override
   Widget build(BuildContext context) {

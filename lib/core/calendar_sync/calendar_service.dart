@@ -49,8 +49,9 @@ class CalendarService implements CalendarPort {
   /// Prompts for full (read+write) access — read is needed so we can reconcile
   /// edits made in the device calendar app back into PlanFit.
   Future<bool> requestAccess() async {
-    final status =
-        await _plugin.requestPermissions(level: CalendarAccessLevel.full);
+    final status = await _plugin.requestPermissions(
+      level: CalendarAccessLevel.full,
+    );
     return status == CalendarPermissionStatus.granted;
   }
 
@@ -111,8 +112,9 @@ class CalendarService implements CalendarPort {
   /// resolution instead of racing a second one.
   Future<String?> resolveTargetCalendarId() {
     if (targetCalendarId != null) return Future.value(targetCalendarId);
-    return _resolving ??=
-        _doResolveTargetCalendarId().whenComplete(() => _resolving = null);
+    return _resolving ??= _doResolveTargetCalendarId().whenComplete(
+      () => _resolving = null,
+    );
   }
 
   Future<String?>? _resolving;

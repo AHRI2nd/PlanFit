@@ -33,57 +33,64 @@ void main() {
   // tree, rather than two separate tests that would each remount the router
   // fresh and risk it redirecting against a stale context from a prior test.
   testWidgets(
-      'a widget-deep-link navigation is bounced back to onboarding until '
-      'onboarding is completed, then proceeds normally', (tester) async {
-    final events = MockEventRepository();
-    final todos = MockTodoDao();
-    when(events.watchUpcoming(any, limit: anyNamed('limit')))
-        .thenAnswer((_) => Stream.value(const <EventRow>[]));
-    when(events.watchBetween(any, any))
-        .thenAnswer((_) => Stream.value(const <EventRow>[]));
-    when(todos.watchBetween(any, any))
-        .thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    'a widget-deep-link navigation is bounced back to onboarding until '
+    'onboarding is completed, then proceeds normally',
+    (tester) async {
+      final events = MockEventRepository();
+      final todos = MockTodoDao();
+      when(
+        events.watchUpcoming(any, limit: anyNamed('limit')),
+      ).thenAnswer((_) => Stream.value(const <EventRow>[]));
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const <EventRow>[]));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
 
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          sharedPreferencesProvider.overrideWithValue(prefs),
-          notificationServiceProvider.overrideWithValue(_FakeNotificationService()),
-          eventRepositoryProvider.overrideWithValue(events),
-          todoDaoProvider.overrideWithValue(todos),
-        ],
-        child: MaterialApp.router(
-          theme: AppTheme.light(),
-          locale: const Locale('ko'),
-          localizationsDelegates: const [
-            AppL10n.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            notificationServiceProvider.overrideWithValue(
+              _FakeNotificationService(),
+            ),
+            eventRepositoryProvider.overrideWithValue(events),
+            todoDaoProvider.overrideWithValue(todos),
           ],
-          supportedLocales: AppL10n.supportedLocales,
-          routerConfig: appRouter,
+          child: MaterialApp.router(
+            theme: AppTheme.light(),
+            locale: const Locale('ko'),
+            localizationsDelegates: const [
+              AppL10n.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppL10n.supportedLocales,
+            routerConfig: appRouter,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    // Fresh SharedPreferences → OnboardingPrefs.completed is unset → even
-    // the default initialLocation ('/home') should already have redirected.
-    expect(find.byType(OnboardingScreen), findsOneWidget);
+      );
+      await tester.pumpAndSettle();
+      // Fresh SharedPreferences → OnboardingPrefs.completed is unset → even
+      // the default initialLocation ('/home') should already have redirected.
+      expect(find.byType(OnboardingScreen), findsOneWidget);
 
-    // Simulate exactly what a HomeScreen-widget tap does.
-    appRouter.go('/schedule');
-    await tester.pumpAndSettle();
-    expect(find.byType(OnboardingScreen), findsOneWidget);
+      // Simulate exactly what a HomeScreen-widget tap does.
+      appRouter.go('/schedule');
+      await tester.pumpAndSettle();
+      expect(find.byType(OnboardingScreen), findsOneWidget);
 
-    // Now complete onboarding (as OnboardingScreen._finish() would) and
-    // retry the same navigation — it should go through this time.
-    await prefs.setBool(OnboardingPrefs.completed, true);
-    appRouter.go('/schedule');
-    await tester.pumpAndSettle();
-    expect(find.byType(OnboardingScreen), findsNothing);
-  });
+      // Now complete onboarding (as OnboardingScreen._finish() would) and
+      // retry the same navigation — it should go through this time.
+      await prefs.setBool(OnboardingPrefs.completed, true);
+      appRouter.go('/schedule');
+      await tester.pumpAndSettle();
+      expect(find.byType(OnboardingScreen), findsNothing);
+    },
+  );
 }

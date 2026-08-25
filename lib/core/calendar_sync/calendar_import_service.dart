@@ -46,8 +46,7 @@ class CalendarImportService {
 
   /// Every calendar on the device (including read-only feeds) the user can
   /// pick as an import/subscribe source.
-  Future<List<Calendar>> availableCalendars() =>
-      calendarService.allCalendars();
+  Future<List<Calendar>> availableCalendars() => calendarService.allCalendars();
 
   /// Copies events on [calendarId] within `[from, to)` into PlanFit once.
   /// Returns how many were imported.
@@ -56,8 +55,11 @@ class CalendarImportService {
     required DateTime from,
     required DateTime to,
   }) async {
-    final events =
-        await calendarService.listEvents(calendarId, from: from, to: to);
+    final events = await calendarService.listEvents(
+      calendarId,
+      from: from,
+      to: to,
+    );
     final colorHex = await _colorHexOf(calendarId);
     await eventDao.transaction(() async {
       for (final e in events) {
@@ -79,16 +81,22 @@ class CalendarImportService {
   }) async {
     final colorByCalendar = await _colorHexByCalendar(calendarIds);
     for (final calendarId in calendarIds) {
-      final events =
-          await calendarService.listEvents(calendarId, from: from, to: to);
+      final events = await calendarService.listEvents(
+        calendarId,
+        from: from,
+        to: to,
+      );
       final currentSourceIds = events.map((e) => e.instanceId).toSet();
 
       await eventDao.transaction(() async {
         for (final e in events) {
           await _upsertMirrorRow(calendarId, e, colorByCalendar[calendarId]);
         }
-        final existingMirrors =
-            await eventDao.mirroredFrom(calendarId, from, to);
+        final existingMirrors = await eventDao.mirroredFrom(
+          calendarId,
+          from,
+          to,
+        );
         for (final row in existingMirrors) {
           if (!currentSourceIds.contains(row.importSourceEventId)) {
             await eventDao.deleteById(row.id);
@@ -152,24 +160,28 @@ class CalendarImportService {
     Event e,
     String? colorHex,
   ) async {
-    final existing =
-        await eventDao.findByImportSource(calendarId, e.instanceId);
+    final existing = await eventDao.findByImportSource(
+      calendarId,
+      e.instanceId,
+    );
     final now = DateTime.now();
-    await eventDao.upsert(EventsCompanion(
-      id: Value(existing?.id ?? _uuid.v4()),
-      title: Value(e.title),
-      memo: Value(e.description),
-      location: Value(e.location),
-      startAt: Value(e.startDate),
-      endAt: Value(e.endDate),
-      isAllDay: Value(e.isAllDay),
-      notify: const Value(false),
-      colorTag: Value(colorHex),
-      syncStatus: const Value(SyncStatus.synced),
-      importSourceCalendarId: Value(calendarId),
-      importSourceEventId: Value(e.instanceId),
-      createdAt: existing == null ? Value(now) : Value(existing.createdAt),
-      updatedAt: Value(now),
-    ));
+    await eventDao.upsert(
+      EventsCompanion(
+        id: Value(existing?.id ?? _uuid.v4()),
+        title: Value(e.title),
+        memo: Value(e.description),
+        location: Value(e.location),
+        startAt: Value(e.startDate),
+        endAt: Value(e.endDate),
+        isAllDay: Value(e.isAllDay),
+        notify: const Value(false),
+        colorTag: Value(colorHex),
+        syncStatus: const Value(SyncStatus.synced),
+        importSourceCalendarId: Value(calendarId),
+        importSourceEventId: Value(e.instanceId),
+        createdAt: existing == null ? Value(now) : Value(existing.createdAt),
+        updatedAt: Value(now),
+      ),
+    );
   }
 }

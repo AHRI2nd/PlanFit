@@ -48,7 +48,11 @@ class DayView extends ConsumerWidget {
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter, AppSpacing.xs, AppSpacing.gutter, 140),
+            AppSpacing.gutter,
+            AppSpacing.xs,
+            AppSpacing.gutter,
+            140,
+          ),
           children: [
             if (allDay.isNotEmpty) ...[
               for (final e in allDay)
@@ -136,7 +140,11 @@ class _TimelineState extends ConsumerState<_Timeline> {
   /// timeline) as 0, identical to the day's own start, collapsing the live
   /// preview card to zero height instead of showing it pinned to the bottom.
   double _offsetFor(DateTime t) {
-    final dayStart = DateTime(widget.day.year, widget.day.month, widget.day.day);
+    final dayStart = DateTime(
+      widget.day.year,
+      widget.day.month,
+      widget.day.day,
+    );
     final minutes = t.difference(dayStart).inMinutes;
     return minutes / 60.0 * widget.hourHeight;
   }
@@ -153,7 +161,11 @@ class _TimelineState extends ConsumerState<_Timeline> {
     if (_draggingId != e.id || _dragMode == null) {
       return (e.startAt, e.endAt);
     }
-    final dayStart = DateTime(widget.day.year, widget.day.month, widget.day.day);
+    final dayStart = DateTime(
+      widget.day.year,
+      widget.day.month,
+      widget.day.day,
+    );
     final dayEnd = dayStart.add(const Duration(days: 1));
     final delta = Duration(minutes: _snappedDeltaMinutes);
 
@@ -204,17 +216,21 @@ class _TimelineState extends ConsumerState<_Timeline> {
       _dragPixels = 0;
     });
     if (start == e.startAt && end == e.endAt) return;
-    await ref.read(eventRepositoryProvider).save(EventInput(
-          id: e.id,
-          title: e.title,
-          memo: e.memo,
-          startAt: start,
-          endAt: end,
-          isAllDay: false,
-          notify: e.notify,
-          reminderMinutesBefore: e.reminderMinutesBefore,
-          colorTag: e.colorTag,
-        ));
+    await ref
+        .read(eventRepositoryProvider)
+        .save(
+          EventInput(
+            id: e.id,
+            title: e.title,
+            memo: e.memo,
+            startAt: start,
+            endAt: end,
+            isAllDay: false,
+            notify: e.notify,
+            reminderMinutesBefore: e.reminderMinutesBefore,
+            colorTag: e.colorTag,
+          ),
+        );
   }
 
   void _startCreate(double y) {
@@ -235,10 +251,17 @@ class _TimelineState extends ConsumerState<_Timeline> {
     final anchor = _createAnchorY;
     final current = _createCurrentY;
     if (anchor == null || current == null) return null;
-    final dayStart =
-        DateTime(widget.day.year, widget.day.month, widget.day.day);
-    return snappedCreateRange(dayStart, anchor, current,
-        hourHeight: widget.hourHeight);
+    final dayStart = DateTime(
+      widget.day.year,
+      widget.day.month,
+      widget.day.day,
+    );
+    return snappedCreateRange(
+      dayStart,
+      anchor,
+      current,
+      hourHeight: widget.hourHeight,
+    );
   }
 
   Future<void> _endCreate() async {
@@ -300,9 +323,9 @@ class _TimelineState extends ConsumerState<_Timeline> {
                     child: Text(
                       Fmt.hour(h, widget.locale, use24Hour: use24),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: palette.inkFaint,
-                            fontFeatures: null,
-                          ),
+                        color: palette.inkFaint,
+                        fontFeatures: null,
+                      ),
                     ),
                   ),
                   Expanded(
@@ -326,8 +349,9 @@ class _TimelineState extends ConsumerState<_Timeline> {
             top: _offsetFor(pendingCreate.$1) + 2,
             left: widget.railInset,
             right: 0,
-            height: (_offsetFor(pendingCreate.$2) - _offsetFor(pendingCreate.$1))
-                .clamp(0, widget.hourHeight * 24),
+            height:
+                (_offsetFor(pendingCreate.$2) - _offsetFor(pendingCreate.$1))
+                    .clamp(0, widget.hourHeight * 24),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: widget.accent.withValues(alpha: 0.22),
@@ -336,13 +360,14 @@ class _TimelineState extends ConsumerState<_Timeline> {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xxs,
+                ),
                 child: Text(
                   '${Fmt.time(pendingCreate.$1, widget.locale, use24Hour: use24)} – ${Fmt.time(pendingCreate.$2, widget.locale, use24Hour: use24)}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelMedium
-                      ?.copyWith(color: widget.accent),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: widget.accent),
                 ),
               ),
             ),
@@ -353,35 +378,39 @@ class _TimelineState extends ConsumerState<_Timeline> {
         // title/time text never gets clipped for short events, where the
         // duration-derived height is too small to fit two lines of text.
         for (final e in widget.events)
-          Builder(builder: (context) {
-            final (start, end) = _effectiveTimes(e);
-            final isDragging = _draggingId == e.id;
-            return Positioned(
-              top: _offsetFor(start) + 2,
-              left: widget.railInset,
-              right: 0,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: (_offsetFor(end) - _offsetFor(start))
-                        .clamp(0, widget.hourHeight * 24),
-                  ),
-                  child: _EventCard(
-                    event: e,
-                    allDay: false,
-                    isDragging: isDragging,
-                    onMoveStart: () => _startDrag(e.id, _DragMode.move),
-                    onMoveUpdate: _updateDrag,
-                    onMoveEnd: () => _endDrag(e),
-                    onResizeStart: () => _startDrag(e.id, _DragMode.resize),
-                    onResizeUpdate: _updateDrag,
-                    onResizeEnd: () => _endDrag(e),
+          Builder(
+            builder: (context) {
+              final (start, end) = _effectiveTimes(e);
+              final isDragging = _draggingId == e.id;
+              return Positioned(
+                top: _offsetFor(start) + 2,
+                left: widget.railInset,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: (_offsetFor(end) - _offsetFor(start)).clamp(
+                        0,
+                        widget.hourHeight * 24,
+                      ),
+                    ),
+                    child: _EventCard(
+                      event: e,
+                      allDay: false,
+                      isDragging: isDragging,
+                      onMoveStart: () => _startDrag(e.id, _DragMode.move),
+                      onMoveUpdate: _updateDrag,
+                      onMoveEnd: () => _endDrag(e),
+                      onResizeStart: () => _startDrag(e.id, _DragMode.resize),
+                      onResizeUpdate: _updateDrag,
+                      onResizeEnd: () => _endDrag(e),
+                    ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            },
+          ),
 
         // "Now" indicator.
         if (widget.isToday)
@@ -394,8 +423,10 @@ class _TimelineState extends ConsumerState<_Timeline> {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration:
-                      BoxDecoration(color: widget.accent, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: widget.accent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 Expanded(child: Container(height: 2, color: widget.accent)),
               ],
@@ -439,20 +470,22 @@ class _EventCard extends ConsumerWidget {
     final repo = ref.read(eventRepositoryProvider);
     final removed = event;
     await repo.delete(removed.id);
-    messenger.showAutoDismissSnackBar(SnackBar(
-      content: Text(l10n.eventDeleted),
-      action: SnackBarAction(
-        label: l10n.eventUndo,
-        // restoreEvent(), not save() — the row is already gone by now, so
-        // save() would see no existing row and treat this as a brand-new
-        // event: reminderMinutesBefore resets to EventInput's default (0),
-        // and recurrenceGroupId/recurrenceRule/osCalendarId/osEventId all
-        // come from `existing`, which is null, silently severing the
-        // restored event from its recurring series and its OS-calendar
-        // link. restoreEvent() writes `removed` back exactly as it was.
-        onPressed: () => repo.restoreEvent(removed),
+    messenger.showAutoDismissSnackBar(
+      SnackBar(
+        content: Text(l10n.eventDeleted),
+        action: SnackBarAction(
+          label: l10n.eventUndo,
+          // restoreEvent(), not save() — the row is already gone by now, so
+          // save() would see no existing row and treat this as a brand-new
+          // event: reminderMinutesBefore resets to EventInput's default (0),
+          // and recurrenceGroupId/recurrenceRule/osCalendarId/osEventId all
+          // come from `existing`, which is null, silently severing the
+          // restored event from its recurring series and its OS-calendar
+          // link. restoreEvent() writes `removed` back exactly as it was.
+          onPressed: () => repo.restoreEvent(removed),
+        ),
       ),
-    ));
+    );
   }
 
   @override
@@ -486,9 +519,12 @@ class _EventCard extends ConsumerWidget {
       child: GlassSurface(
         borderRadius: AppRadius.cardMd,
         tint: accent.withValues(
-            alpha: (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0)),
+          alpha: (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
+        ),
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -498,8 +534,9 @@ class _EventCard extends ConsumerWidget {
               // that starts on top of a card still scrolls the day timeline
               // instead of picking the event up — the two would otherwise
               // both claim the same vertical pan gesture.
-              onLongPressStart:
-                  onMoveStart == null ? null : (_) => onMoveStart!(),
+              onLongPressStart: onMoveStart == null
+                  ? null
+                  : (_) => onMoveStart!(),
               onLongPressMoveUpdate: onMoveUpdate == null
                   ? null
                   : (d) => onMoveUpdate!(d.offsetFromOrigin.dy),
@@ -529,24 +566,29 @@ class _EventCard extends ConsumerWidget {
                         if (!allDay)
                           Text(
                             '${Fmt.time(event.startAt, locale, use24Hour: use24)} – ${Fmt.time(event.endAt, locale, use24Hour: use24)}',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: palette.inkSoft),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: palette.inkSoft,
+                            ),
                           ),
                         if (event.location != null &&
                             event.location!.isNotEmpty)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.place_outlined,
-                                  size: 12, color: palette.inkFaint),
+                              Icon(
+                                Icons.place_outlined,
+                                size: 12,
+                                color: palette.inkFaint,
+                              ),
                               const SizedBox(width: 2),
                               Flexible(
                                 child: Text(
                                   event.location!,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(color: palette.inkFaint),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: palette.inkFaint,
+                                  ),
                                 ),
                               ),
                             ],
@@ -555,8 +597,11 @@ class _EventCard extends ConsumerWidget {
                     ),
                   ),
                   if (event.notify)
-                    Icon(Icons.notifications_active_outlined,
-                        size: 15, color: palette.inkFaint),
+                    Icon(
+                      Icons.notifications_active_outlined,
+                      size: 15,
+                      color: palette.inkFaint,
+                    ),
                 ],
               ),
             ),
@@ -609,11 +654,12 @@ class _EmptyDay extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(l10n.dayEmpty, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.xxs),
-          Text(l10n.dayAddHint,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: palette.inkFaint)),
+          Text(
+            l10n.dayAddHint,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: palette.inkFaint),
+          ),
         ],
       ),
     );

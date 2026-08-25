@@ -12,8 +12,11 @@ import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 
 class _OnboardingPage {
-  const _OnboardingPage(
-      {required this.icon, required this.title, required this.body});
+  const _OnboardingPage({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
   final IconData icon;
   final String title;
   final String body;
@@ -99,14 +102,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 alignment: Alignment.topRight,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.gutter, vertical: AppSpacing.xs),
+                    horizontal: AppSpacing.gutter,
+                    vertical: AppSpacing.xs,
+                  ),
                   child: isLast
                       ? const SizedBox(height: 40)
                       : TextButton(
                           onPressed: _finish,
-                          child: Text(l10n.onboardingSkip,
-                              style: theme.textTheme.labelLarge
-                                  ?.copyWith(color: palette.inkFaint)),
+                          child: Text(
+                            l10n.onboardingSkip,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: palette.inkFaint,
+                            ),
+                          ),
                         ),
                 ),
               ),
@@ -117,8 +125,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   children: [
                     for (final p in pages)
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.gutter,
+                        ),
                         child: Center(
                           child: GlassSurface(
                             borderRadius: AppRadius.cardLg,
@@ -132,23 +141,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     gradient: LinearGradient(
-                                      colors: AppColors.timeGradient(DateTime.now()),
+                                      colors: AppColors.timeGradient(
+                                        DateTime.now(),
+                                      ),
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     ),
                                   ),
-                                  child: Icon(p.icon, color: Colors.white, size: 34),
+                                  child: Icon(
+                                    p.icon,
+                                    color: Colors.white,
+                                    size: 34,
+                                  ),
                                 ),
                                 const SizedBox(height: AppSpacing.lg),
-                                Text(p.title,
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.titleLarge),
+                                Text(
+                                  p.title,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.titleLarge,
+                                ),
                                 const SizedBox(height: AppSpacing.xs),
                                 Text(
                                   p.body,
                                   textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyMedium
-                                      ?.copyWith(color: palette.inkSoft),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: palette.inkSoft,
+                                  ),
                                 ),
                               ],
                             ),
@@ -163,7 +181,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 children: [
                   for (var i = 0; i < pages.length; i++)
                     AnimatedContainer(
-                      duration: context.motionDuration(const Duration(milliseconds: 200)),
+                      duration: context.motionDuration(
+                        const Duration(milliseconds: 200),
+                      ),
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       width: i == _page ? 20 : 6,
                       height: 6,
@@ -181,7 +201,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: FilledButton(
                     onPressed: () => _next(pages.length),
                     child: Text(
-                        isLast ? l10n.onboardingGetStarted : l10n.onboardingNext),
+                      isLast ? l10n.onboardingGetStarted : l10n.onboardingNext,
+                    ),
                   ),
                 ),
               ),

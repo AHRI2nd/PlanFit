@@ -84,7 +84,10 @@ void main() {
     test('pushes pending rows and marks them synced', () async {
       when(service.isEnabled).thenReturn(true);
       final now = DateTime(2026, 1, 1);
-      final pending = row(id: 't1', slotStart: now.add(const Duration(hours: 1)));
+      final pending = row(
+        id: 't1',
+        slotStart: now.add(const Duration(hours: 1)),
+      );
       when(dao.needingReminderPush()).thenAnswer((_) async => [pending]);
       when(service.pushTodo(pending)).thenAnswer((_) async => 'os-1');
       when(service.targetListId).thenReturn('list-1');
@@ -93,23 +96,27 @@ void main() {
       final changes = await reconciler.reconcile(now: now);
 
       expect(changes, 1);
-      final captured = verify(dao.patch('t1', captureAny)).captured.single
-          as TodoItemsCompanion;
+      final captured =
+          verify(dao.patch('t1', captureAny)).captured.single
+              as TodoItemsCompanion;
       expect(captured.osReminderId.value, 'os-1');
       expect(captured.reminderSyncStatus.value, SyncStatus.synced);
     });
 
-    test('a push that returns null (sync unavailable) is not counted', () async {
-      when(service.isEnabled).thenReturn(true);
-      final pending = row(id: 't1', slotStart: DateTime(2026, 1, 1));
-      when(dao.needingReminderPush()).thenAnswer((_) async => [pending]);
-      when(service.pushTodo(pending)).thenAnswer((_) async => null);
+    test(
+      'a push that returns null (sync unavailable) is not counted',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        final pending = row(id: 't1', slotStart: DateTime(2026, 1, 1));
+        when(dao.needingReminderPush()).thenAnswer((_) async => [pending]);
+        when(service.pushTodo(pending)).thenAnswer((_) async => null);
 
-      final changes = await reconciler.reconcile();
+        final changes = await reconciler.reconcile();
 
-      expect(changes, 0);
-      verifyNever(dao.patch(any, any));
-    });
+        expect(changes, 0);
+        verifyNever(dao.patch(any, any));
+      },
+    );
   });
 
   group('pull', () {
@@ -178,56 +185,55 @@ void main() {
       final changes = await reconciler.reconcile(now: now);
 
       expect(changes, 1);
-      final captured = verify(dao.patch('t1', captureAny)).captured.single
-          as TodoItemsCompanion;
+      final captured =
+          verify(dao.patch('t1', captureAny)).captured.single
+              as TodoItemsCompanion;
       expect(captured.title.value, 'Standup (renamed)');
       expect(captured.isDone.value, isTrue);
       expect(captured.completedAt.value, now);
       verify(notifications.cancelForTodo('t1')).called(1);
     });
 
-    test(
-      'a due date cleared in the Reminders app moves the to-do into its '
-      'existing day\'s no-time bucket, normalized to midnight',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        final slot = DateTime(2026, 1, 1, 9);
-        final linked = row(
+    test('a due date cleared in the Reminders app moves the to-do into its '
+        'existing day\'s no-time bucket, normalized to midnight', () async {
+      when(service.isEnabled).thenReturn(true);
+      final slot = DateTime(2026, 1, 1, 9);
+      final linked = row(
+        id: 't1',
+        slotStart: slot,
+        osReminderId: 'os-1',
+        reminderSyncStatus: SyncStatus.synced,
+      );
+      when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
+      when(service.fetchReminders()).thenAnswer(
+        (_) async => [
+          const OsReminder(
+            osReminderId: 'os-1',
+            title: 'todo',
+            isCompleted: false,
+            dueDate: null,
+          ),
+        ],
+      );
+      when(dao.patch(any, any)).thenAnswer((_) async {});
+      when(dao.findById('t1')).thenAnswer(
+        (_) async => row(
           id: 't1',
-          slotStart: slot,
+          slotStart: DateTime(2026, 1, 1),
+          hasTime: false,
           osReminderId: 'os-1',
           reminderSyncStatus: SyncStatus.synced,
-        );
-        when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
-        when(service.fetchReminders()).thenAnswer(
-          (_) async => [
-            const OsReminder(
-              osReminderId: 'os-1',
-              title: 'todo',
-              isCompleted: false,
-              dueDate: null,
-            ),
-          ],
-        );
-        when(dao.patch(any, any)).thenAnswer((_) async {});
-        when(dao.findById('t1')).thenAnswer(
-          (_) async => row(
-            id: 't1',
-            slotStart: DateTime(2026, 1, 1),
-            hasTime: false,
-            osReminderId: 'os-1',
-            reminderSyncStatus: SyncStatus.synced,
-          ),
-        );
+        ),
+      );
 
-        await reconciler.reconcile();
+      await reconciler.reconcile();
 
-        final captured = verify(dao.patch('t1', captureAny)).captured.single
-            as TodoItemsCompanion;
-        expect(captured.hasTime.value, isFalse);
-        expect(captured.slotStart.value, DateTime(2026, 1, 1));
-      },
-    );
+      final captured =
+          verify(dao.patch('t1', captureAny)).captured.single
+              as TodoItemsCompanion;
+      expect(captured.hasTime.value, isFalse);
+      expect(captured.slotStart.value, DateTime(2026, 1, 1));
+    });
 
     test('a to-do deleted in the Reminders app is removed locally', () async {
       when(service.isEnabled).thenReturn(true);
@@ -248,25 +254,22 @@ void main() {
       verify(notifications.cancelForTodo('t1')).called(1);
     });
 
-    test(
-      'a still-pendingPush row is skipped by the pull scan (only push side '
-      'touches it)',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        final linked = row(
-          id: 't1',
-          slotStart: DateTime(2026, 1, 1),
-          osReminderId: 'os-1',
-          reminderSyncStatus: SyncStatus.pendingPush,
-        );
-        when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
-        when(service.fetchReminders()).thenAnswer((_) async => []);
+    test('a still-pendingPush row is skipped by the pull scan (only push side '
+        'touches it)', () async {
+      when(service.isEnabled).thenReturn(true);
+      final linked = row(
+        id: 't1',
+        slotStart: DateTime(2026, 1, 1),
+        osReminderId: 'os-1',
+        reminderSyncStatus: SyncStatus.pendingPush,
+      );
+      when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
+      when(service.fetchReminders()).thenAnswer((_) async => []);
 
-        final changes = await reconciler.reconcile();
+      final changes = await reconciler.reconcile();
 
-        expect(changes, 0);
-        verifyNever(dao.deleteById(any));
-      },
-    );
+      expect(changes, 0);
+      verifyNever(dao.deleteById(any));
+    });
   });
 }

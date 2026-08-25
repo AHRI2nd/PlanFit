@@ -51,48 +51,72 @@ void main() {
     );
   }
 
-  test('copies events in as local-only rows: no osEventId, notify off, '
-      'already synced so the reconciler never tries to push them back out',
-      () async {
-    final start = DateTime(2026, 5, 1, 9);
-    when(service.listEvents('work-cal',
-            from: anyNamed('from'), to: anyNamed('to')))
-        .thenAnswer((_) async => [osEvent(instanceId: 'occ-1', start: start)]);
+  test(
+    'copies events in as local-only rows: no osEventId, notify off, '
+    'already synced so the reconciler never tries to push them back out',
+    () async {
+      final start = DateTime(2026, 5, 1, 9);
+      when(
+        service.listEvents(
+          'work-cal',
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      ).thenAnswer((_) async => [osEvent(instanceId: 'occ-1', start: start)]);
 
-    final count = await importService.importFrom(
+      final count = await importService.importFrom(
+        'work-cal',
+        from: DateTime(2026, 1, 1),
+        to: DateTime(2027, 1, 1),
+      );
+
+      expect(count, 1);
+      final rows = await db.eventDao.all();
+      expect(rows, hasLength(1));
+      final row = rows.single;
+      expect(row.title, 'Standup');
+      expect(row.startAt, start);
+      expect(row.osEventId, isNull);
+      expect(row.notify, isFalse);
+      expect(row.syncStatus, SyncStatus.synced);
+    },
+  );
+
+  test('re-importing the same calendar updates the existing row instead of '
+      'duplicating it', () async {
+    final firstStart = DateTime(2026, 5, 1, 9);
+    when(
+      service.listEvents(
+        'work-cal',
+        from: anyNamed('from'),
+        to: anyNamed('to'),
+      ),
+    ).thenAnswer(
+      (_) async => [osEvent(instanceId: 'occ-1', start: firstStart)],
+    );
+    await importService.importFrom(
       'work-cal',
       from: DateTime(2026, 1, 1),
       to: DateTime(2027, 1, 1),
     );
 
-    expect(count, 1);
-    final rows = await db.eventDao.all();
-    expect(rows, hasLength(1));
-    final row = rows.single;
-    expect(row.title, 'Standup');
-    expect(row.startAt, start);
-    expect(row.osEventId, isNull);
-    expect(row.notify, isFalse);
-    expect(row.syncStatus, SyncStatus.synced);
-  });
-
-  test('re-importing the same calendar updates the existing row instead of '
-      'duplicating it', () async {
-    final firstStart = DateTime(2026, 5, 1, 9);
-    when(service.listEvents('work-cal',
-            from: anyNamed('from'), to: anyNamed('to')))
-        .thenAnswer(
-            (_) async => [osEvent(instanceId: 'occ-1', start: firstStart)]);
-    await importService.importFrom('work-cal',
-        from: DateTime(2026, 1, 1), to: DateTime(2027, 1, 1));
-
     final movedStart = DateTime(2026, 5, 1, 14);
-    when(service.listEvents('work-cal',
-            from: anyNamed('from'), to: anyNamed('to')))
-        .thenAnswer((_) async =>
-            [osEvent(instanceId: 'occ-1', start: movedStart, title: 'Moved')]);
-    final count = await importService.importFrom('work-cal',
-        from: DateTime(2026, 1, 1), to: DateTime(2027, 1, 1));
+    when(
+      service.listEvents(
+        'work-cal',
+        from: anyNamed('from'),
+        to: anyNamed('to'),
+      ),
+    ).thenAnswer(
+      (_) async => [
+        osEvent(instanceId: 'occ-1', start: movedStart, title: 'Moved'),
+      ],
+    );
+    final count = await importService.importFrom(
+      'work-cal',
+      from: DateTime(2026, 1, 1),
+      to: DateTime(2027, 1, 1),
+    );
 
     expect(count, 1);
     final rows = await db.eventDao.all();
@@ -103,46 +127,73 @@ void main() {
 
   test('importFrom tags the row with the source calendar\'s own OS color, '
       'not left null to fall back to the generic gradient', () async {
-    when(service.allCalendars()).thenAnswer((_) async => [
-          const dc.Calendar(
-            id: 'work-cal',
-            name: 'Work',
-            colorHex: '#3355FF',
-            readOnly: true,
-          ),
-        ]);
-    when(service.listEvents('work-cal',
-            from: anyNamed('from'), to: anyNamed('to')))
-        .thenAnswer((_) async =>
-            [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
+    when(service.allCalendars()).thenAnswer(
+      (_) async => [
+        const dc.Calendar(
+          id: 'work-cal',
+          name: 'Work',
+          colorHex: '#3355FF',
+          readOnly: true,
+        ),
+      ],
+    );
+    when(
+      service.listEvents(
+        'work-cal',
+        from: anyNamed('from'),
+        to: anyNamed('to'),
+      ),
+    ).thenAnswer(
+      (_) async => [
+        osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+      ],
+    );
 
-    await importService.importFrom('work-cal',
-        from: DateTime(2026, 1, 1), to: DateTime(2027, 1, 1));
+    await importService.importFrom(
+      'work-cal',
+      from: DateTime(2026, 1, 1),
+      to: DateTime(2027, 1, 1),
+    );
 
     expect((await db.eventDao.all()).single.colorTag, '#3355FF');
   });
 
-  test('importFrom leaves colorTag null when the source calendar isn\'t '
-      'known (falls back to the same gradient as before, not a crash)',
-      () async {
-    when(service.listEvents('work-cal',
-            from: anyNamed('from'), to: anyNamed('to')))
-        .thenAnswer((_) async =>
-            [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
+  test(
+    'importFrom leaves colorTag null when the source calendar isn\'t '
+    'known (falls back to the same gradient as before, not a crash)',
+    () async {
+      when(
+        service.listEvents(
+          'work-cal',
+          from: anyNamed('from'),
+          to: anyNamed('to'),
+        ),
+      ).thenAnswer(
+        (_) async => [
+          osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+        ],
+      );
 
-    await importService.importFrom('work-cal',
-        from: DateTime(2026, 1, 1), to: DateTime(2027, 1, 1));
+      await importService.importFrom(
+        'work-cal',
+        from: DateTime(2026, 1, 1),
+        to: DateTime(2027, 1, 1),
+      );
 
-    expect((await db.eventDao.all()).single.colorTag, isNull);
-  });
+      expect((await db.eventDao.all()).single.colorTag, isNull);
+    },
+  );
 
-  test('availableCalendars delegates to CalendarService.allCalendars', () async {
-    when(service.allCalendars()).thenAnswer((_) async => []);
+  test(
+    'availableCalendars delegates to CalendarService.allCalendars',
+    () async {
+      when(service.allCalendars()).thenAnswer((_) async => []);
 
-    await importService.availableCalendars();
+      await importService.availableCalendars();
 
-    verify(service.allCalendars()).called(1);
-  });
+      verify(service.allCalendars()).called(1);
+    },
+  );
 
   group('syncMirroredCalendars', () {
     final from = DateTime(2026, 1, 1);
@@ -150,10 +201,15 @@ void main() {
 
     test('upserts current events and tags them with their source', () async {
       final start = DateTime(2026, 5, 1, 9);
-      when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
-          (_) async => [osEvent(instanceId: 'occ-1', start: start)]);
+      when(
+        service.listEvents('work-cal', from: from, to: to),
+      ).thenAnswer((_) async => [osEvent(instanceId: 'occ-1', start: start)]);
 
-      await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
+      await importService.syncMirroredCalendars(
+        {'work-cal'},
+        from: from,
+        to: to,
+      );
 
       final row = (await db.eventDao.all()).single;
       expect(row.importSourceCalendarId, 'work-cal');
@@ -163,64 +219,99 @@ void main() {
     test('removes a previously-mirrored row once it disappears from the '
         'source', () async {
       when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
-          (_) async => [
-                osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
-                osEvent(instanceId: 'occ-2', start: DateTime(2026, 5, 2, 9)),
-              ]);
-      await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
+        (_) async => [
+          osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+          osEvent(instanceId: 'occ-2', start: DateTime(2026, 5, 2, 9)),
+        ],
+      );
+      await importService.syncMirroredCalendars(
+        {'work-cal'},
+        from: from,
+        to: to,
+      );
       expect(await db.eventDao.all(), hasLength(2));
 
       // occ-2 was deleted at the source; only occ-1 still comes back.
       when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
-          (_) async =>
-              [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
-      await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
+        (_) async => [
+          osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+        ],
+      );
+      await importService.syncMirroredCalendars(
+        {'work-cal'},
+        from: from,
+        to: to,
+      );
 
       final rows = await db.eventDao.all();
       expect(rows.map((r) => r.importSourceEventId), ['occ-1']);
     });
 
-    test('tags mirrored rows with the source calendar\'s own OS color',
-        () async {
-      when(service.allCalendars()).thenAnswer((_) async => [
+    test(
+      'tags mirrored rows with the source calendar\'s own OS color',
+      () async {
+        when(service.allCalendars()).thenAnswer(
+          (_) async => [
             const dc.Calendar(
               id: 'work-cal',
               name: 'Work',
               colorHex: '#00A876',
               readOnly: true,
             ),
-          ]);
-      when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
-          (_) async =>
-              [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
-
-      await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
-
-      expect((await db.eventDao.all()).single.colorTag, '#00A876');
-    });
-
-    test('keeps the same local id across syncs (updates, not duplicates)',
-        () async {
-      when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
-          (_) async =>
-              [osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9))]);
-      await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
-      final firstId = (await db.eventDao.all()).single.id;
-
-      when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
+          ],
+        );
+        when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
           (_) async => [
-                osEvent(
-                    instanceId: 'occ-1',
-                    start: DateTime(2026, 5, 1, 15),
-                    title: 'Moved'),
-              ]);
-      await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
+            osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+          ],
+        );
 
-      final rows = await db.eventDao.all();
-      expect(rows, hasLength(1));
-      expect(rows.single.id, firstId);
-      expect(rows.single.title, 'Moved');
-    });
+        await importService.syncMirroredCalendars(
+          {'work-cal'},
+          from: from,
+          to: to,
+        );
+
+        expect((await db.eventDao.all()).single.colorTag, '#00A876');
+      },
+    );
+
+    test(
+      'keeps the same local id across syncs (updates, not duplicates)',
+      () async {
+        when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
+          (_) async => [
+            osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+          ],
+        );
+        await importService.syncMirroredCalendars(
+          {'work-cal'},
+          from: from,
+          to: to,
+        );
+        final firstId = (await db.eventDao.all()).single.id;
+
+        when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
+          (_) async => [
+            osEvent(
+              instanceId: 'occ-1',
+              start: DateTime(2026, 5, 1, 15),
+              title: 'Moved',
+            ),
+          ],
+        );
+        await importService.syncMirroredCalendars(
+          {'work-cal'},
+          from: from,
+          to: to,
+        );
+
+        final rows = await db.eventDao.all();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, firstId);
+        expect(rows.single.title, 'Moved');
+      },
+    );
   });
 
   test('removeMirroredCalendar deletes every local mirror row for that '
@@ -228,10 +319,11 @@ void main() {
     final from = DateTime(2026, 1, 1);
     final to = DateTime(2027, 1, 1);
     when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
-        (_) async => [
-              osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
-              osEvent(instanceId: 'occ-2', start: DateTime(2026, 5, 2, 9)),
-            ]);
+      (_) async => [
+        osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+        osEvent(instanceId: 'occ-2', start: DateTime(2026, 5, 2, 9)),
+      ],
+    );
     await importService.syncMirroredCalendars({'work-cal'}, from: from, to: to);
     expect(await db.eventDao.all(), hasLength(2));
 

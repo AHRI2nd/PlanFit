@@ -36,7 +36,8 @@ Future<void> main() async {
   // iOS extension (see HomeWidgetSync's doc) must never block startup.
   try {
     await HomeWidget.registerInteractivityCallback(
-        homeWidgetBackgroundCallback);
+      homeWidgetBackgroundCallback,
+    );
   } catch (_) {
     // Ignored — see comment above.
   }
@@ -44,9 +45,7 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
 
   final container = ProviderContainer(
-    overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ],
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
   );
 
   // Warm up the notification plugin (channels, timezone-aware scheduling).

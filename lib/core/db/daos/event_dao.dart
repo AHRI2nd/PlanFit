@@ -57,10 +57,12 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   Future<List<EventRow>> search(String query) {
     final pattern = '%$query%';
     return (select(events)
-          ..where((t) =>
-              t.title.like(pattern) |
-              t.memo.like(pattern) |
-              t.location.like(pattern))
+          ..where(
+            (t) =>
+                t.title.like(pattern) |
+                t.memo.like(pattern) |
+                t.location.like(pattern),
+          )
           ..orderBy([
             (t) => OrderingTerm(expression: t.startAt, mode: OrderingMode.desc),
           ])
@@ -68,15 +70,15 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
         .get();
   }
 
-  Future<EventRow?> findByOsEventId(String osEventId) =>
-      (select(events)..where((t) => t.osEventId.equals(osEventId)))
-          .getSingleOrNull();
+  Future<EventRow?> findByOsEventId(String osEventId) => (select(
+    events,
+  )..where((t) => t.osEventId.equals(osEventId))).getSingleOrNull();
 
   /// Events created/edited locally that still need pushing to the OS calendar.
   Future<List<EventRow>> needingPush() {
-    return (select(events)
-          ..where((t) => t.syncStatus.equalsValue(SyncStatus.pendingPush)))
-        .get();
+    return (select(
+      events,
+    )..where((t) => t.syncStatus.equalsValue(SyncStatus.pendingPush))).get();
   }
 
   Future<void> upsert(EventsCompanion companion) =>
@@ -93,10 +95,11 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   /// Occurrences of a recurring series starting at or after [from] —
   /// "this and every future occurrence" for a delete/edit-forward action.
   Future<List<EventRow>> seriesFrom(String groupId, DateTime from) {
-    return (select(events)
-          ..where((t) =>
+    return (select(events)..where(
+          (t) =>
               t.recurrenceGroupId.equals(groupId) &
-              t.startAt.isBiggerOrEqualValue(from)))
+              t.startAt.isBiggerOrEqualValue(from),
+        ))
         .get();
   }
 
@@ -107,10 +110,11 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
     String calendarId,
     String sourceEventId,
   ) {
-    return (select(events)
-          ..where((t) =>
+    return (select(events)..where(
+          (t) =>
               t.importSourceCalendarId.equals(calendarId) &
-              t.importSourceEventId.equals(sourceEventId)))
+              t.importSourceEventId.equals(sourceEventId),
+        ))
         .getSingleOrNull();
   }
 
@@ -122,9 +126,10 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
     DateTime from,
     DateTime to,
   ) {
-    return (select(events)
-          ..where((t) =>
-              t.importSourceCalendarId.equals(calendarId) & _overlaps(from, to)))
+    return (select(events)..where(
+          (t) =>
+              t.importSourceCalendarId.equals(calendarId) & _overlaps(from, to),
+        ))
         .get();
   }
 }

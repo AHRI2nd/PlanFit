@@ -19,7 +19,10 @@ import '../../domain/event_input.dart';
 /// recognize (no date, no time, or both) still creates the event, just
 /// anchored on [anchorDay] at a default hour — never worse than typing the
 /// same text into the plain title field of the full editor.
-Future<void> showQuickAddEvent(BuildContext context, {required DateTime anchorDay}) {
+Future<void> showQuickAddEvent(
+  BuildContext context, {
+  required DateTime anchorDay,
+}) {
   return showAdaptiveBottomSheet<void>(
     context: context,
     builder: (_) => QuickAddEventSheet(anchorDay: anchorDay),
@@ -32,8 +35,7 @@ class QuickAddEventSheet extends ConsumerStatefulWidget {
   final DateTime anchorDay;
 
   @override
-  ConsumerState<QuickAddEventSheet> createState() =>
-      _QuickAddEventSheetState();
+  ConsumerState<QuickAddEventSheet> createState() => _QuickAddEventSheetState();
 }
 
 class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
@@ -58,32 +60,41 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
     final day = parsed.date ?? widget.anchorDay;
     final time = parsed.time ?? const TimeOfDay(hour: 9, minute: 0);
     final title = parsed.title.isEmpty ? text : parsed.title;
-    final startAt =
-        DateTime(day.year, day.month, day.day, time.hour, time.minute);
+    final startAt = DateTime(
+      day.year,
+      day.month,
+      day.day,
+      time.hour,
+      time.minute,
+    );
     final endAt = startAt.add(const Duration(hours: 1));
 
     setState(() => _saving = true);
     try {
-      await ref.read(eventRepositoryProvider).save(EventInput(
-            title: title,
-            startAt: startAt,
-            endAt: endAt,
-          ));
+      await ref
+          .read(eventRepositoryProvider)
+          .save(EventInput(title: title, startAt: startAt, endAt: endAt));
       if (!mounted) return;
       navigator.pop();
       final use24 = resolveUse24Hour(
         ref.read(
-          settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+          settingsControllerProvider.select(
+            (s) => s.displayTimeFormatPreference,
+          ),
         ),
         context,
       );
-      messenger.showAutoDismissSnackBar(SnackBar(
-        content: Text(l10n.quickAddEventCreated(
-          title,
-          Fmt.monthDay(day, locale),
-          Fmt.time(startAt, locale, use24Hour: use24),
-        )),
-      ));
+      messenger.showAutoDismissSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.quickAddEventCreated(
+              title,
+              Fmt.monthDay(day, locale),
+              Fmt.time(startAt, locale, use24Hour: use24),
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -104,15 +115,16 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l10n.quickAddEventTitle,
-              style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            l10n.quickAddEventTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
             l10n.quickAddEventHint,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: palette.inkFaint),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: palette.inkFaint),
           ),
           const SizedBox(height: AppSpacing.sm),
           TextField(
@@ -120,9 +132,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
             autofocus: true,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(
-              hintText: l10n.quickAddEventExample,
-            ),
+            decoration: InputDecoration(hintText: l10n.quickAddEventExample),
           ),
           const SizedBox(height: AppSpacing.sm),
           SizedBox(

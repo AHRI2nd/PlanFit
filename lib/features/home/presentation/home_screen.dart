@@ -56,7 +56,12 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.xl),
             SectionHeader(l10n.homeUpcoming),
-            _UpcomingList(now: now, locale: locale, l10n: l10n, use24Hour: use24),
+            _UpcomingList(
+              now: now,
+              locale: locale,
+              l10n: l10n,
+              use24Hour: use24,
+            ),
             const SizedBox(height: AppSpacing.xl),
             SectionHeader(l10n.homeTodayTodos),
             _TodayTodos(l10n: l10n),

@@ -148,20 +148,24 @@ class _NavButton extends StatelessWidget {
               NavBadgeIcon(
                 count: item.badgeCount,
                 icon: Icon(
-                    selected ? item.activeIcon : item.icon, size: 22, color: fg),
+                  selected ? item.activeIcon : item.icon,
+                  size: 22,
+                  color: fg,
+                ),
               ),
               AnimatedSize(
-                duration: context.motionDuration(const Duration(milliseconds: 240)),
+                duration: context.motionDuration(
+                  const Duration(milliseconds: 240),
+                ),
                 curve: Curves.easeOutCubic,
                 child: selected
                     ? Padding(
                         padding: const EdgeInsets.only(left: AppSpacing.xs),
                         child: Text(
                           item.label,
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelLarge
-                              ?.copyWith(color: fg),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.labelLarge?.copyWith(color: fg),
                         ),
                       )
                     : const SizedBox.shrink(),

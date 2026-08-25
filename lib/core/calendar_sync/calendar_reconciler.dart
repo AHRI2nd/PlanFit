@@ -109,19 +109,20 @@ class CalendarReconciler {
         // delete), so that cancellation doesn't happen automatically.
         await _notifications.cancelForEvent(row.id);
         await _eventDao.deleteById(row.id);
-        await _log(row.title, SyncResolution.deletedRemotely,
-            'Removed in the calendar app');
+        await _log(
+          row.title,
+          SyncResolution.deletedRemotely,
+          'Removed in the calendar app',
+        );
         changes++;
         continue;
       }
 
       if (!_matches(row, osEvent)) {
-        final locallyEdited =
-            row.updatedAt.isAfter(row.osLastKnownModified ?? row.createdAt);
-        await _eventDao.patch(
-          row.id,
-          _pullCompanion(osEvent, at),
+        final locallyEdited = row.updatedAt.isAfter(
+          row.osLastKnownModified ?? row.createdAt,
         );
+        await _eventDao.patch(row.id, _pullCompanion(osEvent, at));
         // The pulled values may have moved the alert time(s) (or the
         // notify/all-day flags feeding them) — re-sync the local
         // notifications so they don't keep firing at a stale time.
@@ -156,11 +157,16 @@ class CalendarReconciler {
     //    calendar) and materialize anything not already linked.
     if (_service.autoImportEnabled) {
       final calendarColors = await _autoImportCalendarColors();
-      final linkedOsIds =
-          linked.map((r) => r.osEventId).whereType<String>().toSet();
+      final linkedOsIds = linked
+          .map((r) => r.osEventId)
+          .whereType<String>()
+          .toSet();
       for (final entry in calendarColors.entries) {
-        final osEvents =
-            await _service.listEvents(entry.key, from: from, to: to);
+        final osEvents = await _service.listEvents(
+          entry.key,
+          from: from,
+          to: to,
+        );
         for (final osEvent in osEvents) {
           if (linkedOsIds.contains(osEvent.eventId)) continue;
           await _importNewEvent(osEvent, at, entry.value);
@@ -297,20 +303,20 @@ class CalendarReconciler {
   /// foreground resume.
   Future<void> _refillNotifications(DateTime at) async {
     final windowEnd = at.add(notificationSchedulingWindow);
-    final candidates =
-        await _eventDao.between(at, windowEnd.add(_maxLeadTime));
+    final candidates = await _eventDao.between(at, windowEnd.add(_maxLeadTime));
     for (final row in candidates) {
       if (!row.notify) continue;
       await _notifications.scheduleForEvent(row);
     }
   }
 
-  Future<void> _log(
-      String? title, SyncResolution resolution, String detail) {
-    return _syncLogDao.add(SyncLogsCompanion(
-      eventTitle: Value(title),
-      resolution: Value(resolution),
-      detail: Value(detail),
-    ));
+  Future<void> _log(String? title, SyncResolution resolution, String detail) {
+    return _syncLogDao.add(
+      SyncLogsCompanion(
+        eventTitle: Value(title),
+        resolution: Value(resolution),
+        detail: Value(detail),
+      ),
+    );
   }
 }

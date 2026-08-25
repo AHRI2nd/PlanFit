@@ -12,8 +12,7 @@ class SyncLogDao extends DatabaseAccessor<AppDatabase> with _$SyncLogDaoMixin {
   Stream<List<SyncLogRow>> watchRecent({int limit = 50}) {
     return (select(syncLogs)
           ..orderBy([
-            (t) => OrderingTerm(
-                expression: t.at, mode: OrderingMode.desc),
+            (t) => OrderingTerm(expression: t.at, mode: OrderingMode.desc),
           ])
           ..limit(limit))
         .watch();

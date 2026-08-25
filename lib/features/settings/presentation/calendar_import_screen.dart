@@ -55,12 +55,13 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
-      final count =
-          await ref.read(calendarImportServiceProvider).importFrom(
-                calendarId,
-                from: DateTime.now().subtract(const Duration(days: 30)),
-                to: DateTime.now().add(const Duration(days: 365)),
-              );
+      final count = await ref
+          .read(calendarImportServiceProvider)
+          .importFrom(
+            calendarId,
+            from: DateTime.now().subtract(const Duration(days: 30)),
+            to: DateTime.now().add(const Duration(days: 365)),
+          );
       if (!mounted) return;
       messenger.showAutoDismissSnackBar(
         SnackBar(content: Text(l10n.calendarImportSuccess(count))),
@@ -86,9 +87,9 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
           .setCalendarSubscribed(calendarId, subscribed);
     } catch (_) {
       if (!mounted) return;
-      messenger.showAutoDismissSnackBar(SnackBar(
-        content: Text(AppL10n.of(context).calendarImportFailed),
-      ));
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).calendarImportFailed)),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -99,8 +100,9 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
     final calendarsAsync = ref.watch(importSourceCalendarsProvider);
-    final subscribed = ref.watch(settingsControllerProvider
-        .select((s) => s.subscribedCalendarIds));
+    final subscribed = ref.watch(
+      settingsControllerProvider.select((s) => s.subscribedCalendarIds),
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.calendarImportTitle)),
@@ -125,8 +127,11 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
                   final calendar = calendars[i];
                   final isSubscribed = subscribed.contains(calendar.id);
                   return ListTile(
-                    leading: Icon(Icons.circle,
-                        size: 14, color: calendar.color ?? palette.inkFaint),
+                    leading: Icon(
+                      Icons.circle,
+                      size: 14,
+                      color: calendar.color ?? palette.inkFaint,
+                    ),
                     title: Text(calendar.name),
                     subtitle: Text(
                       isSubscribed

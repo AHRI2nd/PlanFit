@@ -11,9 +11,9 @@ class EventTemplateDao extends DatabaseAccessor<AppDatabase>
   EventTemplateDao(super.db);
 
   Stream<List<EventTemplateRow>> watchAll() {
-    return (select(eventTemplates)
-          ..orderBy([(t) => OrderingTerm(expression: t.createdAt)]))
-        .watch();
+    return (select(
+      eventTemplates,
+    )..orderBy([(t) => OrderingTerm(expression: t.createdAt)])).watch();
   }
 
   Future<void> upsert(EventTemplatesCompanion companion) =>

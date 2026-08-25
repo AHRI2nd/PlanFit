@@ -30,12 +30,15 @@ void main() {
     // watch* the screen (and its _WeeklyStats/_TodayTodos children) can
     // reach gets a default empty stream so a test can override just the
     // one it cares about.
-    when(events.watchUpcoming(any, limit: anyNamed('limit')))
-        .thenAnswer((_) => Stream.value(const <EventRow>[]));
-    when(events.watchBetween(any, any))
-        .thenAnswer((_) => Stream.value(const <EventRow>[]));
-    when(todos.watchBetween(any, any))
-        .thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    when(
+      events.watchUpcoming(any, limit: anyNamed('limit')),
+    ).thenAnswer((_) => Stream.value(const <EventRow>[]));
+    when(
+      events.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const <EventRow>[]));
+    when(
+      todos.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
   });
 
   Future<void> pumpHome(WidgetTester tester) async {
@@ -77,8 +80,9 @@ void main() {
     expect(find.text('이번 주는 아직 조용하네요'), findsOneWidget);
   });
 
-  testWidgets('renders an upcoming event\'s title once data arrives',
-      (tester) async {
+  testWidgets('renders an upcoming event\'s title once data arrives', (
+    tester,
+  ) async {
     final now = DateTime.now();
     final event = EventRow(
       id: 'e1',
@@ -99,8 +103,9 @@ void main() {
       createdAt: now,
       updatedAt: now,
     );
-    when(events.watchUpcoming(any, limit: anyNamed('limit')))
-        .thenAnswer((_) => Stream.value([event]));
+    when(
+      events.watchUpcoming(any, limit: anyNamed('limit')),
+    ).thenAnswer((_) => Stream.value([event]));
 
     await pumpHome(tester);
 

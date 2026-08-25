@@ -28,7 +28,9 @@ void main() {
       initialLocation: '/onboarding',
       routes: [
         GoRoute(
-            path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
+          path: '/onboarding',
+          builder: (_, _) => const OnboardingScreen(),
+        ),
         GoRoute(path: '/home', builder: (_, _) => const Text('HOME_STUB')),
       ],
     );
@@ -37,7 +39,9 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
-          notificationServiceProvider.overrideWithValue(_FakeNotificationService()),
+          notificationServiceProvider.overrideWithValue(
+            _FakeNotificationService(),
+          ),
         ],
         child: MaterialApp.router(
           theme: AppTheme.light(),
@@ -57,8 +61,9 @@ void main() {
     return prefs;
   }
 
-  testWidgets('paging reaches the last page and swaps Next for Get started',
-      (tester) async {
+  testWidgets('paging reaches the last page and swaps Next for Get started', (
+    tester,
+  ) async {
     await pumpOnboarding(tester);
 
     expect(find.text('하루를 시간의 흐름으로'), findsOneWidget);
@@ -78,23 +83,25 @@ void main() {
   });
 
   testWidgets(
-      'Get started on the last page marks onboarding complete and leaves the screen',
-      (tester) async {
-    final prefs = await pumpOnboarding(tester);
+    'Get started on the last page marks onboarding complete and leaves the screen',
+    (tester) async {
+      final prefs = await pumpOnboarding(tester);
 
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('시작하기'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('시작하기'));
+      await tester.pumpAndSettle();
 
-    expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
-    expect(find.text('HOME_STUB'), findsOneWidget);
-  });
+      expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
+      expect(find.text('HOME_STUB'), findsOneWidget);
+    },
+  );
 
-  testWidgets('skip completes onboarding immediately from the first page',
-      (tester) async {
+  testWidgets('skip completes onboarding immediately from the first page', (
+    tester,
+  ) async {
     final prefs = await pumpOnboarding(tester);
 
     await tester.tap(find.text('건너뛰기'));

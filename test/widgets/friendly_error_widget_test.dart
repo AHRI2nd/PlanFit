@@ -55,6 +55,5 @@ void main() {
     expect(tester.takeException(), isA<StateError>());
 
     expect(find.text('문제가 발생했어요'), findsOneWidget);
-    },
-  );
+  });
 }

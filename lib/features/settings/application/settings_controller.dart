@@ -21,9 +21,14 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kDialTimeFormat = 'settings.dialTimeFormatPreference';
   static const _kDisplayTimeFormat = 'settings.displayTimeFormatPreference';
 
-  static TimeFormatPreference _readTimeFormat(SharedPreferences prefs, String key) {
+  static TimeFormatPreference _readTimeFormat(
+    SharedPreferences prefs,
+    String key,
+  ) {
     final index = prefs.getInt(key);
-    if (index == null || index < 0 || index >= TimeFormatPreference.values.length) {
+    if (index == null ||
+        index < 0 ||
+        index >= TimeFormatPreference.values.length) {
       return TimeFormatPreference.system;
     }
     return TimeFormatPreference.values[index];
@@ -82,7 +87,9 @@ class SettingsController extends Notifier<AppSettings> {
     }
     await prefs.setInt(_kDialTimeFormat, s.dialTimeFormatPreference.index);
     await prefs.setInt(
-        _kDisplayTimeFormat, s.displayTimeFormatPreference.index);
+      _kDisplayTimeFormat,
+      s.displayTimeFormatPreference.index,
+    );
   }
 
   Future<void> _update(AppSettings next) async {
@@ -128,8 +135,8 @@ class SettingsController extends Notifier<AppSettings> {
       _update(state.copyWith(dialTimeFormatPreference: preference));
 
   Future<void> setDisplayTimeFormatPreference(
-          TimeFormatPreference preference) =>
-      _update(state.copyWith(displayTimeFormatPreference: preference));
+    TimeFormatPreference preference,
+  ) => _update(state.copyWith(displayTimeFormatPreference: preference));
 
   /// `null` turns the sweep off entirely — see
   /// `AppSettings.completedTodoRetentionDays`.
