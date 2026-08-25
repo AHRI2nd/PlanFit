@@ -63,33 +63,38 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
   /// up duplicates (the list itself lives in EventKit, outside the app's own
   /// storage, so uninstalling PlanFit doesn't remove it).
   private func resolveTargetListId(result: @escaping FlutterResult) {
-    if let existing = findOwnList() {
-      result(existing.calendarIdentifier)
-      return
-    }
-    guard
-      let source = store.defaultCalendarForNewReminders()?.source
-        ?? store.sources.first(where: { $0.sourceType == .local })
-        ?? store.sources.first
-    else {
-      result(nil)
-      return
-    }
-    let list = EKCalendar(for: .reminder, eventStore: store)
-    list.title = Self.ownListName
-    list.source = source
-    do {
-      try store.saveCalendar(list, commit: true)
-      result(list.calendarIdentifier)
-    } catch {
-      // List creation can fail on some accounts (e.g. no local/iCloud source
-      // eligible to host a new list) — fall back to the OS default list
-      // rather than leaving sync silently broken, same fallback CalendarService
-      // takes when calendar creation fails.
-      if let fallback = store.defaultCalendarForNewReminders() {
-        result(fallback.calendarIdentifier)
-      } else {
-        result(nil)
+    // EKEventStore's synchronous calls (calendars(for:), saveCalendar) do
+    // real disk/IPC work — off the main thread so a to-do save doesn't jank
+    // the UI while it runs, same as pushTodo/deleteTodo below.
+    DispatchQueue.global(qos: .userInitiated).async { [self] in
+      if let existing = findOwnList() {
+        DispatchQueue.main.async { result(existing.calendarIdentifier) }
+        return
+      }
+      guard
+        let source = store.defaultCalendarForNewReminders()?.source
+          ?? store.sources.first(where: { $0.sourceType == .local })
+          ?? store.sources.first
+      else {
+        DispatchQueue.main.async { result(nil) }
+        return
+      }
+      let list = EKCalendar(for: .reminder, eventStore: store)
+      list.title = Self.ownListName
+      list.source = source
+      do {
+        try store.saveCalendar(list, commit: true)
+        DispatchQueue.main.async { result(list.calendarIdentifier) }
+      } catch {
+        // List creation can fail on some accounts (e.g. no local/iCloud source
+        // eligible to host a new list) — fall back to the OS default list
+        // rather than leaving sync silently broken, same fallback CalendarService
+        // takes when calendar creation fails.
+        if let fallback = store.defaultCalendarForNewReminders() {
+          DispatchQueue.main.async { result(fallback.calendarIdentifier) }
+        } else {
+          DispatchQueue.main.async { result(nil) }
+        }
       }
     }
   }
@@ -100,8 +105,7 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
     guard
       let args = call.arguments as? [String: Any],
       let listId = args["listId"] as? String,
-      let title = args["title"] as? String,
-      let list = store.calendar(withIdentifier: listId)
+      let title = args["title"] as? String
     else {
       result(nil)
       return
@@ -110,32 +114,45 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
     let dueDateMillis = args["dueDateMillis"] as? Int64
     let existingId = args["osReminderId"] as? String
 
-    let reminder: EKReminder
-    if let existingId = existingId,
-      let existing = store.calendarItem(withIdentifier: existingId) as? EKReminder
-    {
-      reminder = existing
-    } else {
-      reminder = EKReminder(eventStore: store)
-      reminder.calendar = list
-    }
+    // store.calendar(withIdentifier:)/calendarItem(withIdentifier:)/save are
+    // all synchronous EventKit calls that hit disk/IPC — off the main thread
+    // so every to-do save while Reminders sync is on doesn't jank the UI.
+    DispatchQueue.global(qos: .userInitiated).async { [self] in
+      guard let list = store.calendar(withIdentifier: listId) else {
+        DispatchQueue.main.async { result(nil) }
+        return
+      }
 
-    reminder.title = title.isEmpty ? " " : title
-    reminder.isCompleted = isCompleted
-    if let millis = dueDateMillis {
-      let date = Date(timeIntervalSince1970: TimeInterval(millis) / 1000)
-      reminder.dueDateComponents = Calendar.current.dateComponents(
-        [.year, .month, .day, .hour, .minute], from: date)
-    } else {
-      reminder.dueDateComponents = nil
-    }
+      let reminder: EKReminder
+      if let existingId = existingId,
+        let existing = store.calendarItem(withIdentifier: existingId) as? EKReminder
+      {
+        reminder = existing
+      } else {
+        reminder = EKReminder(eventStore: store)
+        reminder.calendar = list
+      }
 
-    do {
-      try store.save(reminder, commit: true)
-      result(reminder.calendarItemIdentifier)
-    } catch {
-      result(
-        FlutterError(code: "save_failed", message: error.localizedDescription, details: nil))
+      reminder.title = title.isEmpty ? " " : title
+      reminder.isCompleted = isCompleted
+      if let millis = dueDateMillis {
+        let date = Date(timeIntervalSince1970: TimeInterval(millis) / 1000)
+        reminder.dueDateComponents = Calendar.current.dateComponents(
+          [.year, .month, .day, .hour, .minute], from: date)
+      } else {
+        reminder.dueDateComponents = nil
+      }
+
+      do {
+        try store.save(reminder, commit: true)
+        DispatchQueue.main.async { result(reminder.calendarItemIdentifier) }
+      } catch {
+        DispatchQueue.main.async {
+          result(
+            FlutterError(
+              code: "save_failed", message: error.localizedDescription, details: nil))
+        }
+      }
     }
   }
 
@@ -144,16 +161,21 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
   private func deleteTodo(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
-      let osReminderId = args["osReminderId"] as? String,
-      let item = store.calendarItem(withIdentifier: osReminderId) as? EKReminder
+      let osReminderId = args["osReminderId"] as? String
     else {
       result(nil)
       return
     }
-    // Best-effort, same reasoning as CalendarService.deleteEvent: already
-    // gone from Reminders is already the desired end state, not a failure.
-    try? store.remove(item, commit: true)
-    result(nil)
+    // calendarItem(withIdentifier:)/remove are synchronous EventKit calls —
+    // off the main thread, same reasoning as pushTodo/resolveTargetListId.
+    DispatchQueue.global(qos: .userInitiated).async { [self] in
+      if let item = store.calendarItem(withIdentifier: osReminderId) as? EKReminder {
+        // Best-effort, same reasoning as CalendarService.deleteEvent: already
+        // gone from Reminders is already the desired end state, not a failure.
+        try? store.remove(item, commit: true)
+      }
+      DispatchQueue.main.async { result(nil) }
+    }
   }
 
   // MARK: - Pull (fetch for the reconciler)
