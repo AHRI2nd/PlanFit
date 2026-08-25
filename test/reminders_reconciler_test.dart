@@ -80,6 +80,35 @@ void main() {
     verifyNever(dao.linkedToReminders());
   });
 
+  group('concurrency guard', () {
+    test(
+      'a reconcile() call started while one is already running is a '
+      'no-op, not a second overlapping run',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+
+        // Not awaited between the two calls — the same shape as two
+        // AppLifecycleState.resumed events firing in quick succession (see
+        // RemindersReconciler._reconciling's doc).
+        final first = reconciler.reconcile();
+        final second = reconciler.reconcile();
+
+        expect(await second, 0);
+        expect(await first, 0);
+        verify(dao.needingReminderPush()).called(1);
+      },
+    );
+
+    test('a later call succeeds normally once the first has finished', () async {
+      when(service.isEnabled).thenReturn(true);
+
+      await reconciler.reconcile();
+      await reconciler.reconcile();
+
+      verify(dao.needingReminderPush()).called(2);
+    });
+  });
+
   group('push', () {
     test('pushes pending rows and marks them synced', () async {
       when(service.isEnabled).thenReturn(true);

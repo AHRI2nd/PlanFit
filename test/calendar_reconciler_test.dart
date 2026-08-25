@@ -79,6 +79,42 @@ void main() {
     when(service.autoImportEnabled).thenReturn(false);
   });
 
+  group('concurrency guard', () {
+    test(
+      'a reconcile() call started while one is already running is a '
+      'no-op, not a second overlapping run',
+      () async {
+        when(service.isEnabled).thenReturn(false);
+        final now = DateTime(2026, 1, 1);
+        when(dao.between(any, any)).thenAnswer((_) async => []);
+
+        // Not awaited between the two calls — this is exactly the shape of
+        // two AppLifecycleState.resumed events firing in quick succession
+        // (see CalendarReconciler._reconciling's doc).
+        final first = reconciler.reconcile(now: now);
+        final second = reconciler.reconcile(now: now);
+
+        expect(await second, 0);
+        expect(await first, 0);
+        // Proves the second call short-circuited before doing any work,
+        // rather than running the whole reconcile pass a second time
+        // concurrently.
+        verify(dao.between(any, any)).called(1);
+      },
+    );
+
+    test('a later call succeeds normally once the first has finished', () async {
+      when(service.isEnabled).thenReturn(false);
+      final now = DateTime(2026, 1, 1);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+
+      await reconciler.reconcile(now: now);
+      await reconciler.reconcile(now: now);
+
+      verify(dao.between(any, any)).called(2);
+    });
+  });
+
   group('notification refill', () {
     test('runs even when calendar sync is disabled', () async {
       when(service.isEnabled).thenReturn(false);

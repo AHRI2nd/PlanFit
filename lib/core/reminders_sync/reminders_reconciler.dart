@@ -42,7 +42,21 @@ class RemindersReconciler {
   final SyncLogDao _syncLogDao;
   final NotificationPort _notifications;
 
+  /// Same overlapping-`resumed`-events guard as `CalendarReconciler._reconciling`
+  /// — see that field's doc for why.
+  bool _reconciling = false;
+
   Future<int> reconcile({DateTime? now}) async {
+    if (_reconciling) return 0;
+    _reconciling = true;
+    try {
+      return await _reconcile(now);
+    } finally {
+      _reconciling = false;
+    }
+  }
+
+  Future<int> _reconcile(DateTime? now) async {
     if (!_service.isEnabled) return 0;
     final at = now ?? DateTime.now();
     var changes = 0;

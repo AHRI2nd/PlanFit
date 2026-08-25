@@ -43,12 +43,38 @@ class CalendarReconciler {
 
   static const _uuid = Uuid();
 
+  /// Guards against two overlapping [reconcile] runs — `app.dart` calls this
+  /// on every `AppLifecycleState.resumed`, and that can fire twice in quick
+  /// succession (an incoming call, a fast app-switch gesture) before the
+  /// first run's platform-channel calls finish. Without this, two runs can
+  /// both see the same [EventDao.needingPush] row before either has written
+  /// its new `osEventId` back, and both push it — creating a duplicate event
+  /// in the OS calendar — or both see the same not-yet-imported OS event and
+  /// materialize it twice.
+  bool _reconciling = false;
+
   /// Reconcile events within a rolling window around now. Returns the number of
   /// changes applied (useful for tests and a subtle "synced" affordance).
+  /// A no-op (returns 0) while a previous call is still running — see
+  /// [_reconciling].
   Future<int> reconcile({
     DateTime? now,
     Duration lookBack = const Duration(days: 7),
     Duration lookAhead = const Duration(days: 90),
+  }) async {
+    if (_reconciling) return 0;
+    _reconciling = true;
+    try {
+      return await _reconcile(now: now, lookBack: lookBack, lookAhead: lookAhead);
+    } finally {
+      _reconciling = false;
+    }
+  }
+
+  Future<int> _reconcile({
+    DateTime? now,
+    required Duration lookBack,
+    required Duration lookAhead,
   }) async {
     final at = now ?? DateTime.now();
     final from = at.subtract(lookBack);
