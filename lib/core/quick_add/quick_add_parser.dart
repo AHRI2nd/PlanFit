@@ -129,7 +129,16 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
       final month = int.parse(explicit.group(1)!);
       final day = int.parse(explicit.group(2)!);
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        date = DateTime(now.year, month, day);
+        final thisYear = DateTime(now.year, month, day);
+        // A month/day that's already passed this year almost certainly
+        // means next year, not "create this in the past" — e.g. typing
+        // "1월 5일" in December means next January, not three days after
+        // the year already ended. Compared by date only (dateOnly(now)),
+        // so typing today's own month/day still resolves to today, not a
+        // year out.
+        date = thisYear.isBefore(dateOnly(now))
+            ? DateTime(now.year + 1, month, day)
+            : thisYear;
         text = strip(explicit);
       }
     }

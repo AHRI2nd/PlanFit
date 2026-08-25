@@ -65,6 +65,22 @@ void main() {
       expect(r.date, DateTime(2026, 3, 15));
       expect(r.title, '생일파티');
     });
+
+    test('a month/day already passed this year rolls to next year', () {
+      // now is 2026-03-04 — "1월 5일" (Jan 5) already happened this year.
+      final r = parseQuickAdd('1월 5일 회의', now: now);
+      expect(r.date, DateTime(2027, 1, 5));
+    });
+
+    test('a month/day still ahead this year stays in this year', () {
+      final r = parseQuickAdd('12월 25일 회의', now: now);
+      expect(r.date, DateTime(2026, 12, 25));
+    });
+
+    test("today's own month/day resolves to today, not a year out", () {
+      final r = parseQuickAdd('3월 4일 회의', now: now);
+      expect(r.date, DateTime(2026, 3, 4));
+    });
   });
 
   group('time', () {
