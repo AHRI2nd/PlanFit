@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/di.dart';
+import '../../../core/serial_queue.dart';
 import 'app_settings.dart';
 
 /// Loads settings from [SharedPreferences], applies them to the notification
@@ -66,7 +67,20 @@ class SettingsController extends Notifier<AppSettings> {
     ref.read(remindersServiceProvider).enabled = s.remindersSyncEnabled;
   }
 
-  Future<void> _persist(AppSettings s) async {
+  /// Serializes [_persist] calls so two overlapping settings changes (e.g.
+  /// tapping two different toggles before the first one's writes finish —
+  /// each `_persist` call is ~11 sequential `await`s, easy to land inside)
+  /// can never interleave their writes. Without this, whichever call's
+  /// write to a given key happens to land *last* wins on disk, regardless of
+  /// which `AppSettings` snapshot was actually more recent — so the older
+  /// change could silently overwrite the newer one for that one key, even
+  /// though the in-memory `state` (and the UI) already reflects both changes
+  /// correctly.
+  final _writeQueue = SerialQueue();
+
+  Future<void> _persist(AppSettings s) => _writeQueue.run(() => _persistNow(s));
+
+  Future<void> _persistNow(AppSettings s) async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setInt(_kTheme, s.themeMode.index);
     await prefs.setBool(_kSound, s.notificationSound);
