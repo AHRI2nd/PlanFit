@@ -1,0 +1,4 @@
+"NSCalendarsFullAccessUsageDescription" = "Calendar access is needed to view and sync your events with your device's calendar.";
+"NSCalendarsUsageDescription" = "Calendar access is needed to view and sync your events with your device's calendar.";
+"NSRemindersFullAccessUsageDescription" = "Reminders access is needed to view and sync your to-dos with your device's Reminders.";
+"NSRemindersUsageDescription" = "Reminders access is needed to view and sync your to-dos with your device's Reminders.";
