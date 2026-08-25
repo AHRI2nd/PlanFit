@@ -129,6 +129,8 @@
   "calendarImportMirroredReadOnlyNote": "구독한 캘린더에서 가져온 일정이라 PlanFit에서는 읽기 전용이에요. 수정하려면 원본 캘린더 앱에서 바꿔주세요.",
   "settingsPermissionGranted": "허용됨",
   "settingsPermissionDenied": "허용 안 됨",
+  "settingsPermissionDeniedMessage": "권한이 거부되어 있어요. 기기 설정에서 허용해 주세요.",
+  "settingsOpenAppSettings": "설정 열기",
   "settingsGrant": "허용하기",
   "settingsAppearance": "화면",
   "settingsWeekStart": "주 시작 요일",

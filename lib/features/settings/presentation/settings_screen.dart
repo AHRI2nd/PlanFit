@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart' show openAppSettings;
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/di.dart';
@@ -29,10 +30,25 @@ class SettingsScreen extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final controller = ref.read(settingsControllerProvider.notifier);
 
+    void showPermissionDeniedSnackBar() {
+      ScaffoldMessenger.of(context).showAutoDismissSnackBar(
+        SnackBar(
+          content: Text(l10n.settingsPermissionDeniedMessage),
+          action: SnackBarAction(
+            label: l10n.settingsOpenAppSettings,
+            onPressed: openAppSettings,
+          ),
+        ),
+      );
+    }
+
     Future<void> toggleSync(bool value) async {
       if (value) {
         final granted = await ref.read(calendarServiceProvider).requestAccess();
-        if (!granted) return;
+        if (!granted) {
+          showPermissionDeniedSnackBar();
+          return;
+        }
         // Resolving reuses an existing "PlanFit" calendar if the OS still has
         // one (e.g. from before a reinstall) or creates it the first time —
         // persist the id so that creation only ever happens once, not again
@@ -58,7 +74,10 @@ class SettingsScreen extends ConsumerWidget {
         final granted = await ref
             .read(remindersServiceProvider)
             .requestAccess();
-        if (!granted) return;
+        if (!granted) {
+          showPermissionDeniedSnackBar();
+          return;
+        }
         final listId = await ref
             .read(remindersServiceProvider)
             .resolveTargetListId();
@@ -76,7 +95,10 @@ class SettingsScreen extends ConsumerWidget {
         // no dialog at all) — don't flip the switch on and persist a
         // setting that claims notifications work when the OS is blocking
         // them outright.
-        if (!granted) return;
+        if (!granted) {
+          showPermissionDeniedSnackBar();
+          return;
+        }
       }
       await controller.setNotificationSound(value);
     }

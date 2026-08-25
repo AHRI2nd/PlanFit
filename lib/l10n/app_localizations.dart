@@ -643,6 +643,18 @@ abstract class AppL10n {
   /// **'허용 안 됨'**
   String get settingsPermissionDenied;
 
+  /// No description provided for @settingsPermissionDeniedMessage.
+  ///
+  /// In ko, this message translates to:
+  /// **'권한이 거부되어 있어요. 기기 설정에서 허용해 주세요.'**
+  String get settingsPermissionDeniedMessage;
+
+  /// No description provided for @settingsOpenAppSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'설정 열기'**
+  String get settingsOpenAppSettings;
+
   /// No description provided for @settingsGrant.
   ///
   /// In ko, this message translates to:

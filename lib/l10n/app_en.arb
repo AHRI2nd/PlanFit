@@ -129,6 +129,8 @@
   "calendarImportMirroredReadOnlyNote": "This event came from a calendar you subscribed to, so it's read-only in PlanFit. Edit it in the original calendar app instead.",
   "settingsPermissionGranted": "Granted",
   "settingsPermissionDenied": "Not granted",
+  "settingsPermissionDeniedMessage": "Permission is denied — allow it in your device settings.",
+  "settingsOpenAppSettings": "Open Settings",
   "settingsGrant": "Grant",
   "settingsAppearance": "Appearance",
   "settingsWeekStart": "Week starts on",

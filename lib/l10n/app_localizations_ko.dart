@@ -298,6 +298,13 @@ class AppL10nKo extends AppL10n {
   String get settingsPermissionDenied => '허용 안 됨';
 
   @override
+  String get settingsPermissionDeniedMessage =>
+      '권한이 거부되어 있어요. 기기 설정에서 허용해 주세요.';
+
+  @override
+  String get settingsOpenAppSettings => '설정 열기';
+
+  @override
   String get settingsGrant => '허용하기';
 
   @override

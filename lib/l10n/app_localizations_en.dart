@@ -313,6 +313,13 @@ class AppL10nEn extends AppL10n {
   String get settingsPermissionDenied => 'Not granted';
 
   @override
+  String get settingsPermissionDeniedMessage =>
+      'Permission is denied — allow it in your device settings.';
+
+  @override
+  String get settingsOpenAppSettings => 'Open Settings';
+
+  @override
   String get settingsGrant => 'Grant';
 
   @override
