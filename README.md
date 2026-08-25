@@ -168,3 +168,7 @@ Deliberately out of scope for the current MVP (interfaces are kept extensible wh
 - Business/shift scheduling and wage calculation
 - RRULE authoring beyond what's described above (no BYMONTHDAY, BYSETPOS, etc.)
 - Always-on background sync (sync happens on foreground resume, not continuously)
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE) — free to read, run, modify, and share for any noncommercial purpose (personal use, research, education, and similar). Commercial use requires a separate license from the copyright holder.
