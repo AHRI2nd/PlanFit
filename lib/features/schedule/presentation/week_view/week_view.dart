@@ -293,13 +293,44 @@ class _WeekGrid extends StatefulWidget {
   State<_WeekGrid> createState() => _WeekGridState();
 }
 
-class _WeekGridState extends State<_WeekGrid> {
+class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
   /// Long-press-drag-to-create state, mirroring DayView's own — see its doc
   /// comment. [_createDayIndex] pins the drag to whichever column it started
   /// in even if the finger wanders sideways into a neighboring one.
   int? _createDayIndex;
   double? _createAnchorY;
   double? _createCurrentY;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Same reasoning as DayView's _TimelineState.didChangeAppLifecycleState —
+  /// a long-press-drag already in progress gets no onLongPressEnd/Cancel
+  /// callback at all if interrupted by backgrounding, so the create-ghost
+  /// would otherwise stay stuck rendered indefinitely.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.paused) return;
+    if (_createDayIndex == null &&
+        _createAnchorY == null &&
+        _createCurrentY == null) {
+      return;
+    }
+    setState(() {
+      _createDayIndex = null;
+      _createAnchorY = null;
+      _createCurrentY = null;
+    });
+  }
 
   double _offsetFor(DateTime dayStart, DateTime t) =>
       t.difference(dayStart).inMinutes / 60.0 * widget.hourHeight;

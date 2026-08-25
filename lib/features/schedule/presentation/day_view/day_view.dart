@@ -116,7 +116,7 @@ class _Timeline extends ConsumerStatefulWidget {
   ConsumerState<_Timeline> createState() => _TimelineState();
 }
 
-class _TimelineState extends ConsumerState<_Timeline> {
+class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserver {
   /// The event currently being dragged, if any — only one card can drag at a
   /// time since drags are single-pointer gestures.
   String? _draggingId;
@@ -133,6 +133,50 @@ class _TimelineState extends ConsumerState<_Timeline> {
   /// direction from the anchor" convention as most calendar apps.
   double? _createAnchorY;
   double? _createCurrentY;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// A long-press-drag (move/resize/create) that's already been *accepted*
+  /// (i.e. `onLongPressStart` already fired) gets no `onLongPressEnd` or
+  /// `onLongPressCancel` callback at all if the gesture is then interrupted
+  /// by a `PointerCancelEvent` — Flutter's own `LongPressGestureRecognizer`
+  /// only invokes `onLongPressCancel` while the gesture is still in its
+  /// pre-acceptance `possible` state (confirmed against
+  /// `_checkLongPressCancel` in long_press.dart). The app being backgrounded
+  /// mid-drag (home button, an incoming call) is exactly that: the pointer
+  /// stream cancels, and without this, the card/create-ghost would stay
+  /// stuck rendered in its dragged-offset position indefinitely, no save
+  /// having happened and no further gesture able to reach it.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) _resetDragState();
+  }
+
+  void _resetDragState() {
+    if (_draggingId == null &&
+        _dragMode == null &&
+        _createAnchorY == null &&
+        _createCurrentY == null) {
+      return;
+    }
+    setState(() {
+      _draggingId = null;
+      _dragMode = null;
+      _dragPixels = 0;
+      _createAnchorY = null;
+      _createCurrentY = null;
+    });
+  }
 
   /// Pixel offset from the top of the timeline for [t]. Computed as minutes
   /// elapsed since [widget.day]'s midnight rather than `t.hour * 60 +
