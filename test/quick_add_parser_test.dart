@@ -81,6 +81,23 @@ void main() {
       final r = parseQuickAdd('3월 4일 회의', now: now);
       expect(r.date, DateTime(2026, 3, 4));
     });
+
+    test('English month name + day ("March 15", "Mar 15th")', () {
+      expect(
+        parseQuickAdd('March 15 birthday party', now: now).date,
+        DateTime(2026, 3, 15),
+      );
+      expect(
+        parseQuickAdd('Mar 15th birthday party', now: now).date,
+        DateTime(2026, 3, 15),
+      );
+      // Case-insensitive, and an already-passed month/day rolls to next
+      // year — same rule as the Korean/Japanese numeric forms.
+      expect(
+        parseQuickAdd('jan 5 meeting', now: now).date,
+        DateTime(2027, 1, 5),
+      );
+    });
   });
 
   group('time', () {
@@ -176,6 +193,102 @@ void main() {
         parseQuickAdd('9:30am standup', now: now).time,
         const TimeOfDay(hour: 9, minute: 30),
       );
+    });
+  });
+
+  group('japanese', () {
+    test('relative day: 今日/明日/明後日', () {
+      expect(parseQuickAdd('今日 会議', now: now).date, DateTime(2026, 3, 4));
+      expect(parseQuickAdd('明日 会議', now: now).date, DateTime(2026, 3, 5));
+      expect(parseQuickAdd('明後日 会議', now: now).date, DateTime(2026, 3, 6));
+    });
+
+    test('weekday: bare and 来週-prefixed', () {
+      // now = Wed 2026-03-04. Friday is 2 days out.
+      expect(parseQuickAdd('金曜日 会議', now: now).date, DateTime(2026, 3, 6));
+      expect(parseQuickAdd('来週水曜日 会議', now: now).date, DateTime(2026, 3, 11));
+      expect(parseQuickAdd('来週 火曜日 会議', now: now).date, DateTime(2026, 3, 10));
+    });
+
+    test('explicit date: N月N日', () {
+      final r = parseQuickAdd('3月15日 誕生日パーティー', now: now);
+      expect(r.date, DateTime(2026, 3, 15));
+      // An already-passed month/day rolls to next year, same as Korean.
+      expect(
+        parseQuickAdd('1月5日 会議', now: now).date,
+        DateTime(2027, 1, 5),
+      );
+    });
+
+    test('time: 午前/午後/朝/夜/晩 N時 is unambiguous', () {
+      expect(
+        parseQuickAdd('午後3時 会議', now: now).time,
+        const TimeOfDay(hour: 15, minute: 0),
+      );
+      expect(
+        parseQuickAdd('午前9時 会議', now: now).time,
+        const TimeOfDay(hour: 9, minute: 0),
+      );
+      expect(
+        parseQuickAdd('夜7時 約束', now: now).time,
+        const TimeOfDay(hour: 19, minute: 0),
+      );
+      expect(
+        parseQuickAdd('晩11時 電話', now: now).time,
+        const TimeOfDay(hour: 23, minute: 0),
+      );
+      expect(
+        parseQuickAdd('朝7時 運動', now: now).time,
+        const TimeOfDay(hour: 7, minute: 0),
+      );
+    });
+
+    test('time: minutes with 半 and N分', () {
+      expect(
+        parseQuickAdd('午後3時半 会議', now: now).time,
+        const TimeOfDay(hour: 15, minute: 30),
+      );
+      expect(
+        parseQuickAdd('午前9時15分 会議', now: now).time,
+        const TimeOfDay(hour: 9, minute: 15),
+      );
+    });
+
+    test('time: 24-hour bare N時 >= 13 is unambiguous', () {
+      expect(
+        parseQuickAdd('15時 会議', now: now).time,
+        const TimeOfDay(hour: 15, minute: 0),
+      );
+    });
+
+    test('time: 正午/真夜中', () {
+      expect(
+        parseQuickAdd('正午 昼食', now: now).time,
+        const TimeOfDay(hour: 12, minute: 0),
+      );
+      expect(
+        parseQuickAdd('真夜中 締め切り', now: now).time,
+        const TimeOfDay(hour: 0, minute: 0),
+      );
+    });
+
+    test('time: "N時間" (a duration word) is never mistaken for an hour', () {
+      final r = parseQuickAdd('18時間後に電話', now: now);
+      expect(r.time, isNull);
+      expect(r.title, '18時間後に電話');
+    });
+
+    test('priority: !低/!中/!高', () {
+      expect(parseQuickAdd('レポート !高', now: now).priority, 3);
+      expect(parseQuickAdd('レポート !中', now: now).priority, 2);
+      expect(parseQuickAdd('レポート !低', now: now).priority, 1);
+    });
+
+    test('combined date + time + title, clean title', () {
+      final r = parseQuickAdd('明日 午後3時 会議', now: now);
+      expect(r.date, DateTime(2026, 3, 5));
+      expect(r.time, const TimeOfDay(hour: 15, minute: 0));
+      expect(r.title, '会議');
     });
   });
 
