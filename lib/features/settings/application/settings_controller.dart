@@ -35,11 +35,24 @@ class SettingsController extends Notifier<AppSettings> {
     return TimeFormatPreference.values[index];
   }
 
+  /// Same out-of-range guard as [_readTimeFormat] — an unindexable stored
+  /// int (corrupted prefs, a prefs restore from a different app version)
+  /// must fall back to a safe default instead of throwing a RangeError out
+  /// of [build], which would crash the app on every single launch with no
+  /// in-app recovery short of clearing app data.
+  static ThemeMode _readThemeMode(SharedPreferences prefs) {
+    final index = prefs.getInt(_kTheme);
+    if (index == null || index < 0 || index >= ThemeMode.values.length) {
+      return ThemeMode.system;
+    }
+    return ThemeMode.values[index];
+  }
+
   @override
   AppSettings build() {
     final prefs = ref.watch(sharedPreferencesProvider);
     final settings = AppSettings(
-      themeMode: ThemeMode.values[prefs.getInt(_kTheme) ?? 0],
+      themeMode: _readThemeMode(prefs),
       notificationSound: prefs.getBool(_kSound) ?? true,
       calendarSyncEnabled: prefs.getBool(_kSync) ?? false,
       targetCalendarId: prefs.getString(_kCalendar),
