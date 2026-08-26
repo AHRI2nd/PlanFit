@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -105,8 +105,9 @@ class SettingsScreen extends ConsumerWidget {
 
     Future<void> exportBackup() async {
       final messenger = ScaffoldMessenger.of(context);
+      File? file;
       try {
-        final file = await ref.read(backupServiceProvider).exportToFile();
+        file = await ref.read(backupServiceProvider).exportToFile();
         await SharePlus.instance.share(
           ShareParams(files: [XFile(file.path)], subject: 'PlanFit backup'),
         );
@@ -114,6 +115,10 @@ class SettingsScreen extends ConsumerWidget {
         messenger.showAutoDismissSnackBar(
           SnackBar(content: Text(l10n.backupExportFailed)),
         );
+      } finally {
+        // The share sheet reads this file itself, so it can only be cleaned
+        // up once share() has returned — never before.
+        if (file != null && await file.exists()) await file.delete();
       }
     }
 
@@ -152,8 +157,9 @@ class SettingsScreen extends ConsumerWidget {
 
     Future<void> exportIcs() async {
       final messenger = ScaffoldMessenger.of(context);
+      File? file;
       try {
-        final file = await ref.read(icsExportServiceProvider).exportToFile();
+        file = await ref.read(icsExportServiceProvider).exportToFile();
         await SharePlus.instance.share(
           ShareParams(files: [XFile(file.path)], subject: 'PlanFit calendar'),
         );
@@ -161,6 +167,8 @@ class SettingsScreen extends ConsumerWidget {
         messenger.showAutoDismissSnackBar(
           SnackBar(content: Text(l10n.backupExportFailed)),
         );
+      } finally {
+        if (file != null && await file.exists()) await file.delete();
       }
     }
 

@@ -1,3 +1,5 @@
+import 'dart:io' show File;
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -437,8 +439,9 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     if (existing == null) return;
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppL10n.of(context);
+    File? file;
     try {
-      final file = await ref
+      file = await ref
           .read(icsExportServiceProvider)
           .exportEventToFile(existing);
       await SharePlus.instance.share(
@@ -452,6 +455,8 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
       messenger.showAutoDismissSnackBar(
         SnackBar(content: Text(l10n.eventShareFailed)),
       );
+    } finally {
+      if (file != null && await file.exists()) await file.delete();
     }
   }
 
