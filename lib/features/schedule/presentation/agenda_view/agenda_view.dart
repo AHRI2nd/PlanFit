@@ -17,6 +17,22 @@ import '../../application/schedule_providers.dart';
 import '../../domain/agenda_grouping.dart';
 import '../event_edit/event_editor_sheet.dart';
 
+/// One row of the agenda's flattened, `ListView.builder`-indexable list —
+/// either a day header or an event tile, never both. [isLastInGroup] only
+/// means anything for a tile row: it's the last event under its day header,
+/// so it gets the wider trailing gap before the next header that the plain
+/// [ListView] version got from a separate spacer widget.
+class _AgendaRow {
+  const _AgendaRow.header(this.day)
+    : event = null,
+      isLastInGroup = false;
+  const _AgendaRow.tile(this.event, {required this.isLastInGroup}) : day = null;
+
+  final DateTime? day;
+  final EventRow? event;
+  final bool isLastInGroup;
+}
+
 /// A flat, scrollable list of upcoming events grouped under date headers —
 /// the "everything at a glance" counterpart to the day/week/month/year
 /// grids, closer to how most calendar apps' list view reads. See
@@ -108,6 +124,22 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
         if (groups.isEmpty) {
           return _AgendaEmpty(l10n: l10n);
         }
+        // Flattened to one (row-kind, payload) list so ListView.builder can
+        // build lazily by index — the window this provider watches spans up
+        // to 187 days (see eventsForAgendaProvider's doc), so building every
+        // day header and tile eagerly (the previous plain ListView) meant
+        // ~400-550 widgets constructed on every open/data change instead of
+        // just what the viewport shows.
+        final rows = <_AgendaRow>[
+          for (final (day, dayEvents) in groups) ...[
+            _AgendaRow.header(day),
+            for (var i = 0; i < dayEvents.length; i++)
+              _AgendaRow.tile(
+                dayEvents[i],
+                isLastInGroup: i == dayEvents.length - 1,
+              ),
+          ],
+        ];
         return Column(
           children: [
             if (_selectionMode)
@@ -118,30 +150,39 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                 onDelete: () => _bulkDelete(events),
               ),
             Expanded(
-              child: ListView(
+              child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.gutter,
                   AppSpacing.xs,
                   AppSpacing.gutter,
                   140,
                 ),
-                children: [
-                  for (final (day, dayEvents) in groups) ...[
-                    _DayHeader(day: day),
-                    for (final e in dayEvents)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                        child: _AgendaTile(
-                          event: e,
-                          selectionMode: _selectionMode,
-                          selected: _selectedIds.contains(e.id),
-                          onToggleSelected: () => _toggleSelected(e.id),
-                          onEnterSelection: () => _enterSelection(e.id),
-                        ),
-                      ),
-                    const SizedBox(height: AppSpacing.sm),
-                  ],
-                ],
+                itemCount: rows.length,
+                itemBuilder: (context, index) {
+                  final row = rows[index];
+                  final day = row.day;
+                  if (day != null) return _DayHeader(day: day);
+                  final e = row.event!;
+                  return Padding(
+                    // The last tile in a group carries its own AppSpacing.xs
+                    // gap *plus* the AppSpacing.sm the old layout gave the
+                    // group as a whole (a separate trailing SizedBox) — same
+                    // combined gap before the next day's header, just folded
+                    // into one Padding instead of two sibling widgets.
+                    padding: EdgeInsets.only(
+                      bottom: row.isLastInGroup
+                          ? AppSpacing.xs + AppSpacing.sm
+                          : AppSpacing.xs,
+                    ),
+                    child: _AgendaTile(
+                      event: e,
+                      selectionMode: _selectionMode,
+                      selected: _selectedIds.contains(e.id),
+                      onToggleSelected: () => _toggleSelected(e.id),
+                      onEnterSelection: () => _enterSelection(e.id),
+                    ),
+                  );
+                },
               ),
             ),
           ],
