@@ -921,6 +921,7 @@ class _TemplatePickerSheet extends ConsumerWidget {
         ],
       ),
     );
+    controller.dispose();
     if (name == null || !context.mounted) return;
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showAutoDismissSnackBar(
