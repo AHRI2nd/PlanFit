@@ -36,6 +36,20 @@ android {
         versionName = flutter.versionName
     }
 
+    // Without this, `flutter build apk` bundles native libraries for every ABI
+    // (arm64-v8a/armeabi-v7a/x86_64) into one ~3x oversized APK. Split by ABI so
+    // a device only downloads/installs the ~22-25MB it actually needs, and keep
+    // the universal APK too as a no-thought-required fallback for sideloading
+    // onto an unknown device.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
             create("release") {
