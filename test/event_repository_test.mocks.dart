@@ -334,17 +334,6 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
           as _i6.Future<List<_i2.EventRow>>);
 
   @override
-  _i6.Future<_i2.EventRow?> findByImportSource(
-    String? calendarId,
-    String? sourceEventId,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#findByImportSource, [calendarId, sourceEventId]),
-            returnValue: _i6.Future<_i2.EventRow?>.value(),
-          )
-          as _i6.Future<_i2.EventRow?>);
-
-  @override
   _i6.Future<List<_i2.EventRow>> mirroredFrom(
     String? calendarId,
     DateTime? from,

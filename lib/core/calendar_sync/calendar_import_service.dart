@@ -61,9 +61,17 @@ class CalendarImportService {
       to: to,
     );
     final colorHex = await _colorHexOf(calendarId);
+    final existingBySourceId = _bySourceEventId(
+      await eventDao.mirroredFrom(calendarId, from, to),
+    );
     await eventDao.transaction(() async {
       for (final e in events) {
-        await _upsertMirrorRow(calendarId, e, colorHex);
+        await _upsertMirrorRow(
+          calendarId,
+          e,
+          colorHex,
+          existingBySourceId[e.instanceId],
+        );
       }
     });
     return events.length;
@@ -87,16 +95,18 @@ class CalendarImportService {
         to: to,
       );
       final currentSourceIds = events.map((e) => e.instanceId).toSet();
+      final existingMirrors = await eventDao.mirroredFrom(calendarId, from, to);
+      final existingBySourceId = _bySourceEventId(existingMirrors);
 
       await eventDao.transaction(() async {
         for (final e in events) {
-          await _upsertMirrorRow(calendarId, e, colorByCalendar[calendarId]);
+          await _upsertMirrorRow(
+            calendarId,
+            e,
+            colorByCalendar[calendarId],
+            existingBySourceId[e.instanceId],
+          );
         }
-        final existingMirrors = await eventDao.mirroredFrom(
-          calendarId,
-          from,
-          to,
-        );
         for (final row in existingMirrors) {
           if (!currentSourceIds.contains(row.importSourceEventId)) {
             await eventDao.deleteById(row.id);
@@ -148,6 +158,18 @@ class CalendarImportService {
     return colors;
   }
 
+  /// Indexes mirror rows by their source event id — replaces what used to be
+  /// a per-event SELECT inside the upsert loop below with the one
+  /// [EventDao.mirroredFrom] query the caller already ran, following the
+  /// same one-query-per-pass pattern [_colorHexByCalendar] uses for calendar
+  /// colors.
+  Map<String, EventRow> _bySourceEventId(List<EventRow> rows) {
+    return {
+      for (final row in rows)
+        if (row.importSourceEventId != null) row.importSourceEventId!: row,
+    };
+  }
+
   /// [colorHex] is [calendarId]'s own OS color (`#RRGGBB`, straight from
   /// [_colorHexOf]/[_colorHexByCalendar]) — stored as-is in
   /// [Events.colorTag], which already accepts a hex string alongside its
@@ -155,15 +177,16 @@ class CalendarImportService {
   /// row's `colorTag` was always left null, so every imported event fell
   /// back to [EventColorTag.resolve]'s generic time-of-day gradient instead
   /// of reading as belonging to the calendar it actually came from.
+  ///
+  /// [existing] is this event's already-mirrored local row, if any — passed
+  /// in from a batched [EventDao.mirroredFrom] lookup by the caller rather
+  /// than queried here per event.
   Future<void> _upsertMirrorRow(
     String calendarId,
     Event e,
     String? colorHex,
+    EventRow? existing,
   ) async {
-    final existing = await eventDao.findByImportSource(
-      calendarId,
-      e.instanceId,
-    );
     final now = DateTime.now();
     await eventDao.upsert(
       EventsCompanion(

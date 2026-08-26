@@ -103,21 +103,6 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
         .get();
   }
 
-  /// The local mirror row for one event of a subscribed calendar, if it's
-  /// already been pulled in — used to decide update vs. insert on each sync
-  /// pass. See [Events.importSourceCalendarId]'s doc.
-  Future<EventRow?> findByImportSource(
-    String calendarId,
-    String sourceEventId,
-  ) {
-    return (select(events)..where(
-          (t) =>
-              t.importSourceCalendarId.equals(calendarId) &
-              t.importSourceEventId.equals(sourceEventId),
-        ))
-        .getSingleOrNull();
-  }
-
   /// Every local mirror row for [calendarId] overlapping [from, to) — used
   /// to detect which previously-mirrored events have since disappeared from
   /// the source and should be removed locally too.
