@@ -791,4 +791,62 @@ void main() {
       },
     );
   });
+
+  group('restoreEvents', () {
+    test(
+      'writes every row inside one transaction, not one per row',
+      () async {
+        final start = DateTime.now().add(const Duration(hours: 2));
+        final rows = [
+          row(id: 'batch-1', startAt: start, endAt: start.add(const Duration(hours: 1))),
+          row(id: 'batch-2', startAt: start, endAt: start.add(const Duration(hours: 1))),
+          row(id: 'batch-3', startAt: start, endAt: start.add(const Duration(hours: 1))),
+        ];
+        for (final r in rows) {
+          when(dao.findById(r.id)).thenAnswer((_) async => r);
+        }
+
+        await repo.restoreEvents(rows);
+
+        // A single call wrapping all three writes -- not the three separate
+        // transactions a naive per-row loop would produce.
+        verify(dao.transaction<void>(any)).called(1);
+        verify(dao.upsert(any)).called(3);
+      },
+    );
+
+    test('applies side effects for every row after the transaction, even '
+        'though the writes are batched', () async {
+      final start = DateTime.now().add(const Duration(hours: 2));
+      final notifyOn = row(
+        id: 'batch-notify-on',
+        notify: true,
+        startAt: start,
+        endAt: start.add(const Duration(hours: 1)),
+      );
+      final notifyOff = row(
+        id: 'batch-notify-off',
+        notify: false,
+        startAt: start,
+        endAt: start.add(const Duration(hours: 1)),
+      );
+      when(dao.findById('batch-notify-on')).thenAnswer((_) async => notifyOn);
+      when(
+        dao.findById('batch-notify-off'),
+      ).thenAnswer((_) async => notifyOff);
+
+      await repo.restoreEvents([notifyOn, notifyOff]);
+
+      verify(notifications.scheduleForEvent(any)).called(1);
+      verify(notifications.cancelForEvent('batch-notify-off')).called(1);
+    });
+
+    test('an empty list is a no-op — no transaction, no side effects', () async {
+      await repo.restoreEvents(const []);
+
+      verifyNever(dao.transaction<void>(any));
+      verifyNever(dao.upsert(any));
+      verifyNever(notifications.scheduleForEvent(any));
+    });
+  });
 }

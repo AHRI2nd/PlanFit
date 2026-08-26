@@ -112,18 +112,24 @@ class BackupService {
           _subtaskFromJson(s),
     ];
 
-    for (final row in events) {
-      await eventRepository.restoreEvent(row);
-    }
-    for (final companion in todoCompanions) {
-      await todoDao.upsert(companion);
-      final restored = await todoDao.findById(companion.id.value);
-      if (restored != null) {
-        await syncTodoNotification(notifications, restored);
+    await eventRepository.restoreEvents(events);
+
+    // Same DB-writes-in-one-transaction, side-effects-after split as
+    // restoreEvents — a large restore must not hold the database open
+    // across hundreds of notification-scheduling platform-channel calls.
+    final restoredTodos = <TodoRow>[];
+    await todoDao.transaction(() async {
+      for (final companion in todoCompanions) {
+        await todoDao.upsert(companion);
+        final restored = await todoDao.findById(companion.id.value);
+        if (restored != null) restoredTodos.add(restored);
       }
-    }
-    for (final companion in subtaskCompanions) {
-      await todoDao.upsertSubtask(companion);
+      for (final companion in subtaskCompanions) {
+        await todoDao.upsertSubtask(companion);
+      }
+    });
+    for (final todo in restoredTodos) {
+      await syncTodoNotification(notifications, todo);
     }
 
     return BackupImportSummary(

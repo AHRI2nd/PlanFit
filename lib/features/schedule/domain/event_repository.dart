@@ -46,6 +46,14 @@ abstract class EventRepository {
   /// already contains one row per occurrence) and re-arms its notification.
   /// OS-calendar linkage is reset to [SyncStatus.pendingPush] — the ids in
   /// the backup may point at a calendar on a different device/reinstall, so
-  /// re-syncing from scratch is the only safe option.
+  /// re-syncing from scratch is the only safe option. A thin wrapper around
+  /// [restoreEvents] for a single row.
   Future<void> restoreEvent(EventRow row);
+
+  /// Same as [restoreEvent], batched: every row's DB write happens inside
+  /// one transaction, so restoring a full backup doesn't hold the database
+  /// open across hundreds of individual commits. Use this instead of a loop
+  /// of [restoreEvent] calls whenever more than one row is being restored
+  /// at once.
+  Future<void> restoreEvents(List<EventRow> rows);
 }

@@ -351,34 +351,54 @@ class EventRepositoryImpl implements EventRepository {
   }
 
   @override
-  Future<void> restoreEvent(EventRow row) async {
-    final now = DateTime.now();
-    await _dao.upsert(
-      EventsCompanion(
-        id: Value(row.id),
-        title: Value(row.title),
-        memo: Value(row.memo),
-        location: Value(row.location),
-        startAt: Value(row.startAt),
-        endAt: Value(row.endAt),
-        isAllDay: Value(row.isAllDay),
-        colorTag: Value(row.colorTag),
-        notify: Value(row.notify),
-        reminderMinutesBefore: Value(row.reminderMinutesBefore),
-        additionalReminderMinutes: Value(row.additionalReminderMinutes),
-        recurrenceRule: Value(row.recurrenceRule),
-        recurrenceGroupId: Value(row.recurrenceGroupId),
-        // Not carried over — see the doc comment on restoreEvent.
-        osCalendarId: const Value(null),
-        osEventId: const Value(null),
-        osLastKnownModified: const Value(null),
-        syncStatus: const Value(SyncStatus.pendingPush),
-        createdAt: Value(row.createdAt),
-        updatedAt: Value(now),
-      ),
-    );
+  Future<void> restoreEvent(EventRow row) => restoreEvents([row]);
 
-    final restored = (await _dao.findById(row.id))!;
-    await _applySideEffects(restored, notify: restored.notify);
+  @override
+  Future<void> restoreEvents(List<EventRow> rows) async {
+    if (rows.isEmpty) return;
+    // Same split as save()'s recurring branch: every DB write happens inside
+    // one transaction (a full-backup restore can be hundreds of rows), and
+    // the per-row side effects — a platform-channel round trip each, for
+    // notifications and, if calendar sync is on, the OS calendar push — run
+    // afterward, outside it. Holding the transaction open across all of
+    // those instead would block every other DB write in the app for the
+    // whole restore, and risks one unrelated late plugin hiccup rolling back
+    // an otherwise fully-written batch.
+    final rowsToSync = <EventRow>[];
+    await _dao.transaction(() async {
+      for (final row in rows) {
+        await _dao.upsert(_restoreCompanion(row));
+        rowsToSync.add((await _dao.findById(row.id))!);
+      }
+    });
+
+    for (final row in rowsToSync) {
+      await _applySideEffects(row, notify: row.notify);
+    }
+  }
+
+  EventsCompanion _restoreCompanion(EventRow row) {
+    return EventsCompanion(
+      id: Value(row.id),
+      title: Value(row.title),
+      memo: Value(row.memo),
+      location: Value(row.location),
+      startAt: Value(row.startAt),
+      endAt: Value(row.endAt),
+      isAllDay: Value(row.isAllDay),
+      colorTag: Value(row.colorTag),
+      notify: Value(row.notify),
+      reminderMinutesBefore: Value(row.reminderMinutesBefore),
+      additionalReminderMinutes: Value(row.additionalReminderMinutes),
+      recurrenceRule: Value(row.recurrenceRule),
+      recurrenceGroupId: Value(row.recurrenceGroupId),
+      // Not carried over — see the doc comment on restoreEvent.
+      osCalendarId: const Value(null),
+      osEventId: const Value(null),
+      osLastKnownModified: const Value(null),
+      syncStatus: const Value(SyncStatus.pendingPush),
+      createdAt: Value(row.createdAt),
+      updatedAt: Value(DateTime.now()),
+    );
   }
 }
