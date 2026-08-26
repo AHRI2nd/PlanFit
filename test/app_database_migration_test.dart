@@ -131,4 +131,106 @@ void main() {
       );
     }
   });
+
+  test(
+    'upgrading from schema v1 runs the full onUpgrade chain (v1->v16) '
+    'without touching existing data',
+    () async {
+      // Build a v1 database by hand — just the three tables/columns that
+      // existed at v1, before any of the later addColumn/createTable steps.
+      // Everything else (event_templates at v4, todo_subtasks at v10, every
+      // added column, the v16 indexes) must come from actually running every
+      // `if (from < N)` branch in AppDatabase's onUpgrade, not from onCreate,
+      // since a real install still on v1 goes through onUpgrade only.
+      final raw = sqlite3.sqlite3.openInMemory();
+      raw.execute('''
+          CREATE TABLE events (
+            id TEXT NOT NULL PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT '',
+            memo TEXT NULL,
+            start_at INTEGER NOT NULL,
+            end_at INTEGER NOT NULL,
+            is_all_day INTEGER NOT NULL DEFAULT 0,
+            color_tag TEXT NULL,
+            notify INTEGER NOT NULL DEFAULT 1,
+            recurrence_rule TEXT NULL,
+            os_calendar_id TEXT NULL,
+            os_event_id TEXT NULL,
+            os_last_known_modified INTEGER NULL,
+            sync_status TEXT NOT NULL DEFAULT 'pendingPush',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        ''');
+      raw.execute('''
+          CREATE TABLE todo_items (
+            id TEXT NOT NULL PRIMARY KEY,
+            event_id TEXT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            slot_start INTEGER NOT NULL,
+            slot_end INTEGER NULL,
+            is_done INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+          )
+        ''');
+      raw.execute(
+        'CREATE TABLE sync_logs ('
+        'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, '
+        'event_title TEXT NULL, resolution TEXT NOT NULL, detail TEXT NULL)',
+      );
+      raw.execute(
+        "INSERT INTO events (id, start_at, end_at, created_at, updated_at) "
+        "VALUES ('keep-event', 0, 3600, 0, 0)",
+      );
+      raw.execute(
+        "INSERT INTO todo_items (id, slot_start, created_at) "
+        "VALUES ('keep-todo', 0, 0)",
+      );
+      raw.userVersion = 1;
+
+      final db = AppDatabase(NativeDatabase.opened(raw));
+      addTearDown(db.close);
+
+      // Touching the database forces drift to run every onUpgrade branch
+      // from v1 up to the current schemaVersion in one pass.
+      final events = await db.eventDao.all();
+      expect(events, hasLength(1));
+      expect(events.single.id, 'keep-event');
+      // Columns added after v1 (e.g. v9's additionalReminderMinutes) must
+      // come back with their declared default, not fail to read at all.
+      expect(events.single.additionalReminderMinutes, isNull);
+
+      final todos = await db.todoDao.all();
+      expect(todos, hasLength(1));
+      expect(todos.single.id, 'keep-todo');
+      // v7's hasTime default is `true` — confirms the addColumn actually ran
+      // rather than the column silently not existing.
+      expect(todos.single.hasTime, isTrue);
+
+      final names = await indexNames(db);
+      for (final name in expectedIndexes) {
+        expect(
+          names,
+          contains(name),
+          reason: '$name missing after v1->v16 upgrade',
+        );
+      }
+
+      // Tables created mid-chain (event_templates at v4, todo_subtasks at
+      // v10) must exist and be usable, not just present as empty shells.
+      await db.eventTemplateDao.upsert(
+        EventTemplatesCompanion.insert(id: 'tmpl-1', name: 'Gym'),
+      );
+      expect(await db.select(db.eventTemplates).get(), hasLength(1));
+
+      await db.into(db.todoSubtasks).insert(
+        TodoSubtasksCompanion.insert(id: 'sub-1', todoId: 'keep-todo'),
+      );
+      final subtasks = await (db.select(
+        db.todoSubtasks,
+      )..where((t) => t.todoId.equals('keep-todo'))).get();
+      expect(subtasks, hasLength(1));
+    },
+  );
 }
