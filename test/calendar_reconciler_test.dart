@@ -73,6 +73,7 @@ void main() {
     );
     when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
     when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+    when(notifications.refillEvents(any)).thenAnswer((_) async {});
     // No subscribed calendars by default — most tests aren't about mirroring.
     when(service.subscribedCalendarIds).thenReturn(<String>{});
     // Off by default — most tests aren't about auto-import.
@@ -127,15 +128,15 @@ void main() {
 
       await reconciler.reconcile(now: now);
 
-      verify(notifications.scheduleForEvent(inWindow)).called(1);
+      verify(notifications.refillEvents([inWindow])).called(1);
       // Sync being off means the push/pull branches never touch the
       // calendar-linked DAO calls they'd otherwise make.
       verifyNever(dao.needingPush());
     });
 
     test(
-      'still calls scheduleForEvent for a candidate near the edge of the '
-      'window — scheduleForEvent itself judges each reminder offset',
+      'still passes a candidate near the edge of the window through to '
+      'refillEvents — refillEvents itself judges each reminder offset',
       () async {
         when(service.isEnabled).thenReturn(false);
         final now = DateTime(2026, 1, 1);
@@ -147,11 +148,11 @@ void main() {
 
         await reconciler.reconcile(now: now);
 
-        verify(notifications.scheduleForEvent(farOut)).called(1);
+        verify(notifications.refillEvents([farOut])).called(1);
       },
     );
 
-    test('skips an event with notifications turned off', () async {
+    test('excludes an event with notifications turned off from the batch', () async {
       when(service.isEnabled).thenReturn(false);
       final now = DateTime(2026, 1, 1);
       final silent = row(
@@ -163,27 +164,34 @@ void main() {
 
       await reconciler.reconcile(now: now);
 
-      verifyNever(notifications.scheduleForEvent(any));
+      // Filtering by notify is the reconciler's own job (refillEvents has no
+      // way to tell "off" apart from "on with zero offsets selected") — the
+      // batch it hands off is empty, not skipped entirely, since the refill
+      // still needs to run for whatever *other* candidates exist.
+      verify(notifications.refillEvents([])).called(1);
     });
 
-    test('still calls scheduleForEvent for a candidate whose primary alert '
-        'has already passed — scheduleForEvent itself judges each reminder '
-        'offset', () async {
-      when(service.isEnabled).thenReturn(false);
-      final now = DateTime(2026, 1, 1);
-      // Starts inside the window, but a long lead time pulls the primary
-      // alert into the past relative to "now".
-      final alreadyAlerted = row(
-        id: 'e4',
-        startAt: now.add(const Duration(hours: 1)),
-        reminderMinutesBefore: 1440,
-      );
-      when(dao.between(any, any)).thenAnswer((_) async => [alreadyAlerted]);
+    test(
+      'still passes a candidate whose primary alert has already passed '
+      'through to refillEvents — refillEvents itself judges each reminder '
+      'offset',
+      () async {
+        when(service.isEnabled).thenReturn(false);
+        final now = DateTime(2026, 1, 1);
+        // Starts inside the window, but a long lead time pulls the primary
+        // alert into the past relative to "now".
+        final alreadyAlerted = row(
+          id: 'e4',
+          startAt: now.add(const Duration(hours: 1)),
+          reminderMinutesBefore: 1440,
+        );
+        when(dao.between(any, any)).thenAnswer((_) async => [alreadyAlerted]);
 
-      await reconciler.reconcile(now: now);
+        await reconciler.reconcile(now: now);
 
-      verify(notifications.scheduleForEvent(alreadyAlerted)).called(1);
-    });
+        verify(notifications.refillEvents([alreadyAlerted])).called(1);
+      },
+    );
   });
 
   group('subscribed-calendar mirroring', () {

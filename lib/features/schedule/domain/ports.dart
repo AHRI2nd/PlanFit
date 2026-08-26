@@ -10,6 +10,12 @@ abstract class NotificationPort {
   Future<void> scheduleForEvent(EventRow event);
   Future<void> cancelForEvent(String eventId);
 
+  /// Bulk counterpart to [scheduleForEvent] for a foreground-resume refill
+  /// pass over many events at once — see `NotificationService.refillEvents`
+  /// for why this exists as its own method instead of a loop of
+  /// [scheduleForEvent] calls.
+  Future<void> refillEvents(List<EventRow> events);
+
   /// A to-do's due-time alert — see `TodoItems.notify`'s doc for why this is
   /// simpler than [scheduleForEvent] (no lead-time, no multiple offsets).
   Future<void> scheduleForTodo(TodoRow todo);

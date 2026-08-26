@@ -123,4 +123,13 @@ class MockEventRepository extends _i1.Mock implements _i3.EventRepository {
             returnValueForMissingStub: _i4.Future<void>.value(),
           )
           as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> restoreEvents(List<_i2.EventRow>? rows) =>
+      (super.noSuchMethod(
+            Invocation.method(#restoreEvents, [rows]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
 }

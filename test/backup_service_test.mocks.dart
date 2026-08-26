@@ -51,6 +51,15 @@ class MockNotificationPort extends _i1.Mock implements _i2.NotificationPort {
           as _i3.Future<void>);
 
   @override
+  _i3.Future<void> refillEvents(List<_i4.EventRow>? events) =>
+      (super.noSuchMethod(
+            Invocation.method(#refillEvents, [events]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
   _i3.Future<void> scheduleForTodo(_i4.TodoRow? todo) =>
       (super.noSuchMethod(
             Invocation.method(#scheduleForTodo, [todo]),

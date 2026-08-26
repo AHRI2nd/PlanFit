@@ -173,6 +173,63 @@ class NotificationService implements NotificationPort {
   static int notificationId(String eventId, int offsetMinutes) =>
       '$eventId#$offsetMinutes'.hashCode & 0x7fffffff;
 
+  /// What should happen for one (event, offset) pair — schedule at
+  /// [alertAt], or cancel if [alertAt] is null — without touching the
+  /// plugin. Shared by [scheduleForEvent] and [refillEvents] so the "is this
+  /// offset selected, in the future, inside the window" judgment lives in
+  /// exactly one place.
+  ({int id, DateTime? alertAt}) _decideEvent(
+    EventRow event,
+    int offset,
+    DateTime now,
+  ) {
+    final id = notificationId(event.id, offset);
+    final alertAt = event.startAt.subtract(Duration(minutes: offset));
+    // In the fixed menu but not selected for this event, already past, or
+    // beyond the near-term scheduling window (see
+    // notificationSchedulingWindow's doc — CalendarReconciler's refill picks
+    // it up once it rolls closer) all mean "make sure this one specific id
+    // isn't lingering scheduled".
+    final shouldSchedule =
+        event.reminderOffsets.contains(offset) &&
+        alertAt.isAfter(now) &&
+        alertAt.isBefore(now.add(notificationSchedulingWindow));
+    return (id: id, alertAt: shouldSchedule ? alertAt : null);
+  }
+
+  Future<void> _applyEvent({
+    required int id,
+    required DateTime? alertAt,
+    required EventRow event,
+    required AndroidScheduleMode mode,
+  }) {
+    if (alertAt == null) return _plugin.cancel(id: id);
+    final title = event.title.isEmpty ? '일정' : event.title;
+    return _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: event.memo,
+      scheduledDate: TimezoneSetup.toLocal(alertAt),
+      notificationDetails: _details(),
+      androidScheduleMode: mode,
+      // Structured (not just the bare event id) so the snooze handler below
+      // — which, on a background isolate, has no DB access — can re-post
+      // the same notification without needing to read anything back out.
+      // Carries this exact id (not just the event id) so a snooze always
+      // re-arms the same offset's slot, never a different reminder's.
+      // alertAtMillis lets refillEvents tell "already correctly scheduled"
+      // apart from "needs updating" without re-issuing this call to find
+      // out — see that method's doc.
+      payload: jsonEncode({
+        'eventId': event.id,
+        'notificationId': id,
+        'title': title,
+        'body': event.memo,
+        'alertAtMillis': alertAt.millisecondsSinceEpoch,
+      }),
+    );
+  }
+
   @override
   Future<void> scheduleForEvent(EventRow event) async {
     await init();
@@ -183,43 +240,73 @@ class NotificationService implements NotificationPort {
         ? AndroidScheduleMode.exactAllowWhileIdle
         : AndroidScheduleMode.inexactAllowWhileIdle;
     final now = DateTime.now();
-    final selected = event.reminderOffsets.toSet();
-    final title = event.title.isEmpty ? '일정' : event.title;
 
     for (final offset in reminderOffsetOptions) {
-      final id = notificationId(event.id, offset);
-      final alertAt = event.startAt.subtract(Duration(minutes: offset));
-      // Each offset is judged on its own: in the fixed menu but not
-      // selected for this event, already past, or beyond the near-term
-      // scheduling window (see notificationSchedulingWindow's doc —
-      // CalendarReconciler's refill picks it up once it rolls closer) all
-      // mean "make sure this one specific id isn't lingering scheduled".
-      if (!selected.contains(offset) ||
-          !alertAt.isAfter(now) ||
-          !alertAt.isBefore(now.add(notificationSchedulingWindow))) {
-        await _plugin.cancel(id: id);
-        continue;
+      final (:id, :alertAt) = _decideEvent(event, offset, now);
+      await _applyEvent(id: id, alertAt: alertAt, event: event, mode: mode);
+    }
+  }
+
+  /// Bulk counterpart to [scheduleForEvent], for `CalendarReconciler`'s
+  /// foreground-resume refill — every event whose reminders might need
+  /// (re)arming in the current window, not just one that was just edited.
+  ///
+  /// A plain loop of [scheduleForEvent] calls here would, for a user with
+  /// ~30 events carrying reminders in the 60-day window, issue
+  /// `canScheduleExact()` once per event (the answer can't change between
+  /// them within one pass) and a `zonedSchedule`/`cancel` platform call for
+  /// every one of their offsets regardless of whether that offset's alert
+  /// time actually changed since the last refill — on the order of 200+
+  /// platform-channel round trips on every single app resume, almost all of
+  /// them re-doing unchanged work. This instead reads what's actually
+  /// pending once, diffs each offset's *computed* alert time against its
+  /// *pending* one (carried in the payload — see [_applyEvent]'s `payload`),
+  /// and only calls the plugin for an id whose target state actually
+  /// changed.
+  ///
+  /// A pending id with a payload that fails to decode, or that's missing
+  /// `alertAtMillis` (e.g. scheduled by an older app version before this
+  /// field existed), is treated as "unknown" rather than "unchanged" —
+  /// falls through to being rescheduled, same as if nothing were pending.
+  /// Never wrong, just occasionally not the optimization, and only for one
+  /// release's worth of already-scheduled notifications.
+  @override
+  Future<void> refillEvents(List<EventRow> events) async {
+    await init();
+    final exact = await canScheduleExact();
+    final mode = exact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+    final now = DateTime.now();
+
+    final pending = await _plugin.pendingNotificationRequests();
+    final pendingAlertById = <int, DateTime>{};
+    for (final p in pending) {
+      final payload = p.payload;
+      if (payload == null) continue;
+      try {
+        final data = jsonDecode(payload) as Map<String, dynamic>;
+        final millis = data['alertAtMillis'] as int?;
+        if (millis != null) {
+          pendingAlertById[p.id] = DateTime.fromMillisecondsSinceEpoch(
+            millis,
+          );
+        }
+      } catch (_) {
+        // Not one of ours, or an old payload shape — leave unmapped so the
+        // id below falls through to "unknown, reschedule to be sure".
       }
-      await _plugin.zonedSchedule(
-        id: id,
-        title: title,
-        body: event.memo,
-        scheduledDate: TimezoneSetup.toLocal(alertAt),
-        notificationDetails: _details(),
-        androidScheduleMode: mode,
-        // Structured (not just the bare event id) so the snooze handler
-        // below — which, on a background isolate, has no DB access — can
-        // re-post the same notification without needing to read anything
-        // back out. Carries this exact id (not just the event id) so a
-        // snooze always re-arms the same offset's slot, never a different
-        // reminder's.
-        payload: jsonEncode({
-          'eventId': event.id,
-          'notificationId': id,
-          'title': title,
-          'body': event.memo,
-        }),
-      );
+    }
+
+    for (final event in events) {
+      for (final offset in reminderOffsetOptions) {
+        final (:id, :alertAt) = _decideEvent(event, offset, now);
+        final alreadyCorrect = alertAt == null
+            ? !pendingAlertById.containsKey(id)
+            : pendingAlertById[id] == alertAt;
+        if (alreadyCorrect) continue;
+        await _applyEvent(id: id, alertAt: alertAt, event: event, mode: mode);
+      }
     }
   }
 

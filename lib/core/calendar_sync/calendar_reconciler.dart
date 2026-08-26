@@ -321,19 +321,23 @@ class CalendarReconciler {
   static const _maxLeadTime = Duration(days: 1);
 
   /// (Re)schedules notifications for events whose start falls within (or
-  /// just past) [notificationSchedulingWindow] — scheduleForEvent judges
-  /// each of an event's reminder offsets on its own (see its doc), so this
-  /// just needs to give it a chance to run again for anything nearby;
-  /// offsets already correctly scheduled are a harmless no-op, and any that
-  /// have since rolled inside the window get armed. Safe to run on every
-  /// foreground resume.
+  /// just past) [notificationSchedulingWindow] — each of an event's reminder
+  /// offsets is judged on its own (see [NotificationService.refillEvents]),
+  /// so this just needs to give every candidate a chance to be re-evaluated;
+  /// offsets already correctly scheduled are skipped without a platform
+  /// call, and any that have since rolled inside the window get armed. Safe
+  /// to run on every foreground resume — batched through [refillEvents]
+  /// rather than one [NotificationPort.scheduleForEvent] call per event, so
+  /// a resume with dozens of upcoming events doesn't cost a platform call
+  /// per offset per event just to confirm most of them are unchanged.
   Future<void> _refillNotifications(DateTime at) async {
     final windowEnd = at.add(notificationSchedulingWindow);
     final candidates = await _eventDao.between(at, windowEnd.add(_maxLeadTime));
-    for (final row in candidates) {
-      if (!row.notify) continue;
-      await _notifications.scheduleForEvent(row);
-    }
+    final notifiable = [
+      for (final row in candidates)
+        if (row.notify) row,
+    ];
+    await _notifications.refillEvents(notifiable);
   }
 
   Future<void> _log(String? title, SyncResolution resolution, String detail) {
