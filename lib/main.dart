@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
@@ -20,29 +22,34 @@ Future<void> main() async {
   // failed subtree rather than needing a top-level try/catch.
   ErrorWidget.builder = buildFriendlyErrorWidget;
 
-  // Locale-aware date formatting (used by the calendar and formatters).
-  await initializeDateFormatting();
-  await TimezoneSetup.init();
-  // Pre-warms the Liquid Glass shaders; the bottom nav bar uses real shader
-  // glass on iOS (see AppShell), a no-op elsewhere since nothing else in the
-  // tree reaches for Glass* widgets.
-  await LiquidGlassWidgets.initialize();
+  // These four don't depend on each other's result, so run them together
+  // instead of piling up their latencies serially before the first frame.
+  final prefsFuture = SharedPreferences.getInstance();
+  await Future.wait([
+    // Locale-aware date formatting (used by the calendar and formatters).
+    initializeDateFormatting(),
+    TimezoneSetup.init(),
+    // Pre-warms the Liquid Glass shaders; the bottom nav bar uses real
+    // shader glass on iOS (see AppShell), a no-op elsewhere since nothing
+    // else in the tree reaches for Glass* widgets.
+    LiquidGlassWidgets.initialize(),
+    prefsFuture,
+  ]);
+  final prefs = await prefsFuture;
 
   // Wires up the HomeScreen widget's checkbox taps to
   // homeWidgetBackgroundCallback (see its own doc) — must be re-registered
   // on every launch, same as flutter_local_notifications' handlers, since
   // the OS doesn't remember Dart callback handles across process restarts.
-  // Best-effort, same reasoning as every other home-widget call: a missing
-  // iOS extension (see HomeWidgetSync's doc) must never block startup.
-  try {
-    await HomeWidget.registerInteractivityCallback(
+  // Best-effort and already fire-and-forget, same reasoning as every other
+  // home-widget call: a missing iOS extension (see HomeWidgetSync's doc)
+  // must never block startup, so this isn't even awaited — nothing else in
+  // main() depends on it having finished.
+  unawaited(
+    HomeWidget.registerInteractivityCallback(
       homeWidgetBackgroundCallback,
-    );
-  } catch (_) {
-    // Ignored — see comment above.
-  }
-
-  final prefs = await SharedPreferences.getInstance();
+    ).catchError((_) => null),
+  );
 
   final container = ProviderContainer(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
