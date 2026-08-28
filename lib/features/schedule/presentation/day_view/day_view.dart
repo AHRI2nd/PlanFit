@@ -117,7 +117,8 @@ class _Timeline extends ConsumerStatefulWidget {
   ConsumerState<_Timeline> createState() => _TimelineState();
 }
 
-class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserver {
+class _TimelineState extends ConsumerState<_Timeline>
+    with WidgetsBindingObserver {
   /// The event currently being dragged, if any — only one card can drag at a
   /// time since drags are single-pointer gestures.
   String? _draggingId;
@@ -343,163 +344,166 @@ class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserve
         final availableWidth = constraints.maxWidth - widget.railInset;
 
         return Stack(
-      children: [
-        // Long-press-drag on empty timeline space creates a new event
-        // spanning the dragged range — positioned first (behind the hour
-        // grid and event cards below) so a touch landing on an existing
-        // card's own long-press region is claimed by that card first, per
-        // Flutter's front-to-back hit-test order; this only ever wins the
-        // gesture arena when the touch starts on genuinely empty space.
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onLongPressStart: (d) => _startCreate(d.localPosition.dy),
-            onLongPressMoveUpdate: (d) => _updateCreate(d.localPosition.dy),
-            onLongPressEnd: (_) => _endCreate(),
-          ),
-        ),
-
-        // Hour grid + labels.
-        for (int h = 0; h < 24; h++)
-          Positioned(
-            top: h * widget.hourHeight,
-            left: 0,
-            right: 0,
-            child: SizedBox(
-              height: widget.hourHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: widget.railInset - AppSpacing.sm,
-                    child: Text(
-                      Fmt.hour(h, widget.locale, use24Hour: use24),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: palette.inkFaint,
-                        fontFeatures: null,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 7),
-                      height: 1,
-                      color: palette.hairline,
-                    ),
-                  ),
-                ],
+          children: [
+            // Long-press-drag on empty timeline space creates a new event
+            // spanning the dragged range — positioned first (behind the hour
+            // grid and event cards below) so a touch landing on an existing
+            // card's own long-press region is claimed by that card first, per
+            // Flutter's front-to-back hit-test order; this only ever wins the
+            // gesture arena when the touch starts on genuinely empty space.
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onLongPressStart: (d) => _startCreate(d.localPosition.dy),
+                onLongPressMoveUpdate: (d) => _updateCreate(d.localPosition.dy),
+                onLongPressEnd: (_) => _endCreate(),
               ),
             ),
-          ),
 
-        // Live preview of the event being drag-created, shown while a
-        // create-drag is in progress — the editor doesn't open until the
-        // finger lifts (_endCreate), so this is the only feedback the user
-        // gets of what range they're about to create.
-        if (pendingCreate != null)
-          Positioned(
-            top: _offsetFor(pendingCreate.$1) + 2,
-            left: widget.railInset,
-            right: 0,
-            height:
-                (_offsetFor(pendingCreate.$2) - _offsetFor(pendingCreate.$1))
-                    .clamp(0, widget.hourHeight * 24),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: widget.accent.withValues(alpha: 0.22),
-                border: Border.all(color: widget.accent, width: 1.5),
-                borderRadius: AppRadius.cardMd,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xxs,
-                ),
-                child: Text(
-                  '${Fmt.time(pendingCreate.$1, widget.locale, use24Hour: use24)} – ${Fmt.time(pendingCreate.$2, widget.locale, use24Hour: use24)}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: widget.accent),
-                ),
-              ),
-            ),
-          ),
-
-        // Event cards positioned by start time. Duration sets a *minimum*
-        // height only — the card is left free to grow past that so its
-        // title/time text never gets clipped for short events, where the
-        // duration-derived height is too small to fit two lines of text.
-        //
-        // Laid out into non-overlapping columns by [cascadeEvents] on each
-        // card's own persisted (not drag-in-progress) start/end — two
-        // events sharing a moment in time get their own side-by-side slice
-        // of the width instead of one painting over the other, which for
-        // two events of different lengths would otherwise make the
-        // shorter one's edge read as truncating the longer one's — see
-        // that function's own doc. Deliberately not recomputed against the
-        // live drag preview, since reshuffling every other card's column
-        // mid-drag would be distracting for what's a rare edge case to
-        // begin with.
-        for (final c in cascadeEvents(widget.events))
-          Builder(
-            builder: (context) {
-              final e = c.event;
-              final (start, end) = _effectiveTimes(e);
-              final isDragging = _draggingId == e.id;
-              final columnWidth = availableWidth / c.columnCount;
-              final leftInset = c.column * columnWidth;
-              final rightInset = availableWidth - leftInset - columnWidth;
-              return Positioned(
-                top: _offsetFor(start) + 2,
-                left: widget.railInset + leftInset,
-                right: rightInset,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: (_offsetFor(end) - _offsetFor(start)).clamp(
-                        0,
-                        widget.hourHeight * 24,
+            // Hour grid + labels.
+            for (int h = 0; h < 24; h++)
+              Positioned(
+                top: h * widget.hourHeight,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: widget.hourHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: widget.railInset - AppSpacing.sm,
+                        child: Text(
+                          Fmt.hour(h, widget.locale, use24Hour: use24),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: palette.inkFaint,
+                                fontFeatures: null,
+                              ),
+                        ),
                       ),
-                    ),
-                    child: _EventCard(
-                      event: e,
-                      allDay: false,
-                      isDragging: isDragging,
-                      onMoveStart: () => _startDrag(e.id, _DragMode.move),
-                      onMoveUpdate: _updateDrag,
-                      onMoveEnd: () => _endDrag(e),
-                      onResizeStart: () => _startDrag(e.id, _DragMode.resize),
-                      onResizeUpdate: _updateDrag,
-                      onResizeEnd: () => _endDrag(e),
-                    ),
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 7),
+                          height: 1,
+                          color: palette.hairline,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
 
-        // "Now" indicator.
-        if (widget.isToday)
-          Positioned(
-            top: _offsetFor(widget.now) - 4,
-            left: widget.railInset - AppSpacing.sm - 4,
-            right: 0,
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
+            // Live preview of the event being drag-created, shown while a
+            // create-drag is in progress — the editor doesn't open until the
+            // finger lifts (_endCreate), so this is the only feedback the user
+            // gets of what range they're about to create.
+            if (pendingCreate != null)
+              Positioned(
+                top: _offsetFor(pendingCreate.$1) + 2,
+                left: widget.railInset,
+                right: 0,
+                height:
+                    (_offsetFor(pendingCreate.$2) -
+                            _offsetFor(pendingCreate.$1))
+                        .clamp(0, widget.hourHeight * 24),
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: widget.accent,
-                    shape: BoxShape.circle,
+                    color: widget.accent.withValues(alpha: 0.22),
+                    border: Border.all(color: widget.accent, width: 1.5),
+                    borderRadius: AppRadius.cardMd,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    child: Text(
+                      '${Fmt.time(pendingCreate.$1, widget.locale, use24Hour: use24)} – ${Fmt.time(pendingCreate.$2, widget.locale, use24Hour: use24)}',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelMedium?.copyWith(color: widget.accent),
+                    ),
                   ),
                 ),
-                Expanded(child: Container(height: 2, color: widget.accent)),
-              ],
-            ),
-          ),
-      ],
+              ),
+
+            // Event cards positioned by start time. Duration sets a *minimum*
+            // height only — the card is left free to grow past that so its
+            // title/time text never gets clipped for short events, where the
+            // duration-derived height is too small to fit two lines of text.
+            //
+            // Laid out into non-overlapping columns by [cascadeEvents] on each
+            // card's own persisted (not drag-in-progress) start/end — two
+            // events sharing a moment in time get their own side-by-side slice
+            // of the width instead of one painting over the other, which for
+            // two events of different lengths would otherwise make the
+            // shorter one's edge read as truncating the longer one's — see
+            // that function's own doc. Deliberately not recomputed against the
+            // live drag preview, since reshuffling every other card's column
+            // mid-drag would be distracting for what's a rare edge case to
+            // begin with.
+            for (final c in cascadeEvents(widget.events))
+              Builder(
+                key: ValueKey(c.event.id),
+                builder: (context) {
+                  final e = c.event;
+                  final (start, end) = _effectiveTimes(e);
+                  final isDragging = _draggingId == e.id;
+                  final columnWidth = availableWidth / c.columnCount;
+                  final leftInset = c.column * columnWidth;
+                  final rightInset = availableWidth - leftInset - columnWidth;
+                  final minHeight = (_offsetFor(end) - _offsetFor(start)).clamp(
+                    0.0,
+                    widget.hourHeight * 24,
+                  );
+                  return Positioned(
+                    top: _offsetFor(start) + 2,
+                    left: widget.railInset + leftInset,
+                    right: rightInset,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: minHeight),
+                        child: _EventCard(
+                          event: e,
+                          allDay: false,
+                          isDragging: isDragging,
+                          onMoveStart: () => _startDrag(e.id, _DragMode.move),
+                          onMoveUpdate: _updateDrag,
+                          onMoveEnd: () => _endDrag(e),
+                          onResizeStart: () =>
+                              _startDrag(e.id, _DragMode.resize),
+                          onResizeUpdate: _updateDrag,
+                          onResizeEnd: () => _endDrag(e),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+            // "Now" indicator.
+            if (widget.isToday)
+              Positioned(
+                top: _offsetFor(widget.now) - 4,
+                left: widget.railInset - AppSpacing.sm - 4,
+                right: 0,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: widget.accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Expanded(child: Container(height: 2, color: widget.accent)),
+                  ],
+                ),
+              ),
+          ],
         );
       },
     );
@@ -571,137 +575,148 @@ class _EventCard extends ConsumerWidget {
       context,
     );
 
-    return Dismissible(
-      key: ValueKey(event.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 3),
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: palette.danger.withValues(alpha: 0.16),
+    // Swipe-to-delete is implemented by hand here rather than with
+    // Dismissible: Dismissible wraps its child in a SizeTransition (even
+    // with resizeDuration: null) and that combination, nested directly
+    // around GlassSurface's BackdropFilter inside this Stack's per-event,
+    // dynamically-sized cards, left the backdrop blur/tint painted at a
+    // stale, smaller size than the card's real (correct) layout bounds
+    // whenever that height differed between rebuilds — e.g. a 3-hour
+    // event sharing a column with a 1-hour one rendered its glass fill
+    // only ~1 hour tall, even though the card's own hit-test/border area
+    // was verifiably the full 3 hours (confirmed by bounding the
+    // ConstrainedBox itself in a debug border and watching only the
+    // GlassSurface fill inside it come up short). Wrapping in
+    // RepaintBoundary and disabling Dismissible's resize animation both
+    // failed to fix it; only removing Dismissible entirely did.
+    return GestureDetector(
+      // A decisive leftward swipe deletes — mirrors Dismissible's own
+      // DismissDirection.endToStart, just without its slide/reveal
+      // animation. Scoped to horizontal drags only, so it doesn't fight
+      // the inner GestureDetector's long-press-drag (move) or the day
+      // timeline's own vertical scroll.
+      onHorizontalDragEnd: (details) {
+        if ((details.primaryVelocity ?? 0) < -300) _delete(context, ref);
+      },
+      child: RepaintBoundary(
+        child: GlassSurface(
           borderRadius: AppRadius.cardMd,
-        ),
-        child: Icon(Icons.delete_outline, color: palette.danger),
-      ),
-      onDismissed: (_) => _delete(context, ref),
-      child: GlassSurface(
-        borderRadius: AppRadius.cardMd,
-        tint: accent.withValues(
-          alpha: (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: () => showEventEditor(context, existing: event),
-              // Long-press-then-drag (not a plain vertical drag) so a swipe
-              // that starts on top of a card still scrolls the day timeline
-              // instead of picking the event up — the two would otherwise
-              // both claim the same vertical pan gesture.
-              onLongPressStart: onMoveStart == null
-                  ? null
-                  : (_) => onMoveStart!(),
-              onLongPressMoveUpdate: onMoveUpdate == null
-                  ? null
-                  : (d) => onMoveUpdate!(d.offsetFromOrigin.dy),
-              onLongPressEnd: onMoveEnd == null ? null : (_) => onMoveEnd!(),
-              child: Row(
-                children: [
-                  Container(
-                    width: 3,
-                    height: 30,
-                    margin: const EdgeInsets.only(right: AppSpacing.xs),
-                    decoration: BoxDecoration(
-                      color: accent,
-                      borderRadius: AppRadius.allPill,
+          tint: accent.withValues(
+            alpha: (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () => showEventEditor(context, existing: event),
+                // Long-press-then-drag (not a plain vertical drag) so a swipe
+                // that starts on top of a card still scrolls the day timeline
+                // instead of picking the event up — the two would otherwise
+                // both claim the same vertical pan gesture.
+                onLongPressStart: onMoveStart == null
+                    ? null
+                    : (_) => onMoveStart!(),
+                onLongPressMoveUpdate: onMoveUpdate == null
+                    ? null
+                    : (d) => onMoveUpdate!(d.offsetFromOrigin.dy),
+                onLongPressEnd: onMoveEnd == null ? null : (_) => onMoveEnd!(),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 3,
+                      height: 30,
+                      margin: const EdgeInsets.only(right: AppSpacing.xs),
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: AppRadius.allPill,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          event.title.isEmpty ? '—' : event.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        if (!allDay)
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            '${Fmt.time(event.startAt, locale, use24Hour: use24)} – ${Fmt.time(event.endAt, locale, use24Hour: use24)}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: palette.inkSoft,
-                            ),
+                            event.title.isEmpty ? '—' : event.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
                           ),
-                        if (event.location != null &&
-                            event.location!.isNotEmpty)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.place_outlined,
-                                size: 12,
-                                color: palette.inkFaint,
+                          if (!allDay)
+                            Text(
+                              '${Fmt.time(event.startAt, locale, use24Hour: use24)} – ${Fmt.time(event.endAt, locale, use24Hour: use24)}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: palette.inkSoft,
                               ),
-                              const SizedBox(width: 2),
-                              Flexible(
-                                child: Text(
-                                  event.location!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: palette.inkFaint,
+                            ),
+                          if (event.location != null &&
+                              event.location!.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.place_outlined,
+                                  size: 12,
+                                  color: palette.inkFaint,
+                                ),
+                                const SizedBox(width: 2),
+                                Flexible(
+                                  child: Text(
+                                    event.location!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: palette.inkFaint,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                      ],
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (event.notify)
-                    Icon(
-                      Icons.notifications_active_outlined,
-                      size: 15,
-                      color: palette.inkFaint,
-                    ),
-                ],
-              ),
-            ),
-            // A drag-to-resize grip, kept as a small separate hit region below
-            // the tappable/movable row rather than nested inside it — two
-            // drag recognizers stacked on the very same region would leave
-            // Flutter's gesture arena to guess which one the user meant.
-            // Long-press-then-drag here too, for the same reason as the move
-            // handler above: it must not fight the day timeline's own scroll.
-            if (!allDay && draggable)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onLongPressStart: (_) => onResizeStart!(),
-                onLongPressMoveUpdate: (d) =>
-                    onResizeUpdate!(d.offsetFromOrigin.dy),
-                onLongPressEnd: (_) => onResizeEnd!(),
-                child: SizedBox(
-                  height: 16,
-                  child: Center(
-                    child: Container(
-                      width: 28,
-                      height: 3,
-                      decoration: BoxDecoration(
+                    if (event.notify)
+                      Icon(
+                        Icons.notifications_active_outlined,
+                        size: 15,
                         color: palette.inkFaint,
-                        borderRadius: AppRadius.allPill,
+                      ),
+                  ],
+                ),
+              ),
+              // A drag-to-resize grip, kept as a small separate hit region below
+              // the tappable/movable row rather than nested inside it — two
+              // drag recognizers stacked on the very same region would leave
+              // Flutter's gesture arena to guess which one the user meant.
+              // Long-press-then-drag here too, for the same reason as the move
+              // handler above: it must not fight the day timeline's own scroll.
+              if (!allDay && draggable)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onLongPressStart: (_) => onResizeStart!(),
+                  onLongPressMoveUpdate: (d) =>
+                      onResizeUpdate!(d.offsetFromOrigin.dy),
+                  onLongPressEnd: (_) => onResizeEnd!(),
+                  child: SizedBox(
+                    height: 16,
+                    child: Center(
+                      child: Container(
+                        width: 28,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: palette.inkFaint,
+                          borderRadius: AppRadius.allPill,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
