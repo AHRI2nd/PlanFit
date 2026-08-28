@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/di.dart';
 import '../../../core/format.dart';
+import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
 import '../../../design/glass/glass_surface.dart';
 import '../../../design/tokens/app_colors.dart';
@@ -105,11 +106,16 @@ class SettingsScreen extends ConsumerWidget {
 
     Future<void> exportBackup() async {
       final messenger = ScaffoldMessenger.of(context);
+      final shareOrigin = shareOriginOf(context);
       File? file;
       try {
         file = await ref.read(backupServiceProvider).exportToFile();
         await SharePlus.instance.share(
-          ShareParams(files: [XFile(file.path)], subject: 'PlanFit backup'),
+          ShareParams(
+            files: [XFile(file.path)],
+            subject: 'PlanFit backup',
+            sharePositionOrigin: shareOrigin,
+          ),
         );
       } catch (_) {
         messenger.showAutoDismissSnackBar(
@@ -157,11 +163,16 @@ class SettingsScreen extends ConsumerWidget {
 
     Future<void> exportIcs() async {
       final messenger = ScaffoldMessenger.of(context);
+      final shareOrigin = shareOriginOf(context);
       File? file;
       try {
         file = await ref.read(icsExportServiceProvider).exportToFile();
         await SharePlus.instance.share(
-          ShareParams(files: [XFile(file.path)], subject: 'PlanFit calendar'),
+          ShareParams(
+            files: [XFile(file.path)],
+            subject: 'PlanFit calendar',
+            sharePositionOrigin: shareOrigin,
+          ),
         );
       } catch (_) {
         messenger.showAutoDismissSnackBar(

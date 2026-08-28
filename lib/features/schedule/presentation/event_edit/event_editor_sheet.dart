@@ -11,6 +11,7 @@ import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
+import '../../../../core/share_origin.dart';
 import '../../../../core/time_format.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../../design/tokens/app_colors.dart';
@@ -469,6 +470,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     if (existing == null) return;
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppL10n.of(context);
+    final shareOrigin = shareOriginOf(context);
     File? file;
     try {
       file = await ref
@@ -478,6 +480,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
         ShareParams(
           files: [XFile(file.path)],
           subject: existing.title.isEmpty ? null : existing.title,
+          sharePositionOrigin: shareOrigin,
         ),
       );
     } catch (_) {
