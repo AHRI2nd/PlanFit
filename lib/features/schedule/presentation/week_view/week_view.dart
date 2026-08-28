@@ -12,6 +12,7 @@ import '../../../../design/tokens/event_color_tag.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/drag_create.dart';
+import '../../domain/event_overlap.dart';
 import '../../domain/event_span.dart';
 import '../event_edit/event_editor_sheet.dart';
 
@@ -478,44 +479,61 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                   ),
                 ),
 
-              // Events, positioned by day column + time.
+              // Events, positioned by day column + time. Cascaded within
+              // each day column the same way DayView cascades its own
+              // timeline — see cascadeEvents' doc — with the step scaled
+              // down and capped for how much narrower a week-view column is
+              // than the day view's full-width one.
               for (var i = 0; i < days.length; i++)
-                for (final e in byDay[days[i]] ?? const <EventRow>[])
-                  Positioned(
-                    top: _offsetFor(days[i], e.startAt) + 1,
-                    left: railInset + i * columnWidth + 1,
-                    width: (columnWidth - 2).clamp(0, columnWidth),
-                    child: IgnorePointer(
-                      ignoring: false,
-                      child: GestureDetector(
-                        onTap: () => showEventEditor(context, existing: e),
-                        child: Container(
-                          constraints: BoxConstraints(
-                            minHeight:
-                                (_offsetFor(days[i], e.endAt) -
-                                        _offsetFor(days[i], e.startAt))
-                                    .clamp(14, hourHeight * 24),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 3,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: EventColorTag.resolve(
-                              e.colorTag,
-                              e.startAt,
-                            ).withValues(alpha: palette.isDark ? 0.32 : 0.22),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            e.title.isEmpty ? '—' : e.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall,
+                for (final c in cascadeEvents(byDay[days[i]] ?? const []))
+                  Builder(
+                    builder: (context) {
+                      final e = c.event;
+                      final cascadeStep = (columnWidth * 0.18).clamp(
+                        0.0,
+                        6.0,
+                      );
+                      final leftInset = c.index * cascadeStep;
+                      final rightInset =
+                          (c.siblingCount - 1 - c.index) * cascadeStep;
+                      final width = (columnWidth - 2 - leftInset - rightInset)
+                          .clamp(0.0, columnWidth);
+                      return Positioned(
+                        top: _offsetFor(days[i], e.startAt) + 1,
+                        left: railInset + i * columnWidth + 1 + leftInset,
+                        width: width,
+                        child: GestureDetector(
+                          onTap: () => showEventEditor(context, existing: e),
+                          child: Container(
+                            constraints: BoxConstraints(
+                              minHeight:
+                                  (_offsetFor(days[i], e.endAt) -
+                                          _offsetFor(days[i], e.startAt))
+                                      .clamp(14, hourHeight * 24),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 3,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: EventColorTag.resolve(
+                                e.colorTag,
+                                e.startAt,
+                              ).withValues(
+                                alpha: palette.isDark ? 0.32 : 0.22,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              e.title.isEmpty ? '—' : e.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
 
               // "Now" indicator, only in today's column when today is in view.

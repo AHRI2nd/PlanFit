@@ -19,6 +19,7 @@ import '../../application/schedule_providers.dart';
 import '../../../todo/presentation/hourly_todo_list.dart';
 import '../../domain/drag_create.dart';
 import '../../domain/event_input.dart';
+import '../../domain/event_overlap.dart';
 import '../event_edit/event_editor_sheet.dart';
 
 /// The signature view: a day laid out as a vertical river of hours, with events
@@ -30,6 +31,9 @@ class DayView extends ConsumerWidget {
 
   static const double _hourHeight = 64;
   static const double _railInset = 62;
+
+  /// Horizontal offset per card in a same-time cascade — see [cascadeEvents].
+  static const double _cascadeStep = 16;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -76,6 +80,7 @@ class DayView extends ConsumerWidget {
                   locale: locale,
                   hourHeight: _hourHeight,
                   railInset: _railInset,
+                  cascadeStep: _cascadeStep,
                   accent: palette.accent,
                 ),
               ),
@@ -100,6 +105,7 @@ class _Timeline extends ConsumerStatefulWidget {
     required this.locale,
     required this.hourHeight,
     required this.railInset,
+    required this.cascadeStep,
     required this.accent,
   });
 
@@ -110,6 +116,7 @@ class _Timeline extends ConsumerStatefulWidget {
   final String locale;
   final double hourHeight;
   final double railInset;
+  final double cascadeStep;
   final Color accent;
 
   @override
@@ -422,15 +429,26 @@ class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserve
         // height only — the card is left free to grow past that so its
         // title/time text never gets clipped for short events, where the
         // duration-derived height is too small to fit two lines of text.
-        for (final e in widget.events)
+        //
+        // Cascaded by [cascadeEvents] on each card's own persisted (not
+        // drag-in-progress) start/end, so two events at the same time fan
+        // out horizontally instead of one completely covering the other —
+        // deliberately not recomputed against the live drag preview, since
+        // reshuffling every other card's cascade offset mid-drag would be
+        // distracting for what's a rare edge case to begin with.
+        for (final c in cascadeEvents(widget.events))
           Builder(
             builder: (context) {
+              final e = c.event;
               final (start, end) = _effectiveTimes(e);
               final isDragging = _draggingId == e.id;
+              final leftInset = c.index * widget.cascadeStep;
+              final rightInset =
+                  (c.siblingCount - 1 - c.index) * widget.cascadeStep;
               return Positioned(
                 top: _offsetFor(start) + 2,
-                left: widget.railInset,
-                right: 0,
+                left: widget.railInset + leftInset,
+                right: rightInset,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 3),
                   child: ConstrainedBox(
