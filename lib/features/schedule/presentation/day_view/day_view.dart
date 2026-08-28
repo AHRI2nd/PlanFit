@@ -377,23 +377,32 @@ class _TimelineState extends ConsumerState<_Timeline>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: widget.railInset - AppSpacing.sm,
-                        child: Text(
-                          Fmt.hour(h, widget.locale, use24Hour: use24),
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: palette.inkFaint,
-                                fontFeatures: null,
-                              ),
+                      // Shifted up to stay visually centered on the
+                      // gridline below — the line itself sits exactly at
+                      // this row's own top edge (h * hourHeight, matching
+                      // _offsetFor's convention with no fudge factor) so
+                      // event cards, which are positioned by that same
+                      // _offsetFor, align exactly with it; previously the
+                      // *line* carried a 7px top margin to center it under
+                      // the label instead, which left every card's start/
+                      // end a visible 7px off the gridline it's supposed
+                      // to represent.
+                      Transform.translate(
+                        offset: const Offset(0, -7),
+                        child: SizedBox(
+                          width: widget.railInset - AppSpacing.sm,
+                          child: Text(
+                            Fmt.hour(h, widget.locale, use24Hour: use24),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: palette.inkFaint,
+                                  fontFeatures: null,
+                                ),
+                          ),
                         ),
                       ),
                       Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 7),
-                          height: 1,
-                          color: palette.hairline,
-                        ),
+                        child: Container(height: 1, color: palette.hairline),
                       ),
                     ],
                   ),

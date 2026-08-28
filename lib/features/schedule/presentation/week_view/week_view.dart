@@ -37,9 +37,7 @@ class WeekView extends ConsumerWidget {
     final startWeekday = ref.watch(weekStartWeekdayProvider);
     final weekStart = startOfWeek(anchor, startWeekday: startWeekday);
     final weekEnd = addCalendarDays(weekStart, 7);
-    final days = [
-      for (var i = 0; i < 7; i++) addCalendarDays(weekStart, i),
-    ];
+    final days = [for (var i = 0; i < 7; i++) addCalendarDays(weekStart, i)];
     final eventsAsync = ref.watch(eventsForWeekProvider(anchor));
     final now = DateTime.now();
     final today = dateOnly(now);
@@ -413,20 +411,26 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          width: railInset - AppSpacing.xxs,
-                          child: Text(
-                            Fmt.hour(h, locale, use24Hour: use24),
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: palette.inkFaint),
+                        // Shifted up to stay visually centered on the
+                        // gridline below — see DayView's own hour-grid doc
+                        // for why the line itself sits exactly at this
+                        // row's top edge (h * hourHeight, matching
+                        // _offsetFor) instead of carrying the margin,
+                        // now that events are positioned by that same
+                        // _offsetFor with no fudge factor of their own.
+                        Transform.translate(
+                          offset: const Offset(0, -6),
+                          child: SizedBox(
+                            width: railInset - AppSpacing.xxs,
+                            child: Text(
+                              Fmt.hour(h, locale, use24Hour: use24),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: palette.inkFaint),
+                            ),
                           ),
                         ),
                         Expanded(
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 6),
-                            height: 1,
-                            color: palette.hairline,
-                          ),
+                          child: Container(height: 1, color: palette.hairline),
                         ),
                       ],
                     ),
@@ -494,7 +498,7 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                       final eventWidth = columnAvailable / c.columnCount;
                       final leftInset = c.column * eventWidth;
                       return Positioned(
-                        top: _offsetFor(days[i], e.startAt) + 1,
+                        top: _offsetFor(days[i], e.startAt),
                         left: railInset + i * columnWidth + 1 + leftInset,
                         width: eventWidth.clamp(0.0, columnWidth),
                         child: GestureDetector(
@@ -514,9 +518,7 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                               color: EventColorTag.resolve(
                                 e.colorTag,
                                 e.startAt,
-                              ).withValues(
-                                alpha: palette.isDark ? 0.32 : 0.22,
-                              ),
+                              ).withValues(alpha: palette.isDark ? 0.32 : 0.22),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
