@@ -708,6 +708,8 @@ class _EventCard extends ConsumerWidget {
                             if (!allDay)
                               Text(
                                 '${Fmt.time(event.startAt, locale, use24Hour: use24)} – ${Fmt.time(event.endAt, locale, use24Hour: use24)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: palette.inkSoft,
                                 ),
