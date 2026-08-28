@@ -591,6 +591,17 @@ class _EventCard extends ConsumerWidget {
     );
   }
 
+  /// [color] shifted [amount] (0-1) toward black in HSL lightness, fully
+  /// opaque — used for the card border so it reads as a solid, slightly
+  /// deeper shade of the card's own accent rather than the same color at
+  /// reduced alpha, which would blend into the tinted glass behind it.
+  Color _darken(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl
+        .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
+        .toColor();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = Localizations.localeOf(context).toLanguageTag();
@@ -647,10 +658,13 @@ class _EventCard extends ConsumerWidget {
         // A visible per-event border, distinct from GlassSurface's own
         // subtle hairline one — the main cue separating two cards that now
         // sit flush against each other (no gap) since cards align exactly
-        // to their hour gridlines.
+        // to their hour gridlines. Opaque and darkened rather than the
+        // accent at reduced alpha, so it reads as a solid line against
+        // both the card's own translucent tint and whatever sits behind
+        // it, instead of blending into either.
         decoration: BoxDecoration(
           borderRadius: AppRadius.cardMd,
-          border: Border.all(color: accent.withValues(alpha: 0.55)),
+          border: Border.all(color: _darken(accent, 0.18)),
         ),
         child: RepaintBoundary(
           child: GlassSurface(
