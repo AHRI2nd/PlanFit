@@ -33,8 +33,12 @@ class Fmt {
   static String yearMonth(DateTime dt, String locale) =>
       DateFormat.yMMMM(locale).format(dt);
 
+  /// Uses the `yMMMEd` ICU skeleton rather than the fully-spelled-out
+  /// `yMMMMEEEEd` — the abbreviated weekday keeps this to one line in the
+  /// day header (e.g. ko "2026년 8월 28일 (금)", en "Fri, Aug 28, 2026"),
+  /// where full weekday names like "금요일"/"Friday" used to wrap.
   static String fullDate(DateTime dt, String locale) =>
-      DateFormat.yMMMMEEEEd(locale).format(dt);
+      DateFormat.yMMMEd(locale).format(dt);
 
   /// A compact relative label like "3시간 뒤" / "in 3h" for upcoming events —
   /// or, if [target] (the event's own start time) is already in the past,
