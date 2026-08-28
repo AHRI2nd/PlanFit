@@ -295,6 +295,44 @@ void main() {
       expect(input.colorTag, 'amber');
     },
   );
+
+  testWidgets('tapping the start date opens only the date picker', (
+    tester,
+  ) async {
+    final existing = row(
+      id: 'e4',
+      title: 'Date tap test',
+      startAt: DateTime(2026, 3, 10, 9),
+      endAt: DateTime(2026, 3, 10, 10),
+    );
+    await pumpEditor(tester, existing: existing);
+
+    await tester.tap(find.byKey(const ValueKey('date-start')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    expect(find.byType(TimePickerDialog), findsNothing);
+  });
+
+  testWidgets('tapping the start time opens only the time picker', (
+    tester,
+  ) async {
+    final existing = row(
+      id: 'e5',
+      title: 'Time tap test',
+      startAt: DateTime(2026, 3, 10, 9),
+      endAt: DateTime(2026, 3, 10, 10),
+    );
+    await pumpEditor(tester, existing: existing);
+
+    await tester.tap(find.byKey(const ValueKey('time-start')));
+    await tester.pumpAndSettle();
+
+    // The old, unsplit row always opened the date picker first — this is
+    // exactly the regression this split guards against.
+    expect(find.byType(DatePickerDialog), findsNothing);
+    expect(find.byType(TimePickerDialog), findsOneWidget);
+  });
 }
 
 EventRow row({

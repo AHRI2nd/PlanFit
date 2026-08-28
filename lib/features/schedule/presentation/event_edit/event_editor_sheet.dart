@@ -240,6 +240,36 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
         time.minute,
       );
     }
+    _applyPicked(isStart, picked);
+  }
+
+  /// Same as [_pick] but for just the time portion of a _DateRow — opens
+  /// only the time picker, keeping [isStart]'s date exactly as it was. See
+  /// _DateRow's own doc for why the row splits into separate date/time tap
+  /// targets in the first place.
+  Future<void> _pickTime(bool isStart) async {
+    final initial = isStart ? _start : _end;
+    final time = await showAppTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      dialFormat: ref.read(
+        settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
+      ),
+    );
+    if (time == null || !mounted) return;
+    _applyPicked(
+      isStart,
+      DateTime(
+        initial.year,
+        initial.month,
+        initial.day,
+        time.hour,
+        time.minute,
+      ),
+    );
+  }
+
+  void _applyPicked(bool isStart, DateTime picked) {
     setState(() {
       if (isStart) {
         final delta = _end.difference(_start);
@@ -660,20 +690,28 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
               const Divider(height: AppSpacing.lg),
               _DateRow(
                 label: l10n.eventStart,
-                value: _allDay
-                    ? Fmt.monthDay(_start, locale)
-                    : '${Fmt.monthDay(_start, locale)}  ${Fmt.time(_start, locale, use24Hour: use24)}',
-                onTap: () => _pick(true),
+                dateText: Fmt.monthDay(_start, locale),
+                onDateTap: () => _pick(true),
+                timeText: _allDay
+                    ? null
+                    : Fmt.time(_start, locale, use24Hour: use24),
+                onTimeTap: _allDay ? null : () => _pickTime(true),
                 accent: accent,
+                dateKey: const ValueKey('date-start'),
+                timeKey: const ValueKey('time-start'),
               ),
               const SizedBox(height: AppSpacing.sm),
               _DateRow(
                 label: l10n.eventEnd,
-                value: _allDay
-                    ? Fmt.monthDay(_end, locale)
-                    : '${Fmt.monthDay(_end, locale)}  ${Fmt.time(_end, locale, use24Hour: use24)}',
-                onTap: () => _pick(false),
+                dateText: Fmt.monthDay(_end, locale),
+                onDateTap: () => _pick(false),
+                timeText: _allDay
+                    ? null
+                    : Fmt.time(_end, locale, use24Hour: use24),
+                onTimeTap: _allDay ? null : () => _pickTime(false),
                 accent: accent,
+                dateKey: const ValueKey('date-end'),
+                timeKey: const ValueKey('time-end'),
               ),
               if (widget.existing == null) ...[
                 const Divider(height: AppSpacing.lg),
@@ -1419,44 +1457,78 @@ class _PaletteSwatch extends StatelessWidget {
   }
 }
 
+/// A "시작"/"종료" row showing a date and (unless all-day) a time, each its
+/// own tap target: tapping the date opens the date picker — chaining into
+/// the time picker after, same as always, so picking a whole new day still
+/// carries its time-of-day forward in one motion — while tapping the time
+/// opens *only* the time picker. Before this split, the whole row was one
+/// tap target that always opened the date picker first, so nudging just the
+/// time of an already-planned event meant sitting through an unwanted date
+/// picker on the way there.
 class _DateRow extends StatelessWidget {
   const _DateRow({
     required this.label,
-    required this.value,
-    required this.onTap,
+    required this.dateText,
+    required this.onDateTap,
+    this.timeText,
+    this.onTimeTap,
     required this.accent,
+    this.dateKey,
+    this.timeKey,
   });
 
   final String label;
-  final String value;
-  final VoidCallback onTap;
+  final String dateText;
+  final VoidCallback onDateTap;
+  final String? timeText;
+  final VoidCallback? onTimeTap;
   final Color accent;
+  final Key? dateKey;
+  final Key? timeKey;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.cardMd,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: palette.inkSoft,
-                ),
+    final valueStyle = theme.textTheme.titleMedium?.copyWith(color: accent);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: palette.inkSoft,
               ),
             ),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(color: accent),
+          ),
+          InkWell(
+            key: dateKey,
+            onTap: onDateTap,
+            borderRadius: AppRadius.cardMd,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xxs,
+                vertical: AppSpacing.xxs,
+              ),
+              child: Text(dateText, style: valueStyle),
             ),
-          ],
-        ),
+          ),
+          if (timeText != null)
+            InkWell(
+              key: timeKey,
+              onTap: onTimeTap,
+              borderRadius: AppRadius.cardMd,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xxs,
+                  vertical: AppSpacing.xxs,
+                ),
+                child: Text(timeText!, style: valueStyle),
+              ),
+            ),
+        ],
       ),
     );
   }
