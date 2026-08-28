@@ -119,6 +119,12 @@ class _Timeline extends ConsumerStatefulWidget {
 
 class _TimelineState extends ConsumerState<_Timeline>
     with WidgetsBindingObserver {
+  /// The shortest an event card is ever drawn, regardless of its actual
+  /// duration — below this, its title/time text and resize grip don't fit
+  /// without clipping. Empirically the smallest that comfortably fits both
+  /// text lines plus the grip at this card's padding/type scale.
+  static const double _minEventCardHeight = 80;
+
   /// The event currently being dragged, if any — only one card can drag at a
   /// time since drags are single-pointer gestures.
   String? _draggingId;
@@ -428,10 +434,11 @@ class _TimelineState extends ConsumerState<_Timeline>
                 ),
               ),
 
-            // Event cards positioned by start time. Duration sets a *minimum*
-            // height only — the card is left free to grow past that so its
-            // title/time text never gets clipped for short events, where the
-            // duration-derived height is too small to fit two lines of text.
+            // Event cards positioned by start time, sized exactly to their
+            // own duration — top and bottom both land precisely on their
+            // start/end hour gridlines, rather than the couple of px of
+            // breathing room the layout used to nudge in (which read as the
+            // card floating slightly off the grid it's meant to represent).
             //
             // Laid out into non-overlapping columns by [cascadeEvents] on each
             // card's own persisted (not drag-in-progress) start/end — two
@@ -453,31 +460,36 @@ class _TimelineState extends ConsumerState<_Timeline>
                   final columnWidth = availableWidth / c.columnCount;
                   final leftInset = c.column * columnWidth;
                   final rightInset = availableWidth - leftInset - columnWidth;
-                  final minHeight = (_offsetFor(end) - _offsetFor(start)).clamp(
+                  // A floor under the raw duration-derived height: below
+                  // roughly _minEventCardHeight, there just isn't room for
+                  // the title, time and resize grip without clipping —
+                  // short events already visually extend a bit past their
+                  // true span for this reason (the same trade-off Google
+                  // Calendar and friends make), it's just precomputed here
+                  // now instead of left to grow reactively.
+                  final rawHeight = (_offsetFor(end) - _offsetFor(start)).clamp(
                     0.0,
                     widget.hourHeight * 24,
                   );
+                  final height = rawHeight < _minEventCardHeight
+                      ? _minEventCardHeight
+                      : rawHeight;
                   return Positioned(
-                    top: _offsetFor(start) + 2,
+                    top: _offsetFor(start),
                     left: widget.railInset + leftInset,
                     right: rightInset,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: minHeight),
-                        child: _EventCard(
-                          event: e,
-                          allDay: false,
-                          isDragging: isDragging,
-                          onMoveStart: () => _startDrag(e.id, _DragMode.move),
-                          onMoveUpdate: _updateDrag,
-                          onMoveEnd: () => _endDrag(e),
-                          onResizeStart: () =>
-                              _startDrag(e.id, _DragMode.resize),
-                          onResizeUpdate: _updateDrag,
-                          onResizeEnd: () => _endDrag(e),
-                        ),
-                      ),
+                    height: height,
+                    child: _EventCard(
+                      event: e,
+                      allDay: false,
+                      height: height,
+                      isDragging: isDragging,
+                      onMoveStart: () => _startDrag(e.id, _DragMode.move),
+                      onMoveUpdate: _updateDrag,
+                      onMoveEnd: () => _endDrag(e),
+                      onResizeStart: () => _startDrag(e.id, _DragMode.resize),
+                      onResizeUpdate: _updateDrag,
+                      onResizeEnd: () => _endDrag(e),
                     ),
                   );
                 },
@@ -514,6 +526,7 @@ class _EventCard extends ConsumerWidget {
   const _EventCard({
     required this.event,
     required this.allDay,
+    this.height,
     this.isDragging = false,
     this.onMoveStart,
     this.onMoveUpdate,
@@ -525,6 +538,14 @@ class _EventCard extends ConsumerWidget {
 
   final EventRow event;
   final bool allDay;
+
+  /// The timeline's own computed pixel height for this card — null for the
+  /// all-day strip, which sizes itself to its content instead. Used to pin
+  /// the resize grip to the card's actual bottom edge rather than right
+  /// under the title, so a multi-hour card's grip lands near the boundary
+  /// it actually resizes instead of clustering all its content up top with
+  /// a big empty gap below.
+  final double? height;
   final bool isDragging;
 
   /// Dragging the card body moves the whole event, preserving its duration.
@@ -590,6 +611,9 @@ class _EventCard extends ConsumerWidget {
     // RepaintBoundary and disabling Dismissible's resize animation both
     // failed to fix it; only removing Dismissible entirely did.
     return GestureDetector(
+      // Tapping anywhere on the card — not just the title/time text — opens
+      // it for editing.
+      onTap: () => showEventEditor(context, existing: event),
       // A decisive leftward swipe deletes — mirrors Dismissible's own
       // DismissDirection.endToStart, just without its slide/reveal
       // animation. Scoped to horizontal drags only, so it doesn't fight
@@ -598,33 +622,43 @@ class _EventCard extends ConsumerWidget {
       onHorizontalDragEnd: (details) {
         if ((details.primaryVelocity ?? 0) < -300) _delete(context, ref);
       },
-      child: RepaintBoundary(
-        child: GlassSurface(
+      // Long-press-then-drag (not a plain vertical drag) so a swipe that
+      // starts on top of a card still scrolls the day timeline instead of
+      // picking the event up — the two would otherwise both claim the same
+      // vertical pan gesture. Lives on the same detector as onTap now that
+      // it covers the whole card — tap and long-press are different enough
+      // gesture types that Flutter's arena resolves them by timing, not by
+      // competing for the same slot.
+      onLongPressStart: onMoveStart == null ? null : (_) => onMoveStart!(),
+      onLongPressMoveUpdate: onMoveUpdate == null
+          ? null
+          : (d) => onMoveUpdate!(d.offsetFromOrigin.dy),
+      onLongPressEnd: onMoveEnd == null ? null : (_) => onMoveEnd!(),
+      child: DecoratedBox(
+        // A visible per-event border, distinct from GlassSurface's own
+        // subtle hairline one — the main cue separating two cards that now
+        // sit flush against each other (no gap) since cards align exactly
+        // to their hour gridlines.
+        decoration: BoxDecoration(
           borderRadius: AppRadius.cardMd,
-          tint: accent.withValues(
-            alpha: (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () => showEventEditor(context, existing: event),
-                // Long-press-then-drag (not a plain vertical drag) so a swipe
-                // that starts on top of a card still scrolls the day timeline
-                // instead of picking the event up — the two would otherwise
-                // both claim the same vertical pan gesture.
-                onLongPressStart: onMoveStart == null
-                    ? null
-                    : (_) => onMoveStart!(),
-                onLongPressMoveUpdate: onMoveUpdate == null
-                    ? null
-                    : (d) => onMoveUpdate!(d.offsetFromOrigin.dy),
-                onLongPressEnd: onMoveEnd == null ? null : (_) => onMoveEnd!(),
-                child: Row(
+          border: Border.all(color: accent.withValues(alpha: 0.55)),
+        ),
+        child: RepaintBoundary(
+          child: GlassSurface(
+            borderRadius: AppRadius.cardMd,
+            tint: accent.withValues(
+              alpha: (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            child: Column(
+              mainAxisSize: height == null
+                  ? MainAxisSize.min
+                  : MainAxisSize.max,
+              children: [
+                Row(
                   children: [
                     Container(
                       width: 3,
@@ -687,35 +721,45 @@ class _EventCard extends ConsumerWidget {
                       ),
                   ],
                 ),
-              ),
-              // A drag-to-resize grip, kept as a small separate hit region below
-              // the tappable/movable row rather than nested inside it — two
-              // drag recognizers stacked on the very same region would leave
-              // Flutter's gesture arena to guess which one the user meant.
-              // Long-press-then-drag here too, for the same reason as the move
-              // handler above: it must not fight the day timeline's own scroll.
-              if (!allDay && draggable)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onLongPressStart: (_) => onResizeStart!(),
-                  onLongPressMoveUpdate: (d) =>
-                      onResizeUpdate!(d.offsetFromOrigin.dy),
-                  onLongPressEnd: (_) => onResizeEnd!(),
-                  child: SizedBox(
-                    height: 16,
-                    child: Center(
-                      child: Container(
-                        width: 28,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: palette.inkFaint,
-                          borderRadius: AppRadius.allPill,
+                // Pushes the resize grip down to the card's actual bottom
+                // edge for a card taller than its header content — without
+                // this, a multi-hour card's whole content (header + grip)
+                // stayed clumped at the very top with a large dead gap below,
+                // instead of the grip landing near the boundary it actually
+                // resizes. Safe to use unconditionally when height != null:
+                // height is this card's own exact, tight constraint (not
+                // just a loose minimum), so Expanded/Spacer here can never
+                // balloon the card past its intended size.
+                if (height != null) const Spacer(),
+                // A drag-to-resize grip, kept as a small separate hit region below
+                // the tappable/movable row rather than nested inside it — two
+                // drag recognizers stacked on the very same region would leave
+                // Flutter's gesture arena to guess which one the user meant.
+                // Long-press-then-drag here too, for the same reason as the move
+                // handler above: it must not fight the day timeline's own scroll.
+                if (!allDay && draggable)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onLongPressStart: (_) => onResizeStart!(),
+                    onLongPressMoveUpdate: (d) =>
+                        onResizeUpdate!(d.offsetFromOrigin.dy),
+                    onLongPressEnd: (_) => onResizeEnd!(),
+                    child: SizedBox(
+                      height: 16,
+                      child: Center(
+                        child: Container(
+                          width: 28,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: palette.inkFaint,
+                            borderRadius: AppRadius.allPill,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -115,7 +115,7 @@ void main() {
       find
           .ancestor(
             of: find.text('Long'),
-            matching: find.byType(ConstrainedBox),
+            matching: find.byType(RepaintBoundary),
           )
           .first,
     );
@@ -154,7 +154,7 @@ void main() {
         find
             .ancestor(
               of: find.text('Long'),
-              matching: find.byType(ConstrainedBox),
+              matching: find.byType(RepaintBoundary),
             )
             .first,
       );
