@@ -32,9 +32,6 @@ class DayView extends ConsumerWidget {
   static const double _hourHeight = 64;
   static const double _railInset = 62;
 
-  /// Horizontal offset per card in a same-time cascade — see [cascadeEvents].
-  static const double _cascadeStep = 16;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
@@ -80,7 +77,6 @@ class DayView extends ConsumerWidget {
                   locale: locale,
                   hourHeight: _hourHeight,
                   railInset: _railInset,
-                  cascadeStep: _cascadeStep,
                   accent: palette.accent,
                 ),
               ),
@@ -105,7 +101,6 @@ class _Timeline extends ConsumerStatefulWidget {
     required this.locale,
     required this.hourHeight,
     required this.railInset,
-    required this.cascadeStep,
     required this.accent,
   });
 
@@ -116,7 +111,6 @@ class _Timeline extends ConsumerStatefulWidget {
   final String locale;
   final double hourHeight;
   final double railInset;
-  final double cascadeStep;
   final Color accent;
 
   @override
@@ -342,7 +336,17 @@ class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserve
       context,
     );
 
-    return Stack(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Divides however many events share one overlap cluster evenly
+        // across the available width — see cascadeEvents' doc and the
+        // per-card inset math below for why W/(siblingCount+1) is the step
+        // that gives every card in an N-way cluster the same width,
+        // 2W/(N+1), rather than a fixed pixel offset that reads fine for
+        // two cards but leaves a 3rd/4th nearly fully hidden.
+        final availableWidth = constraints.maxWidth - widget.railInset;
+
+        return Stack(
       children: [
         // Long-press-drag on empty timeline space creates a new event
         // spanning the dragged range — positioned first (behind the hour
@@ -442,9 +446,11 @@ class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserve
               final e = c.event;
               final (start, end) = _effectiveTimes(e);
               final isDragging = _draggingId == e.id;
-              final leftInset = c.index * widget.cascadeStep;
-              final rightInset =
-                  (c.siblingCount - 1 - c.index) * widget.cascadeStep;
+              final step = c.siblingCount <= 1
+                  ? 0.0
+                  : availableWidth / (c.siblingCount + 1);
+              final leftInset = c.index * step;
+              final rightInset = (c.siblingCount - 1 - c.index) * step;
               return Positioned(
                 top: _offsetFor(start) + 2,
                 left: widget.railInset + leftInset,
@@ -496,6 +502,8 @@ class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserve
             ),
           ),
       ],
+        );
+      },
     );
   }
 }
