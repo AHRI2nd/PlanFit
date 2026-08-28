@@ -654,137 +654,149 @@ class _EventCard extends ConsumerWidget {
           ? null
           : (d) => onMoveUpdate!(d.offsetFromOrigin.dy),
       onLongPressEnd: onMoveEnd == null ? null : (_) => onMoveEnd!(),
-      child: DecoratedBox(
-        // A visible per-event border, distinct from GlassSurface's own
-        // subtle hairline one — the main cue separating two cards that now
-        // sit flush against each other (no gap) since cards align exactly
-        // to their hour gridlines. Opaque and darkened rather than the
-        // accent at reduced alpha, so it reads as a solid line against
-        // both the card's own translucent tint and whatever sits behind
-        // it, instead of blending into either.
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.cardMd,
-          border: Border.all(color: _darken(accent, 0.18)),
-        ),
-        child: RepaintBoundary(
-          child: GlassSurface(
-            borderRadius: AppRadius.cardMd,
-            tint: accent.withValues(
-              alpha: (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
-            child: Column(
-              mainAxisSize: height == null
-                  ? MainAxisSize.min
-                  : MainAxisSize.max,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 3,
-                      height: 30,
-                      margin: const EdgeInsets.only(right: AppSpacing.xs),
-                      decoration: BoxDecoration(
-                        color: accent,
-                        borderRadius: AppRadius.allPill,
+      // A visible per-event border, distinct from GlassSurface's own subtle
+      // hairline one — the main cue separating two cards that now sit flush
+      // against each other (no gap) since cards align exactly to their hour
+      // gridlines. Opaque and darkened rather than the accent at reduced
+      // alpha, so it reads as a solid line against both the card's own
+      // translucent tint and whatever sits behind it, instead of blending
+      // into either. Painted as a Stack sibling *on top of* GlassSurface
+      // rather than as a DecoratedBox wrapping it — DecoratedBox paints its
+      // own decoration first and the child on top, so a border there was
+      // being fully painted over by GlassSurface's own opaque-ish fill and
+      // never actually visible.
+      child: Stack(
+        children: [
+          RepaintBoundary(
+            child: GlassSurface(
+              borderRadius: AppRadius.cardMd,
+              tint: accent.withValues(
+                alpha:
+                    (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              child: Column(
+                mainAxisSize: height == null
+                    ? MainAxisSize.min
+                    : MainAxisSize.max,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 3,
+                        height: 30,
+                        margin: const EdgeInsets.only(right: AppSpacing.xs),
+                        decoration: BoxDecoration(
+                          color: accent,
+                          borderRadius: AppRadius.allPill,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            event.title.isEmpty ? '—' : event.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          if (!allDay)
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              '${Fmt.time(event.startAt, locale, use24Hour: use24)} – ${Fmt.time(event.endAt, locale, use24Hour: use24)}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: palette.inkSoft,
-                              ),
+                              event.title.isEmpty ? '—' : event.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium,
                             ),
-                          if (event.location != null &&
-                              event.location!.isNotEmpty)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.place_outlined,
-                                  size: 12,
-                                  color: palette.inkFaint,
+                            if (!allDay)
+                              Text(
+                                '${Fmt.time(event.startAt, locale, use24Hour: use24)} – ${Fmt.time(event.endAt, locale, use24Hour: use24)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: palette.inkSoft,
                                 ),
-                                const SizedBox(width: 2),
-                                Flexible(
-                                  child: Text(
-                                    event.location!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: palette.inkFaint,
+                              ),
+                            if (event.location != null &&
+                                event.location!.isNotEmpty)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.place_outlined,
+                                    size: 12,
+                                    color: palette.inkFaint,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Flexible(
+                                    child: Text(
+                                      event.location!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(color: palette.inkFaint),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (event.notify)
+                        Icon(
+                          Icons.notifications_active_outlined,
+                          size: 15,
+                          color: palette.inkFaint,
+                        ),
+                    ],
+                  ),
+                  // Pushes the resize grip down to the card's actual bottom
+                  // edge for a card taller than its header content — without
+                  // this, a multi-hour card's whole content (header + grip)
+                  // stayed clumped at the very top with a large dead gap below,
+                  // instead of the grip landing near the boundary it actually
+                  // resizes. Safe to use unconditionally when height != null:
+                  // height is this card's own exact, tight constraint (not
+                  // just a loose minimum), so Expanded/Spacer here can never
+                  // balloon the card past its intended size.
+                  if (height != null) const Spacer(),
+                  // A drag-to-resize grip, kept as a small separate hit region below
+                  // the tappable/movable row rather than nested inside it — two
+                  // drag recognizers stacked on the very same region would leave
+                  // Flutter's gesture arena to guess which one the user meant.
+                  // Long-press-then-drag here too, for the same reason as the move
+                  // handler above: it must not fight the day timeline's own scroll.
+                  if (!allDay && draggable)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onLongPressStart: (_) => onResizeStart!(),
+                      onLongPressMoveUpdate: (d) =>
+                          onResizeUpdate!(d.offsetFromOrigin.dy),
+                      onLongPressEnd: (_) => onResizeEnd!(),
+                      child: SizedBox(
+                        height: 16,
+                        child: Center(
+                          child: Container(
+                            width: 28,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: palette.inkFaint,
+                              borderRadius: AppRadius.allPill,
                             ),
-                        ],
-                      ),
-                    ),
-                    if (event.notify)
-                      Icon(
-                        Icons.notifications_active_outlined,
-                        size: 15,
-                        color: palette.inkFaint,
-                      ),
-                  ],
-                ),
-                // Pushes the resize grip down to the card's actual bottom
-                // edge for a card taller than its header content — without
-                // this, a multi-hour card's whole content (header + grip)
-                // stayed clumped at the very top with a large dead gap below,
-                // instead of the grip landing near the boundary it actually
-                // resizes. Safe to use unconditionally when height != null:
-                // height is this card's own exact, tight constraint (not
-                // just a loose minimum), so Expanded/Spacer here can never
-                // balloon the card past its intended size.
-                if (height != null) const Spacer(),
-                // A drag-to-resize grip, kept as a small separate hit region below
-                // the tappable/movable row rather than nested inside it — two
-                // drag recognizers stacked on the very same region would leave
-                // Flutter's gesture arena to guess which one the user meant.
-                // Long-press-then-drag here too, for the same reason as the move
-                // handler above: it must not fight the day timeline's own scroll.
-                if (!allDay && draggable)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onLongPressStart: (_) => onResizeStart!(),
-                    onLongPressMoveUpdate: (d) =>
-                        onResizeUpdate!(d.offsetFromOrigin.dy),
-                    onLongPressEnd: (_) => onResizeEnd!(),
-                    child: SizedBox(
-                      height: 16,
-                      child: Center(
-                        child: Container(
-                          width: 28,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: palette.inkFaint,
-                            borderRadius: AppRadius.allPill,
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: AppRadius.cardMd,
+                  border: Border.all(color: _darken(accent, 0.18)),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
