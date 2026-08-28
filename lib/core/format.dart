@@ -36,10 +36,17 @@ class Fmt {
   static String fullDate(DateTime dt, String locale) =>
       DateFormat.yMMMMEEEEd(locale).format(dt);
 
-  /// A compact relative label like "3시간 뒤" / "in 3h" for upcoming events.
+  /// A compact relative label like "3시간 뒤" / "in 3h" for upcoming events —
+  /// or, if [target] (the event's own start time) is already in the past,
+  /// "진행 중" / "in progress". [watchUpcoming]'s query only filters by
+  /// `startAt` at the moment it runs, so a card built from its stream keeps
+  /// showing an event whose start has since ticked past `now` without the
+  /// row itself changing — this is what actually turns "곧"/"now" into a
+  /// stale, indefinitely-wrong label for it instead of just a brief flash.
   static String relative(DateTime target, DateTime now, String locale) {
     final diff = target.difference(now);
     final ko = locale.startsWith('ko');
+    if (diff.isNegative) return ko ? '진행 중' : 'in progress';
     if (diff.inMinutes < 1) return ko ? '곧' : 'now';
     if (diff.inMinutes < 60) {
       return ko ? '${diff.inMinutes}분 뒤' : 'in ${diff.inMinutes}m';
