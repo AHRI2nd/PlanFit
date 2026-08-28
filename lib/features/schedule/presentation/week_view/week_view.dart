@@ -479,31 +479,24 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                   ),
                 ),
 
-              // Events, positioned by day column + time. Cascaded within
-              // each day column the same way DayView cascades its own
-              // timeline — see cascadeEvents' doc and DayView's matching
-              // W/(siblingCount+1) step for why this divides the column
-              // evenly across however many events overlap, rather than a
-              // fixed pixel step that leaves all but one nearly fully
-              // hidden once more than two events share a slot.
+              // Events, positioned by day column + time. Laid out into
+              // non-overlapping columns within each day column the same
+              // way DayView lays out its own timeline — see cascadeEvents'
+              // doc for why two events sharing a moment in time each get
+              // their own exclusive slice of the width instead of one
+              // painting over the other.
               for (var i = 0; i < days.length; i++)
                 for (final c in cascadeEvents(byDay[days[i]] ?? const []))
                   Builder(
                     builder: (context) {
                       final e = c.event;
                       final columnAvailable = columnWidth - 2;
-                      final cascadeStep = c.siblingCount <= 1
-                          ? 0.0
-                          : columnAvailable / (c.siblingCount + 1);
-                      final leftInset = c.index * cascadeStep;
-                      final rightInset =
-                          (c.siblingCount - 1 - c.index) * cascadeStep;
-                      final width = (columnAvailable - leftInset - rightInset)
-                          .clamp(0.0, columnWidth);
+                      final eventWidth = columnAvailable / c.columnCount;
+                      final leftInset = c.column * eventWidth;
                       return Positioned(
                         top: _offsetFor(days[i], e.startAt) + 1,
                         left: railInset + i * columnWidth + 1 + leftInset,
-                        width: width,
+                        width: eventWidth.clamp(0.0, columnWidth),
                         child: GestureDetector(
                           onTap: () => showEventEditor(context, existing: e),
                           child: Container(

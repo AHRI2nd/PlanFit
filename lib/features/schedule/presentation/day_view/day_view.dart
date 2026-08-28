@@ -338,12 +338,8 @@ class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserve
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Divides however many events share one overlap cluster evenly
-        // across the available width — see cascadeEvents' doc and the
-        // per-card inset math below for why W/(siblingCount+1) is the step
-        // that gives every card in an N-way cluster the same width,
-        // 2W/(N+1), rather than a fixed pixel offset that reads fine for
-        // two cards but leaves a 3rd/4th nearly fully hidden.
+        // Needed to split however many non-overlapping columns
+        // cascadeEvents assigns a cluster into actual pixel widths below.
         final availableWidth = constraints.maxWidth - widget.railInset;
 
         return Stack(
@@ -434,23 +430,25 @@ class _TimelineState extends ConsumerState<_Timeline> with WidgetsBindingObserve
         // title/time text never gets clipped for short events, where the
         // duration-derived height is too small to fit two lines of text.
         //
-        // Cascaded by [cascadeEvents] on each card's own persisted (not
-        // drag-in-progress) start/end, so two events at the same time fan
-        // out horizontally instead of one completely covering the other —
-        // deliberately not recomputed against the live drag preview, since
-        // reshuffling every other card's cascade offset mid-drag would be
-        // distracting for what's a rare edge case to begin with.
+        // Laid out into non-overlapping columns by [cascadeEvents] on each
+        // card's own persisted (not drag-in-progress) start/end — two
+        // events sharing a moment in time get their own side-by-side slice
+        // of the width instead of one painting over the other, which for
+        // two events of different lengths would otherwise make the
+        // shorter one's edge read as truncating the longer one's — see
+        // that function's own doc. Deliberately not recomputed against the
+        // live drag preview, since reshuffling every other card's column
+        // mid-drag would be distracting for what's a rare edge case to
+        // begin with.
         for (final c in cascadeEvents(widget.events))
           Builder(
             builder: (context) {
               final e = c.event;
               final (start, end) = _effectiveTimes(e);
               final isDragging = _draggingId == e.id;
-              final step = c.siblingCount <= 1
-                  ? 0.0
-                  : availableWidth / (c.siblingCount + 1);
-              final leftInset = c.index * step;
-              final rightInset = (c.siblingCount - 1 - c.index) * step;
+              final columnWidth = availableWidth / c.columnCount;
+              final leftInset = c.column * columnWidth;
+              final rightInset = availableWidth - leftInset - columnWidth;
               return Positioned(
                 top: _offsetFor(start) + 2,
                 left: widget.railInset + leftInset,

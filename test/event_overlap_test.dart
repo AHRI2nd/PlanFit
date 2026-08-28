@@ -34,8 +34,13 @@ void main() {
     );
   }
 
+  /// Looks up one event's placement by id, for assertions that don't care
+  /// about the others' order in the returned list.
+  CascadedEvent placementOf(List<CascadedEvent> result, String id) =>
+      result.firstWhere((c) => c.event.id == id);
+
   group('cascadeEvents', () {
-    test('a lone event gets siblingCount 1 and index 0', () {
+    test('a lone event gets column 0 of 1', () {
       final result = cascadeEvents([
         event(
           id: 'a',
@@ -45,11 +50,12 @@ void main() {
       ]);
 
       expect(result, hasLength(1));
-      expect(result.single.index, 0);
-      expect(result.single.siblingCount, 1);
+      expect(result.single.column, 0);
+      expect(result.single.columnCount, 1);
     });
 
-    test('non-overlapping events each get their own cluster of one', () {
+    test('non-overlapping events each get column 0 of 1 — half-open, so '
+        'one ending exactly when the next starts doesn\'t count as overlap', () {
       final result = cascadeEvents([
         event(
           id: 'a',
@@ -63,16 +69,15 @@ void main() {
         ),
       ]);
 
-      // Half-open: b starts exactly when a ends, so they don't overlap.
       for (final c in result) {
-        expect(c.siblingCount, 1);
-        expect(c.index, 0);
+        expect(c.columnCount, 1);
+        expect(c.column, 0);
       }
     });
 
     test(
-      'two events at the exact same time cascade as a cluster of two, '
-      'in start order',
+      'two events at the exact same start and end split into two separate '
+      'columns, never sharing one',
       () {
         final result = cascadeEvents([
           event(
@@ -87,15 +92,69 @@ void main() {
           ),
         ]);
 
-        expect(result.map((c) => c.event.id), ['a', 'b']);
-        expect(result.map((c) => c.index), [0, 1]);
-        expect(result.every((c) => c.siblingCount == 2), isTrue);
+        expect(placementOf(result, 'a').columnCount, 2);
+        expect(placementOf(result, 'b').columnCount, 2);
+        expect(
+          {placementOf(result, 'a').column, placementOf(result, 'b').column},
+          {0, 1},
+        );
+      },
+    );
+
+    test(
+      'a 2-hour event and a 1-hour event starting an hour into it never '
+      'share a column — the longer one keeps its column exclusively for '
+      'its own full duration',
+      () {
+        final long = event(
+          id: 'long',
+          startAt: DateTime(2026, 1, 1, 13),
+          endAt: DateTime(2026, 1, 1, 15),
+        );
+        final short = event(
+          id: 'short',
+          startAt: DateTime(2026, 1, 1, 14),
+          endAt: DateTime(2026, 1, 1, 15),
+        );
+
+        final result = cascadeEvents([short, long]);
+
+        expect(placementOf(result, 'long').columnCount, 2);
+        expect(
+          placementOf(result, 'long').column,
+          isNot(placementOf(result, 'short').column),
+        );
+      },
+    );
+
+    test(
+      'of two events starting together, the longer one takes column 0 '
+      '(leftmost)',
+      () {
+        final shortFirst = event(
+          id: 'short',
+          startAt: DateTime(2026, 1, 1, 9),
+          endAt: DateTime(2026, 1, 1, 10),
+        );
+        final longSecond = event(
+          id: 'long',
+          startAt: DateTime(2026, 1, 1, 9),
+          endAt: DateTime(2026, 1, 1, 11),
+        );
+
+        // Passed in an order that would trick a naive "first seen wins
+        // column 0" placement into picking the short one first.
+        final result = cascadeEvents([shortFirst, longSecond]);
+
+        expect(placementOf(result, 'long').column, 0);
+        expect(placementOf(result, 'short').column, 1);
       },
     );
 
     test(
       'a transitive chain (A overlaps B, B overlaps C, A does not overlap '
-      'C) still cascades all three together',
+      'C) needs only 2 columns, not 3 — A and C can share one since they '
+      'never actually overlap each other',
       () {
         final a = event(
           id: 'a',
@@ -115,16 +174,21 @@ void main() {
 
         final result = cascadeEvents([c, a, b]);
 
-        expect(result.map((r) => r.event.id), ['a', 'b', 'c']);
-        expect(result.map((r) => r.siblingCount), [3, 3, 3]);
-        expect(result.map((r) => r.index), [0, 1, 2]);
+        expect(placementOf(result, 'a').columnCount, 2);
+        expect(placementOf(result, 'b').columnCount, 2);
+        expect(placementOf(result, 'c').columnCount, 2);
+        expect(placementOf(result, 'a').column, placementOf(result, 'c').column);
+        expect(
+          placementOf(result, 'b').column,
+          isNot(placementOf(result, 'a').column),
+        );
       },
     );
 
-    test('is painted in ascending-start order across separate clusters', () {
+    test('separate clusters are laid out independently', () {
       final result = cascadeEvents([
         event(
-          id: 'late-cluster',
+          id: 'late-solo',
           startAt: DateTime(2026, 1, 1, 14),
           endAt: DateTime(2026, 1, 1, 15),
         ),
@@ -140,12 +204,9 @@ void main() {
         ),
       ]);
 
-      expect(result.map((r) => r.event.id), [
-        'early-a',
-        'early-b',
-        'late-cluster',
-      ]);
-      expect(result.last.siblingCount, 1);
+      expect(placementOf(result, 'late-solo').columnCount, 1);
+      expect(placementOf(result, 'early-a').columnCount, 2);
+      expect(placementOf(result, 'early-b').columnCount, 2);
     });
   });
 }
