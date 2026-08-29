@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,9 +13,14 @@ import '../application/todo_providers.dart';
 import '../domain/todo_priority.dart';
 
 /// Opens the editable detail view for [todo] — title, priority, tags, and
-/// its subtask checklist. Everything here auto-saves on change (no explicit
-/// "save" step), same as the rest of the to-do row's inline controls (time
-/// chip, repeat icon) — there's nothing to lose by closing the sheet early.
+/// its subtask checklist. Priority/notify/pin/reminder controls save
+/// immediately on change, same as the rest of the to-do row's inline
+/// controls (time chip, repeat icon). Title and tags autosave on a short
+/// debounce as you type, AND are force-flushed right before the sheet
+/// actually closes (via `PopScope`) — submitting, tapping outside, swiping
+/// the sheet down, and the Android back gesture all end up here, but only
+/// submit/tap-outside fire `onSubmitted`/`onTapOutside`, so the flush is
+/// what guarantees nothing typed is lost on the other two dismissal paths.
 Future<void> showTodoDetailSheet(BuildContext context, TodoRow todo) {
   return showAdaptiveBottomSheet<void>(
     context: context,
@@ -37,6 +44,10 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   late TodoPriority _priority;
   late bool _notify;
   late bool _pinned;
+  Timer? _titleDebounce;
+  Timer? _tagsDebounce;
+
+  static const _saveDebounce = Duration(milliseconds: 400);
 
   /// Extra reminder offsets on top of the implicit "at due time" alert —
   /// see `TodoAlertX.reminderOffsets`. Never includes 0: that offset is
@@ -70,6 +81,8 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
 
   @override
   void dispose() {
+    _titleDebounce?.cancel();
+    _tagsDebounce?.cancel();
     _title.dispose();
     _tags.dispose();
     _subtaskController.dispose();
@@ -82,11 +95,43 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     ref.read(todoControllerProvider).updateTitle(widget.todo.id, text);
   }
 
+  /// Cancels any pending debounce and saves the title immediately — used
+  /// wherever a save should happen right now (submit, tap-outside, or the
+  /// pop-time flush) rather than waiting out `_saveDebounce`.
+  void _commitTitle() {
+    _titleDebounce?.cancel();
+    _saveTitle();
+  }
+
+  void _onTitleChanged(String _) {
+    _titleDebounce?.cancel();
+    _titleDebounce = Timer(_saveDebounce, _saveTitle);
+  }
+
   void _saveTags() {
     final text = _tags.text.trim();
     ref
         .read(todoControllerProvider)
         .setTags(widget.todo.id, text.isEmpty ? null : text);
+  }
+
+  void _commitTags() {
+    _tagsDebounce?.cancel();
+    _saveTags();
+  }
+
+  void _onTagsChanged(String _) {
+    _tagsDebounce?.cancel();
+    _tagsDebounce = Timer(_saveDebounce, _saveTags);
+  }
+
+  /// The safety net for swipe-to-dismiss / the Android back gesture, which
+  /// close the sheet without ever calling `onSubmitted` or `onTapOutside`.
+  /// Wired to fire from `PopScope` right as the sheet closes, so whatever
+  /// was typed in the last `_saveDebounce` window is never lost.
+  void _flushPendingSaves() {
+    _commitTitle();
+    _commitTags();
   }
 
   void _addSubtask() {
@@ -102,212 +147,222 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     final palette = context.palette;
     final subtasksAsync = ref.watch(todoSubtasksProvider(widget.todo.id));
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
-        ),
-        decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: const BorderRadius.vertical(top: AppRadius.lg),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                AppSpacing.sm,
-                AppSpacing.sm,
-                AppSpacing.xs,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.todoEditTitle,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: _pinned ? l10n.todoUnpin : l10n.todoPin,
-                    onPressed: () {
-                      setState(() => _pinned = !_pinned);
-                      ref
-                          .read(todoControllerProvider)
-                          .setPinned(widget.todo.id, _pinned);
-                    },
-                    icon: Icon(
-                      _pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                      color: _pinned ? palette.accent : palette.inkFaint,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _flushPendingSaves();
+      },
+      child: SafeArea(
+        top: false,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+          ),
+          decoration: BoxDecoration(
+            color: palette.surface,
+            borderRadius: const BorderRadius.vertical(top: AppRadius.lg),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.gutter,
-                  0,
-                  AppSpacing.gutter,
-                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.sm,
+                  AppSpacing.xs,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    TextField(
-                      controller: _title,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: l10n.todoTitleLabel,
+                    Expanded(
+                      child: Text(
+                        l10n.todoEditTitle,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      onSubmitted: (_) => _saveTitle(),
-                      onTapOutside: (_) => _saveTitle(),
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            l10n.todoNotify,
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: widget.todo.hasTime
-                                      ? null
-                                      : palette.inkFaint,
-                                ),
-                          ),
-                        ),
-                        Switch(
-                          value: _notify && widget.todo.hasTime,
-                          onChanged: widget.todo.hasTime
-                              ? (v) {
-                                  setState(() => _notify = v);
-                                  ref
-                                      .read(todoControllerProvider)
-                                      .setNotify(widget.todo.id, v);
-                                }
-                              : null,
-                        ),
-                      ],
-                    ),
-                    if (!widget.todo.hasTime)
-                      Padding(
-                        padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                        child: Text(
-                          l10n.todoNotifyNoTimeHint,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: palette.inkFaint),
-                        ),
+                    IconButton(
+                      tooltip: _pinned ? l10n.todoUnpin : l10n.todoPin,
+                      onPressed: () {
+                        setState(() => _pinned = !_pinned);
+                        ref
+                            .read(todoControllerProvider)
+                            .setPinned(widget.todo.id, _pinned);
+                      },
+                      icon: Icon(
+                        _pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                        color: _pinned ? palette.accent : palette.inkFaint,
                       ),
-                    if (_notify && widget.todo.hasTime) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      MultiChipRow(
-                        label: l10n.todoReminderAdditional,
-                        options: _leadTimeOptions.where((m) => m != 0).toList(),
-                        selected: _additionalReminders,
-                        labelFor: (m) => _leadTimeLabel(l10n, m),
-                        accent: palette.accent,
-                        onChanged: (v) {
-                          setState(() {
-                            if (_additionalReminders.contains(v)) {
-                              _additionalReminders.remove(v);
-                            } else {
-                              _additionalReminders.add(v);
-                            }
-                          });
-                          ref
-                              .read(todoControllerProvider)
-                              .setAdditionalReminders(
-                                widget.todo.id,
-                                _additionalReminders,
-                              );
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      l10n.todoPriorityLabel,
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      children: [
-                        for (final p in TodoPriority.values)
-                          ChoiceChip(
-                            label: Text(p.label(l10n)),
-                            selected: _priority == p,
-                            onSelected: (_) {
-                              setState(() => _priority = p);
-                              ref
-                                  .read(todoControllerProvider)
-                                  .setPriority(widget.todo.id, p.value);
-                            },
-                            showCheckmark: false,
-                            selectedColor: p.color(palette) ?? palette.accent,
-                            labelStyle: TextStyle(
-                              color: _priority == p
-                                  ? Colors.white
-                                  : palette.inkSoft,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      controller: _tags,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: l10n.todoTagsLabel,
-                        hintText: l10n.todoTagsHint,
-                      ),
-                      onSubmitted: (_) => _saveTags(),
-                      onTapOutside: (_) => _saveTags(),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      l10n.todoSubtasksLabel,
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    subtasksAsync.maybeWhen(
-                      data: (subtasks) => Column(
-                        children: [
-                          for (final s in subtasks) _SubtaskRow(subtask: s),
-                        ],
-                      ),
-                      orElse: () => const SizedBox.shrink(),
-                    ),
-                    Row(
-                      children: [
-                        Icon(Icons.add, size: 18, color: palette.inkFaint),
-                        const SizedBox(width: AppSpacing.xs),
-                        Expanded(
-                          child: TextField(
-                            controller: _subtaskController,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _addSubtask(),
-                            decoration: InputDecoration(
-                              hintText: l10n.todoSubtaskHint,
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.gutter,
+                    0,
+                    AppSpacing.gutter,
+                    AppSpacing.lg,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _title,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: l10n.todoTitleLabel,
+                        ),
+                        onChanged: _onTitleChanged,
+                        onSubmitted: (_) => _commitTitle(),
+                        onTapOutside: (_) => _commitTitle(),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l10n.todoNotify,
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(
+                                    color: widget.todo.hasTime
+                                        ? null
+                                        : palette.inkFaint,
+                                  ),
+                            ),
+                          ),
+                          Switch(
+                            value: _notify && widget.todo.hasTime,
+                            onChanged: widget.todo.hasTime
+                                ? (v) {
+                                    setState(() => _notify = v);
+                                    ref
+                                        .read(todoControllerProvider)
+                                        .setNotify(widget.todo.id, v);
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                      if (!widget.todo.hasTime)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                          child: Text(
+                            l10n.todoNotifyNoTimeHint,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: palette.inkFaint),
+                          ),
+                        ),
+                      if (_notify && widget.todo.hasTime) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        MultiChipRow(
+                          label: l10n.todoReminderAdditional,
+                          options: _leadTimeOptions
+                              .where((m) => m != 0)
+                              .toList(),
+                          selected: _additionalReminders,
+                          labelFor: (m) => _leadTimeLabel(l10n, m),
+                          accent: palette.accent,
+                          onChanged: (v) {
+                            setState(() {
+                              if (_additionalReminders.contains(v)) {
+                                _additionalReminders.remove(v);
+                              } else {
+                                _additionalReminders.add(v);
+                              }
+                            });
+                            ref
+                                .read(todoControllerProvider)
+                                .setAdditionalReminders(
+                                  widget.todo.id,
+                                  _additionalReminders,
+                                );
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        l10n.todoPriorityLabel,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        children: [
+                          for (final p in TodoPriority.values)
+                            ChoiceChip(
+                              label: Text(p.label(l10n)),
+                              selected: _priority == p,
+                              onSelected: (_) {
+                                setState(() => _priority = p);
+                                ref
+                                    .read(todoControllerProvider)
+                                    .setPriority(widget.todo.id, p.value);
+                              },
+                              showCheckmark: false,
+                              selectedColor: p.color(palette) ?? palette.accent,
+                              labelStyle: TextStyle(
+                                color: _priority == p
+                                    ? Colors.white
+                                    : palette.inkSoft,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextField(
+                        controller: _tags,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: l10n.todoTagsLabel,
+                          hintText: l10n.todoTagsHint,
+                        ),
+                        onChanged: _onTagsChanged,
+                        onSubmitted: (_) => _commitTags(),
+                        onTapOutside: (_) => _commitTags(),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        l10n.todoSubtasksLabel,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      subtasksAsync.maybeWhen(
+                        data: (subtasks) => Column(
+                          children: [
+                            for (final s in subtasks) _SubtaskRow(subtask: s),
+                          ],
+                        ),
+                        orElse: () => const SizedBox.shrink(),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.add, size: 18, color: palette.inkFaint),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: TextField(
+                              controller: _subtaskController,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _addSubtask(),
+                              decoration: InputDecoration(
+                                hintText: l10n.todoSubtaskHint,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

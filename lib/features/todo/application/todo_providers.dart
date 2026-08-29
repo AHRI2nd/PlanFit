@@ -133,8 +133,7 @@ class TodoController {
     }
 
     final groupId = _uuid.v4();
-    final until =
-        recurrenceUntil ?? addCalendarDays(effectiveSlotStart, 365);
+    final until = recurrenceUntil ?? addCalendarDays(effectiveSlotStart, 365);
     final occurrences = RecurrenceExpansion.occurrences(
       start: effectiveSlotStart,
       end: effectiveSlotStart,
@@ -250,9 +249,14 @@ class TodoController {
   }
 
   Future<void> updateTitle(String id, String title) async {
+    // `upsert` (insertOnConflictUpdate) validates its companion as if for a
+    // fresh insert, so a title-only companion missing e.g. `slotStart`
+    // throws `InvalidDataException` before ever reaching the database —
+    // `patch` is the correct partial-update path (see TodoDao.patch, and
+    // every sibling setter in this class: setTags/setPriority/etc.).
     await _ref
         .read(todoDaoProvider)
-        .upsert(TodoItemsCompanion(id: Value(id), title: Value(title)));
+        .patch(id, TodoItemsCompanion(title: Value(title)));
     // Re-schedules with the new title if it was already scheduled — a
     // stale title in a pending notification would otherwise linger until
     // it fires.

@@ -118,6 +118,44 @@ void main() {
     });
   });
 
+  group('updateTitle', () {
+    // Regression test: updateTitle used to build a title-only companion and
+    // hand it to TodoDao.upsert (insertOnConflictUpdate), which validates
+    // as if for a fresh insert — a companion missing e.g. slotStart threw
+    // InvalidDataException before ever reaching the database, so a to-do's
+    // title could never actually be edited via any path in the app. Fixed
+    // by routing through TodoDao.patch (a real partial UPDATE) instead,
+    // matching every other setter in this class.
+    test('persists a new title without throwing', () async {
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await controller().add(title: 'Call dentist', slotStart: slot);
+      final row = (await db.todoDao.all()).single;
+
+      await controller().updateTitle(row.id, 'Call the dentist tomorrow');
+
+      final updated = await db.todoDao.findById(row.id);
+      expect(updated?.title, 'Call the dentist tomorrow');
+    });
+
+    test('leaves every other column untouched', () async {
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await controller().add(
+        title: 'Call dentist',
+        slotStart: slot,
+        priority: 2,
+        tags: 'health',
+      );
+      final row = (await db.todoDao.all()).single;
+
+      await controller().updateTitle(row.id, 'Renamed');
+
+      final updated = await db.todoDao.findById(row.id);
+      expect(updated?.slotStart, row.slotStart);
+      expect(updated?.priority, 2);
+      expect(updated?.tags, 'health');
+    });
+  });
+
   group('setPinned', () {
     test('persists the pinned flag', () async {
       final slot = DateTime.now().add(const Duration(hours: 2));
