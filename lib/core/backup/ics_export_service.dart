@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import '../db/app_database.dart';
 import '../../features/schedule/domain/event_input.dart';
 import '../../features/schedule/domain/event_repository.dart';
+import 'ics_parser.dart';
 
 /// What [IcsExportService.importFromFile] found and did — surfaced to the
 /// user so an import never feels like it silently did (or didn't do)
@@ -81,197 +82,25 @@ class IcsExportService {
   /// around re-importing the same PlanFit-originated backup safely).
   Future<IcsImportSummary> importFromFile(String path) async {
     final raw = await File(path).readAsString();
-    final veventBlocks = _splitVevents(_unfold(raw));
+    final result = const IcsParser().parse(raw);
 
-    var imported = 0;
-    var skipped = 0;
-    for (final block in veventBlocks) {
-      final input = _parseVevent(block);
-      if (input == null) {
-        skipped++;
-        continue;
-      }
-      await eventRepository.save(input);
-      imported++;
-    }
-    return IcsImportSummary(eventCount: imported, skippedCount: skipped);
-  }
-
-  /// RFC 5545 continuation lines start with a single space or tab and mean
-  /// "glue this onto the previous line" — the inverse of [_fold]. Must run
-  /// before any other line-based parsing, since a folded line can split in
-  /// the middle of a property value.
-  List<String> _unfold(String raw) {
-    final rawLines = raw.split(RegExp(r'\r\n|\r|\n'));
-    final lines = <String>[];
-    for (final line in rawLines) {
-      if (line.isNotEmpty &&
-          (line.startsWith(' ') || line.startsWith('\t')) &&
-          lines.isNotEmpty) {
-        lines[lines.length - 1] += line.substring(1);
-      } else {
-        lines.add(line);
-      }
-    }
-    return lines;
-  }
-
-  /// Every `BEGIN:VEVENT`..`END:VEVENT` block's inner lines, as a list of
-  /// blocks — deliberately tolerant of anything outside those markers
-  /// (`VCALENDAR` headers, `VTIMEZONE` blocks, other component types), since
-  /// this only ever looks for `VEVENT`.
-  List<List<String>> _splitVevents(List<String> lines) {
-    final blocks = <List<String>>[];
-    List<String>? current;
-    for (final line in lines) {
-      if (line == 'BEGIN:VEVENT') {
-        current = [];
-      } else if (line == 'END:VEVENT') {
-        if (current != null) blocks.add(current);
-        current = null;
-      } else if (current != null) {
-        current.add(line);
-      }
-    }
-    return blocks;
-  }
-
-  /// Null when the block is missing a title or a usable start time — the
-  /// two fields [EventInput] can't do without.
-  EventInput? _parseVevent(List<String> lines) {
-    String? summary;
-    String? description;
-    String? location;
-    DateTime? start;
-    DateTime? end;
-    var isAllDay = false;
-
-    for (final line in lines) {
-      final colon = line.indexOf(':');
-      if (colon == -1) continue;
-      final rawKey = line.substring(0, colon);
-      final value = line.substring(colon + 1);
-      // Strip parameters (e.g. `DTSTART;VALUE=DATE` / `DTSTART;TZID=...`) —
-      // the parameters themselves are inspected separately below only for
-      // the DTSTART/DTEND all-day check.
-      final key = rawKey.split(';').first;
-
-      switch (key) {
-        case 'SUMMARY':
-          summary = _unescape(value);
-        case 'DESCRIPTION':
-          description = _unescape(value);
-        case 'LOCATION':
-          location = _unescape(value);
-        case 'DTSTART':
-          isAllDay =
-              rawKey.contains('VALUE=DATE') && !rawKey.contains('DATE-TIME');
-          start = _parseIcsDateTime(value, isAllDay: isAllDay);
-        case 'DTEND':
-          end = _parseIcsDateTime(
-            value,
-            isAllDay:
-                rawKey.contains('VALUE=DATE') && !rawKey.contains('DATE-TIME'),
-          );
-      }
-    }
-
-    if (summary == null || summary.isEmpty || start == null) return null;
-    // A VEVENT with no DTEND is valid RFC 5545 (a zero-duration point in
-    // time) — give it a sensible fallback duration rather than rejecting it
-    // outright, same "never worse than not importing at all" spirit as
-    // quick_add_parser's unrecognized-phrase handling.
-    end ??= start.add(
-      isAllDay ? const Duration(days: 1) : const Duration(hours: 1),
-    );
-
-    return EventInput(
-      title: summary,
-      memo: description,
-      location: location,
-      startAt: start,
-      endAt: end,
-      isAllDay: isAllDay,
-      notify: false,
-    );
-  }
-
-  /// Handles the three DTSTART/DTEND shapes real-world `.ics` files use:
-  /// a bare `VALUE=DATE` (all-day, no zone), a trailing `Z` (UTC, converted
-  /// to local), or a naive local timestamp (`TZID=...` or no qualifier at
-  /// all — taken at face value, since resolving an arbitrary `TZID` would
-  /// need the file's own `VTIMEZONE` block parsed too; close enough for
-  /// same-timezone personal imports, which is the overwhelmingly common
-  /// case for this app).
-  DateTime? _parseIcsDateTime(String value, {required bool isAllDay}) {
-    if (isAllDay) {
-      final m = RegExp(r'^(\d{4})(\d{2})(\d{2})$').firstMatch(value);
-      if (m == null) return null;
-      return DateTime(
-        int.parse(m.group(1)!),
-        int.parse(m.group(2)!),
-        int.parse(m.group(3)!),
+    for (final v in result.vevents) {
+      await eventRepository.save(
+        EventInput(
+          title: v.title,
+          memo: v.memo,
+          location: v.location,
+          startAt: v.start,
+          endAt: v.end,
+          isAllDay: v.isAllDay,
+          notify: false,
+        ),
       );
     }
-    final m = RegExp(
-      r'^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$',
-    ).firstMatch(value);
-    if (m == null) return null;
-    final naive = DateTime(
-      int.parse(m.group(1)!),
-      int.parse(m.group(2)!),
-      int.parse(m.group(3)!),
-      int.parse(m.group(4)!),
-      int.parse(m.group(5)!),
-      int.parse(m.group(6)!),
+    return IcsImportSummary(
+      eventCount: result.vevents.length,
+      skippedCount: result.skipped,
     );
-    final isUtc = m.group(7) == 'Z';
-    return isUtc
-        ? DateTime.utc(
-            naive.year,
-            naive.month,
-            naive.day,
-            naive.hour,
-            naive.minute,
-            naive.second,
-          ).toLocal()
-        : naive;
-  }
-
-  /// The inverse of [_escape] — a single left-to-right pass rather than
-  /// sequential global replaces, since replace order matters here: undoing
-  /// `\\` before `\n`/`\,`/`\;` would eat the backslash those still need to
-  /// match.
-  String _unescape(String text) {
-    final buffer = StringBuffer();
-    var i = 0;
-    while (i < text.length) {
-      final c = text[i];
-      if (c == r'\' && i + 1 < text.length) {
-        final next = text[i + 1];
-        switch (next) {
-          case 'n' || 'N':
-            buffer.write('\n');
-            i += 2;
-          case ',':
-            buffer.write(',');
-            i += 2;
-          case ';':
-            buffer.write(';');
-            i += 2;
-          case r'\':
-            buffer.write(r'\');
-            i += 2;
-          default:
-            buffer.write(c);
-            i++;
-        }
-      } else {
-        buffer.write(c);
-        i++;
-      }
-    }
-    return buffer.toString();
   }
 
   String _buildIcs(List<EventRow> events) {
