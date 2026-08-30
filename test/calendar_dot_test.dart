@@ -10,6 +10,7 @@ void main() {
     final color = calendarDotColor(
       palette: palette,
       hasEvent: true,
+      hasTodo: false,
       hasOverdueTodo: true,
     );
     expect(color, palette.danger);
@@ -19,6 +20,7 @@ void main() {
     final color = calendarDotColor(
       palette: palette,
       hasEvent: true,
+      hasTodo: false,
       hasOverdueTodo: false,
     );
     expect(color, palette.accent);
@@ -28,6 +30,7 @@ void main() {
     final color = calendarDotColor(
       palette: palette,
       hasEvent: false,
+      hasTodo: false,
       hasOverdueTodo: true,
     );
     expect(color, palette.danger);
@@ -37,8 +40,47 @@ void main() {
     final color = calendarDotColor(
       palette: palette,
       hasEvent: false,
+      hasTodo: false,
       hasOverdueTodo: false,
     );
     expect(color, isNull);
   });
+
+  test('todoAccent when a day has only a non-overdue to-do, no event', () {
+    final color = calendarDotColor(
+      palette: palette,
+      hasEvent: false,
+      hasTodo: true,
+      hasOverdueTodo: false,
+    );
+    expect(color, palette.todoAccent);
+  });
+
+  test(
+    'todoAccent wins over accent when a day has both an event and a '
+    'non-overdue to-do',
+    () {
+      final color = calendarDotColor(
+        palette: palette,
+        hasEvent: true,
+        hasTodo: true,
+        hasOverdueTodo: false,
+      );
+      expect(color, palette.todoAccent);
+    },
+  );
+
+  test(
+    'danger still wins over todoAccent when a day has both an overdue and '
+    'a non-overdue to-do',
+    () {
+      final color = calendarDotColor(
+        palette: palette,
+        hasEvent: false,
+        hasTodo: true,
+        hasOverdueTodo: true,
+      );
+      expect(color, palette.danger);
+    },
+  );
 }

@@ -446,6 +446,10 @@ class _WeeklyStats extends ConsumerWidget {
       for (final t in todos)
         if (isTodoOverdue(t, now)) dateOnly(t.slotStart),
     };
+    final todoDays = {
+      for (final t in todos)
+        if (!t.isDone) dateOnly(t.slotStart),
+    }..removeAll(overdueDays);
     final doneTotal = todos.where((t) => t.isDone).length;
 
     return GlassSurface(
@@ -472,6 +476,7 @@ class _WeeklyStats extends ConsumerWidget {
                         done: doneByDay[day] ?? 0,
                         total: totalByDay[day] ?? 0,
                         hasEvent: eventDays.contains(day),
+                        hasTodo: todoDays.contains(day),
                         hasOverdueTodo: overdueDays.contains(day),
                         locale: locale,
                       );
@@ -493,6 +498,7 @@ class _WeekDayBar extends StatelessWidget {
     required this.done,
     required this.total,
     required this.hasEvent,
+    required this.hasTodo,
     required this.hasOverdueTodo,
     required this.locale,
   });
@@ -502,6 +508,7 @@ class _WeekDayBar extends StatelessWidget {
   final int done;
   final int total;
   final bool hasEvent;
+  final bool hasTodo;
   final bool hasOverdueTodo;
   final String locale;
 
@@ -515,6 +522,7 @@ class _WeekDayBar extends StatelessWidget {
     final dotColor = calendarDotColor(
       palette: palette,
       hasEvent: hasEvent,
+      hasTodo: hasTodo,
       hasOverdueTodo: hasOverdueTodo,
     );
     return Column(

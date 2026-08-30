@@ -20,6 +20,7 @@ class YearView extends ConsumerWidget {
     final year = selected.year;
     final eventsAsync = ref.watch(eventsForYearProvider(year));
     final overdueAsync = ref.watch(overdueTodosProvider);
+    final todosAsync = ref.watch(todosForYearProvider(year));
     final locale = Localizations.localeOf(context).toLanguageTag();
     final theme = Theme.of(context);
     final startWeekday = ref.watch(weekStartWeekdayProvider);
@@ -34,6 +35,10 @@ class YearView extends ConsumerWidget {
       for (final t in overdueAsync.asData?.value ?? const <TodoRow>[])
         dateOnly(t.slotStart),
     };
+    final todoDays = <DateTime>{
+      for (final t in todosAsync.asData?.value ?? const <TodoRow>[])
+        if (!t.isDone) dateOnly(t.slotStart),
+    }..removeAll(overdueDays);
 
     return Column(
       children: [
@@ -76,6 +81,7 @@ class YearView extends ConsumerWidget {
                 month: month,
                 counts: counts,
                 overdueDays: overdueDays,
+                todoDays: todoDays,
                 locale: locale,
                 startWeekday: startWeekday,
                 onTap: () {
@@ -101,6 +107,7 @@ class _MiniMonth extends StatelessWidget {
     required this.month,
     required this.counts,
     required this.overdueDays,
+    required this.todoDays,
     required this.locale,
     required this.startWeekday,
     required this.onTap,
@@ -110,6 +117,7 @@ class _MiniMonth extends StatelessWidget {
   final int month;
   final Map<DateTime, int> counts;
   final Set<DateTime> overdueDays;
+  final Set<DateTime> todoDays;
   final String locale;
   final int startWeekday;
   final VoidCallback onTap;
@@ -148,9 +156,11 @@ class _MiniMonth extends StatelessWidget {
                 final date = DateTime(year, month, day);
                 final count = counts[date] ?? 0;
                 final hasOverdueTodo = overdueDays.contains(date);
+                final hasTodo = todoDays.contains(date);
                 final markerColor = calendarDotColor(
                   palette: palette,
                   hasEvent: count > 0,
+                  hasTodo: hasTodo,
                   hasOverdueTodo: hasOverdueTodo,
                 );
                 final isToday = date == today;
@@ -159,11 +169,12 @@ class _MiniMonth extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: markerColor != null
                         ? markerColor.withValues(
-                            // An overdue day is a flat, clearly-visible
-                            // alarm regardless of how many events also
-                            // land there — only the plain "has events"
-                            // case scales with count the way it always has.
-                            alpha: hasOverdueTodo
+                            // An overdue or todo day is a flat,
+                            // clearly-visible state regardless of how many
+                            // events also land there — only the plain
+                            // "has events" case scales with count the way
+                            // it always has.
+                            alpha: (hasOverdueTodo || hasTodo)
                                 ? 0.55
                                 : (0.30 + count * 0.18).clamp(0.3, 0.9),
                           )

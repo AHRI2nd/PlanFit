@@ -90,6 +90,13 @@ class _DateStripState extends ConsumerState<DateStrip> {
     final overdueTodos =
         ref.watch(overdueTodosProvider).asData?.value ?? const <TodoRow>[];
     final overdueDays = {for (final t in overdueTodos) dateOnly(t.slotStart)};
+    final strippedTodos =
+        ref.watch(todosForDateStripProvider(selected)).asData?.value ??
+        const <TodoRow>[];
+    final todoDays = {
+      for (final t in strippedTodos)
+        if (!t.isDone) dateOnly(t.slotStart),
+    }..removeAll(overdueDays);
 
     return SizedBox(
       height: 64,
@@ -103,6 +110,7 @@ class _DateStripState extends ConsumerState<DateStrip> {
           final dotColor = calendarDotColor(
             palette: palette,
             hasEvent: eventDays.contains(date),
+            hasTodo: todoDays.contains(date),
             hasOverdueTodo: overdueDays.contains(date),
           );
           return SizedBox(

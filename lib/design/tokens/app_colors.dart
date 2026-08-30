@@ -28,6 +28,15 @@ class AppColors {
   /// `colorTag`.
   static const Color holidayRed = Color(0xFFC0392B);
 
+  /// Fixed color for [AppPalette.todoAccent] — the calendar dot's
+  /// "has a to-do" state (see `calendar_dot.dart`). Same reasoning as
+  /// [holidayRed]: a status indicator the user never picks, so it must
+  /// never collide with a preset the user *can* pick for their own events
+  /// (in particular [dayAmber]/`EventColorTag.amber`, which sits in the
+  /// same warm-orange family) or with the moving [timeGradient]'s own
+  /// midday stops (also anchored on [dayAmber]).
+  static const Color marigold = Color(0xFFD9A441);
+
   // --- Ink (dark surfaces / light text) ---
   static const Color deepInk = Color(0xFF0E1116);
   static const Color ink800 = Color(0xFF161A22);
@@ -86,6 +95,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.hairline,
     required this.accent,
     required this.danger,
+    required this.todoAccent,
     required this.glassTint,
     required this.glassBorder,
     required this.onGlass,
@@ -108,6 +118,12 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// WCAG AA 4.5:1 text contrast against both a light and a dark background.
   final Color danger;
 
+  /// The calendar dot's "has an incomplete to-do (not overdue)" state —
+  /// see `calendar_dot.dart`. Reused flat across both themes like [accent],
+  /// not split like [danger]: it's only ever a small fill, never text, so
+  /// WCAG text-contrast doesn't apply.
+  final Color todoAccent;
+
   /// Tint painted over a blurred backdrop to build the glass material.
   final Color glassTint;
   final Color glassBorder;
@@ -129,6 +145,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     accent: AppColors.dawnIndigo,
     // 4.52:1 on softPaper (was E5646E at 2.97:1 — failed WCAG AA for text).
     danger: Color(0xFFD72432),
+    todoAccent: AppColors.marigold,
     glassTint: Color(0x40FFFFFF),
     glassBorder: Color(0x33FFFFFF),
     onGlass: Color(0xFF1A1D24),
@@ -147,6 +164,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     accent: AppColors.dawnIndigo,
     // 5.75:1 on deepInk — already passed, unchanged.
     danger: Color(0xFFE5646E),
+    todoAccent: AppColors.marigold,
     glassTint: Color(0x33141A24),
     glassBorder: Color(0x26FFFFFF),
     onGlass: Color(0xFFF3F1EC),
@@ -168,6 +186,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? hairline,
     Color? accent,
     Color? danger,
+    Color? todoAccent,
     Color? glassTint,
     Color? glassBorder,
     Color? onGlass,
@@ -183,6 +202,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       hairline: hairline ?? this.hairline,
       accent: accent ?? this.accent,
       danger: danger ?? this.danger,
+      todoAccent: todoAccent ?? this.todoAccent,
       glassTint: glassTint ?? this.glassTint,
       glassBorder: glassBorder ?? this.glassBorder,
       onGlass: onGlass ?? this.onGlass,
@@ -203,6 +223,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       hairline: Color.lerp(hairline, other.hairline, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
+      todoAccent: Color.lerp(todoAccent, other.todoAccent, t)!,
       glassTint: Color.lerp(glassTint, other.glassTint, t)!,
       glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
       onGlass: Color.lerp(onGlass, other.onGlass, t)!,

@@ -92,6 +92,7 @@ class MonthView extends ConsumerWidget {
     final selected = ref.watch(selectedDateProvider);
     final eventsAsync = ref.watch(eventsForMonthProvider(selected));
     final overdueAsync = ref.watch(overdueTodosProvider);
+    final todosAsync = ref.watch(todosForMonthProvider(selected));
     final locale = Localizations.localeOf(context).toLanguageTag();
     final weekStartsMonday = ref.watch(
       settingsControllerProvider.select((s) => s.weekStartsMonday),
@@ -109,6 +110,13 @@ class MonthView extends ConsumerWidget {
       for (final t in overdueAsync.asData?.value ?? const <TodoRow>[])
         dateOnly(t.slotStart),
     };
+    // Same rule, for the dot's second state — a day with an incomplete,
+    // not-yet-overdue to-do. Excludes overdueDays so the two sets stay
+    // mutually exclusive, matching calendarDotColor's own priority order.
+    final todoDays = <DateTime>{
+      for (final t in todosAsync.asData?.value ?? const <TodoRow>[])
+        if (!t.isDone) dateOnly(t.slotStart),
+    }..removeAll(overdueDays);
     final monthStart = DateTime(selected.year, selected.month, 1);
     final monthEnd = DateTime(selected.year, selected.month + 1, 1);
     // Multi-day (typically all-day) events get a continuous bar across every
@@ -199,7 +207,11 @@ class MonthView extends ConsumerWidget {
                         .where((e) => !multiDay.contains(e))
                         .toList();
                     final hasOverdueTodo = overdueDays.contains(d);
-                    if (spanning.isEmpty && dots.isEmpty && !hasOverdueTodo) {
+                    final hasTodo = todoDays.contains(d);
+                    if (spanning.isEmpty &&
+                        dots.isEmpty &&
+                        !hasOverdueTodo &&
+                        !hasTodo) {
                       return null;
                     }
 
@@ -253,7 +265,7 @@ class MonthView extends ConsumerWidget {
                                 );
                               },
                             ),
-                          if (dots.isNotEmpty || hasOverdueTodo)
+                          if (dots.isNotEmpty || hasOverdueTodo || hasTodo)
                             Container(
                               width: 6,
                               height: 6,
@@ -263,6 +275,7 @@ class MonthView extends ConsumerWidget {
                                     : calendarDotColor(
                                         palette: palette,
                                         hasEvent: dots.isNotEmpty,
+                                        hasTodo: hasTodo,
                                         hasOverdueTodo: hasOverdueTodo,
                                       ),
                                 shape: BoxShape.circle,
