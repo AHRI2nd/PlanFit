@@ -640,8 +640,116 @@ abstract class AppL10n {
   /// No description provided for @settingsHolidayCalendarDesc.
   ///
   /// In ko, this message translates to:
-  /// **'믿을 수 있는 공휴일 캘린더를 자동으로 불러와요'**
+  /// **'국가별 공휴일 캘린더를 자동으로 불러와요'**
   String get settingsHolidayCalendarDesc;
+
+  /// No description provided for @settingsHolidaySourceCurrent.
+  ///
+  /// In ko, this message translates to:
+  /// **'현재: {source}'**
+  String settingsHolidaySourceCurrent(String source);
+
+  /// No description provided for @settingsHolidaySourceCustomLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'사용자 지정 캘린더'**
+  String get settingsHolidaySourceCustomLabel;
+
+  /// No description provided for @holidayCountryKR.
+  ///
+  /// In ko, this message translates to:
+  /// **'대한민국'**
+  String get holidayCountryKR;
+
+  /// No description provided for @holidayCountryUS.
+  ///
+  /// In ko, this message translates to:
+  /// **'미국'**
+  String get holidayCountryUS;
+
+  /// No description provided for @holidayCountryJP.
+  ///
+  /// In ko, this message translates to:
+  /// **'일본'**
+  String get holidayCountryJP;
+
+  /// No description provided for @holidayCountryGB.
+  ///
+  /// In ko, this message translates to:
+  /// **'영국'**
+  String get holidayCountryGB;
+
+  /// No description provided for @holidayCountryDE.
+  ///
+  /// In ko, this message translates to:
+  /// **'독일'**
+  String get holidayCountryDE;
+
+  /// No description provided for @holidayCountryFR.
+  ///
+  /// In ko, this message translates to:
+  /// **'프랑스'**
+  String get holidayCountryFR;
+
+  /// No description provided for @holidayCountryCA.
+  ///
+  /// In ko, this message translates to:
+  /// **'캐나다'**
+  String get holidayCountryCA;
+
+  /// No description provided for @holidayCountryAU.
+  ///
+  /// In ko, this message translates to:
+  /// **'호주'**
+  String get holidayCountryAU;
+
+  /// No description provided for @holidayCalendarSourceTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'공휴일 캘린더 선택'**
+  String get holidayCalendarSourceTitle;
+
+  /// No description provided for @holidayCalendarSourceSectionCountries.
+  ///
+  /// In ko, this message translates to:
+  /// **'국가 선택'**
+  String get holidayCalendarSourceSectionCountries;
+
+  /// No description provided for @holidayCalendarSourceCustomEntry.
+  ///
+  /// In ko, this message translates to:
+  /// **'URL로 직접 추가'**
+  String get holidayCalendarSourceCustomEntry;
+
+  /// No description provided for @holidayCalendarSourceCustomDialogTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'캘린더 URL 입력'**
+  String get holidayCalendarSourceCustomDialogTitle;
+
+  /// No description provided for @holidayCalendarSourceCustomDialogHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'https://example.com/calendar.ics'**
+  String get holidayCalendarSourceCustomDialogHint;
+
+  /// No description provided for @holidayCalendarSourceCustomInvalidUrl.
+  ///
+  /// In ko, this message translates to:
+  /// **'올바른 http/https 링크를 입력해주세요'**
+  String get holidayCalendarSourceCustomInvalidUrl;
+
+  /// No description provided for @holidayCalendarSourceSyncFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'캘린더를 불러오지 못했어요. 링크를 확인해주세요'**
+  String get holidayCalendarSourceSyncFailed;
+
+  /// No description provided for @holidayCalendarSourceSyncFailedGeneric.
+  ///
+  /// In ko, this message translates to:
+  /// **'공휴일 캘린더를 불러오지 못했어요'**
+  String get holidayCalendarSourceSyncFailedGeneric;
 
   /// No description provided for @calendarImportTitle.
   ///

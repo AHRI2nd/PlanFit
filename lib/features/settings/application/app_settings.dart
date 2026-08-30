@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/calendar_sync/holiday_calendar_service.dart'
+    show defaultHolidayCountryCode;
+
 /// Which hour format a `TimeOfDay`/hour-minute display uses. `system`
 /// follows the OS's own 24-hour setting (`MediaQuery.alwaysUse24HourFormat`)
 /// — same as before either of the two settings below existed.
@@ -21,6 +24,8 @@ class AppSettings {
     this.dialTimeFormatPreference = TimeFormatPreference.system,
     this.displayTimeFormatPreference = TimeFormatPreference.system,
     this.holidayCalendarEnabled = true,
+    this.holidayCountryCode,
+    this.customHolidayCalendarUrl,
   });
 
   final ThemeMode themeMode;
@@ -72,12 +77,31 @@ class AppSettings {
   /// or vice versa.
   final TimeFormatPreference displayTimeFormatPreference;
 
-  /// Whether the app auto-imports a locale-appropriate national holiday
-  /// calendar as a read-only mirror — on by default (see
-  /// `HolidayCalendarService`'s own doc for why this needs no URL/calendar
-  /// picker, unlike [subscribedCalendarIds]: the source is fixed, not
-  /// user-chosen).
+  /// Whether the app auto-imports a holiday calendar as a read-only mirror
+  /// — on by default. Which calendar is [holidayCountryCode]/
+  /// [customHolidayCalendarUrl]'s job to say; this only turns the whole
+  /// thing on or off.
   final bool holidayCalendarEnabled;
+
+  /// The country whose public holidays to mirror (an ISO alpha-2 key of
+  /// `HolidayCalendarService.holidayCountryCalendarIds`) — `null` means
+  /// "auto," resolved via [resolvedHolidayCountryCode]. Ignored while
+  /// [customHolidayCalendarUrl] is set; the two are mutually exclusive from
+  /// the user's perspective (picking one clears the other — see
+  /// `SettingsController.setHolidayCountryCode`/`setCustomHolidayCalendarUrl`).
+  final String? holidayCountryCode;
+
+  /// A user-supplied ICS feed URL, if they added one instead of picking a
+  /// country — takes priority over [holidayCountryCode] wherever both are
+  /// read. `null` means no custom calendar is active.
+  final String? customHolidayCalendarUrl;
+
+  /// [holidayCountryCode], folding in the "auto" default (the exact
+  /// locale-based fallback this app always used before country selection
+  /// existed) so every call site can just read this instead of each
+  /// re-deriving the same null-check.
+  String get resolvedHolidayCountryCode =>
+      holidayCountryCode ?? defaultHolidayCountryCode();
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -94,6 +118,10 @@ class AppSettings {
     TimeFormatPreference? dialTimeFormatPreference,
     TimeFormatPreference? displayTimeFormatPreference,
     bool? holidayCalendarEnabled,
+    String? holidayCountryCode,
+    bool clearHolidayCountryCode = false,
+    String? customHolidayCalendarUrl,
+    bool clearCustomHolidayCalendarUrl = false,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -117,6 +145,12 @@ class AppSettings {
           displayTimeFormatPreference ?? this.displayTimeFormatPreference,
       holidayCalendarEnabled:
           holidayCalendarEnabled ?? this.holidayCalendarEnabled,
+      holidayCountryCode: clearHolidayCountryCode
+          ? null
+          : (holidayCountryCode ?? this.holidayCountryCode),
+      customHolidayCalendarUrl: clearCustomHolidayCalendarUrl
+          ? null
+          : (customHolidayCalendarUrl ?? this.customHolidayCalendarUrl),
     );
   }
 }

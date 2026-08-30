@@ -22,8 +22,12 @@ class MirroredEventDetailScreen extends ConsumerWidget {
 
   /// Holidays are mirrored in the exact same way as a subscribed device
   /// calendar (see HolidayCalendarService's doc), so they land on this same
-  /// read-only screen — but "subscribed" is the wrong word for a fixed,
-  /// non-user-configurable source, hence the separate copy here.
+  /// read-only screen — but "subscribed" reads oddly for a national-holiday
+  /// calendar even though the user does now pick which one (a country, or a
+  /// custom URL — see the holiday calendar source picker screen), hence the
+  /// separate copy here. Matches on the shared `'holiday:'` prefix, which
+  /// both the country (`holiday:country:KR`) and custom (`holiday:custom`)
+  /// source-id shapes still start with.
   bool get _isHoliday =>
       (event.importSourceCalendarId ?? '').startsWith('holiday:');
 

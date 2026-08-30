@@ -7,6 +7,7 @@ import '../../features/schedule/presentation/schedule_screen.dart';
 import '../../features/settings/presentation/auto_backup_screen.dart';
 import '../../features/settings/presentation/calendar_import_screen.dart';
 import '../../features/settings/presentation/calendar_picker_screen.dart';
+import '../../features/settings/presentation/holiday_calendar_source_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/sync_log_screen.dart';
 import '../../features/shell/app_shell.dart';
@@ -82,6 +83,10 @@ final appRouter = GoRouter(
                 GoRoute(
                   path: 'auto-backup',
                   builder: (_, _) => const AutoBackupScreen(),
+                ),
+                GoRoute(
+                  path: 'holiday-calendar-source',
+                  builder: (_, _) => const HolidayCalendarSourceScreen(),
                 ),
               ],
             ),

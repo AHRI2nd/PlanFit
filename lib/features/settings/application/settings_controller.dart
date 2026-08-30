@@ -22,6 +22,8 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kDialTimeFormat = 'settings.dialTimeFormatPreference';
   static const _kDisplayTimeFormat = 'settings.displayTimeFormatPreference';
   static const _kHolidayCalendar = 'settings.holidayCalendarEnabled';
+  static const _kHolidayCountry = 'settings.holidayCountryCode';
+  static const _kHolidayCustomUrl = 'settings.customHolidayCalendarUrl';
 
   static TimeFormatPreference _readTimeFormat(
     SharedPreferences prefs,
@@ -66,6 +68,8 @@ class SettingsController extends Notifier<AppSettings> {
       dialTimeFormatPreference: _readTimeFormat(prefs, _kDialTimeFormat),
       displayTimeFormatPreference: _readTimeFormat(prefs, _kDisplayTimeFormat),
       holidayCalendarEnabled: prefs.getBool(_kHolidayCalendar) ?? true,
+      holidayCountryCode: prefs.getString(_kHolidayCountry),
+      customHolidayCalendarUrl: prefs.getString(_kHolidayCustomUrl),
     );
     _apply(settings);
     return settings;
@@ -120,6 +124,16 @@ class SettingsController extends Notifier<AppSettings> {
       s.displayTimeFormatPreference.index,
     );
     await prefs.setBool(_kHolidayCalendar, s.holidayCalendarEnabled);
+    if (s.holidayCountryCode == null) {
+      await prefs.remove(_kHolidayCountry);
+    } else {
+      await prefs.setString(_kHolidayCountry, s.holidayCountryCode!);
+    }
+    if (s.customHolidayCalendarUrl == null) {
+      await prefs.remove(_kHolidayCustomUrl);
+    } else {
+      await prefs.setString(_kHolidayCustomUrl, s.customHolidayCalendarUrl!);
+    }
   }
 
   Future<void> _update(AppSettings next) async {
@@ -169,26 +183,96 @@ class SettingsController extends Notifier<AppSettings> {
   ) => _update(state.copyWith(displayTimeFormatPreference: preference));
 
   /// Turns the auto-imported holiday calendar on or off — see
-  /// [AppSettings.holidayCalendarEnabled]. [localeCode] is the app's
-  /// *current* display locale (the caller reads it from
-  /// `Localizations.localeOf(context)`; this controller has no widget-tree
-  /// access of its own), same "caller supplies what only the UI layer
-  /// knows" shape as `showTodoDetailSheet` taking a `BuildContext`. Turning
-  /// it on pulls the current feed in immediately rather than waiting for
-  /// the next foreground resume, same immediacy [setCalendarSubscribed]
-  /// already gives device-calendar subscriptions; turning it off removes
-  /// the mirrored rows right away so the setting and what's visible never
-  /// disagree.
-  Future<void> setHolidayCalendarEnabled(
-    bool enabled,
-    String localeCode,
-  ) async {
+  /// [AppSettings.holidayCalendarEnabled]. No locale/context needed any
+  /// more — [AppSettings.resolvedHolidayCountryCode] resolves "auto" on its
+  /// own via `dart:ui`, and a custom URL (if any) is just read off `state`.
+  /// Turning it on pulls the current feed in immediately rather than
+  /// waiting for the next foreground resume, same immediacy
+  /// [setCalendarSubscribed] already gives device-calendar subscriptions;
+  /// turning it off removes the mirrored rows right away so the setting and
+  /// what's visible never disagree. Throws [HolidayCalendarSyncException]
+  /// on a failed sync (turning it on) — the caller (the settings screen)
+  /// catches it and shows a snackbar; the setting itself is still flipped
+  /// on regardless (the toggle reflects intent, not whether the last fetch
+  /// happened to succeed — a transient failure gets picked up on the next
+  /// foreground resume same as any other best-effort sync).
+  Future<void> setHolidayCalendarEnabled(bool enabled) async {
     await _update(state.copyWith(holidayCalendarEnabled: enabled));
     final holidays = ref.read(holidayCalendarServiceProvider);
-    if (enabled) {
-      await holidays.sync(localeCode);
+    if (!enabled) {
+      final customUrl = state.customHolidayCalendarUrl;
+      if (customUrl != null) {
+        await holidays.unsubscribeCustom();
+      } else {
+        await holidays.unsubscribeCountry(state.resolvedHolidayCountryCode);
+      }
+      return;
+    }
+    final customUrl = state.customHolidayCalendarUrl;
+    if (customUrl != null) {
+      await holidays.syncCustomUrl(customUrl);
     } else {
-      await holidays.unsubscribe(localeCode);
+      await holidays.syncCountry(state.resolvedHolidayCountryCode);
+    }
+  }
+
+  /// Switches the active holiday source to [countryCode], dropping any
+  /// custom URL — or previously-selected different country — that was
+  /// active. Syncs *before* persisting the new choice — on failure (throws
+  /// [HolidayCalendarSyncException]) the setting stays pointed at whatever
+  /// was last actually working, rather than at a source that isn't
+  /// mirrored yet.
+  Future<void> setHolidayCountryCode(String countryCode) async {
+    final holidays = ref.read(holidayCalendarServiceProvider);
+    if (state.holidayCalendarEnabled) {
+      await holidays.syncCountry(countryCode);
+    }
+    final hadCustomUrl = state.customHolidayCalendarUrl != null;
+    // Each country has its own source id (unlike swapping one custom URL
+    // for another, which reuses the single 'holiday:custom' id and lets
+    // _syncFrom's own uid-diff clean up the old feed's rows automatically)
+    // — so switching country requires an explicit unsubscribe of whichever
+    // country was active before, or its rows just sit there forever
+    // alongside the new one.
+    final previousCountry = state.resolvedHolidayCountryCode;
+    await _update(
+      state.copyWith(
+        holidayCountryCode: countryCode,
+        clearCustomHolidayCalendarUrl: true,
+      ),
+    );
+    if (hadCustomUrl) {
+      await holidays.unsubscribeCustom();
+    } else if (previousCountry != countryCode) {
+      await holidays.unsubscribeCountry(previousCountry);
+    }
+  }
+
+  /// Switches the active holiday source to the custom feed at [url],
+  /// dropping whatever country source was active. Same sync-before-persist
+  /// ordering as [setHolidayCountryCode], for the same reason.
+  Future<void> setCustomHolidayCalendarUrl(String url) async {
+    final holidays = ref.read(holidayCalendarServiceProvider);
+    if (state.holidayCalendarEnabled) {
+      await holidays.syncCustomUrl(url);
+    }
+    // Harmless (a no-op _unsubscribe) if a custom URL was already active
+    // and this was already unsubscribed the last time this ran — the
+    // country source id doesn't change just because it's currently
+    // inactive.
+    final previousCountry = state.resolvedHolidayCountryCode;
+    await _update(state.copyWith(customHolidayCalendarUrl: url));
+    await holidays.unsubscribeCountry(previousCountry);
+  }
+
+  /// Drops the custom URL and falls back to the last-selected (or auto)
+  /// country.
+  Future<void> clearCustomHolidayCalendarUrl() async {
+    final holidays = ref.read(holidayCalendarServiceProvider);
+    await holidays.unsubscribeCustom();
+    await _update(state.copyWith(clearCustomHolidayCalendarUrl: true));
+    if (state.holidayCalendarEnabled) {
+      await holidays.syncCountry(state.resolvedHolidayCountryCode);
     }
   }
 

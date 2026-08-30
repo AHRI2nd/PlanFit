@@ -12,6 +12,7 @@ import 'core/home_widget/home_widget_sync.dart';
 import 'core/notifications/notification_tap_target.dart';
 import 'core/onboarding_prefs.dart';
 import 'core/routing/app_router.dart';
+import 'core/sync_prefs.dart';
 import 'design/theme/app_theme.dart';
 import 'features/schedule/application/schedule_providers.dart';
 import 'features/schedule/presentation/event_edit/event_editor_sheet.dart';
@@ -194,27 +195,32 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   Future<void> _runAutoBackup() =>
       ref.read(autoBackupServiceProvider).runIfDue();
 
-  /// Keeps the auto-imported holiday calendar current — see
-  /// `HolidayCalendarService`'s own doc for why this needs no user-provided
-  /// URL/calendar. No dedicated background job: piggybacks on the same
-  /// foreground-resume trigger every other best-effort sync task here
-  /// already uses, so subscribing simply means "the next resume (or this
-  /// one) picks it up" rather than needing its own scheduling. Off entirely
-  /// when the user has turned "공휴일 표시"/"Show holidays" off in Settings.
+  /// Keeps the chosen holiday calendar (a country, or a custom URL — see
+  /// `AppSettings.holidayCountryCode`/`customHolidayCalendarUrl`) current.
+  /// No dedicated background job: piggybacks on the same foreground-resume
+  /// trigger every other best-effort sync task here already uses, so
+  /// syncing simply means "the next resume (or this one) picks it up"
+  /// rather than needing its own scheduling. No BuildContext/Localizations
+  /// dependency any more — country resolution moved into
+  /// `AppSettings.resolvedHolidayCountryCode` (dart:ui-based), which is why
+  /// this no longer needs the root-Navigator-context workaround the rest of
+  /// this class's other handlers still do.
   Future<void> _syncHolidayCalendar() async {
-    if (!ref.read(settingsControllerProvider).holidayCalendarEnabled) return;
     try {
-      // The root Navigator's context, same as _handleNotificationTap below —
-      // this widget's own `context` sits above MaterialApp.router's own
-      // Localizations/Navigator, so Localizations.localeOf(context) throws
-      // "does not include a Localizations ancestor" every single time from
-      // here, silently swallowed by this method's own catch below (this was
-      // in fact happening on every launch/resume until caught by manual
-      // testing — holiday sync was never actually running).
-      final navContext = appRouter.routerDelegate.navigatorKey.currentContext;
-      if (navContext == null || !navContext.mounted) return;
-      final localeCode = Localizations.localeOf(navContext).languageCode;
-      await ref.read(holidayCalendarServiceProvider).sync(localeCode);
+      final prefs = ref.read(sharedPreferencesProvider);
+      if (!(prefs.getBool(SyncPrefs.holidayLegacySourcesMigrated) ?? false)) {
+        await ref.read(holidayCalendarServiceProvider).migrateLegacySources();
+        await prefs.setBool(SyncPrefs.holidayLegacySourcesMigrated, true);
+      }
+      final settings = ref.read(settingsControllerProvider);
+      if (!settings.holidayCalendarEnabled) return;
+      final holidays = ref.read(holidayCalendarServiceProvider);
+      final customUrl = settings.customHolidayCalendarUrl;
+      if (customUrl != null) {
+        await holidays.syncCustomUrl(customUrl);
+      } else {
+        await holidays.syncCountry(settings.resolvedHolidayCountryCode);
+      }
     } catch (_) {
       // Best-effort, same as the rest of foreground-resume sync.
     }

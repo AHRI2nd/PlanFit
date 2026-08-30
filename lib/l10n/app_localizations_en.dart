@@ -299,7 +299,67 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsHolidayCalendarDesc =>
-      'Automatically loads a trusted holiday calendar';
+      'Automatically loads a holiday calendar for your chosen country';
+
+  @override
+  String settingsHolidaySourceCurrent(String source) {
+    return 'Current: $source';
+  }
+
+  @override
+  String get settingsHolidaySourceCustomLabel => 'Custom calendar';
+
+  @override
+  String get holidayCountryKR => 'South Korea';
+
+  @override
+  String get holidayCountryUS => 'United States';
+
+  @override
+  String get holidayCountryJP => 'Japan';
+
+  @override
+  String get holidayCountryGB => 'United Kingdom';
+
+  @override
+  String get holidayCountryDE => 'Germany';
+
+  @override
+  String get holidayCountryFR => 'France';
+
+  @override
+  String get holidayCountryCA => 'Canada';
+
+  @override
+  String get holidayCountryAU => 'Australia';
+
+  @override
+  String get holidayCalendarSourceTitle => 'Choose holiday calendar';
+
+  @override
+  String get holidayCalendarSourceSectionCountries => 'Choose a country';
+
+  @override
+  String get holidayCalendarSourceCustomEntry => 'Add from a URL';
+
+  @override
+  String get holidayCalendarSourceCustomDialogTitle => 'Enter calendar URL';
+
+  @override
+  String get holidayCalendarSourceCustomDialogHint =>
+      'https://example.com/calendar.ics';
+
+  @override
+  String get holidayCalendarSourceCustomInvalidUrl =>
+      'Enter a valid http/https link';
+
+  @override
+  String get holidayCalendarSourceSyncFailed =>
+      'Couldn\'t load that calendar — check the link';
+
+  @override
+  String get holidayCalendarSourceSyncFailedGeneric =>
+      'Couldn\'t load the holiday calendar';
 
   @override
   String get calendarImportTitle => 'Import or subscribe';

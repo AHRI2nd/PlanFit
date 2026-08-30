@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart'
     show openAppSettings;
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/calendar_sync/holiday_calendar_service.dart';
 import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/share_origin.dart';
@@ -103,6 +104,17 @@ class SettingsScreen extends ConsumerWidget {
         }
       }
       await controller.setNotificationSound(value);
+    }
+
+    Future<void> toggleHolidayCalendar(bool value) async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await controller.setHolidayCalendarEnabled(value);
+      } on HolidayCalendarSyncException {
+        messenger.showAutoDismissSnackBar(
+          SnackBar(content: Text(l10n.holidayCalendarSourceSyncFailedGeneric)),
+        );
+      }
     }
 
     Future<void> exportBackup() async {
@@ -301,17 +313,19 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => context.go('/settings/calendar-import'),
                 ),
                 const _RowDivider(),
-                // No URL/calendar picker here on purpose — see
-                // HolidayCalendarService's own doc for why this is a fixed,
-                // trusted source rather than something the user configures.
                 _SwitchRow(
                   title: l10n.settingsHolidayCalendar,
                   subtitle: l10n.settingsHolidayCalendarDesc,
                   value: settings.holidayCalendarEnabled,
-                  onChanged: (enabled) => controller.setHolidayCalendarEnabled(
-                    enabled,
-                    Localizations.localeOf(context).languageCode,
-                  ),
+                  onChanged: toggleHolidayCalendar,
+                ),
+                const _RowDivider(),
+                _HolidayCalendarSourceRow(
+                  enabled: settings.holidayCalendarEnabled,
+                  settings: settings,
+                  l10n: l10n,
+                  onTap: () =>
+                      context.go('/settings/holiday-calendar-source'),
                 ),
               ],
             ),
@@ -920,6 +934,92 @@ class _CalendarTargetRow extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: palette.inkFaint,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: palette.inkFaint),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Display name for a [HolidayCalendarService.holidayCountryCalendarIds]
+/// key — one l10n key per curated country, so a country picked from the new
+/// picker screen (`holiday_calendar_source_screen.dart`) shows a localized
+/// name here rather than a bare ISO code. Falls back to the code itself for
+/// anything not in the curated list (shouldn't happen via the picker, but a
+/// stale persisted code from a since-removed country shouldn't crash this
+/// row).
+String holidayCountryDisplayName(AppL10n l10n, String countryCode) {
+  return switch (countryCode) {
+    'KR' => l10n.holidayCountryKR,
+    'US' => l10n.holidayCountryUS,
+    'JP' => l10n.holidayCountryJP,
+    'GB' => l10n.holidayCountryGB,
+    'DE' => l10n.holidayCountryDE,
+    'FR' => l10n.holidayCountryFR,
+    'CA' => l10n.holidayCountryCA,
+    'AU' => l10n.holidayCountryAU,
+    _ => countryCode,
+  };
+}
+
+/// Shows which holiday calendar is actually active (a country's name, or a
+/// custom URL's host) and links to the picker screen — the whole point of
+/// this row existing is the transparency `_SwitchRow` alone never gave:
+/// "믿을 수 있는 공휴일 캘린더" never said *which* one. Mirrors
+/// [_CalendarTargetRow]'s exact shape (dimmed + untappable while [enabled]
+/// is false).
+class _HolidayCalendarSourceRow extends StatelessWidget {
+  const _HolidayCalendarSourceRow({
+    required this.enabled,
+    required this.settings,
+    required this.l10n,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final AppSettings settings;
+  final AppL10n l10n;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final customUrl = settings.customHolidayCalendarUrl;
+    final sourceLabel = customUrl != null
+        ? (Uri.tryParse(customUrl)?.host.isNotEmpty ?? false
+              ? Uri.parse(customUrl).host
+              : l10n.settingsHolidaySourceCustomLabel)
+        : holidayCountryDisplayName(l10n, settings.resolvedHolidayCountryCode);
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.holidayCalendarSourceTitle,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.settingsHolidaySourceCurrent(sourceLabel),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: palette.inkFaint,
                       ),

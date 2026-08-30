@@ -290,7 +290,65 @@ class AppL10nKo extends AppL10n {
   String get settingsHolidayCalendar => '공휴일 표시';
 
   @override
-  String get settingsHolidayCalendarDesc => '믿을 수 있는 공휴일 캘린더를 자동으로 불러와요';
+  String get settingsHolidayCalendarDesc => '국가별 공휴일 캘린더를 자동으로 불러와요';
+
+  @override
+  String settingsHolidaySourceCurrent(String source) {
+    return '현재: $source';
+  }
+
+  @override
+  String get settingsHolidaySourceCustomLabel => '사용자 지정 캘린더';
+
+  @override
+  String get holidayCountryKR => '대한민국';
+
+  @override
+  String get holidayCountryUS => '미국';
+
+  @override
+  String get holidayCountryJP => '일본';
+
+  @override
+  String get holidayCountryGB => '영국';
+
+  @override
+  String get holidayCountryDE => '독일';
+
+  @override
+  String get holidayCountryFR => '프랑스';
+
+  @override
+  String get holidayCountryCA => '캐나다';
+
+  @override
+  String get holidayCountryAU => '호주';
+
+  @override
+  String get holidayCalendarSourceTitle => '공휴일 캘린더 선택';
+
+  @override
+  String get holidayCalendarSourceSectionCountries => '국가 선택';
+
+  @override
+  String get holidayCalendarSourceCustomEntry => 'URL로 직접 추가';
+
+  @override
+  String get holidayCalendarSourceCustomDialogTitle => '캘린더 URL 입력';
+
+  @override
+  String get holidayCalendarSourceCustomDialogHint =>
+      'https://example.com/calendar.ics';
+
+  @override
+  String get holidayCalendarSourceCustomInvalidUrl =>
+      '올바른 http/https 링크를 입력해주세요';
+
+  @override
+  String get holidayCalendarSourceSyncFailed => '캘린더를 불러오지 못했어요. 링크를 확인해주세요';
+
+  @override
+  String get holidayCalendarSourceSyncFailedGeneric => '공휴일 캘린더를 불러오지 못했어요';
 
   @override
   String get calendarImportTitle => '가져오기 · 구독할 캘린더';
