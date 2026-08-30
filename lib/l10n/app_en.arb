@@ -57,6 +57,8 @@
   "viewMonth": "Month",
   "viewYear": "Year",
   "viewAgenda": "Agenda",
+  "dayLayoutSwitchToClock": "Clock view",
+  "dayLayoutSwitchToTimeline": "Timeline view",
   "monthSplitHandleLabel": "Adjust calendar size",
   "dayEmpty": "This day is still empty",
   "dayAddHint": "Tap + to add something",

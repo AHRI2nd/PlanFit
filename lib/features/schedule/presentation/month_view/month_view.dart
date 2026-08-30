@@ -303,8 +303,10 @@ class MonthView extends ConsumerWidget {
               ),
             ),
             _MonthSplitHandle(rowCount: rowCount, maxRowHeight: maxRowHeight),
-            // Selected day's timeline flows directly below the month grid.
-            Expanded(child: DayView(day: selected)),
+            // Selected day's timeline flows directly below the month grid —
+            // always the timeline layout regardless of the layout-mode
+            // preference, per DayView's own doc on `compact`.
+            Expanded(child: DayView(day: selected, compact: true)),
           ],
         );
       },

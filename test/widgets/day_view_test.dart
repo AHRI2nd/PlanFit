@@ -10,6 +10,7 @@ import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
+import 'package:planfit/features/schedule/presentation/day_view/day_clock_view.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,7 +62,11 @@ void main() {
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
   });
 
-  Future<void> pumpDay(WidgetTester tester, DateTime day) async {
+  Future<void> pumpDay(
+    WidgetTester tester,
+    DateTime day, {
+    bool compact = false,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
@@ -80,7 +85,9 @@ void main() {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppL10n.supportedLocales,
-          home: Scaffold(body: DayView(day: day)),
+          home: Scaffold(
+            body: DayView(day: day, compact: compact),
+          ),
         ),
       ),
     );
@@ -213,6 +220,56 @@ void main() {
 
       final refocused = tester.widget<TextField>(find.byType(TextField));
       expect(refocused.focusNode!.hasFocus, isTrue);
+    },
+  );
+
+  testWidgets(
+    'the clock layout preference switches a full DayView to DayClockView',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'e',
+            title: 'Lunch',
+            startAt: DateTime(2026, 3, 10, 12),
+            endAt: DateTime(2026, 3, 10, 13),
+          ),
+        ]),
+      );
+      SharedPreferences.setMockInitialValues({
+        'schedule.dayViewLayoutMode': 'clock',
+      });
+
+      await pumpDay(tester, day);
+
+      expect(find.byType(DayClockView), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'compact:true keeps the timeline even when the clock layout is the '
+    'saved preference — the embedded month-view instance never shows the '
+    'dial',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'e',
+            title: 'Lunch',
+            startAt: DateTime(2026, 3, 10, 12),
+            endAt: DateTime(2026, 3, 10, 13),
+          ),
+        ]),
+      );
+      SharedPreferences.setMockInitialValues({
+        'schedule.dayViewLayoutMode': 'clock',
+      });
+
+      await pumpDay(tester, day, compact: true);
+
+      expect(find.byType(DayClockView), findsNothing);
     },
   );
 }

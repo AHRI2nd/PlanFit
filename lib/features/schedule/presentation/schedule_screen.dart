@@ -76,6 +76,7 @@ class ScheduleScreen extends ConsumerWidget {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                     ),
+                    if (view == ScheduleView.day) const _DayLayoutToggle(),
                     IconButton(
                       tooltip: l10n.quickAddEventTitle,
                       icon: const Icon(Icons.bolt_outlined),
@@ -132,6 +133,36 @@ class ScheduleScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Switches [DayView] between its timeline and 24-hour clock layouts — only
+/// shown while [ScheduleView.day] is active, since it's the only view either
+/// layout applies to. Shows the icon for the layout a tap would switch *to*
+/// (matching the icon convention play/pause buttons use), not the one
+/// currently showing.
+class _DayLayoutToggle extends ConsumerWidget {
+  const _DayLayoutToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppL10n.of(context);
+    final mode = ref.watch(dayViewLayoutModeProvider);
+    final targetMode = mode == DayViewLayoutMode.timeline
+        ? DayViewLayoutMode.clock
+        : DayViewLayoutMode.timeline;
+    return IconButton(
+      tooltip: targetMode == DayViewLayoutMode.clock
+          ? l10n.dayLayoutSwitchToClock
+          : l10n.dayLayoutSwitchToTimeline,
+      icon: Icon(
+        targetMode == DayViewLayoutMode.clock
+            ? Icons.donut_large_outlined
+            : Icons.view_timeline_outlined,
+      ),
+      onPressed: () =>
+          ref.read(dayViewLayoutModeProvider.notifier).set(targetMode),
     );
   }
 }

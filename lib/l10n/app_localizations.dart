@@ -325,6 +325,18 @@ abstract class AppL10n {
   /// **'목록'**
   String get viewAgenda;
 
+  /// No description provided for @dayLayoutSwitchToClock.
+  ///
+  /// In ko, this message translates to:
+  /// **'원형 시계 보기'**
+  String get dayLayoutSwitchToClock;
+
+  /// No description provided for @dayLayoutSwitchToTimeline.
+  ///
+  /// In ko, this message translates to:
+  /// **'타임라인 보기'**
+  String get dayLayoutSwitchToTimeline;
+
   /// No description provided for @monthSplitHandleLabel.
   ///
   /// In ko, this message translates to:

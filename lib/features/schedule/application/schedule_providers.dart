@@ -90,6 +90,39 @@ final monthCalendarRowHeightProvider =
       MonthCalendarRowHeight.new,
     );
 
+/// The day view's two layouts: the default vertical hour-by-hour
+/// [_Timeline] (`day_view.dart`), or the 24-hour circular [DayClockView]
+/// (`day_clock_view.dart`).
+enum DayViewLayoutMode { timeline, clock }
+
+/// Persisted like [MonthCalendarRowHeight] and the app's other display
+/// prefs — a full-screen `DayView` remembers the user's chosen layout
+/// across restarts, but `DayView(compact: true)` (the one embedded under
+/// `MonthView`'s calendar grid) always forces timeline regardless of this,
+/// since that cramped a space suits neither a legible dial nor its ring
+/// labels — see `DayView`'s own doc for that override.
+class DayViewLayoutModeNotifier extends Notifier<DayViewLayoutMode> {
+  static const _key = 'schedule.dayViewLayoutMode';
+
+  @override
+  DayViewLayoutMode build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    return prefs.getString(_key) == DayViewLayoutMode.clock.name
+        ? DayViewLayoutMode.clock
+        : DayViewLayoutMode.timeline;
+  }
+
+  Future<void> set(DayViewLayoutMode mode) async {
+    state = mode;
+    await ref.read(sharedPreferencesProvider).setString(_key, mode.name);
+  }
+}
+
+final dayViewLayoutModeProvider =
+    NotifierProvider<DayViewLayoutModeNotifier, DayViewLayoutMode>(
+      DayViewLayoutModeNotifier.new,
+    );
+
 /// Events overlapping the given day.
 final eventsForDayProvider = StreamProvider.family<List<EventRow>, DateTime>((
   ref,

@@ -21,13 +21,23 @@ import '../../domain/drag_create.dart';
 import '../../domain/event_input.dart';
 import '../../domain/event_overlap.dart';
 import '../event_edit/event_editor_sheet.dart';
+import 'day_clock_view.dart';
 
 /// The signature view: a day laid out as a vertical river of hours, with events
 /// as glass cards floating over the time-of-day gradient, plus the day's to-dos.
+///
+/// Has two layouts, switched by [dayViewLayoutModeProvider]: the timeline
+/// above, or [DayClockView]'s 24-hour dial. [compact] (set by `MonthView`'s
+/// embedded instance, under its calendar grid) forces the timeline
+/// regardless of that preference — a dial needs more room to stay legible
+/// than the space left under a month grid affords, and unlike the
+/// full-screen day view there's no layout-toggle control reachable from
+/// there anyway.
 class DayView extends ConsumerStatefulWidget {
-  const DayView({super.key, required this.day});
+  const DayView({super.key, required this.day, this.compact = false});
 
   final DateTime day;
+  final bool compact;
 
   static const double _hourHeight = 64;
   static const double _railInset = 62;
@@ -68,6 +78,9 @@ class _DayViewState extends ConsumerState<DayView> {
     final eventsAsync = ref.watch(eventsForDayProvider(widget.day));
     final now = DateTime.now();
     final isToday = dateOnly(now) == dateOnly(widget.day);
+    final layoutMode = widget.compact
+        ? DayViewLayoutMode.timeline
+        : ref.watch(dayViewLayoutModeProvider);
 
     return eventsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -94,6 +107,20 @@ class _DayViewState extends ConsumerState<DayView> {
             ],
             if (timed.isEmpty && allDay.isEmpty)
               _EmptyDay(l10n: l10n)
+            else if (layoutMode == DayViewLayoutMode.clock)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: DayClockView(
+                    day: widget.day,
+                    events: timed,
+                    isToday: isToday,
+                    now: now,
+                    locale: locale,
+                  ),
+                ),
+              )
             else
               SizedBox(
                 height: DayView._hourHeight * 24,

@@ -57,6 +57,8 @@
   "viewMonth": "월",
   "viewYear": "년",
   "viewAgenda": "목록",
+  "dayLayoutSwitchToClock": "원형 시계 보기",
+  "dayLayoutSwitchToTimeline": "타임라인 보기",
   "monthSplitHandleLabel": "달력 크기 조절",
   "dayEmpty": "이 날은 아직 비어 있어요",
   "dayAddHint": "오른쪽 아래 + 로 일정을 더해보세요",

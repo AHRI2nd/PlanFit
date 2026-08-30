@@ -132,6 +132,12 @@ class AppL10nEn extends AppL10n {
   String get viewAgenda => 'Agenda';
 
   @override
+  String get dayLayoutSwitchToClock => 'Clock view';
+
+  @override
+  String get dayLayoutSwitchToTimeline => 'Timeline view';
+
+  @override
   String get monthSplitHandleLabel => 'Adjust calendar size';
 
   @override

@@ -129,6 +129,12 @@ class AppL10nKo extends AppL10n {
   String get viewAgenda => '목록';
 
   @override
+  String get dayLayoutSwitchToClock => '원형 시계 보기';
+
+  @override
+  String get dayLayoutSwitchToTimeline => '타임라인 보기';
+
+  @override
   String get monthSplitHandleLabel => '달력 크기 조절';
 
   @override
