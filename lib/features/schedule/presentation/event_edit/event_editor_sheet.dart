@@ -1,10 +1,11 @@
-import 'dart:io' show File;
+import 'dart:io' show File, Platform;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/date_math.dart';
@@ -493,6 +494,40 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     }
   }
 
+  /// Launches the device's own maps app (or a browser fallback) with the
+  /// location text as a plain search query — deliberately not a full
+  /// Places/Maps SDK integration (no API key, no autocomplete, no
+  /// coordinates stored), just a shortcut from the free-text field to
+  /// wherever the OS already sends map searches. Apple Maps on iOS,
+  /// Google Maps' web search (opens the app if installed, the browser
+  /// otherwise) everywhere else — both are plain `https://` universal
+  /// links, so neither platform needs a `LSApplicationQueriesSchemes`/
+  /// `<queries>` manifest entry to launch them.
+  Future<void> _openInMaps() async {
+    final query = _location.text.trim();
+    if (query.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppL10n.of(context);
+    final uri = Platform.isIOS
+        ? Uri.https('maps.apple.com', '/', {'q': query})
+        : Uri.https('www.google.com', '/maps/search/', {
+            'api': '1',
+            'query': query,
+          });
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) throw Exception('launchUrl returned false');
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.eventOpenInMapsFailed)),
+      );
+    }
+  }
+
   Future<void> _openTemplates() async {
     await showAdaptiveBottomSheet<void>(
       context: context,
@@ -682,6 +717,16 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                 decoration: InputDecoration(
                   hintText: l10n.eventLocationHint,
                   prefixIcon: const Icon(Icons.place_outlined),
+                  suffixIcon: AnimatedBuilder(
+                    animation: _location,
+                    builder: (context, _) => IconButton(
+                      icon: const Icon(Icons.directions_outlined),
+                      tooltip: l10n.eventOpenInMaps,
+                      onPressed: _location.text.trim().isEmpty
+                          ? null
+                          : _openInMaps,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),

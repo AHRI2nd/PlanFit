@@ -333,6 +333,33 @@ void main() {
     expect(find.byType(DatePickerDialog), findsNothing);
     expect(find.byType(TimePickerDialog), findsOneWidget);
   });
+
+  testWidgets(
+    'the open-in-maps button is disabled until a location is entered',
+    (tester) async {
+      await pumpEditor(tester);
+
+      IconButton mapsButton() => tester.widget<IconButton>(
+        find.ancestor(
+          of: find.byIcon(Icons.directions_outlined),
+          matching: find.byType(IconButton),
+        ),
+      );
+
+      expect(mapsButton().onPressed, isNull);
+
+      await tester.enterText(
+        find.ancestor(
+          of: find.byIcon(Icons.place_outlined),
+          matching: find.byType(TextField),
+        ),
+        'Some address',
+      );
+      await tester.pump();
+
+      expect(mapsButton().onPressed, isNotNull);
+    },
+  );
 }
 
 EventRow row({

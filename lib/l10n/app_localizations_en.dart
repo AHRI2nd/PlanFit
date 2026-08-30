@@ -530,6 +530,12 @@ class AppL10nEn extends AppL10n {
   String get eventLocationHint => 'Add a location';
 
   @override
+  String get eventOpenInMaps => 'Open in Maps';
+
+  @override
+  String get eventOpenInMapsFailed => 'Couldn\'t open Maps';
+
+  @override
   String get eventAllDay => 'All-day';
 
   @override

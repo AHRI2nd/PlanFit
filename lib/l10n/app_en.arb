@@ -211,6 +211,8 @@
   "eventMemoHint": "Add a note",
   "eventLocation": "Location",
   "eventLocationHint": "Add a location",
+  "eventOpenInMaps": "Open in Maps",
+  "eventOpenInMapsFailed": "Couldn't open Maps",
   "eventAllDay": "All-day",
   "eventStart": "Starts",
   "eventEnd": "Ends",

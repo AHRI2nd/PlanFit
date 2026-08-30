@@ -211,6 +211,8 @@
   "eventMemoHint": "메모를 남겨보세요",
   "eventLocation": "장소",
   "eventLocationHint": "장소를 입력해보세요",
+  "eventOpenInMaps": "지도에서 열기",
+  "eventOpenInMapsFailed": "지도를 열지 못했어요",
   "eventAllDay": "종일",
   "eventStart": "시작",
   "eventEnd": "종료",

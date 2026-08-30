@@ -503,6 +503,12 @@ class AppL10nKo extends AppL10n {
   String get eventLocationHint => '장소를 입력해보세요';
 
   @override
+  String get eventOpenInMaps => '지도에서 열기';
+
+  @override
+  String get eventOpenInMapsFailed => '지도를 열지 못했어요';
+
+  @override
   String get eventAllDay => '종일';
 
   @override

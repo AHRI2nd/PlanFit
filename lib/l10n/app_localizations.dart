@@ -1033,6 +1033,18 @@ abstract class AppL10n {
   /// **'장소를 입력해보세요'**
   String get eventLocationHint;
 
+  /// No description provided for @eventOpenInMaps.
+  ///
+  /// In ko, this message translates to:
+  /// **'지도에서 열기'**
+  String get eventOpenInMaps;
+
+  /// No description provided for @eventOpenInMapsFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'지도를 열지 못했어요'**
+  String get eventOpenInMapsFailed;
+
   /// No description provided for @eventAllDay.
   ///
   /// In ko, this message translates to:
