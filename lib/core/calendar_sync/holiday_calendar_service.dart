@@ -56,9 +56,15 @@ class HolidayCalendarService {
 
   Uri _feedUrl(String localeCode) {
     final calendarId = _calendarIds[localeCode] ?? _calendarIds['en']!;
+    // Uri.https's own `unencodedPath` already percent-encodes each path
+    // segment it's given — wrapping calendarId in Uri.encodeComponent
+    // first double-encodes it (`#` becomes `%23`, then `%` in that becomes
+    // `%25`, landing the server a literal `%2523` it can't resolve to any
+    // real calendar, which is why this 500'd on every real request instead
+    // of ever actually fetching a feed).
     return Uri.https(
       'calendar.google.com',
-      '/calendar/ical/${Uri.encodeComponent(calendarId)}/public/basic.ics',
+      '/calendar/ical/$calendarId/public/basic.ics',
     );
   }
 

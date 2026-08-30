@@ -112,4 +112,28 @@ void main() {
     expect(koUrl.toString(), contains('south_korea'));
     expect(enUrl.toString(), contains('usa'));
   });
+
+  test(
+    'the feed URL percent-encodes the calendar id exactly once, not twice',
+    () async {
+      // Regression test: the calendar id contains `#` and `@`, which Uri.https
+      // already percent-encodes for its `unencodedPath` argument — wrapping
+      // the id in Uri.encodeComponent first (as an earlier version of this
+      // service did) double-encodes it into `%2523`/`%2540`, a URL Google's
+      // server 500s on, which a mocked http.Client can't catch since it
+      // never actually resolves the request the way a real server would.
+      when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
+
+      await service.sync('ko');
+      final url = verify(client.get(captureAny)).captured.single as Uri;
+
+      // `#` is the one character in the calendar id that actually needs
+      // escaping in a URL path segment; `@` doesn't and Uri.https leaves it
+      // as-is, matching what a real server (verified via a direct curl of
+      // this exact feed) accepts.
+      expect(url.toString(), contains('official%23holiday@group'));
+      expect(url.toString(), isNot(contains('%2523')));
+      expect(url.toString(), isNot(contains('%2540')));
+    },
+  );
 }

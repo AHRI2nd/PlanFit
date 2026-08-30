@@ -204,7 +204,16 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   Future<void> _syncHolidayCalendar() async {
     if (!ref.read(settingsControllerProvider).holidayCalendarEnabled) return;
     try {
-      final localeCode = Localizations.localeOf(context).languageCode;
+      // The root Navigator's context, same as _handleNotificationTap below —
+      // this widget's own `context` sits above MaterialApp.router's own
+      // Localizations/Navigator, so Localizations.localeOf(context) throws
+      // "does not include a Localizations ancestor" every single time from
+      // here, silently swallowed by this method's own catch below (this was
+      // in fact happening on every launch/resume until caught by manual
+      // testing — holiday sync was never actually running).
+      final navContext = appRouter.routerDelegate.navigatorKey.currentContext;
+      if (navContext == null || !navContext.mounted) return;
+      final localeCode = Localizations.localeOf(navContext).languageCode;
       await ref.read(holidayCalendarServiceProvider).sync(localeCode);
     } catch (_) {
       // Best-effort, same as the rest of foreground-resume sync.
