@@ -58,6 +58,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       _runAutoBackup();
       _refillTodoNotifications();
       _pruneCompletedTodos();
+      _syncHolidayCalendar();
     });
     // Warm-app taps (the widget clicked while PlanFit is already running or
     // backgrounded) arrive on this stream instead of a fresh cold start.
@@ -86,6 +87,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       _runAutoBackup();
       _refillTodoNotifications();
       _pruneCompletedTodos();
+      _syncHolidayCalendar();
     }
   }
 
@@ -191,6 +193,23 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   /// tasks above).
   Future<void> _runAutoBackup() =>
       ref.read(autoBackupServiceProvider).runIfDue();
+
+  /// Keeps the auto-imported holiday calendar current — see
+  /// `HolidayCalendarService`'s own doc for why this needs no user-provided
+  /// URL/calendar. No dedicated background job: piggybacks on the same
+  /// foreground-resume trigger every other best-effort sync task here
+  /// already uses, so subscribing simply means "the next resume (or this
+  /// one) picks it up" rather than needing its own scheduling. Off entirely
+  /// when the user has turned "공휴일 표시"/"Show holidays" off in Settings.
+  Future<void> _syncHolidayCalendar() async {
+    if (!ref.read(settingsControllerProvider).holidayCalendarEnabled) return;
+    try {
+      final localeCode = Localizations.localeOf(context).languageCode;
+      await ref.read(holidayCalendarServiceProvider).sync(localeCode);
+    } catch (_) {
+      // Best-effort, same as the rest of foreground-resume sync.
+    }
+  }
 
   /// The app was launched fresh by tapping a HomeScreen widget section —
   /// distinct from [_widgetClickSub], which only fires for a tap while the

@@ -10,6 +10,7 @@ import 'backup/ics_export_service.dart';
 import 'calendar_sync/calendar_import_service.dart';
 import 'calendar_sync/calendar_reconciler.dart';
 import 'calendar_sync/calendar_service.dart';
+import 'calendar_sync/holiday_calendar_service.dart';
 import 'db/app_database.dart';
 import 'db/daos/event_dao.dart';
 import 'db/daos/event_template_dao.dart';
@@ -126,6 +127,10 @@ final calendarImportServiceProvider = Provider<CalendarImportService>((ref) {
     calendarService: ref.watch(calendarServiceProvider),
     eventDao: ref.watch(eventDaoProvider),
   );
+});
+
+final holidayCalendarServiceProvider = Provider<HolidayCalendarService>((ref) {
+  return HolidayCalendarService(eventDao: ref.watch(eventDaoProvider));
 });
 
 /// When [CalendarReconciler] last completed a successful device-calendar

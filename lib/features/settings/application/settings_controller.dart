@@ -21,6 +21,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kTodoRetention = 'settings.completedTodoRetentionDays';
   static const _kDialTimeFormat = 'settings.dialTimeFormatPreference';
   static const _kDisplayTimeFormat = 'settings.displayTimeFormatPreference';
+  static const _kHolidayCalendar = 'settings.holidayCalendarEnabled';
 
   static TimeFormatPreference _readTimeFormat(
     SharedPreferences prefs,
@@ -64,6 +65,7 @@ class SettingsController extends Notifier<AppSettings> {
       completedTodoRetentionDays: prefs.getInt(_kTodoRetention),
       dialTimeFormatPreference: _readTimeFormat(prefs, _kDialTimeFormat),
       displayTimeFormatPreference: _readTimeFormat(prefs, _kDisplayTimeFormat),
+      holidayCalendarEnabled: prefs.getBool(_kHolidayCalendar) ?? true,
     );
     _apply(settings);
     return settings;
@@ -117,6 +119,7 @@ class SettingsController extends Notifier<AppSettings> {
       _kDisplayTimeFormat,
       s.displayTimeFormatPreference.index,
     );
+    await prefs.setBool(_kHolidayCalendar, s.holidayCalendarEnabled);
   }
 
   Future<void> _update(AppSettings next) async {
@@ -164,6 +167,30 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setDisplayTimeFormatPreference(
     TimeFormatPreference preference,
   ) => _update(state.copyWith(displayTimeFormatPreference: preference));
+
+  /// Turns the auto-imported holiday calendar on or off — see
+  /// [AppSettings.holidayCalendarEnabled]. [localeCode] is the app's
+  /// *current* display locale (the caller reads it from
+  /// `Localizations.localeOf(context)`; this controller has no widget-tree
+  /// access of its own), same "caller supplies what only the UI layer
+  /// knows" shape as `showTodoDetailSheet` taking a `BuildContext`. Turning
+  /// it on pulls the current feed in immediately rather than waiting for
+  /// the next foreground resume, same immediacy [setCalendarSubscribed]
+  /// already gives device-calendar subscriptions; turning it off removes
+  /// the mirrored rows right away so the setting and what's visible never
+  /// disagree.
+  Future<void> setHolidayCalendarEnabled(
+    bool enabled,
+    String localeCode,
+  ) async {
+    await _update(state.copyWith(holidayCalendarEnabled: enabled));
+    final holidays = ref.read(holidayCalendarServiceProvider);
+    if (enabled) {
+      await holidays.sync(localeCode);
+    } else {
+      await holidays.unsubscribe(localeCode);
+    }
+  }
 
   /// `null` turns the sweep off entirely — see
   /// `AppSettings.completedTodoRetentionDays`.

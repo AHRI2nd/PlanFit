@@ -19,6 +19,15 @@ class AppColors {
   static const Color dustyRose = Color(0xFFE597B0);
   static const Color sageGreen = Color(0xFF7FA88F);
 
+  /// Fixed color for auto-imported holiday events (see
+  /// `HolidayCalendarService`) — stored as a `#RRGGBB` `colorTag` (via
+  /// `EventColorTag.toHex`) rather than added to the [EventColorTag] enum
+  /// itself, since a holiday's color is never something the user picks;
+  /// it's applied programmatically so a holiday reads as visually distinct
+  /// from any user-chosen preset across every view that colors events by
+  /// `colorTag`.
+  static const Color holidayRed = Color(0xFFC0392B);
+
   // --- Ink (dark surfaces / light text) ---
   static const Color deepInk = Color(0xFF0E1116);
   static const Color ink800 = Color(0xFF161A22);

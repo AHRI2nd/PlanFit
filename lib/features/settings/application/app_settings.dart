@@ -20,6 +20,7 @@ class AppSettings {
     this.completedTodoRetentionDays,
     this.dialTimeFormatPreference = TimeFormatPreference.system,
     this.displayTimeFormatPreference = TimeFormatPreference.system,
+    this.holidayCalendarEnabled = true,
   });
 
   final ThemeMode themeMode;
@@ -71,6 +72,13 @@ class AppSettings {
   /// or vice versa.
   final TimeFormatPreference displayTimeFormatPreference;
 
+  /// Whether the app auto-imports a locale-appropriate national holiday
+  /// calendar as a read-only mirror — on by default (see
+  /// `HolidayCalendarService`'s own doc for why this needs no URL/calendar
+  /// picker, unlike [subscribedCalendarIds]: the source is fixed, not
+  /// user-chosen).
+  final bool holidayCalendarEnabled;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     bool? notificationSound,
@@ -85,6 +93,7 @@ class AppSettings {
     bool clearCompletedTodoRetentionDays = false,
     TimeFormatPreference? dialTimeFormatPreference,
     TimeFormatPreference? displayTimeFormatPreference,
+    bool? holidayCalendarEnabled,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -106,6 +115,8 @@ class AppSettings {
           dialTimeFormatPreference ?? this.dialTimeFormatPreference,
       displayTimeFormatPreference:
           displayTimeFormatPreference ?? this.displayTimeFormatPreference,
+      holidayCalendarEnabled:
+          holidayCalendarEnabled ?? this.holidayCalendarEnabled,
     );
   }
 }
