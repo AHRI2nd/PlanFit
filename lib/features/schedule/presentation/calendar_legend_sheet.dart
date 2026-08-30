@@ -27,7 +27,12 @@ class _CalendarLegendSheet extends StatelessWidget {
     final palette = context.palette;
     final theme = Theme.of(context);
 
-    return Padding(
+    return SingleChildScrollView(
+      // Matches todo_detail_sheet.dart's own sheet-content pattern — a
+      // bare mainAxisSize.min Column was silently clipping the trailing
+      // info box off the bottom of the sheet on a real device (caught in
+      // live verification; flutter_test's default 800x600 surface never
+      // exercised the real device's sheet-height math and let it pass).
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.gutter,
         AppSpacing.sm,
