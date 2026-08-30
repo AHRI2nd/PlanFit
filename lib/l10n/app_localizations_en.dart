@@ -138,6 +138,25 @@ class AppL10nEn extends AppL10n {
   String get dayLayoutSwitchToTimeline => 'Timeline view';
 
   @override
+  String get calendarLegendTooltip => 'What the calendar dots mean';
+
+  @override
+  String get calendarLegendTitle => 'What do the dot colors mean?';
+
+  @override
+  String get calendarLegendOverdueTodo => 'There\'s an overdue to-do';
+
+  @override
+  String get calendarLegendTodo => 'There\'s an unfinished to-do';
+
+  @override
+  String get calendarLegendEvent => 'There\'s an event';
+
+  @override
+  String get calendarLegendMultiDayBarNote =>
+      'A multi-day event\'s color bar is different — it\'s just the color you picked for that event.';
+
+  @override
   String get monthSplitHandleLabel => 'Adjust calendar size';
 
   @override

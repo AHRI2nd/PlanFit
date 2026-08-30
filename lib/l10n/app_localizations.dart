@@ -337,6 +337,42 @@ abstract class AppL10n {
   /// **'타임라인 보기'**
   String get dayLayoutSwitchToTimeline;
 
+  /// No description provided for @calendarLegendTooltip.
+  ///
+  /// In ko, this message translates to:
+  /// **'캘린더 점 색상 안내'**
+  String get calendarLegendTooltip;
+
+  /// No description provided for @calendarLegendTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'점 색상이 뭘 뜻하나요?'**
+  String get calendarLegendTitle;
+
+  /// No description provided for @calendarLegendOverdueTodo.
+  ///
+  /// In ko, this message translates to:
+  /// **'기한이 지난 할 일이 있어요'**
+  String get calendarLegendOverdueTodo;
+
+  /// No description provided for @calendarLegendTodo.
+  ///
+  /// In ko, this message translates to:
+  /// **'끝내지 않은 할 일이 있어요'**
+  String get calendarLegendTodo;
+
+  /// No description provided for @calendarLegendEvent.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정이 있어요'**
+  String get calendarLegendEvent;
+
+  /// No description provided for @calendarLegendMultiDayBarNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'여러 날에 걸친 일정의 색 막대는 이 규칙과 달라요 — 직접 고른 일정 색이 그대로 표시돼요.'**
+  String get calendarLegendMultiDayBarNote;
+
   /// No description provided for @monthSplitHandleLabel.
   ///
   /// In ko, this message translates to:

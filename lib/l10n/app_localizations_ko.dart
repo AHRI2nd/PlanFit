@@ -135,6 +135,25 @@ class AppL10nKo extends AppL10n {
   String get dayLayoutSwitchToTimeline => '타임라인 보기';
 
   @override
+  String get calendarLegendTooltip => '캘린더 점 색상 안내';
+
+  @override
+  String get calendarLegendTitle => '점 색상이 뭘 뜻하나요?';
+
+  @override
+  String get calendarLegendOverdueTodo => '기한이 지난 할 일이 있어요';
+
+  @override
+  String get calendarLegendTodo => '끝내지 않은 할 일이 있어요';
+
+  @override
+  String get calendarLegendEvent => '일정이 있어요';
+
+  @override
+  String get calendarLegendMultiDayBarNote =>
+      '여러 날에 걸친 일정의 색 막대는 이 규칙과 달라요 — 직접 고른 일정 색이 그대로 표시돼요.';
+
+  @override
   String get monthSplitHandleLabel => '달력 크기 조절';
 
   @override

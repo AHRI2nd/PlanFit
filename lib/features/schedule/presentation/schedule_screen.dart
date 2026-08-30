@@ -10,6 +10,7 @@ import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/schedule_providers.dart';
 import 'agenda_view/agenda_view.dart';
+import 'calendar_legend_sheet.dart';
 import 'date_strip.dart';
 import 'day_view/day_view.dart';
 import 'event_edit/event_editor_sheet.dart';
@@ -123,10 +124,18 @@ class ScheduleScreen extends ConsumerWidget {
                     ),
                     // Lives here, not the title row above, so it only ever
                     // competes for space with the (already generously wide)
-                    // switcher pills instead of the date title — cramming it
-                    // into the title row alongside the other header icons
-                    // was what pushed a long Korean date string back into
-                    // wrapping onto two lines.
+                    // switcher pills instead of the date title — cramming a
+                    // day-layout toggle into the title row alongside the
+                    // other header icons was what pushed a long Korean date
+                    // string back into wrapping onto two lines, so the same
+                    // "add it to the switcher row instead" fix applies here
+                    // too rather than repeating that regression.
+                    const SizedBox(width: AppSpacing.xs),
+                    IconButton(
+                      tooltip: l10n.calendarLegendTooltip,
+                      icon: const Icon(Icons.info_outline),
+                      onPressed: () => showCalendarLegendSheet(context),
+                    ),
                     if (view == ScheduleView.day) ...[
                       const SizedBox(width: AppSpacing.xs),
                       const _DayLayoutToggle(),
