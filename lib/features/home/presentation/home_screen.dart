@@ -109,9 +109,13 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: AppSpacing.xxs),
           Text(
             Fmt.fullDate(now, locale),
+            // inkSoft, not inkFaint — this is real, useful information
+            // (today's actual date) right under the clock, not a tertiary
+            // annotation like _WeekDayBar's own "3/5" count below, which is
+            // what inkFaint is really meant for.
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: palette.inkFaint),
+            ).textTheme.bodyMedium?.copyWith(color: palette.inkSoft),
           ),
         ],
       ),
@@ -199,7 +203,12 @@ class _TodayFeed extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     l10n.homeTodosDone(done, todos.length),
-                    style: theme.textTheme.titleMedium,
+                    // titleLarge, not titleMedium — the row tiles below
+                    // (_UpcomingTile/_FeedTodoTile's own titles) already use
+                    // titleMedium, so this card's own heading needs to read
+                    // a size above them to actually look like a heading
+                    // instead of one more flat row.
+                    style: theme.textTheme.titleLarge,
                   ),
                 ),
                 IconButton(
@@ -460,7 +469,10 @@ class _WeeklyStats extends ConsumerWidget {
         children: [
           Text(
             l10n.homeWeekSummary(events.length, doneTotal, todos.length),
-            style: theme.textTheme.titleMedium,
+            // Same titleLarge bump as _TodayFeed's own card heading, for
+            // the same reason — it needs to outrank the day labels and
+            // done/total counts inside its own card, not match them.
+            style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
