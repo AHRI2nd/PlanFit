@@ -275,6 +275,59 @@ void main() {
       await pumpDay(tester, day);
 
       expect(find.byType(DayClockView), findsOneWidget);
+      // The dial itself carries no title text (see DayClockView's own
+      // doc) — DayClockLegend, rendered right below it, is where "Lunch"
+      // actually has to show up. The dial is a square sized off the test
+      // surface's own (much wider-than-a-phone) width, so the legend sits
+      // past the ListView's lazy-build cache until scrolled into view —
+      // exactly the same "tall square dial" reality a real phone has too,
+      // just more pronounced at the test surface's default size.
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pump();
+
+      expect(find.byType(DayClockLegend), findsOneWidget);
+      expect(find.text('Lunch'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping a title in the clock legend opens the same editor an arc tap '
+    'would',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      final lunch = row(
+        id: 'e1',
+        title: 'Lunch',
+        startAt: DateTime(2026, 3, 10, 12),
+        endAt: DateTime(2026, 3, 10, 13),
+      );
+      final dinner = row(
+        id: 'e2',
+        title: 'Dinner',
+        startAt: DateTime(2026, 3, 10, 19),
+        endAt: DateTime(2026, 3, 10, 20),
+      );
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([lunch, dinner]));
+      SharedPreferences.setMockInitialValues({
+        'schedule.dayViewLayoutMode': 'clock',
+      });
+
+      await pumpDay(tester, day);
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pump();
+
+      // Both titles show, sorted by start time.
+      expect(find.text('Lunch'), findsOneWidget);
+      expect(find.text('Dinner'), findsOneWidget);
+
+      await tester.tap(find.text('Dinner'));
+      await tester.pumpAndSettle();
+
+      // showEventEditor for an existing event opens its title pre-filled
+      // into the editor's own text field.
+      expect(find.widgetWithText(TextField, 'Dinner'), findsOneWidget);
     },
   );
 

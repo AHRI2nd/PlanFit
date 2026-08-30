@@ -7,6 +7,7 @@ import '../../../../core/db/app_database.dart';
 import '../../../../core/format.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
+import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../domain/day_clock_geometry.dart';
@@ -23,6 +24,13 @@ import '../event_edit/event_editor_sheet.dart';
 /// unmodified and maps its column/columnCount onto concentric ring bands
 /// instead of side-by-side pixel columns — no new overlap logic here, per
 /// this feature's own plan.
+///
+/// Deliberately carries no title text on the dial itself — curved or
+/// rotated labels are exactly the kind of thing that reads fine against one
+/// platform's font metrics and clips or overlaps against the other's (see
+/// the RenderFlex-overflow history the linear timeline's own event cards
+/// already have). [DayClockLegend], a plain upright list, is where a title
+/// actually gets read; `DayView` renders it directly below this widget.
 class DayClockView extends ConsumerWidget {
   const DayClockView({
     super.key,
@@ -265,5 +273,95 @@ class _ClockPainter extends CustomPainter {
         oldDelegate.now != now ||
         oldDelegate.use24 != use24 ||
         oldDelegate.palette != palette;
+  }
+}
+
+/// A plain, upright, always-legible list of every timed event on
+/// [DayClockView]'s dial — see that class's own doc for why the arcs
+/// themselves carry no title text at all. Sorted by start time; tapping a
+/// row opens the same [showEventEditor] an arc tap does.
+class DayClockLegend extends ConsumerWidget {
+  const DayClockLegend({super.key, required this.events, required this.locale});
+
+  /// Timed (non-all-day) events only — same scope as [DayClockView.events].
+  final List<EventRow> events;
+  final String locale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
+    final sorted = [...events]..sort((a, b) => a.startAt.compareTo(b.startAt));
+
+    return Column(
+      children: [
+        for (final e in sorted)
+          _LegendRow(event: e, locale: locale, use24: use24),
+      ],
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.event,
+    required this.locale,
+    required this.use24,
+  });
+
+  final EventRow event;
+  final String locale;
+  final bool use24;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final accent = EventColorTag.resolve(event.colorTag, event.startAt);
+
+    return InkWell(
+      borderRadius: AppRadius.cardMd,
+      onTap: () => showEventEditor(context, existing: event),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xs,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            SizedBox(
+              width: 88,
+              child: Text(
+                '${Fmt.time(event.startAt, locale, use24Hour: use24)} – '
+                '${Fmt.time(event.endAt, locale, use24Hour: use24)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: palette.inkSoft,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                event.title.isEmpty ? '—' : event.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

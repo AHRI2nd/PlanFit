@@ -107,7 +107,7 @@ class _DayViewState extends ConsumerState<DayView> {
             ],
             if (timed.isEmpty && allDay.isEmpty)
               _EmptyDay(l10n: l10n)
-            else if (layoutMode == DayViewLayoutMode.clock)
+            else if (layoutMode == DayViewLayoutMode.clock) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 child: AspectRatio(
@@ -120,8 +120,13 @@ class _DayViewState extends ConsumerState<DayView> {
                     locale: locale,
                   ),
                 ),
-              )
-            else
+              ),
+              // The dial itself carries no title text — see DayClockView's
+              // own doc — so this plain list is where a title actually
+              // gets read.
+              if (timed.isNotEmpty)
+                DayClockLegend(events: timed, locale: locale),
+            ] else
               SizedBox(
                 height: DayView._hourHeight * 24,
                 child: _Timeline(
