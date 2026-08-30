@@ -10,6 +10,7 @@ import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/schedule_providers.dart';
 import 'agenda_view/agenda_view.dart';
+import 'date_strip.dart';
 import 'day_view/day_view.dart';
 import 'event_edit/event_editor_sheet.dart';
 import 'event_edit/quick_add_sheet.dart';
@@ -98,6 +99,7 @@ class ScheduleScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const DateStrip(),
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.gutter,
