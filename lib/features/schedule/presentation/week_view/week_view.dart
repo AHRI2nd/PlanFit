@@ -10,7 +10,9 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../settings/application/settings_controller.dart';
+import '../../../todo/application/todo_providers.dart';
 import '../../application/schedule_providers.dart';
+import '../../domain/calendar_dot.dart';
 import '../../domain/drag_create.dart';
 import '../../domain/event_overlap.dart';
 import '../../domain/event_span.dart';
@@ -39,8 +41,21 @@ class WeekView extends ConsumerWidget {
     final weekEnd = addCalendarDays(weekStart, 7);
     final days = [for (var i = 0; i < 7; i++) addCalendarDays(weekStart, i)];
     final eventsAsync = ref.watch(eventsForWeekProvider(anchor));
+    final weekTodos =
+        ref.watch(todosForWeekProvider(anchor)).asData?.value ??
+        const <TodoRow>[];
+    final overdueTodos =
+        ref.watch(overdueTodosProvider).asData?.value ?? const <TodoRow>[];
     final now = DateTime.now();
     final today = dateOnly(now);
+    // Per calendar_dot.dart's shared rule — scoped to just this week's 7
+    // days, unlike overdueTodosProvider itself (app-wide, unscoped).
+    final overdueDays = {for (final t in overdueTodos) dateOnly(t.slotStart)}
+      ..retainWhere(days.contains);
+    final todoDays = {
+      for (final t in weekTodos)
+        if (!t.isDone) dateOnly(t.slotStart),
+    }..removeAll(overdueDays);
     final use24 = resolveUse24Hour(
       ref.watch(
         settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
@@ -64,6 +79,10 @@ class WeekView extends ConsumerWidget {
           final d = dateOnly(e.startAt);
           byDay[d]?.add(e);
         }
+        // Both all-day and timed events count toward "this day has an
+        // event" — the header dot doesn't distinguish the two the way the
+        // all-day strip below it does.
+        final eventDays = {for (final e in events) dateOnly(e.startAt)};
 
         return Column(
           children: [
@@ -72,6 +91,9 @@ class WeekView extends ConsumerWidget {
               today: today,
               locale: locale,
               accent: palette.accent,
+              eventDays: eventDays,
+              todoDays: todoDays,
+              overdueDays: overdueDays,
               onTapDay: openDay,
             ),
             if (allDay.isNotEmpty)
@@ -116,6 +138,9 @@ class _WeekHeader extends StatelessWidget {
     required this.today,
     required this.locale,
     required this.accent,
+    required this.eventDays,
+    required this.todoDays,
+    required this.overdueDays,
     required this.onTapDay,
   });
 
@@ -123,6 +148,9 @@ class _WeekHeader extends StatelessWidget {
   final DateTime today;
   final String locale;
   final Color accent;
+  final Set<DateTime> eventDays;
+  final Set<DateTime> todoDays;
+  final Set<DateTime> overdueDays;
   final ValueChanged<DateTime> onTapDay;
 
   @override
@@ -148,6 +176,34 @@ class _WeekHeader extends StatelessWidget {
                       Fmt.weekdayShort(day, locale),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: palette.inkFaint,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    // Same marker language every other calendar surface
+                    // uses — see calendar_dot.dart's shared rule. This
+                    // view had none before.
+                    SizedBox(
+                      height: 6,
+                      child: Builder(
+                        builder: (context) {
+                          final dotColor = calendarDotColor(
+                            palette: palette,
+                            hasEvent: eventDays.contains(day),
+                            hasTodo: todoDays.contains(day),
+                            hasOverdueTodo: overdueDays.contains(day),
+                          );
+                          if (dotColor == null) return const SizedBox.shrink();
+                          return Center(
+                            child: Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: dotColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 2),
