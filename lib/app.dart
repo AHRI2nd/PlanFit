@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -10,6 +9,7 @@ import 'package:home_widget/home_widget.dart';
 import 'core/app_badge/app_badge_sync.dart';
 import 'core/di.dart';
 import 'core/home_widget/home_widget_sync.dart';
+import 'core/notifications/notification_tap_target.dart';
 import 'core/onboarding_prefs.dart';
 import 'core/routing/app_router.dart';
 import 'design/theme/app_theme.dart';
@@ -261,40 +261,28 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   }
 
   /// Opens the event or to-do a notification tap is for — parses
-  /// [response]'s payload (see `NotificationService._applyEvent`/
-  /// `scheduleForTodo`), jumps the schedule tab to that day, and opens the
-  /// specific editor/sheet. A plain tap only (`selectedNotification`) —
-  /// the snooze action button (`selectedNotificationAction`) is already
-  /// fully handled by `handleNotificationAction` and must not also
-  /// navigate. Silently gives up at any point the payload, or the row it
-  /// points to, isn't there any more (deleted since the notification fired,
-  /// a malformed/old-shape payload, etc.) — same "never surface a
-  /// best-effort failure" posture as every other handler in this file.
+  /// [response] via [parseNotificationTapPayload] (see that function's own
+  /// doc for the payload shapes and why a snooze action tap is ignored
+  /// here), jumps the schedule tab to that day, and opens the specific
+  /// editor/sheet. Silently gives up at any point the row a target points
+  /// to isn't there any more (deleted since the notification fired) — same
+  /// "never surface a best-effort failure" posture as every other handler
+  /// in this file.
   Future<void> _handleNotificationTap(NotificationResponse response) async {
-    if (response.notificationResponseType !=
-        NotificationResponseType.selectedNotification) {
-      return;
-    }
-    final payload = response.payload;
-    if (payload == null) return;
-
-    Map<String, dynamic> data;
-    try {
-      data = jsonDecode(payload) as Map<String, dynamic>;
-    } catch (_) {
-      return;
-    }
-    final eventId = data['eventId'] as String?;
-    final todoId = data['todoId'] as String?;
-    if (eventId == null && todoId == null) return;
+    final target = parseNotificationTapPayload(response);
+    if (target == null) return;
 
     try {
-      final event = eventId == null
-          ? null
-          : await ref.read(eventRepositoryProvider).findById(eventId);
-      final todo = todoId == null
-          ? null
-          : await ref.read(todoDaoProvider).findById(todoId);
+      final event = switch (target) {
+        EventTapTarget(:final eventId) =>
+          await ref.read(eventRepositoryProvider).findById(eventId),
+        TodoTapTarget() => null,
+      };
+      final todo = switch (target) {
+        TodoTapTarget(:final todoId) =>
+          await ref.read(todoDaoProvider).findById(todoId),
+        EventTapTarget() => null,
+      };
       final day = event?.startAt ?? todo?.slotStart;
       if (day == null) return; // deleted since the notification fired
 
