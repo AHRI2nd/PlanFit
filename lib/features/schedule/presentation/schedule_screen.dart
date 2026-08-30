@@ -76,7 +76,6 @@ class ScheduleScreen extends ConsumerWidget {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                     ),
-                    if (view == ScheduleView.day) const _DayLayoutToggle(),
                     IconButton(
                       tooltip: l10n.quickAddEventTitle,
                       icon: const Icon(Icons.bolt_outlined),
@@ -105,18 +104,34 @@ class ScheduleScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.gutter,
                 ),
-                child: _ViewSwitcher(
-                  current: view,
-                  accent: palette.accent,
-                  labels: (
-                    l10n.viewDay,
-                    l10n.viewWeek,
-                    l10n.viewMonth,
-                    l10n.viewYear,
-                    l10n.viewAgenda,
-                  ),
-                  onChanged: (v) =>
-                      ref.read(scheduleViewProvider.notifier).set(v),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ViewSwitcher(
+                        current: view,
+                        accent: palette.accent,
+                        labels: (
+                          l10n.viewDay,
+                          l10n.viewWeek,
+                          l10n.viewMonth,
+                          l10n.viewYear,
+                          l10n.viewAgenda,
+                        ),
+                        onChanged: (v) =>
+                            ref.read(scheduleViewProvider.notifier).set(v),
+                      ),
+                    ),
+                    // Lives here, not the title row above, so it only ever
+                    // competes for space with the (already generously wide)
+                    // switcher pills instead of the date title — cramming it
+                    // into the title row alongside the other header icons
+                    // was what pushed a long Korean date string back into
+                    // wrapping onto two lines.
+                    if (view == ScheduleView.day) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      const _DayLayoutToggle(),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
