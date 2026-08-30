@@ -13,23 +13,25 @@ import '../../../../design/widgets/section_header.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
+import '../../../todo/application/todo_providers.dart';
+import '../../../todo/domain/todo_overdue.dart';
+import '../../../todo/presentation/todo_detail_sheet.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/agenda_grouping.dart';
 import '../event_edit/event_editor_sheet.dart';
 
 /// One row of the agenda's flattened, `ListView.builder`-indexable list —
-/// either a day header or an event tile, never both. [isLastInGroup] only
-/// means anything for a tile row: it's the last event under its day header,
-/// so it gets the wider trailing gap before the next header that the plain
-/// [ListView] version got from a separate spacer widget.
+/// either a day header or an entry (event or to-do) tile, never both.
+/// [isLastInGroup] only means anything for a tile row: it's the last entry
+/// under its day header, so it gets the wider trailing gap before the next
+/// header that the plain [ListView] version got from a separate spacer
+/// widget.
 class _AgendaRow {
-  const _AgendaRow.header(this.day)
-    : event = null,
-      isLastInGroup = false;
-  const _AgendaRow.tile(this.event, {required this.isLastInGroup}) : day = null;
+  const _AgendaRow.header(this.day) : entry = null, isLastInGroup = false;
+  const _AgendaRow.tile(this.entry, {required this.isLastInGroup}) : day = null;
 
   final DateTime? day;
-  final EventRow? event;
+  final AgendaEntry? entry;
   final bool isLastInGroup;
 }
 
@@ -115,12 +117,20 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
     final eventsAsync = ref.watch(eventsForAgendaProvider(widget.anchor));
+    // Watched leniently (loading/error both read as "no to-dos yet") —
+    // same pattern month_view.dart/year_view.dart already use for their own
+    // secondary to-do watch, so a slow or momentarily-erroring to-do stream
+    // never blocks the event list (the primary data this screen gates on)
+    // from rendering.
+    final todos =
+        ref.watch(todosForAgendaProvider(widget.anchor)).asData?.value ??
+        const <TodoRow>[];
 
     return eventsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
       data: (events) {
-        final groups = groupEventsByDay(events);
+        final groups = groupAgendaEntriesByDay(events, todos);
         if (groups.isEmpty) {
           return _AgendaEmpty(l10n: l10n);
         }
@@ -131,12 +141,12 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
         // ~400-550 widgets constructed on every open/data change instead of
         // just what the viewport shows.
         final rows = <_AgendaRow>[
-          for (final (day, dayEvents) in groups) ...[
+          for (final (day, dayEntries) in groups) ...[
             _AgendaRow.header(day),
-            for (var i = 0; i < dayEvents.length; i++)
+            for (var i = 0; i < dayEntries.length; i++)
               _AgendaRow.tile(
-                dayEvents[i],
-                isLastInGroup: i == dayEvents.length - 1,
+                dayEntries[i],
+                isLastInGroup: i == dayEntries.length - 1,
               ),
           ],
         ];
@@ -162,7 +172,6 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                   final row = rows[index];
                   final day = row.day;
                   if (day != null) return _DayHeader(day: day);
-                  final e = row.event!;
                   return Padding(
                     // The last tile in a group carries its own AppSpacing.xs
                     // gap *plus* the AppSpacing.sm the old layout gave the
@@ -174,13 +183,23 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                           ? AppSpacing.xs + AppSpacing.sm
                           : AppSpacing.xs,
                     ),
-                    child: _AgendaTile(
-                      event: e,
-                      selectionMode: _selectionMode,
-                      selected: _selectedIds.contains(e.id),
-                      onToggleSelected: () => _toggleSelected(e.id),
-                      onEnterSelection: () => _enterSelection(e.id),
-                    ),
+                    child: switch (row.entry!) {
+                      AgendaEventEntry(:final event) => _AgendaTile(
+                        event: event,
+                        selectionMode: _selectionMode,
+                        selected: _selectedIds.contains(event.id),
+                        onToggleSelected: () => _toggleSelected(event.id),
+                        onEnterSelection: () => _enterSelection(event.id),
+                      ),
+                      // To-dos are tap-only — deliberately outside this
+                      // view's multi-select/bulk-delete mode, which is
+                      // event-only (TodoController has no bulk-remove path
+                      // to hook up), regardless of whether that mode is
+                      // currently active for events.
+                      AgendaTodoEntry(:final todo) => _AgendaTodoTile(
+                        todo: todo,
+                      ),
+                    },
                   );
                 },
               ),
@@ -391,6 +410,86 @@ class _AgendaTile extends ConsumerWidget {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A to-do's row in the merged agenda list — same visual language as
+/// [_AgendaTile] (52px time column, 3px accent bar, title) but tap-only:
+/// no selection checkbox, no long-press-to-select, since to-dos sit outside
+/// this view's event-only multi-select/bulk-delete mode (see the switch in
+/// [_AgendaViewState.build] for why).
+class _AgendaTodoTile extends ConsumerWidget {
+  const _AgendaTodoTile({required this.todo});
+
+  final TodoRow todo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final l10n = AppL10n.of(context);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final overdue = isTodoOverdue(todo, DateTime.now());
+    final accent = overdue ? palette.danger : palette.todoAccent;
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
+
+    return InkWell(
+      onTap: () => showTodoDetailSheet(context, todo),
+      borderRadius: AppRadius.cardMd,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxs,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 52,
+              child: Text(
+                !todo.hasTime
+                    ? l10n.todoNoTime
+                    : Fmt.time(todo.slotStart, locale, use24Hour: use24),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: palette.inkSoft,
+                ),
+              ),
+            ),
+            Container(
+              width: 3,
+              height: 30,
+              margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: AppRadius.allPill,
+              ),
+            ),
+            Icon(
+              todo.isDone ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 18,
+              color: todo.isDone ? palette.todoAccent : palette.inkFaint,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(
+                todo.title.isEmpty ? '—' : todo.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: todo.isDone ? palette.inkFaint : null,
+                  decoration: todo.isDone ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
