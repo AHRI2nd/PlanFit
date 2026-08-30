@@ -87,6 +87,31 @@ List<ClockArc> layoutClockArcs(DateTime day, List<EventRow> events) {
   return arcs;
 }
 
+/// The straight-line chord width available for a label centered on [arc]
+/// at [midRadius] — an upright label can't follow the arc's own curve, so
+/// this (not the arc's true curved length) is its real width budget.
+double arcLabelChordWidth(ClockArc arc, double midRadius) =>
+    2 * midRadius * math.sin(arc.sweepAngle.abs() / 2);
+
+/// Whether [arc] is large enough — both angularly (via
+/// [arcLabelChordWidth]) and radially (its own ring-band [bandWidth]) — to
+/// carry a short, straight title label on the dial itself, as opposed to
+/// relying solely on `DayClockLegend` underneath. Mirrors the thresholds
+/// `DayClockView`'s own painter enforces, pulled out here so the size cutoff
+/// is unit-testable without a `Canvas`.
+bool arcFitsLabel({
+  required ClockArc arc,
+  required double midRadius,
+  required double bandWidth,
+  double minChordWidth = 32.0,
+  double minBandWidth = 10.0,
+}) {
+  if (bandWidth < minBandWidth) return false;
+  // The same 6-logical-pixel margin _paintArcLabel reserves so a label
+  // never visually touches the arc's own (square, per StrokeCap.butt) ends.
+  return arcLabelChordWidth(arc, midRadius) - 6 >= minChordWidth;
+}
+
 /// Which (if any) event in [arcs] a tap at polar coordinates [angle]
 /// (radians, [angleForMinutes]'s convention) and [ringFraction] (0 = the
 /// ring band's inner edge, 1 = its outer edge) landed on. Iterates in

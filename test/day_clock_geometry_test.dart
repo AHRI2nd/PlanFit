@@ -190,4 +190,82 @@ void main() {
       expect(hitTestClockArcs(arcs, angleForMinutes(1440), 0.5)?.id, 'a');
     });
   });
+
+  ClockArc arcWithSweep(double sweep) => ClockArc(
+    event: event(
+      id: 'a',
+      startAt: day,
+      endAt: day.add(const Duration(minutes: 30)),
+    ),
+    startAngle: 0,
+    sweepAngle: sweep,
+    ringStart: 0,
+    ringEnd: 1,
+  );
+
+  group('arcLabelChordWidth', () {
+    test('a half-circle sweep at a 100px radius has a 200px chord (its own '
+        'diameter)', () {
+      expect(
+        arcLabelChordWidth(arcWithSweep(math.pi), 100),
+        closeTo(200, 1e-9),
+      );
+    });
+
+    test('a small sweep is well approximated by radius * sweepAngle '
+        '(small-angle approximation)', () {
+      expect(
+        arcLabelChordWidth(arcWithSweep(0.1), 100),
+        closeTo(100 * 0.1, 0.2),
+      );
+    });
+  });
+
+  group('arcFitsLabel', () {
+    test('a ring band thinner than the minimum never fits a label, no matter '
+        'how wide the arc itself is', () {
+      final arc = arcWithSweep(math.pi); // a huge sweep — plenty of chord
+      expect(
+        arcFitsLabel(
+          arc: arc,
+          midRadius: 200,
+          bandWidth: 5,
+          minBandWidth: 10,
+          minChordWidth: 32,
+        ),
+        isFalse,
+      );
+    });
+
+    test(
+      'a narrow (short-duration) arc does not fit even with a thick band',
+      () {
+        final arc = arcWithSweep(0.02); // a tiny sweep — barely any chord
+        expect(
+          arcFitsLabel(
+            arc: arc,
+            midRadius: 100,
+            bandWidth: 40,
+            minBandWidth: 10,
+            minChordWidth: 32,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test('a wide-enough arc with a thick-enough band fits', () {
+      final arc = arcWithSweep(math.pi / 2);
+      expect(
+        arcFitsLabel(
+          arc: arc,
+          midRadius: 100,
+          bandWidth: 40,
+          minBandWidth: 10,
+          minChordWidth: 32,
+        ),
+        isTrue,
+      );
+    });
+  });
 }

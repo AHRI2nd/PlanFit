@@ -25,12 +25,16 @@ import '../event_edit/event_editor_sheet.dart';
 /// instead of side-by-side pixel columns — no new overlap logic here, per
 /// this feature's own plan.
 ///
-/// Deliberately carries no title text on the dial itself — curved or
-/// rotated labels are exactly the kind of thing that reads fine against one
-/// platform's font metrics and clips or overlaps against the other's (see
-/// the RenderFlex-overflow history the linear timeline's own event cards
-/// already have). [DayClockLegend], a plain upright list, is where a title
-/// actually gets read; `DayView` renders it directly below this widget.
+/// An arc big enough to hold one also gets a short, straight (never curved
+/// or rotated) title label centered on it — curving text along the arc
+/// itself would need per-glyph rotation, exactly the kind of thing that
+/// reads fine against one platform's font metrics and clips or overlaps
+/// against the other's (see the RenderFlex-overflow history the linear
+/// timeline's own event cards already have), so labels stay upright and
+/// simply don't render at all below a minimum arc size. [DayClockLegend],
+/// a plain upright list `DayView` renders directly below this widget, is
+/// where every title is guaranteed to be readable regardless of how small
+/// its own arc is.
 class DayClockView extends ConsumerWidget {
   const DayClockView({
     super.key,
@@ -171,6 +175,18 @@ class _ClockPainter extends CustomPainter {
   static const double _ringGap = 1.5;
   static const double _minArcWidth = 2.0;
 
+  /// Below this straight-line chord width (at the arc's own mid-radius),
+  /// there isn't room for even a couple of ellipsized characters — the arc
+  /// stays a plain colored band with no label, same as it always did.
+  static const double _minLabelChordWidth = 32.0;
+
+  /// Below this ring-band thickness, there's no vertical room for legible
+  /// text at all regardless of how wide the arc is (a heavily-overlapping
+  /// cluster's rings get this thin).
+  static const double _minLabelBandWidth = 10.0;
+  static const double _minLabelFontSize = 7.0;
+  static const double _maxLabelFontSize = 12.0;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
@@ -235,8 +251,12 @@ class _ClockPainter extends CustomPainter {
       final rawWidth =
           (arc.ringEnd - arc.ringStart) * metrics.ringBandWidth - _ringGap;
       final strokeWidth = rawWidth < _minArcWidth ? _minArcWidth : rawWidth;
+      final accent = EventColorTag.resolve(
+        arc.event.colorTag,
+        arc.event.startAt,
+      );
       final paint = Paint()
-        ..color = EventColorTag.resolve(arc.event.colorTag, arc.event.startAt)
+        ..color = accent
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.butt;
@@ -247,7 +267,70 @@ class _ClockPainter extends CustomPainter {
         false,
         paint,
       );
+      _paintArcLabel(canvas, center, arc, midRadius, strokeWidth, accent);
     }
+  }
+
+  /// A short, straight (never curved or rotated) title label centered on
+  /// the arc's own midpoint — only when the arc is genuinely big enough to
+  /// hold one. Curving text along the arc itself would need per-glyph
+  /// rotation, exactly the kind of thing that reads fine against one
+  /// platform's font metrics and clips or overlaps against the other's
+  /// (see [DayClockView]'s own doc on why the dial started out unlabeled
+  /// entirely) — an upright label anchored to the arc's midpoint sidesteps
+  /// that risk, at the cost of only fitting on arcs with enough room. Below
+  /// that room, the event's title is still readable in [DayClockLegend]
+  /// underneath the dial, so nothing is lost, just not duplicated onto a
+  /// sliver of an arc that can't actually hold it.
+  void _paintArcLabel(
+    Canvas canvas,
+    Offset center,
+    ClockArc arc,
+    double midRadius,
+    double strokeWidth,
+    Color accent,
+  ) {
+    if (!arcFitsLabel(
+      arc: arc,
+      midRadius: midRadius,
+      bandWidth: strokeWidth,
+      minChordWidth: _minLabelChordWidth,
+      minBandWidth: _minLabelBandWidth,
+    )) {
+      return;
+    }
+    final chordWidth = arcLabelChordWidth(arc, midRadius) - 6;
+
+    final fontSize = (strokeWidth - 4).clamp(
+      _minLabelFontSize,
+      _maxLabelFontSize,
+    );
+    final textColor = accent.computeLuminance() > 0.5
+        ? Colors.black87
+        : Colors.white;
+    final title = arc.event.title.isEmpty ? '—' : arc.event.title;
+
+    final painter = TextPainter(
+      text: TextSpan(
+        text: title,
+        style: TextStyle(
+          color: textColor,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: chordWidth);
+
+    final midAngle = arc.startAngle + arc.sweepAngle / 2;
+    final dir = Offset(math.cos(midAngle), math.sin(midAngle));
+    final at = center + dir * midRadius;
+    painter.paint(
+      canvas,
+      Offset(at.dx - painter.width / 2, at.dy - painter.height / 2),
+    );
   }
 
   void _paintNowNeedle(Canvas canvas, Offset center) {
