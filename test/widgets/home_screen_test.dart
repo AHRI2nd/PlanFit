@@ -105,7 +105,7 @@ void main() {
       updatedAt: now,
     );
     when(
-      events.watchUpcoming(any, limit: anyNamed('limit')),
+      events.watchBetween(any, any),
     ).thenAnswer((_) => Stream.value([event]));
 
     await pumpHome(tester);
@@ -113,6 +113,48 @@ void main() {
     expect(find.text('Team sync'), findsOneWidget);
     expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsNothing);
   });
+
+  testWidgets(
+    "an event days away no longer leaks into the 오늘 card — the bug this "
+    "regression guards against: the card used to watch upcomingEventsProvider "
+    "(next N events from now, no date ceiling), so a quiet day could pull in "
+    "something 24 days out and label it 오늘 right next to its own honest "
+    "'N일 뒤' relative-time badge",
+    (tester) async {
+      final now = DateTime.now();
+      final farEvent = EventRow(
+        id: 'e2',
+        title: 'Chuseok Holiday',
+        memo: null,
+        startAt: now.add(const Duration(days: 24)),
+        endAt: now.add(const Duration(days: 24, hours: 1)),
+        isAllDay: false,
+        notify: false,
+        reminderMinutesBefore: 0,
+        colorTag: null,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        osCalendarId: null,
+        osEventId: null,
+        osLastKnownModified: null,
+        syncStatus: SyncStatus.pendingPush,
+        createdAt: now,
+        updatedAt: now,
+      );
+      // Still reachable via watchUpcoming (a different provider, used by the
+      // OS home-screen widget and the schedule-tab badge — neither of those
+      // makes a "today" claim) but must NOT show up on the 오늘 card, which
+      // only ever watches watchBetween(today, tomorrow).
+      when(
+        events.watchUpcoming(any, limit: anyNamed('limit')),
+      ).thenAnswer((_) => Stream.value([farEvent]));
+
+      await pumpHome(tester);
+
+      expect(find.text('Chuseok Holiday'), findsNothing);
+      expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     "renders today's to-do title once data arrives, interleaved with events",

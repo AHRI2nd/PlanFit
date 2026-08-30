@@ -165,10 +165,19 @@ class _TodayFeed extends ConsumerWidget {
     final palette = context.palette;
     final theme = Theme.of(context);
     final today = dateOnly(DateTime.now());
-    // upcomingEventsProvider is already capped (watchUpcoming(..., limit: 4))
-    // — not the uncapped list the "dense" complaint assumed.
+    // Scoped to *today* specifically (eventsForDayProvider, same window
+    // todosForDayProvider already uses below) — this card sits under a
+    // "오늘"/Today section header, but used to watch upcomingEventsProvider
+    // (the next N events from now, with no date ceiling at all). On a quiet
+    // day that silently pulled in whatever was next regardless of how far
+    // off it was — a holiday 24 days out ended up labeled "오늘" alongside
+    // its own honest "24일 뒤" relative-time badge, a contradiction visible
+    // right on the card. upcomingEventsProvider itself is untouched and
+    // still correct for its other callers (the OS home-screen widget, the
+    // schedule-tab badge) — those aren't making a "today" claim.
     final events =
-        ref.watch(upcomingEventsProvider).asData?.value ?? const <EventRow>[];
+        ref.watch(eventsForDayProvider(today)).asData?.value ??
+        const <EventRow>[];
     final todos =
         ref.watch(todosForDayProvider(today)).asData?.value ??
         const <TodoRow>[];
