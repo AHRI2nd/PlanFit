@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
@@ -12,8 +14,10 @@ import 'core/onboarding_prefs.dart';
 import 'core/routing/app_router.dart';
 import 'design/theme/app_theme.dart';
 import 'features/schedule/application/schedule_providers.dart';
+import 'features/schedule/presentation/event_edit/event_editor_sheet.dart';
 import 'features/settings/application/settings_controller.dart';
 import 'features/todo/application/todo_providers.dart';
+import 'features/todo/presentation/todo_detail_sheet.dart';
 import 'l10n/app_localizations.dart';
 
 /// Root widget. Owns the theme mode, localization, router, and triggers a
@@ -50,6 +54,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       _syncHomeWidget();
       _syncAppBadge();
       _handleColdStartFromWidget();
+      _handleColdStartFromNotification();
       _runAutoBackup();
       _refillTodoNotifications();
       _pruneCompletedTodos();
@@ -57,11 +62,16 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     // Warm-app taps (the widget clicked while PlanFit is already running or
     // backgrounded) arrive on this stream instead of a fresh cold start.
     _widgetClickSub = HomeWidget.widgetClicked.listen(_openFromWidgetUri);
+    // Same idea for notification taps while the app is already alive
+    // (foreground or backgrounded-but-not-killed) — a cold-start tap is
+    // handled separately by _handleColdStartFromNotification above.
+    ref.read(notificationServiceProvider).onTap = _handleNotificationTap;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    ref.read(notificationServiceProvider).onTap = null;
     _widgetClickSub?.cancel();
     super.dispose();
   }
@@ -202,6 +212,81 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     if (date == null) return;
     ref.read(selectedDateProvider.notifier).select(date);
     appRouter.go('/schedule');
+  }
+
+  /// The app was launched fresh (fully terminated, not just backgrounded)
+  /// by tapping a notification — the counterpart to
+  /// [_handleColdStartFromWidget]. A warm tap (app already alive) arrives
+  /// instead through [NotificationService.onTap], wired in [initState].
+  Future<void> _handleColdStartFromNotification() async {
+    try {
+      final details = await ref
+          .read(notificationServiceProvider)
+          .launchDetails();
+      final response = details?.notificationResponse;
+      if (details?.didNotificationLaunchApp ?? false) {
+        if (response != null) await _handleNotificationTap(response);
+      }
+    } catch (_) {
+      // Best-effort, same as the rest of cold-start handling.
+    }
+  }
+
+  /// Opens the event or to-do a notification tap is for — parses
+  /// [response]'s payload (see `NotificationService._applyEvent`/
+  /// `scheduleForTodo`), jumps the schedule tab to that day, and opens the
+  /// specific editor/sheet. A plain tap only (`selectedNotification`) —
+  /// the snooze action button (`selectedNotificationAction`) is already
+  /// fully handled by `handleNotificationAction` and must not also
+  /// navigate. Silently gives up at any point the payload, or the row it
+  /// points to, isn't there any more (deleted since the notification fired,
+  /// a malformed/old-shape payload, etc.) — same "never surface a
+  /// best-effort failure" posture as every other handler in this file.
+  Future<void> _handleNotificationTap(NotificationResponse response) async {
+    if (response.notificationResponseType !=
+        NotificationResponseType.selectedNotification) {
+      return;
+    }
+    final payload = response.payload;
+    if (payload == null) return;
+
+    Map<String, dynamic> data;
+    try {
+      data = jsonDecode(payload) as Map<String, dynamic>;
+    } catch (_) {
+      return;
+    }
+    final eventId = data['eventId'] as String?;
+    final todoId = data['todoId'] as String?;
+    if (eventId == null && todoId == null) return;
+
+    try {
+      final event = eventId == null
+          ? null
+          : await ref.read(eventRepositoryProvider).findById(eventId);
+      final todo = todoId == null
+          ? null
+          : await ref.read(todoDaoProvider).findById(todoId);
+      final day = event?.startAt ?? todo?.slotStart;
+      if (day == null) return; // deleted since the notification fired
+
+      ref.read(selectedDateProvider.notifier).select(day);
+      ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
+      appRouter.go('/schedule');
+
+      // The root Navigator's context — not this widget's own `context`,
+      // which sits above MaterialApp.router's Navigator and can't resolve
+      // one via Navigator.of(context) from here.
+      final navContext = appRouter.routerDelegate.navigatorKey.currentContext;
+      if (navContext == null || !navContext.mounted) return;
+      if (event != null) {
+        await showEventEditor(navContext, existing: event);
+      } else if (todo != null) {
+        await showTodoDetailSheet(navContext, todo);
+      }
+    } catch (_) {
+      // Best-effort — see doc comment above.
+    }
   }
 
   @override

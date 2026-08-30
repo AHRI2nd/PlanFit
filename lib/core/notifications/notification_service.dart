@@ -28,6 +28,15 @@ class NotificationService implements NotificationPort {
   bool soundEnabled;
   bool _initialized = false;
 
+  /// Fired on every response `init()`'s `onDidReceiveNotificationResponse`
+  /// receives — a plain tap included, unlike [handleNotificationAction]
+  /// (below), which only ever acts on the snooze action and is deliberately
+  /// left alone (it's also invoked from a background isolate with no
+  /// BuildContext/Riverpod access, so navigation can't live there). Wired by
+  /// `_PlanFitAppState` to resolve the payload and open the right
+  /// event/to-do — see its `_handleNotificationTap`.
+  void Function(NotificationResponse response)? onTap;
+
   static const String _channelId = 'planfit_events';
   static const String _channelName = '일정 알림';
   static const String _channelDescription = '일정이 시작될 때 알려드려요';
@@ -60,8 +69,10 @@ class NotificationService implements NotificationPort {
     );
     await _plugin.initialize(
       settings: InitializationSettings(android: android, iOS: darwin),
-      onDidReceiveNotificationResponse: (response) =>
-          handleNotificationAction(response, _plugin),
+      onDidReceiveNotificationResponse: (response) {
+        handleNotificationAction(response, _plugin);
+        onTap?.call(response);
+      },
       onDidReceiveBackgroundNotificationResponse:
           _onBackgroundNotificationResponse,
     );
@@ -77,6 +88,14 @@ class NotificationService implements NotificationPort {
       .resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin
       >();
+
+  /// Whether the app was launched (cold start) by tapping a notification,
+  /// and if so, the response that launch carried — `init()` must have run
+  /// first (the plugin has to be initialized to answer this). Used by
+  /// `_PlanFitAppState`'s own cold-start check, since a tap while the app
+  /// was fully terminated arrives here instead of through `onTap`.
+  Future<NotificationAppLaunchDetails?> launchDetails() =>
+      _plugin.getNotificationAppLaunchDetails();
 
   /// Requests the OS notification permission (Android 13+, iOS). Returns whether
   /// it was granted.
@@ -138,9 +157,10 @@ class NotificationService implements NotificationPort {
     return NotificationDetails(android: android, iOS: darwin);
   }
 
-  /// Same as [_details] minus the snooze action — a to-do notification
-  /// carries no payload (nothing to re-arm from a background isolate with no
-  /// DB access), so showing that button would be dead UI.
+  /// Same as [_details] minus the snooze action — a to-do notification does
+  /// carry a payload now (see [scheduleForTodo], for tap-to-open), but
+  /// there's still nothing for a background isolate to re-arm *from* without
+  /// DB access the way an event's snooze does, so that button stays event-only.
   NotificationDetails _todoDetails() {
     final android = AndroidNotificationDetails(
       _channelId,
@@ -288,9 +308,7 @@ class NotificationService implements NotificationPort {
         final data = jsonDecode(payload) as Map<String, dynamic>;
         final millis = data['alertAtMillis'] as int?;
         if (millis != null) {
-          pendingAlertById[p.id] = DateTime.fromMillisecondsSinceEpoch(
-            millis,
-          );
+          pendingAlertById[p.id] = DateTime.fromMillisecondsSinceEpoch(millis);
         }
       } catch (_) {
         // Not one of ours, or an old payload shape — leave unmapped so the
@@ -358,6 +376,16 @@ class NotificationService implements NotificationPort {
         scheduledDate: TimezoneSetup.toLocal(alertAt),
         notificationDetails: _todoDetails(),
         androidScheduleMode: mode,
+        // Same shape as _applyEvent's payload (minus body, which to-do
+        // notifications never set) — lets a plain tap on this notification
+        // resolve back to the to-do it's for and open it, the same way an
+        // event notification's payload already does.
+        payload: jsonEncode({
+          'todoId': todo.id,
+          'notificationId': id,
+          'title': title,
+          'alertAtMillis': alertAt.millisecondsSinceEpoch,
+        }),
       );
     }
   }
