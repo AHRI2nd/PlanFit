@@ -9,7 +9,9 @@ import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
+import '../../../todo/application/todo_providers.dart';
 import '../../application/schedule_providers.dart';
+import '../../domain/calendar_dot.dart';
 import '../../domain/event_span.dart';
 import '../day_view/day_view.dart';
 
@@ -89,6 +91,7 @@ class MonthView extends ConsumerWidget {
     final theme = Theme.of(context);
     final selected = ref.watch(selectedDateProvider);
     final eventsAsync = ref.watch(eventsForMonthProvider(selected));
+    final overdueAsync = ref.watch(overdueTodosProvider);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final weekStartsMonday = ref.watch(
       settingsControllerProvider.select((s) => s.weekStartsMonday),
@@ -99,6 +102,13 @@ class MonthView extends ConsumerWidget {
     final rowHeight = ref.watch(monthCalendarRowHeightProvider);
 
     final monthEvents = eventsAsync.asData?.value ?? const <EventRow>[];
+    // Per calendar_dot.dart's shared rule — bucketed by day so the
+    // markerBuilder below can look up "does this day have an overdue
+    // to-do" in O(1) rather than scanning the whole list per cell.
+    final overdueDays = <DateTime>{
+      for (final t in overdueAsync.asData?.value ?? const <TodoRow>[])
+        dateOnly(t.slotStart),
+    };
     final monthStart = DateTime(selected.year, selected.month, 1);
     final monthEnd = DateTime(selected.year, selected.month + 1, 1);
     // Multi-day (typically all-day) events get a continuous bar across every
@@ -188,7 +198,10 @@ class MonthView extends ConsumerWidget {
                     final dots = events
                         .where((e) => !multiDay.contains(e))
                         .toList();
-                    if (spanning.isEmpty && dots.isEmpty) return null;
+                    final hasOverdueTodo = overdueDays.contains(d);
+                    if (spanning.isEmpty && dots.isEmpty && !hasOverdueTodo) {
+                      return null;
+                    }
 
                     // The selected day fills its cell with a solid accent circle, so
                     // an accent-colored marker would vanish into it — use white
@@ -240,16 +253,17 @@ class MonthView extends ConsumerWidget {
                                 );
                               },
                             ),
-                          if (dots.isNotEmpty)
+                          if (dots.isNotEmpty || hasOverdueTodo)
                             Container(
                               width: 6,
                               height: 6,
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? Colors.white
-                                    : EventColorTag.resolve(
-                                        dots.first.colorTag,
-                                        day,
+                                    : calendarDotColor(
+                                        palette: palette,
+                                        hasEvent: dots.isNotEmpty,
+                                        hasOverdueTodo: hasOverdueTodo,
                                       ),
                                 shape: BoxShape.circle,
                               ),

@@ -5,8 +5,9 @@ import '../../../../core/db/app_database.dart';
 import '../../../../core/format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
-import '../../../../design/tokens/event_color_tag.dart';
+import '../../../todo/application/todo_providers.dart';
 import '../../application/schedule_providers.dart';
+import '../../domain/calendar_dot.dart';
 
 /// A year at a glance: twelve compact month grids whose days glow where events
 /// live. Tapping a month jumps to it in the month view.
@@ -18,20 +19,21 @@ class YearView extends ConsumerWidget {
     final selected = ref.watch(selectedDateProvider);
     final year = selected.year;
     final eventsAsync = ref.watch(eventsForYearProvider(year));
+    final overdueAsync = ref.watch(overdueTodosProvider);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final theme = Theme.of(context);
     final startWeekday = ref.watch(weekStartWeekdayProvider);
 
     final counts = <DateTime, int>{};
-    final dayColors = <DateTime, Color>{};
     for (final e in eventsAsync.asData?.value ?? const <EventRow>[]) {
       final key = dateOnly(e.startAt);
       counts[key] = (counts[key] ?? 0) + 1;
-      dayColors.putIfAbsent(
-        key,
-        () => EventColorTag.resolve(e.colorTag, e.startAt),
-      );
     }
+    // Per calendar_dot.dart's shared rule.
+    final overdueDays = <DateTime>{
+      for (final t in overdueAsync.asData?.value ?? const <TodoRow>[])
+        dateOnly(t.slotStart),
+    };
 
     return Column(
       children: [
@@ -73,7 +75,7 @@ class YearView extends ConsumerWidget {
                 year: year,
                 month: month,
                 counts: counts,
-                dayColors: dayColors,
+                overdueDays: overdueDays,
                 locale: locale,
                 startWeekday: startWeekday,
                 onTap: () {
@@ -98,7 +100,7 @@ class _MiniMonth extends StatelessWidget {
     required this.year,
     required this.month,
     required this.counts,
-    required this.dayColors,
+    required this.overdueDays,
     required this.locale,
     required this.startWeekday,
     required this.onTap,
@@ -107,7 +109,7 @@ class _MiniMonth extends StatelessWidget {
   final int year;
   final int month;
   final Map<DateTime, int> counts;
-  final Map<DateTime, Color> dayColors;
+  final Set<DateTime> overdueDays;
   final String locale;
   final int startWeekday;
   final VoidCallback onTap;
@@ -145,16 +147,26 @@ class _MiniMonth extends StatelessWidget {
                 final day = index - leadingBlanks + 1;
                 final date = DateTime(year, month, day);
                 final count = counts[date] ?? 0;
+                final hasOverdueTodo = overdueDays.contains(date);
+                final markerColor = calendarDotColor(
+                  palette: palette,
+                  hasEvent: count > 0,
+                  hasOverdueTodo: hasOverdueTodo,
+                );
                 final isToday = date == today;
                 return Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: count > 0
-                        ? (dayColors[date] ??
-                                  AppColors.timeGradient(date).first)
-                              .withValues(
-                                alpha: (0.30 + count * 0.18).clamp(0.3, 0.9),
-                              )
+                    color: markerColor != null
+                        ? markerColor.withValues(
+                            // An overdue day is a flat, clearly-visible
+                            // alarm regardless of how many events also
+                            // land there — only the plain "has events"
+                            // case scales with count the way it always has.
+                            alpha: hasOverdueTodo
+                                ? 0.55
+                                : (0.30 + count * 0.18).clamp(0.3, 0.9),
+                          )
                         : (isToday
                               ? palette.accent.withValues(alpha: 0.18)
                               : null),
@@ -164,7 +176,7 @@ class _MiniMonth extends StatelessWidget {
                     '$day',
                     style: theme.textTheme.labelSmall?.copyWith(
                       fontSize: 9,
-                      color: count > 0
+                      color: markerColor != null
                           ? Colors.white
                           : (isToday ? palette.accent : palette.inkFaint),
                     ),

@@ -15,6 +15,7 @@ import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
+import '../../schedule/domain/calendar_dot.dart';
 import '../../schedule/presentation/event_edit/event_editor_sheet.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
@@ -353,6 +354,11 @@ class _WeeklyStats extends ConsumerWidget {
       if (t.isDone) doneByDay[d] = (doneByDay[d] ?? 0) + 1;
     }
     final eventDays = {for (final e in events) dateOnly(e.startAt)};
+    // Per calendar_dot.dart's shared rule.
+    final overdueDays = {
+      for (final t in todos)
+        if (isTodoOverdue(t, now)) dateOnly(t.slotStart),
+    };
     final doneTotal = todos.where((t) => t.isDone).length;
 
     return GlassSurface(
@@ -379,6 +385,7 @@ class _WeeklyStats extends ConsumerWidget {
                         done: doneByDay[day] ?? 0,
                         total: totalByDay[day] ?? 0,
                         hasEvent: eventDays.contains(day),
+                        hasOverdueTodo: overdueDays.contains(day),
                         locale: locale,
                       );
                     },
@@ -399,6 +406,7 @@ class _WeekDayBar extends StatelessWidget {
     required this.done,
     required this.total,
     required this.hasEvent,
+    required this.hasOverdueTodo,
     required this.locale,
   });
 
@@ -407,6 +415,7 @@ class _WeekDayBar extends StatelessWidget {
   final int done;
   final int total;
   final bool hasEvent;
+  final bool hasOverdueTodo;
   final String locale;
 
   static const double _barHeight = 48;
@@ -416,22 +425,27 @@ class _WeekDayBar extends StatelessWidget {
     final palette = context.palette;
     final theme = Theme.of(context);
     final ratio = total == 0 ? 0.0 : done / total;
+    final dotColor = calendarDotColor(
+      palette: palette,
+      hasEvent: hasEvent,
+      hasOverdueTodo: hasOverdueTodo,
+    );
     return Column(
       children: [
         SizedBox(
           height: 6,
-          child: hasEvent
-              ? Center(
+          child: dotColor == null
+              ? null
+              : Center(
                   child: Container(
                     width: 5,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: palette.accent,
+                      color: dotColor,
                       shape: BoxShape.circle,
                     ),
                   ),
-                )
-              : null,
+                ),
         ),
         const SizedBox(height: AppSpacing.xxs),
         SizedBox(
@@ -453,6 +467,24 @@ class _WeekDayBar extends StatelessWidget {
               ),
             ),
           ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        // The bar's height/opacity alone is a subtle, purely-visual
+        // encoding of the same done/total ratio — this spells it out as an
+        // actual number for anyone who can't (or would rather not) read
+        // that at a glance. Reserves its line even at total == 0 so the
+        // weekday labels below stay aligned across all seven columns.
+        SizedBox(
+          height: 12,
+          child: total == 0
+              ? null
+              : Text(
+                  '$done/$total',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontSize: 9,
+                    color: palette.inkFaint,
+                  ),
+                ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
