@@ -126,6 +126,14 @@
     }
   },
   "settingsHolidaySourceCustomLabel": "사용자 지정 캘린더",
+  "settingsHolidaySourceEmpty": "선택 안 함",
+  "settingsHolidaySourceMore": "{first} 외 {count}곳",
+  "@settingsHolidaySourceMore": {
+    "placeholders": {
+      "first": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
   "holidayCountryKR": "대한민국",
   "holidayCountryUS": "미국",
   "holidayCountryJP": "일본",
@@ -137,6 +145,7 @@
   "holidayCalendarSourceTitle": "공휴일 캘린더 선택",
   "holidayCalendarSourceSectionCountries": "국가 선택",
   "holidayCalendarSourceCustomEntry": "URL로 직접 추가",
+  "holidayCalendarSourceRemoveCustomUrl": "제거",
   "holidayCalendarSourceCustomDialogTitle": "캘린더 URL 입력",
   "holidayCalendarSourceCustomDialogHint": "https://example.com/calendar.ics",
   "holidayCalendarSourceCustomInvalidUrl": "올바른 http/https 링크를 입력해주세요",

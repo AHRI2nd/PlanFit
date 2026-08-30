@@ -655,6 +655,18 @@ abstract class AppL10n {
   /// **'사용자 지정 캘린더'**
   String get settingsHolidaySourceCustomLabel;
 
+  /// No description provided for @settingsHolidaySourceEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택 안 함'**
+  String get settingsHolidaySourceEmpty;
+
+  /// No description provided for @settingsHolidaySourceMore.
+  ///
+  /// In ko, this message translates to:
+  /// **'{first} 외 {count}곳'**
+  String settingsHolidaySourceMore(String first, int count);
+
   /// No description provided for @holidayCountryKR.
   ///
   /// In ko, this message translates to:
@@ -720,6 +732,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'URL로 직접 추가'**
   String get holidayCalendarSourceCustomEntry;
+
+  /// No description provided for @holidayCalendarSourceRemoveCustomUrl.
+  ///
+  /// In ko, this message translates to:
+  /// **'제거'**
+  String get holidayCalendarSourceRemoveCustomUrl;
 
   /// No description provided for @holidayCalendarSourceCustomDialogTitle.
   ///

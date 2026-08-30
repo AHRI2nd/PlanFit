@@ -994,12 +994,23 @@ class _HolidayCalendarSourceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final theme = Theme.of(context);
-    final customUrl = settings.customHolidayCalendarUrl;
-    final sourceLabel = customUrl != null
-        ? (Uri.tryParse(customUrl)?.host.isNotEmpty ?? false
-              ? Uri.parse(customUrl).host
-              : l10n.settingsHolidaySourceCustomLabel)
-        : holidayCountryDisplayName(l10n, settings.resolvedHolidayCountryCode);
+    final sourceNames = <String>[
+      for (final code in settings.holidayCountryCodes)
+        holidayCountryDisplayName(l10n, code),
+      for (final url in settings.customHolidayCalendarUrls)
+        (Uri.tryParse(url)?.host.isNotEmpty ?? false)
+            ? Uri.parse(url).host
+            : l10n.settingsHolidaySourceCustomLabel,
+    ]..sort();
+    final sourceLabel = switch (sourceNames) {
+      [] => l10n.settingsHolidaySourceEmpty,
+      [final only] => only,
+      [final first, final second] => '$first, $second',
+      [final first, ...final rest] => l10n.settingsHolidaySourceMore(
+        first,
+        rest.length,
+      ),
+    };
 
     return Opacity(
       opacity: enabled ? 1 : 0.5,

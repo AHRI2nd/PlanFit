@@ -18,10 +18,14 @@ import '../db/sync_status.dart';
 String holidayCountrySourceId(String countryCode) =>
     'holiday:country:$countryCode';
 
-/// Source-id for the single user-supplied custom ICS feed — there's only
-/// ever one at a time (see [AppSettings.customHolidayCalendarUrl]), so this
-/// needs no parameter, unlike [holidayCountrySourceId].
-const String holidayCustomSourceId = 'holiday:custom';
+/// Source-id for one user-supplied custom ICS feed — any number can be
+/// active at once (see [AppSettings.customHolidayCalendarUrls]), so unlike
+/// the single fixed id an earlier version of this used, each URL gets its
+/// own, the same way each country gets its own via [holidayCountrySourceId].
+/// The raw URL embedded directly, matching how `CalendarImportService`
+/// tags a subscribed device calendar with its own raw id rather than a
+/// hash — a TEXT column with one long string per row is unremarkable.
+String holidayCustomSourceId(String url) => 'holiday:custom:$url';
 
 /// Source ids this service used before country/custom selection existed —
 /// every mirrored row before that point was tagged with the app's *locale*
@@ -35,8 +39,9 @@ const List<String> legacyHolidayLocaleSourceIds = ['holiday:ko', 'holiday:en'];
 /// `'ko'` -> `'KR'`, everything else -> `'US'` — the exact default the old
 /// locale-keyed sync used (`_calendarIds[localeCode] ?? _calendarIds['en']`),
 /// reimplemented off `dart:ui`'s [PlatformDispatcher] (no `BuildContext`
-/// needed) so [AppSettings.resolvedHolidayCountryCode] and the background
-/// resume-sync in app.dart can both resolve "auto" without needing a
+/// needed) so `SettingsController`'s one-time seed of
+/// `AppSettings.holidayCountryCodes` and the background resume-sync in
+/// app.dart can both resolve "auto" without needing a
 /// widget-tree `Localizations.localeOf(context)` call (which the resume-sync
 /// path historically got wrong — see app.dart's own history on this).
 String defaultHolidayCountryCode() =>
@@ -56,9 +61,11 @@ class HolidayCalendarSyncException implements Exception {
   String toString() => 'HolidayCalendarSyncException: $message';
 }
 
-/// Keeps a chosen national-holiday calendar (or a user-supplied custom ICS
-/// feed) mirrored into PlanFit — see [AppSettings.holidayCountryCode] and
-/// [AppSettings.customHolidayCalendarUrl] for how the user picks one.
+/// Keeps every chosen national-holiday calendar and custom ICS feed
+/// mirrored into PlanFit simultaneously — see
+/// [AppSettings.holidayCountryCodes] and
+/// [AppSettings.customHolidayCalendarUrls] for how the user picks any
+/// number of them.
 /// Deliberately reuses [CalendarImportService]'s own pattern (bypass
 /// [EventRepository.save], write rows straight through [EventDao] as
 /// already-[SyncStatus.synced] with no `osEventId`, matched on
@@ -149,27 +156,26 @@ class HolidayCalendarService {
     if (uri == null || !(uri.isScheme('HTTP') || uri.isScheme('HTTPS'))) {
       throw HolidayCalendarSyncException('Invalid calendar URL: $url');
     }
+    final sourceId = holidayCustomSourceId(url);
     final isFirstSync = (await eventDao.mirroredFrom(
-      holidayCustomSourceId,
+      sourceId,
       DateTime(2000),
       DateTime(2100),
     )).isEmpty;
-    final count = await _syncFrom(
-      sourceId: holidayCustomSourceId,
-      feedUrl: uri,
-    );
+    final count = await _syncFrom(sourceId: sourceId, feedUrl: uri);
     if (isFirstSync && count == 0) {
       // Leave nothing mirrored from an apparently-bogus feed rather than a
       // silent zero-event "success."
-      await _unsubscribe(holidayCustomSourceId);
+      await _unsubscribe(sourceId);
       throw HolidayCalendarSyncException(
         'No events found at $url — check the link',
       );
     }
   }
 
-  /// Removes the mirrored custom-URL calendar, if any.
-  Future<void> unsubscribeCustom() => _unsubscribe(holidayCustomSourceId);
+  /// Removes the mirrored calendar for custom URL [url].
+  Future<void> unsubscribeCustom(String url) =>
+      _unsubscribe(holidayCustomSourceId(url));
 
   /// One-time cleanup for an install upgraded from before country/custom
   /// selection existed — see [legacyHolidayLocaleSourceIds]'s own doc. Safe

@@ -10,45 +10,66 @@ import 'package:planfit/features/settings/presentation/holiday_calendar_source_s
 import 'package:planfit/l10n/app_localizations.dart';
 
 /// A settings-controller test double — the screen only ever calls
-/// [setHolidayCountryCode]/[setCustomHolidayCalendarUrl] on the notifier, so
-/// this stubs just those two (plus [build] to seed a fixed starting state)
-/// instead of pulling in SettingsController's real `build()`, which reaches
-/// through calendarServiceProvider/remindersServiceProvider/
-/// notificationServiceProvider — real platform-backed services this test
-/// has no reason to construct.
+/// [setHolidayCountrySelected]/[addCustomHolidayCalendarUrl]/
+/// [removeCustomHolidayCalendarUrl] on the notifier, so this stubs just
+/// those three (plus [build] to seed a fixed starting state) instead of
+/// pulling in SettingsController's real `build()`, which reaches through
+/// calendarServiceProvider/remindersServiceProvider/notificationServiceProvider
+/// — real platform-backed services this test has no reason to construct.
 class _FakeSettingsController extends SettingsController {
   _FakeSettingsController(
     this._initial, {
-    this.onSetCountry,
-    this.onSetCustomUrl,
+    this.onSetCountrySelected,
+    this.onAddCustomUrl,
+    this.onRemoveCustomUrl,
   });
 
   final AppSettings _initial;
-  final Future<void> Function(String countryCode)? onSetCountry;
-  final Future<void> Function(String url)? onSetCustomUrl;
+  final Future<void> Function(String countryCode, bool selected)?
+  onSetCountrySelected;
+  final Future<void> Function(String url)? onAddCustomUrl;
+  final Future<void> Function(String url)? onRemoveCustomUrl;
 
   @override
   AppSettings build() => _initial;
 
   @override
-  Future<void> setHolidayCountryCode(String countryCode) async {
-    if (onSetCountry != null) {
-      await onSetCountry!(countryCode);
+  Future<void> setHolidayCountrySelected(
+    String countryCode,
+    bool selected,
+  ) async {
+    if (onSetCountrySelected != null) {
+      await onSetCountrySelected!(countryCode, selected);
       return;
     }
-    state = state.copyWith(
-      holidayCountryCode: countryCode,
-      clearCustomHolidayCalendarUrl: true,
-    );
+    final next = Set<String>.from(state.holidayCountryCodes);
+    if (selected) {
+      next.add(countryCode);
+    } else {
+      next.remove(countryCode);
+    }
+    state = state.copyWith(holidayCountryCodes: next);
   }
 
   @override
-  Future<void> setCustomHolidayCalendarUrl(String url) async {
-    if (onSetCustomUrl != null) {
-      await onSetCustomUrl!(url);
+  Future<void> addCustomHolidayCalendarUrl(String url) async {
+    if (onAddCustomUrl != null) {
+      await onAddCustomUrl!(url);
       return;
     }
-    state = state.copyWith(customHolidayCalendarUrl: url);
+    final next = Set<String>.from(state.customHolidayCalendarUrls)..add(url);
+    state = state.copyWith(customHolidayCalendarUrls: next);
+  }
+
+  @override
+  Future<void> removeCustomHolidayCalendarUrl(String url) async {
+    if (onRemoveCustomUrl != null) {
+      await onRemoveCustomUrl!(url);
+      return;
+    }
+    final next = Set<String>.from(state.customHolidayCalendarUrls)
+      ..remove(url);
+    state = state.copyWith(customHolidayCalendarUrls: next);
   }
 }
 
@@ -56,8 +77,9 @@ void main() {
   Future<void> pumpScreen(
     WidgetTester tester, {
     required AppSettings initial,
-    Future<void> Function(String)? onSetCountry,
-    Future<void> Function(String)? onSetCustomUrl,
+    Future<void> Function(String, bool)? onSetCountrySelected,
+    Future<void> Function(String)? onAddCustomUrl,
+    Future<void> Function(String)? onRemoveCustomUrl,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -65,8 +87,9 @@ void main() {
           settingsControllerProvider.overrideWith(
             () => _FakeSettingsController(
               initial,
-              onSetCountry: onSetCountry,
-              onSetCustomUrl: onSetCustomUrl,
+              onSetCountrySelected: onSetCountrySelected,
+              onAddCustomUrl: onAddCustomUrl,
+              onRemoveCustomUrl: onRemoveCustomUrl,
             ),
           ),
         ],
@@ -87,55 +110,66 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('the currently-selected country shows a checkmark', (
+  CheckboxListTile checkboxFor(WidgetTester tester, String countryName) =>
+      tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, countryName),
+      );
+
+  testWidgets('every selected country shows checked, others do not', (
     tester,
   ) async {
     await pumpScreen(
       tester,
-      initial: const AppSettings(holidayCountryCode: 'JP'),
+      initial: const AppSettings(holidayCountryCodes: {'KR', 'JP'}),
     );
 
-    final jpTile = find.widgetWithText(ListTile, '일본');
-    expect(jpTile, findsOneWidget);
-    expect(
-      find.descendant(of: jpTile, matching: find.byIcon(Icons.check)),
-      findsOneWidget,
-    );
-    // Some other country isn't checked.
-    final krTile = find.widgetWithText(ListTile, '대한민국');
-    expect(
-      find.descendant(of: krTile, matching: find.byIcon(Icons.check)),
-      findsNothing,
-    );
+    expect(checkboxFor(tester, '대한민국').value, isTrue);
+    expect(checkboxFor(tester, '일본').value, isTrue);
+    expect(checkboxFor(tester, '미국').value, isFalse);
   });
 
-  testWidgets('tapping a country calls setHolidayCountryCode', (
-    tester,
-  ) async {
-    String? called;
+  testWidgets('checking an unselected country selects it (adds, not '
+      'replaces, the existing selection)', (tester) async {
+    (String, bool)? called;
     await pumpScreen(
       tester,
-      initial: const AppSettings(holidayCountryCode: 'KR'),
-      onSetCountry: (code) async => called = code,
+      initial: const AppSettings(holidayCountryCodes: {'KR'}),
+      onSetCountrySelected: (code, selected) async =>
+          called = (code, selected),
     );
 
-    await tester.tap(find.widgetWithText(ListTile, '일본'));
+    await tester.tap(find.widgetWithText(CheckboxListTile, '일본'));
     await tester.pump();
 
-    expect(called, 'JP');
+    expect(called, ('JP', true));
+  });
+
+  testWidgets('unchecking a selected country deselects it', (tester) async {
+    (String, bool)? called;
+    await pumpScreen(
+      tester,
+      initial: const AppSettings(holidayCountryCodes: {'KR', 'JP'}),
+      onSetCountrySelected: (code, selected) async =>
+          called = (code, selected),
+    );
+
+    await tester.tap(find.widgetWithText(CheckboxListTile, '대한민국'));
+    await tester.pump();
+
+    expect(called, ('KR', false));
   });
 
   testWidgets(
-    'a sync failure while picking a country shows a snackbar, not a crash',
+    'a sync failure while checking a country shows a snackbar, not a crash',
     (tester) async {
       await pumpScreen(
         tester,
-        initial: const AppSettings(holidayCountryCode: 'KR'),
-        onSetCountry: (_) async =>
+        initial: const AppSettings(holidayCountryCodes: {'KR'}),
+        onSetCountrySelected: (_, _) async =>
             throw HolidayCalendarSyncException('network down'),
       );
 
-      await tester.tap(find.widgetWithText(ListTile, '일본'));
+      await tester.tap(find.widgetWithText(CheckboxListTile, '일본'));
       await tester.pump();
       await tester.pump();
 
@@ -149,23 +183,47 @@ void main() {
     },
   );
 
-  testWidgets('an active custom URL is shown and checked, not any country', (
+  testWidgets(
+    'every added custom URL is listed, alongside country selections — '
+    'the two are independent, not either/or',
+    (tester) async {
+      await pumpScreen(
+        tester,
+        initial: const AppSettings(
+          holidayCountryCodes: {'KR'},
+          customHolidayCalendarUrls: {'https://example.com/calendar.ics'},
+        ),
+      );
+
+      expect(find.text('https://example.com/calendar.ics'), findsOneWidget);
+      expect(checkboxFor(tester, '대한민국').value, isTrue);
+    },
+  );
+
+  testWidgets('tapping the remove icon on a custom URL removes just that one', (
     tester,
   ) async {
+    String? removed;
     await pumpScreen(
       tester,
       initial: const AppSettings(
-        holidayCountryCode: 'KR',
-        customHolidayCalendarUrl: 'https://example.com/calendar.ics',
+        customHolidayCalendarUrls: {
+          'https://example.com/a.ics',
+          'https://example.com/b.ics',
+        },
       ),
+      onRemoveCustomUrl: (url) async => removed = url,
     );
 
-    expect(find.text('https://example.com/calendar.ics'), findsOneWidget);
-    final krTile = find.widgetWithText(ListTile, '대한민국');
-    expect(
-      find.descendant(of: krTile, matching: find.byIcon(Icons.check)),
-      findsNothing,
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'https://example.com/a.ics'),
+        matching: find.byIcon(Icons.close),
+      ),
     );
+    await tester.pump();
+
+    expect(removed, 'https://example.com/a.ics');
   });
 
   testWidgets(
@@ -176,7 +234,7 @@ void main() {
       await pumpScreen(
         tester,
         initial: const AppSettings(),
-        onSetCustomUrl: (_) async => called = true,
+        onAddCustomUrl: (_) async => called = true,
       );
 
       await tester.tap(find.text('URL로 직접 추가'));
@@ -191,26 +249,25 @@ void main() {
     },
   );
 
-  testWidgets(
-    'submitting a valid URL calls setCustomHolidayCalendarUrl',
-    (tester) async {
-      String? submitted;
-      await pumpScreen(
-        tester,
-        initial: const AppSettings(),
-        onSetCustomUrl: (url) async => submitted = url,
-      );
+  testWidgets('submitting a valid URL calls addCustomHolidayCalendarUrl', (
+    tester,
+  ) async {
+    String? submitted;
+    await pumpScreen(
+      tester,
+      initial: const AppSettings(),
+      onAddCustomUrl: (url) async => submitted = url,
+    );
 
-      await tester.tap(find.text('URL로 직접 추가'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField),
-        'https://example.com/calendar.ics',
-      );
-      await tester.tap(find.text('완료'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('URL로 직접 추가'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField),
+      'https://example.com/calendar.ics',
+    );
+    await tester.tap(find.text('완료'));
+    await tester.pumpAndSettle();
 
-      expect(submitted, 'https://example.com/calendar.ics');
-    },
-  );
+    expect(submitted, 'https://example.com/calendar.ics');
+  });
 }

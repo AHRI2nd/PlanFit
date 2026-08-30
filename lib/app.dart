@@ -195,34 +195,44 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   Future<void> _runAutoBackup() =>
       ref.read(autoBackupServiceProvider).runIfDue();
 
-  /// Keeps the chosen holiday calendar (a country, or a custom URL — see
-  /// `AppSettings.holidayCountryCode`/`customHolidayCalendarUrl`) current.
-  /// No dedicated background job: piggybacks on the same foreground-resume
-  /// trigger every other best-effort sync task here already uses, so
-  /// syncing simply means "the next resume (or this one) picks it up"
-  /// rather than needing its own scheduling. No BuildContext/Localizations
-  /// dependency any more — country resolution moved into
-  /// `AppSettings.resolvedHolidayCountryCode` (dart:ui-based), which is why
-  /// this no longer needs the root-Navigator-context workaround the rest of
-  /// this class's other handlers still do.
+  /// Keeps every selected holiday calendar (any number of countries, any
+  /// number of custom URLs — see `AppSettings.holidayCountryCodes`/
+  /// `customHolidayCalendarUrls`) current. No dedicated background job:
+  /// piggybacks on the same foreground-resume trigger every other
+  /// best-effort sync task here already uses, so syncing simply means "the
+  /// next resume (or this one) picks it up" rather than needing its own
+  /// scheduling. No BuildContext/Localizations dependency any more —
+  /// country resolution moved into `AppSettings`/`HolidayCalendarService`
+  /// (dart:ui-based), which is why this no longer needs the
+  /// root-Navigator-context workaround the rest of this class's other
+  /// handlers still do.
   Future<void> _syncHolidayCalendar() async {
-    try {
-      final prefs = ref.read(sharedPreferencesProvider);
-      if (!(prefs.getBool(SyncPrefs.holidayLegacySourcesMigrated) ?? false)) {
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (!(prefs.getBool(SyncPrefs.holidayLegacySourcesMigrated) ?? false)) {
+      try {
         await ref.read(holidayCalendarServiceProvider).migrateLegacySources();
         await prefs.setBool(SyncPrefs.holidayLegacySourcesMigrated, true);
+      } catch (_) {
+        // Not marked migrated — retried on the next resume, same
+        // best-effort spirit as the rest of this class's sync tasks.
       }
-      final settings = ref.read(settingsControllerProvider);
-      if (!settings.holidayCalendarEnabled) return;
-      final holidays = ref.read(holidayCalendarServiceProvider);
-      final customUrl = settings.customHolidayCalendarUrl;
-      if (customUrl != null) {
-        await holidays.syncCustomUrl(customUrl);
-      } else {
-        await holidays.syncCountry(settings.resolvedHolidayCountryCode);
+    }
+    final settings = ref.read(settingsControllerProvider);
+    if (!settings.holidayCalendarEnabled) return;
+    final holidays = ref.read(holidayCalendarServiceProvider);
+    for (final countryCode in settings.holidayCountryCodes) {
+      try {
+        await holidays.syncCountry(countryCode);
+      } catch (_) {
+        // Best-effort — one source failing shouldn't block the rest.
       }
-    } catch (_) {
-      // Best-effort, same as the rest of foreground-resume sync.
+    }
+    for (final url in settings.customHolidayCalendarUrls) {
+      try {
+        await holidays.syncCustomUrl(url);
+      } catch (_) {
+        // Best-effort — see above.
+      }
     }
   }
 

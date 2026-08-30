@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/calendar_sync/holiday_calendar_service.dart'
-    show defaultHolidayCountryCode;
-
 /// Which hour format a `TimeOfDay`/hour-minute display uses. `system`
 /// follows the OS's own 24-hour setting (`MediaQuery.alwaysUse24HourFormat`)
 /// — same as before either of the two settings below existed.
@@ -24,8 +21,8 @@ class AppSettings {
     this.dialTimeFormatPreference = TimeFormatPreference.system,
     this.displayTimeFormatPreference = TimeFormatPreference.system,
     this.holidayCalendarEnabled = true,
-    this.holidayCountryCode,
-    this.customHolidayCalendarUrl,
+    this.holidayCountryCodes = const {},
+    this.customHolidayCalendarUrls = const {},
   });
 
   final ThemeMode themeMode;
@@ -77,31 +74,30 @@ class AppSettings {
   /// or vice versa.
   final TimeFormatPreference displayTimeFormatPreference;
 
-  /// Whether the app auto-imports a holiday calendar as a read-only mirror
-  /// — on by default. Which calendar is [holidayCountryCode]/
-  /// [customHolidayCalendarUrl]'s job to say; this only turns the whole
+  /// Whether the app auto-imports holiday calendars as read-only mirrors —
+  /// on by default. Which calendars is [holidayCountryCodes]/
+  /// [customHolidayCalendarUrls]'s job to say; this only turns the whole
   /// thing on or off.
   final bool holidayCalendarEnabled;
 
-  /// The country whose public holidays to mirror (an ISO alpha-2 key of
-  /// `HolidayCalendarService.holidayCountryCalendarIds`) — `null` means
-  /// "auto," resolved via [resolvedHolidayCountryCode]. Ignored while
-  /// [customHolidayCalendarUrl] is set; the two are mutually exclusive from
-  /// the user's perspective (picking one clears the other — see
-  /// `SettingsController.setHolidayCountryCode`/`setCustomHolidayCalendarUrl`).
-  final String? holidayCountryCode;
+  /// Every country whose public holidays to mirror, simultaneously (ISO
+  /// alpha-2 keys of `HolidayCalendarService.holidayCountryCalendarIds`) —
+  /// any number can be selected at once, same multi-select shape as
+  /// [subscribedCalendarIds]. Genuinely empty means the user deselected
+  /// every country (and isn't relying on any custom URL either) — unlike
+  /// the single-select version this replaced, there's no getter-level
+  /// "auto" fallback here any more: `SettingsController.build()` seeds this
+  /// with [HolidayCalendarService.defaultHolidayCountryCode] exactly once,
+  /// the first time it ever reads prefs with neither this nor
+  /// [customHolidayCalendarUrls] persisted yet, so from then on this field
+  /// is always the actual truth, not something every reader has to
+  /// re-derive a fallback for.
+  final Set<String> holidayCountryCodes;
 
-  /// A user-supplied ICS feed URL, if they added one instead of picking a
-  /// country — takes priority over [holidayCountryCode] wherever both are
-  /// read. `null` means no custom calendar is active.
-  final String? customHolidayCalendarUrl;
-
-  /// [holidayCountryCode], folding in the "auto" default (the exact
-  /// locale-based fallback this app always used before country selection
-  /// existed) so every call site can just read this instead of each
-  /// re-deriving the same null-check.
-  String get resolvedHolidayCountryCode =>
-      holidayCountryCode ?? defaultHolidayCountryCode();
+  /// Every user-supplied ICS feed URL the user added, mirrored alongside
+  /// whatever [holidayCountryCodes] selects — not mutually exclusive with
+  /// it; both can be active at once.
+  final Set<String> customHolidayCalendarUrls;
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -118,10 +114,8 @@ class AppSettings {
     TimeFormatPreference? dialTimeFormatPreference,
     TimeFormatPreference? displayTimeFormatPreference,
     bool? holidayCalendarEnabled,
-    String? holidayCountryCode,
-    bool clearHolidayCountryCode = false,
-    String? customHolidayCalendarUrl,
-    bool clearCustomHolidayCalendarUrl = false,
+    Set<String>? holidayCountryCodes,
+    Set<String>? customHolidayCalendarUrls,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -145,12 +139,9 @@ class AppSettings {
           displayTimeFormatPreference ?? this.displayTimeFormatPreference,
       holidayCalendarEnabled:
           holidayCalendarEnabled ?? this.holidayCalendarEnabled,
-      holidayCountryCode: clearHolidayCountryCode
-          ? null
-          : (holidayCountryCode ?? this.holidayCountryCode),
-      customHolidayCalendarUrl: clearCustomHolidayCalendarUrl
-          ? null
-          : (customHolidayCalendarUrl ?? this.customHolidayCalendarUrl),
+      holidayCountryCodes: holidayCountryCodes ?? this.holidayCountryCodes,
+      customHolidayCalendarUrls:
+          customHolidayCalendarUrls ?? this.customHolidayCalendarUrls,
     );
   }
 }

@@ -9,12 +9,13 @@ import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
 import 'settings_screen.dart' show holidayCountryDisplayName;
 
-/// Lets the user pick which country's public holidays PlanFit mirrors, or
-/// add a custom ICS URL instead — the picker screen `_HolidayCalendarSourceRow`
-/// (settings_screen.dart) links to. Modeled directly on
-/// [CalendarPickerScreen]'s "pick one of several options" shape, plus
-/// [CalendarImportScreen]'s busy-overlay pattern for the network round trip
-/// each selection triggers.
+/// Lets the user pick any number of countries whose public holidays PlanFit
+/// mirrors, plus any number of custom ICS URLs — every selection is
+/// independent and additive, not a single either/or choice. Modeled on
+/// [CalendarImportScreen]'s multi-subscribe shape (each row has its own
+/// on/off state, several can be on at once) rather than
+/// [CalendarPickerScreen]'s single-pick shape, plus that same screen's
+/// busy-overlay pattern for the network round trip each toggle triggers.
 class HolidayCalendarSourceScreen extends ConsumerStatefulWidget {
   const HolidayCalendarSourceScreen({super.key});
 
@@ -27,14 +28,32 @@ class _HolidayCalendarSourceScreenState
     extends ConsumerState<HolidayCalendarSourceScreen> {
   bool _busy = false;
 
-  Future<void> _selectCountry(String countryCode) async {
+  Future<void> _toggleCountry(String countryCode, bool selected) async {
     final l10n = AppL10n.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
       await ref
           .read(settingsControllerProvider.notifier)
-          .setHolidayCountryCode(countryCode);
+          .setHolidayCountrySelected(countryCode, selected);
+    } on HolidayCalendarSyncException {
+      if (!mounted) return;
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.holidayCalendarSourceSyncFailedGeneric)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _removeCustomUrl(String url) async {
+    final l10n = AppL10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(settingsControllerProvider.notifier)
+          .removeCustomHolidayCalendarUrl(url);
     } on HolidayCalendarSyncException {
       if (!mounted) return;
       messenger.showAutoDismissSnackBar(
@@ -86,10 +105,19 @@ class _HolidayCalendarSourceScreenState
     // Local scheme check before ever touching the network — a URL that
     // can't even parse as http/https is never worth a round trip for.
     final parsed = Uri.tryParse(url);
-    if (parsed == null || !(parsed.isScheme('HTTP') || parsed.isScheme('HTTPS'))) {
+    if (parsed == null ||
+        !(parsed.isScheme('HTTP') || parsed.isScheme('HTTPS'))) {
       ScaffoldMessenger.of(context).showAutoDismissSnackBar(
         SnackBar(content: Text(l10n.holidayCalendarSourceCustomInvalidUrl)),
       );
+      return;
+    }
+    if (ref
+        .read(settingsControllerProvider)
+        .customHolidayCalendarUrls
+        .contains(url)) {
+      // Already added — nothing to do, and re-syncing wouldn't be wrong,
+      // just pointless network traffic for a no-op.
       return;
     }
 
@@ -98,7 +126,7 @@ class _HolidayCalendarSourceScreenState
     try {
       await ref
           .read(settingsControllerProvider.notifier)
-          .setCustomHolidayCalendarUrl(url);
+          .addCustomHolidayCalendarUrl(url);
     } on HolidayCalendarSyncException {
       if (!mounted) return;
       messenger.showAutoDismissSnackBar(
@@ -114,7 +142,7 @@ class _HolidayCalendarSourceScreenState
     final l10n = AppL10n.of(context);
     final palette = context.palette;
     final settings = ref.watch(settingsControllerProvider);
-    final customUrl = settings.customHolidayCalendarUrl;
+    final customUrls = settings.customHolidayCalendarUrls.toList()..sort();
     final countries = HolidayCalendarService.holidayCountryCalendarIds.keys
         .toList();
 
@@ -125,13 +153,26 @@ class _HolidayCalendarSourceScreenState
           ListView(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
             children: [
+              for (final url in customUrls)
+                ListTile(
+                  leading: Icon(Icons.link, color: palette.inkFaint),
+                  title: Text(
+                    url,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    tooltip: l10n.holidayCalendarSourceRemoveCustomUrl,
+                    icon: Icon(Icons.close, color: palette.inkFaint),
+                    onPressed: _busy ? null : () => _removeCustomUrl(url),
+                  ),
+                ),
               ListTile(
-                leading: Icon(Icons.link, color: palette.inkFaint),
-                title: Text(l10n.holidayCalendarSourceCustomEntry),
-                subtitle: customUrl != null ? Text(customUrl) : null,
-                trailing: customUrl != null
-                    ? Icon(Icons.check, color: palette.accent)
-                    : null,
+                leading: Icon(Icons.add_link, color: palette.accent),
+                title: Text(
+                  l10n.holidayCalendarSourceCustomEntry,
+                  style: TextStyle(color: palette.accent),
+                ),
                 onTap: _busy ? null : _addCustomUrl,
               ),
               Divider(height: 1, color: palette.hairline),
@@ -150,14 +191,15 @@ class _HolidayCalendarSourceScreenState
                 ),
               ),
               for (final countryCode in countries)
-                ListTile(
+                CheckboxListTile(
                   title: Text(holidayCountryDisplayName(l10n, countryCode)),
-                  trailing:
-                      customUrl == null &&
-                          countryCode == settings.resolvedHolidayCountryCode
-                      ? Icon(Icons.check, color: palette.accent)
-                      : null,
-                  onTap: _busy ? null : () => _selectCountry(countryCode),
+                  value: settings.holidayCountryCodes.contains(countryCode),
+                  activeColor: palette.accent,
+                  controlAffinity: ListTileControlAffinity.trailing,
+                  onChanged: _busy
+                      ? null
+                      : (selected) =>
+                            _toggleCountry(countryCode, selected ?? false),
                 ),
             ],
           ),

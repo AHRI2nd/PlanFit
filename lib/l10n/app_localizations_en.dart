@@ -310,6 +310,14 @@ class AppL10nEn extends AppL10n {
   String get settingsHolidaySourceCustomLabel => 'Custom calendar';
 
   @override
+  String get settingsHolidaySourceEmpty => 'None selected';
+
+  @override
+  String settingsHolidaySourceMore(String first, int count) {
+    return '$first and $count more';
+  }
+
+  @override
   String get holidayCountryKR => 'South Korea';
 
   @override
@@ -341,6 +349,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get holidayCalendarSourceCustomEntry => 'Add from a URL';
+
+  @override
+  String get holidayCalendarSourceRemoveCustomUrl => 'Remove';
 
   @override
   String get holidayCalendarSourceCustomDialogTitle => 'Enter calendar URL';

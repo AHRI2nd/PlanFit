@@ -126,6 +126,14 @@
     }
   },
   "settingsHolidaySourceCustomLabel": "Custom calendar",
+  "settingsHolidaySourceEmpty": "None selected",
+  "settingsHolidaySourceMore": "{first} and {count} more",
+  "@settingsHolidaySourceMore": {
+    "placeholders": {
+      "first": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
   "holidayCountryKR": "South Korea",
   "holidayCountryUS": "United States",
   "holidayCountryJP": "Japan",
@@ -137,6 +145,7 @@
   "holidayCalendarSourceTitle": "Choose holiday calendar",
   "holidayCalendarSourceSectionCountries": "Choose a country",
   "holidayCalendarSourceCustomEntry": "Add from a URL",
+  "holidayCalendarSourceRemoveCustomUrl": "Remove",
   "holidayCalendarSourceCustomDialogTitle": "Enter calendar URL",
   "holidayCalendarSourceCustomDialogHint": "https://example.com/calendar.ics",
   "holidayCalendarSourceCustomInvalidUrl": "Enter a valid http/https link",

@@ -163,7 +163,10 @@ void main() {
 
       final rows = await db.eventDao.all();
       expect(rows, hasLength(1));
-      expect(rows.single.importSourceCalendarId, 'holiday:custom');
+      expect(
+        rows.single.importSourceCalendarId,
+        'holiday:custom:https://example.com/calendar.ics',
+      );
     });
 
     test('a non-http(s) URL throws without ever making a request', () async {
@@ -223,10 +226,40 @@ void main() {
       when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
       await service.syncCustomUrl('https://example.com/calendar.ics');
 
-      await service.unsubscribeCustom();
+      await service.unsubscribeCustom('https://example.com/calendar.ics');
 
       expect(await db.eventDao.all(), isEmpty);
     });
+
+    test(
+      'two different custom URLs are mirrored independently, under '
+      'distinct source ids',
+      () async {
+        when(
+          client.get(any),
+        ).thenAnswer((_) async => ok(_feedWithOne));
+        await service.syncCustomUrl('https://example.com/a.ics');
+        await service.syncCustomUrl('https://example.com/b.ics');
+
+        final rows = await db.eventDao.all();
+        expect(rows, hasLength(2));
+        expect(
+          rows.map((r) => r.importSourceCalendarId).toSet(),
+          {
+            'holiday:custom:https://example.com/a.ics',
+            'holiday:custom:https://example.com/b.ics',
+          },
+        );
+
+        await service.unsubscribeCustom('https://example.com/a.ics');
+        final remaining = await db.eventDao.all();
+        expect(remaining, hasLength(1));
+        expect(
+          remaining.single.importSourceCalendarId,
+          'holiday:custom:https://example.com/b.ics',
+        );
+      },
+    );
   });
 
   group('migrateLegacySources', () {

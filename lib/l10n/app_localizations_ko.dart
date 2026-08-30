@@ -301,6 +301,14 @@ class AppL10nKo extends AppL10n {
   String get settingsHolidaySourceCustomLabel => '사용자 지정 캘린더';
 
   @override
+  String get settingsHolidaySourceEmpty => '선택 안 함';
+
+  @override
+  String settingsHolidaySourceMore(String first, int count) {
+    return '$first 외 $count곳';
+  }
+
+  @override
   String get holidayCountryKR => '대한민국';
 
   @override
@@ -332,6 +340,9 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get holidayCalendarSourceCustomEntry => 'URL로 직접 추가';
+
+  @override
+  String get holidayCalendarSourceRemoveCustomUrl => '제거';
 
   @override
   String get holidayCalendarSourceCustomDialogTitle => '캘린더 URL 입력';
