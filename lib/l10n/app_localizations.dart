@@ -211,6 +211,18 @@ abstract class AppL10n {
   /// **'깊은 밤이에요'**
   String get homeGreetingNight;
 
+  /// No description provided for @homeToday.
+  ///
+  /// In ko, this message translates to:
+  /// **'오늘'**
+  String get homeToday;
+
+  /// No description provided for @homeTodayEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'오늘은 예정된 일정도, 할 일도 없어요'**
+  String get homeTodayEmpty;
+
   /// No description provided for @homeUpcoming.
   ///
   /// In ko, this message translates to:

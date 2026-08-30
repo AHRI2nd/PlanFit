@@ -20,6 +20,7 @@ import '../../schedule/presentation/event_edit/event_editor_sheet.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
 import '../../todo/domain/todo_overdue.dart';
+import '../../todo/presentation/todo_detail_sheet.dart';
 import '../../todo/presentation/todo_smart_list_screen.dart';
 
 /// The home hero: the current moment as a large clock over the day's gradient,
@@ -57,16 +58,8 @@ class HomeScreen extends ConsumerWidget {
               child: _Hero(now: now, l10n: l10n, use24Hour: use24),
             ),
             const SizedBox(height: AppSpacing.xl),
-            SectionHeader(l10n.homeUpcoming),
-            _UpcomingList(
-              now: now,
-              locale: locale,
-              l10n: l10n,
-              use24Hour: use24,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            SectionHeader(l10n.homeTodayTodos),
-            _TodayTodos(l10n: l10n),
+            SectionHeader(l10n.homeToday),
+            _TodayFeed(now: now, locale: locale, l10n: l10n, use24Hour: use24),
             const SizedBox(height: AppSpacing.xl),
             SectionHeader(l10n.homeWeekTitle),
             _WeeklyStats(now: now, locale: locale, l10n: l10n),
@@ -126,8 +119,32 @@ class _Hero extends StatelessWidget {
   }
 }
 
-class _UpcomingList extends ConsumerWidget {
-  const _UpcomingList({
+/// One chronologically-ordered feed of both what's coming up and what's due
+/// today — items 2a/2b's merge of the old separate `_UpcomingList`
+/// (events-only) and `_TodayTodos` (todos-only) cards, which read as two
+/// disconnected lists even though "what do I need to deal with today"
+/// is really one question spanning both.
+sealed class _FeedEntry {
+  const _FeedEntry();
+  DateTime get sortKey;
+}
+
+class _FeedEventEntry extends _FeedEntry {
+  const _FeedEventEntry(this.event);
+  final EventRow event;
+  @override
+  DateTime get sortKey => event.startAt;
+}
+
+class _FeedTodoEntry extends _FeedEntry {
+  const _FeedTodoEntry(this.todo);
+  final TodoRow todo;
+  @override
+  DateTime get sortKey => todo.slotStart;
+}
+
+class _TodayFeed extends ConsumerWidget {
+  const _TodayFeed({
     required this.now,
     required this.locale,
     required this.l10n,
@@ -141,29 +158,93 @@ class _UpcomingList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(upcomingEventsProvider);
-    final events = async.asData?.value ?? const <EventRow>[];
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final today = dateOnly(DateTime.now());
+    // upcomingEventsProvider is already capped (watchUpcoming(..., limit: 4))
+    // — not the uncapped list the "dense" complaint assumed.
+    final events =
+        ref.watch(upcomingEventsProvider).asData?.value ?? const <EventRow>[];
+    final todos =
+        ref.watch(todosForDayProvider(today)).asData?.value ??
+        const <TodoRow>[];
 
-    if (events.isEmpty) {
+    if (events.isEmpty && todos.isEmpty) {
       return _EmptyCard(
-        icon: Icons.check_circle_outline,
-        message: l10n.homeUpcomingEmpty,
+        icon: Icons.wb_sunny_outlined,
+        message: l10n.homeTodayEmpty,
       );
     }
 
-    return Column(
-      children: [
-        for (final e in events)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-            child: _UpcomingTile(
-              event: e,
-              now: now,
-              locale: locale,
-              use24Hour: use24Hour,
+    final done = todos.where((t) => t.isDone).length;
+    final overdue = todos.where((t) => isTodoOverdue(t, now)).length;
+    final entries = <_FeedEntry>[
+      for (final e in events) _FeedEventEntry(e),
+      for (final t in todos) _FeedTodoEntry(t),
+    ]..sort((a, b) => a.sortKey.compareTo(b.sortKey));
+
+    return GlassSurface(
+      borderRadius: AppRadius.cardLg,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The per-row detail below already shows each to-do's own state,
+          // but "how many of today's to-dos are done" is an aggregate the
+          // rows alone don't convey — kept as a summary strip, same as the
+          // old _TodayTodos card, rather than dropped in favor of the list.
+          if (todos.isNotEmpty) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.homeTodosDone(done, todos.length),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.homeTodosViewAll,
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => const TodoSmartListScreen(),
+                    ),
+                  ),
+                  icon: Icon(Icons.chevron_right, color: palette.inkFaint),
+                ),
+              ],
             ),
-          ),
-      ],
+            if (overdue > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                child: Text(
+                  l10n.homeTodosOverdue(overdue),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: palette.danger,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          for (final entry in entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: switch (entry) {
+                _FeedEventEntry(:final event) => _UpcomingTile(
+                  event: event,
+                  now: now,
+                  locale: locale,
+                  use24Hour: use24Hour,
+                ),
+                _FeedTodoEntry(:final todo) => _FeedTodoTile(
+                  todo: todo,
+                  locale: locale,
+                  use24Hour: use24Hour,
+                ),
+              },
+            ),
+        ],
+      ),
     );
   }
 }
@@ -226,77 +307,83 @@ class _UpcomingTile extends StatelessWidget {
   }
 }
 
-class _TodayTodos extends ConsumerWidget {
-  const _TodayTodos({required this.l10n});
-  final AppL10n l10n;
+class _FeedTodoTile extends ConsumerWidget {
+  const _FeedTodoTile({
+    required this.todo,
+    required this.locale,
+    required this.use24Hour,
+  });
+
+  final TodoRow todo;
+  final String locale;
+  final bool use24Hour;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final theme = Theme.of(context);
-    final today = dateOnly(DateTime.now());
-    final todos =
-        ref.watch(todosForDayProvider(today)).asData?.value ??
-        const <TodoRow>[];
+    final isOverdue = isTodoOverdue(todo, DateTime.now());
 
-    if (todos.isEmpty) {
-      return _EmptyCard(
-        icon: Icons.wb_sunny_outlined,
-        message: l10n.homeNoTodos,
-      );
-    }
-
-    final done = todos.where((t) => t.isDone).length;
-    final progress = todos.isEmpty ? 0.0 : done / todos.length;
-    final now = DateTime.now();
-    final overdue = todos.where((t) => isTodoOverdue(t, now)).length;
-
-    return GlassSurface(
-      borderRadius: AppRadius.cardLg,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.homeTodosDone(done, todos.length),
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-              IconButton(
-                tooltip: l10n.homeTodosViewAll,
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (_) => const TodoSmartListScreen(),
+    return GestureDetector(
+      onTap: () => showTodoDetailSheet(context, todo),
+      child: GlassSurface(
+        borderRadius: AppRadius.cardMd,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            // Same tap-target/color language as HourlyTodoList's own
+            // checkbox — accent when done, danger when overdue, faint
+            // otherwise.
+            Semantics(
+              button: true,
+              checked: todo.isDone,
+              label: AppL10n.of(context).todoMarkDone,
+              child: InkWell(
+                onTap: () => ref
+                    .read(todoControllerProvider)
+                    .toggle(todo.id, !todo.isDone),
+                customBorder: const CircleBorder(),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xxs),
+                  child: Icon(
+                    todo.isDone
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 22,
+                    color: todo.isDone
+                        ? palette.accent
+                        : (isOverdue ? palette.danger : palette.inkFaint),
                   ),
                 ),
-                icon: Icon(Icons.chevron_right, color: palette.inkFaint),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                todo.title.isEmpty ? '—' : todo.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: todo.isDone ? palette.inkFaint : palette.ink,
+                  decoration: todo.isDone ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+            if (todo.hasTime) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                Fmt.time(todo.slotStart, locale, use24Hour: use24Hour),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: isOverdue ? palette.danger : palette.inkFaint,
+                  fontWeight: isOverdue ? FontWeight.w700 : null,
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          ClipRRect(
-            borderRadius: AppRadius.allPill,
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: palette.hairline,
-              valueColor: AlwaysStoppedAnimation(palette.accent),
-            ),
-          ),
-          if (overdue > 0) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              l10n.homeTodosOverdue(overdue),
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: palette.danger,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }

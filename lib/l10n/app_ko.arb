@@ -21,6 +21,8 @@
   "homeGreetingAfternoon": "기분좋은 오후예요",
   "homeGreetingEvening": "저녁이 찾아왔어요",
   "homeGreetingNight": "깊은 밤이에요",
+  "homeToday": "오늘",
+  "homeTodayEmpty": "오늘은 예정된 일정도, 할 일도 없어요",
   "homeUpcoming": "다가오는 일정",
   "homeUpcomingEmpty": "예정된 일정이 없어요",
   "homeTodayTodos": "오늘의 할 일",

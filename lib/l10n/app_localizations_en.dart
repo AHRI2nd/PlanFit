@@ -69,6 +69,12 @@ class AppL10nEn extends AppL10n {
   String get homeGreetingNight => 'Late night';
 
   @override
+  String get homeToday => 'Today';
+
+  @override
+  String get homeTodayEmpty => 'Nothing planned or due today';
+
+  @override
   String get homeUpcoming => 'Up next';
 
   @override

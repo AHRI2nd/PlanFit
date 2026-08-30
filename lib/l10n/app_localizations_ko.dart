@@ -66,6 +66,12 @@ class AppL10nKo extends AppL10n {
   String get homeGreetingNight => '깊은 밤이에요';
 
   @override
+  String get homeToday => '오늘';
+
+  @override
+  String get homeTodayEmpty => '오늘은 예정된 일정도, 할 일도 없어요';
+
+  @override
   String get homeUpcoming => '다가오는 일정';
 
   @override

@@ -75,8 +75,9 @@ void main() {
   testWidgets('shows every empty state when there is no data', (tester) async {
     await pumpHome(tester);
 
-    expect(find.text('예정된 일정이 없어요'), findsOneWidget);
-    expect(find.text('오늘 등록된 할 일이 없어요'), findsOneWidget);
+    // The merged today feed (events + to-dos) shows one empty state now,
+    // not the two separate ones the old _UpcomingList/_TodayTodos cards had.
+    expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsOneWidget);
     expect(find.text('이번 주는 아직 조용하네요'), findsOneWidget);
   });
 
@@ -110,6 +111,39 @@ void main() {
     await pumpHome(tester);
 
     expect(find.text('Team sync'), findsOneWidget);
-    expect(find.text('예정된 일정이 없어요'), findsNothing);
+    expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsNothing);
   });
+
+  testWidgets(
+    "renders today's to-do title once data arrives, interleaved with events",
+    (tester) async {
+      final today = DateTime(2026, 3, 10);
+      final todo = TodoRow(
+        id: 't1',
+        eventId: null,
+        title: 'Buy milk',
+        slotStart: today.add(const Duration(hours: 9)),
+        slotEnd: null,
+        hasTime: true,
+        isDone: false,
+        sortOrder: 0,
+        priority: 0,
+        tags: null,
+        notify: false,
+        isPinned: false,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        reminderSyncStatus: SyncStatus.pendingPush,
+        createdAt: today,
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([todo]));
+
+      await pumpHome(tester);
+
+      expect(find.text('Buy milk'), findsOneWidget);
+      expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsNothing);
+    },
+  );
 }

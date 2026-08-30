@@ -21,6 +21,8 @@
   "homeGreetingAfternoon": "Good afternoon",
   "homeGreetingEvening": "Good evening",
   "homeGreetingNight": "Late night",
+  "homeToday": "Today",
+  "homeTodayEmpty": "Nothing planned or due today",
   "homeUpcoming": "Up next",
   "homeUpcomingEmpty": "Nothing scheduled",
   "homeTodayTodos": "Today's to-dos",
