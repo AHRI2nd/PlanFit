@@ -186,21 +186,6 @@ final eventsForAgendaProvider = StreamProvider.family<List<EventRow>, DateTime>(
   },
 );
 
-/// Events for the schedule tab's date strip — a generous ±45-day window
-/// around [anchor] (the selected day), not the strip's exact visible
-/// scroll range. A strip cell outside this window just shows no dot rather
-/// than tracking scroll position with a debounced (start, end) family,
-/// which would mint (and have to dispose) a fresh provider instance on
-/// every frame of a drag — this reuses the same "keyed on a stable day,
-/// not a raw scroll offset" tradeoff `eventsForWeekProvider`'s and
-/// `eventsForMonthProvider`'s own doc comments already make.
-final eventsForDateStripProvider =
-    StreamProvider.family<List<EventRow>, DateTime>((ref, anchor) {
-      final start = addCalendarDays(dateOnly(anchor), -45);
-      final end = addCalendarDays(dateOnly(anchor), 46);
-      return ref.watch(eventRepositoryProvider).watchBetween(start, end);
-    });
-
 /// Saved event templates ("자주 쓰는 일정"), oldest first.
 final eventTemplatesProvider = StreamProvider<List<EventTemplateRow>>((ref) {
   return ref.watch(eventTemplateDaoProvider).watchAll();

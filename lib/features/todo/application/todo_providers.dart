@@ -76,17 +76,6 @@ final todosForAgendaProvider = StreamProvider.family<List<TodoRow>, DateTime>((
   return ref.watch(todoDaoProvider).watchBetween(start, end);
 });
 
-/// To-dos for the schedule tab's date strip — mirrors
-/// `eventsForDateStripProvider`'s own ±45-day window around [anchor]
-/// exactly, for the same "stable anchor, not exact scroll bounds" reason
-/// that provider's own doc comment already explains.
-final todosForDateStripProvider =
-    StreamProvider.family<List<TodoRow>, DateTime>((ref, anchor) {
-      final start = addCalendarDays(dateOnly(anchor), -45);
-      final end = addCalendarDays(dateOnly(anchor), 46);
-      return ref.watch(todoDaoProvider).watchBetween(start, end);
-    });
-
 /// A to-do's checklist — the detail sheet's live source, also used by
 /// [HourlyTodoList] to show a "2/3" subtask-progress badge inline.
 final todoSubtasksProvider =
