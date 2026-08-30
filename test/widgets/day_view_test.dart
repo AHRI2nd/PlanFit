@@ -192,4 +192,27 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     },
   );
+
+  testWidgets(
+    'the to-dos header "+" focuses the inline add field, no scrolling by hand',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpDay(tester, day);
+
+      // Empty day, no to-dos yet — the inline add field is the only
+      // TextField DayView renders at all.
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.focusNode!.hasFocus, isFalse);
+
+      await tester.tap(find.byTooltip('할 일 추가'));
+      await tester.pump();
+
+      final refocused = tester.widget<TextField>(find.byType(TextField));
+      expect(refocused.focusNode!.hasFocus, isTrue);
+    },
+  );
 }

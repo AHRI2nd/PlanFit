@@ -24,7 +24,7 @@ import '../event_edit/event_editor_sheet.dart';
 
 /// The signature view: a day laid out as a vertical river of hours, with events
 /// as glass cards floating over the time-of-day gradient, plus the day's to-dos.
-class DayView extends ConsumerWidget {
+class DayView extends ConsumerStatefulWidget {
   const DayView({super.key, required this.day});
 
   final DateTime day;
@@ -33,13 +33,41 @@ class DayView extends ConsumerWidget {
   static const double _railInset = 62;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DayView> createState() => _DayViewState();
+}
+
+class _DayViewState extends ConsumerState<DayView> {
+  final _addTodoFocusNode = FocusNode();
+  final _todosSectionKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _addTodoFocusNode.dispose();
+    super.dispose();
+  }
+
+  /// The section header's "+" — jumps straight to the inline add field
+  /// instead of making the user scroll past the whole 24-hour timeline to
+  /// reach it themselves.
+  void _focusAddTodo() {
+    _addTodoFocusNode.requestFocus();
+    final todosContext = _todosSectionKey.currentContext;
+    if (todosContext != null) {
+      Scrollable.ensureVisible(
+        todosContext,
+        duration: const Duration(milliseconds: 200),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final eventsAsync = ref.watch(eventsForDayProvider(day));
+    final eventsAsync = ref.watch(eventsForDayProvider(widget.day));
     final now = DateTime.now();
-    final isToday = dateOnly(now) == dateOnly(day);
+    final isToday = dateOnly(now) == dateOnly(widget.day);
 
     return eventsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -68,21 +96,35 @@ class DayView extends ConsumerWidget {
               _EmptyDay(l10n: l10n)
             else
               SizedBox(
-                height: _hourHeight * 24,
+                height: DayView._hourHeight * 24,
                 child: _Timeline(
-                  day: day,
+                  day: widget.day,
                   events: timed,
                   isToday: isToday,
                   now: now,
                   locale: locale,
-                  hourHeight: _hourHeight,
-                  railInset: _railInset,
+                  hourHeight: DayView._hourHeight,
+                  railInset: DayView._railInset,
                   accent: palette.accent,
                 ),
               ),
             const SizedBox(height: AppSpacing.lg),
-            SectionHeader(l10n.todosSectionTitle),
-            HourlyTodoList(day: day),
+            SectionHeader(
+              l10n.todosSectionTitle,
+              trailing: IconButton(
+                tooltip: l10n.todoAdd,
+                onPressed: _focusAddTodo,
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.add, size: 20, color: palette.inkFaint),
+              ),
+            ),
+            KeyedSubtree(
+              key: _todosSectionKey,
+              child: HourlyTodoList(
+                day: widget.day,
+                addFocusNode: _addTodoFocusNode,
+              ),
+            ),
           ],
         );
       },

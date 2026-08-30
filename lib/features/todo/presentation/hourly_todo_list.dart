@@ -31,9 +31,15 @@ import '../../settings/application/settings_controller.dart';
 /// still gets created there, it just won't appear in this list until the
 /// user navigates to that day, so a SnackBar names which day it landed on.
 class HourlyTodoList extends ConsumerStatefulWidget {
-  const HourlyTodoList({super.key, required this.day});
+  const HourlyTodoList({super.key, required this.day, this.addFocusNode});
 
   final DateTime day;
+
+  /// Lets a caller (the section header's "+" button — see `DayView`) drive
+  /// focus into the inline add field from outside this widget. Owned and
+  /// disposed by whoever passes it in; when absent this widget creates and
+  /// owns its own instead, so the field still works standalone.
+  final FocusNode? addFocusNode;
 
   @override
   ConsumerState<HourlyTodoList> createState() => _HourlyTodoListState();
@@ -41,6 +47,7 @@ class HourlyTodoList extends ConsumerStatefulWidget {
 
 class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
   final _controller = TextEditingController();
+  late final FocusNode _addFocusNode = widget.addFocusNode ?? FocusNode();
   late TimeOfDay _addTime;
   late DateTime _lastDay;
   RecurrenceFrequency _addRecurrence = RecurrenceFrequency.none;
@@ -146,6 +153,9 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
   @override
   void dispose() {
     _controller.dispose();
+    // Only dispose it if we created it ourselves — a FocusNode passed in
+    // via widget.addFocusNode is owned (and disposed) by its caller.
+    if (widget.addFocusNode == null) _addFocusNode.dispose();
     super.dispose();
   }
 
@@ -290,8 +300,13 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
           },
           orElse: () => const SizedBox.shrink(),
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.xs),
+        Container(
+          margin: const EdgeInsets.only(top: AppSpacing.xs),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.cardMd,
+            border: Border.all(color: palette.hairline),
+          ),
           child: Row(
             children: [
               Icon(Icons.add, size: 20, color: palette.inkFaint),
@@ -299,6 +314,7 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
               Expanded(
                 child: TextField(
                   controller: _controller,
+                  focusNode: _addFocusNode,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _add(),
                   decoration: InputDecoration(
@@ -307,7 +323,9 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm,
+                    ),
                   ),
                 ),
               ),
