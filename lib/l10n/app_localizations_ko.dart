@@ -304,6 +304,13 @@ class AppL10nKo extends AppL10n {
       '구독한 캘린더에서 가져온 일정이라 PlanFit에서는 읽기 전용이에요. 수정하려면 원본 캘린더 앱에서 바꿔주세요.';
 
   @override
+  String get holidayEventBadge => '공휴일';
+
+  @override
+  String get holidayEventReadOnlyNote =>
+      '믿을 수 있는 캘린더에서 자동으로 불러온 공휴일이라 PlanFit에서는 읽기 전용이에요.';
+
+  @override
   String get settingsPermissionGranted => '허용됨';
 
   @override

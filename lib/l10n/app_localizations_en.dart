@@ -320,6 +320,13 @@ class AppL10nEn extends AppL10n {
       'This event came from a calendar you subscribed to, so it\'s read-only in PlanFit. Edit it in the original calendar app instead.';
 
   @override
+  String get holidayEventBadge => 'Holiday';
+
+  @override
+  String get holidayEventReadOnlyNote =>
+      'This is a holiday loaded automatically from a trusted calendar, so it\'s read-only in PlanFit.';
+
+  @override
   String get settingsPermissionGranted => 'Granted';
 
   @override

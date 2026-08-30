@@ -131,6 +131,8 @@
   "calendarImportFailed": "Import failed",
   "calendarImportSubscribedHint": "Subscribed — kept up to date automatically",
   "calendarImportMirroredReadOnlyNote": "This event came from a calendar you subscribed to, so it's read-only in PlanFit. Edit it in the original calendar app instead.",
+  "holidayEventBadge": "Holiday",
+  "holidayEventReadOnlyNote": "This is a holiday loaded automatically from a trusted calendar, so it's read-only in PlanFit.",
   "settingsPermissionGranted": "Granted",
   "settingsPermissionDenied": "Not granted",
   "settingsPermissionDeniedMessage": "Permission is denied — allow it in your device settings.",

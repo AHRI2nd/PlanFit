@@ -20,6 +20,13 @@ class MirroredEventDetailScreen extends ConsumerWidget {
 
   final EventRow event;
 
+  /// Holidays are mirrored in the exact same way as a subscribed device
+  /// calendar (see HolidayCalendarService's doc), so they land on this same
+  /// read-only screen — but "subscribed" is the wrong word for a fixed,
+  /// non-user-configurable source, hence the separate copy here.
+  bool get _isHoliday =>
+      (event.importSourceCalendarId ?? '').startsWith('holiday:');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
@@ -34,7 +41,13 @@ class MirroredEventDetailScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.calendarImportSubscribedHint)),
+      appBar: AppBar(
+        title: Text(
+          _isHoliday
+              ? l10n.holidayEventBadge
+              : l10n.calendarImportSubscribedHint,
+        ),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -97,7 +110,9 @@ class MirroredEventDetailScreen extends ConsumerWidget {
                   const SizedBox(width: AppSpacing.xs),
                   Expanded(
                     child: Text(
-                      l10n.calendarImportMirroredReadOnlyNote,
+                      _isHoliday
+                          ? l10n.holidayEventReadOnlyNote
+                          : l10n.calendarImportMirroredReadOnlyNote,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: palette.inkFaint,
                       ),

@@ -655,6 +655,18 @@ abstract class AppL10n {
   /// **'구독한 캘린더에서 가져온 일정이라 PlanFit에서는 읽기 전용이에요. 수정하려면 원본 캘린더 앱에서 바꿔주세요.'**
   String get calendarImportMirroredReadOnlyNote;
 
+  /// No description provided for @holidayEventBadge.
+  ///
+  /// In ko, this message translates to:
+  /// **'공휴일'**
+  String get holidayEventBadge;
+
+  /// No description provided for @holidayEventReadOnlyNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'믿을 수 있는 캘린더에서 자동으로 불러온 공휴일이라 PlanFit에서는 읽기 전용이에요.'**
+  String get holidayEventReadOnlyNote;
+
   /// No description provided for @settingsPermissionGranted.
   ///
   /// In ko, this message translates to:
