@@ -194,6 +194,20 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// text lines plus the grip at this card's padding/type scale.
   static const double _minEventCardHeight = 80;
 
+  /// Extra headroom [_minEventCardHeight] needs when the card also renders
+  /// a location row — without this, a short (clamped-to-minimum) event that
+  /// has a location set overflows its own card: `_minEventCardHeight` was
+  /// tuned for title+time+grip only, one row short of what a card with a
+  /// location actually renders. Found by manually creating a 1-hour event
+  /// with a location and watching it throw a real (not just debug-banner)
+  /// "RenderFlex overflowed by 10.0 pixels" — a location row is genuinely
+  /// missing from the space budget, not a cosmetic sliver.
+  static const double _locationRowExtraHeight = 20;
+
+  double _minHeightFor(EventRow e) =>
+      _minEventCardHeight +
+      ((e.location?.isNotEmpty ?? false) ? _locationRowExtraHeight : 0);
+
   /// The event currently being dragged, if any — only one card can drag at a
   /// time since drags are single-pointer gestures.
   String? _draggingId;
@@ -549,9 +563,8 @@ class _TimelineState extends ConsumerState<_Timeline>
                     0.0,
                     widget.hourHeight * 24,
                   );
-                  final height = rawHeight < _minEventCardHeight
-                      ? _minEventCardHeight
-                      : rawHeight;
+                  final minHeight = _minHeightFor(e);
+                  final height = rawHeight < minHeight ? minHeight : rawHeight;
                   return Positioned(
                     top: _offsetFor(start),
                     left: widget.railInset + leftInset,

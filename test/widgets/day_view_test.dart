@@ -27,12 +27,13 @@ void main() {
     required String title,
     required DateTime startAt,
     required DateTime endAt,
+    String? location,
   }) {
     return EventRow(
       id: id,
       title: title,
       memo: null,
-      location: null,
+      location: location,
       startAt: startAt,
       endAt: endAt,
       isAllDay: false,
@@ -171,6 +172,36 @@ void main() {
       expect(longCard.height, greaterThanOrEqualTo(128));
     },
   );
+
+  testWidgets('a short event with a location gets enough extra height for its '
+      'location row, no overflow', (tester) async {
+    // Regression test — found via manual testing: a 1-hour event with a
+    // location clamped to the (location-unaware) minimum card height
+    // threw a real "RenderFlex overflowed by 10.0 pixels", not just a
+    // debug-banner cosmetic one.
+    final day = DateTime(2026, 3, 10);
+    final e = row(
+      id: 'e1',
+      title: 'Coffee',
+      startAt: DateTime(2026, 3, 10, 9),
+      endAt: DateTime(2026, 3, 10, 10),
+      location: '1234 Main St',
+    );
+    when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
+
+    await pumpDay(tester, day);
+
+    expect(tester.takeException(), isNull);
+    final card = tester.getSize(
+      find
+          .ancestor(
+            of: find.text('Coffee'),
+            matching: find.byType(RepaintBoundary),
+          )
+          .first,
+    );
+    expect(card.height, greaterThanOrEqualTo(100));
+  });
 
   testWidgets(
     'swiping an event card left with enough velocity deletes it — the '
