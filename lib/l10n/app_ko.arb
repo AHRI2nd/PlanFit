@@ -109,6 +109,8 @@
   "settingsCalendarTargetEmpty": "선택할 수 있는 캘린더가 없어요",
   "settingsCalendarImport": "다른 캘린더에서 가져오기",
   "settingsCalendarImportDesc": "기존 캘린더에서 가져오거나 계속 구독해요",
+  "settingsHolidayCalendar": "공휴일 표시",
+  "settingsHolidayCalendarDesc": "믿을 수 있는 공휴일 캘린더를 자동으로 불러와요",
   "calendarImportTitle": "가져오기 · 구독할 캘린더",
   "calendarImportEmpty": "가져올 수 있는 캘린더가 없어요",
   "calendarImportConfirmTitle": "{calendarName}에서 가져올까요?",

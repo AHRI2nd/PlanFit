@@ -4,7 +4,8 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:permission_handler/permission_handler.dart' show openAppSettings;
+import 'package:permission_handler/permission_handler.dart'
+    show openAppSettings;
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/di.dart';
@@ -298,6 +299,19 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: l10n.settingsCalendarImportDesc,
                   icon: Icons.file_download_outlined,
                   onTap: () => context.go('/settings/calendar-import'),
+                ),
+                const _RowDivider(),
+                // No URL/calendar picker here on purpose — see
+                // HolidayCalendarService's own doc for why this is a fixed,
+                // trusted source rather than something the user configures.
+                _SwitchRow(
+                  title: l10n.settingsHolidayCalendar,
+                  subtitle: l10n.settingsHolidayCalendarDesc,
+                  value: settings.holidayCalendarEnabled,
+                  onChanged: (enabled) => controller.setHolidayCalendarEnabled(
+                    enabled,
+                    Localizations.localeOf(context).languageCode,
+                  ),
                 ),
               ],
             ),

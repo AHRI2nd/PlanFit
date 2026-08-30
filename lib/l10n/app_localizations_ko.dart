@@ -262,6 +262,12 @@ class AppL10nKo extends AppL10n {
   String get settingsCalendarImportDesc => '기존 캘린더에서 가져오거나 계속 구독해요';
 
   @override
+  String get settingsHolidayCalendar => '공휴일 표시';
+
+  @override
+  String get settingsHolidayCalendarDesc => '믿을 수 있는 공휴일 캘린더를 자동으로 불러와요';
+
+  @override
   String get calendarImportTitle => '가져오기 · 구독할 캘린더';
 
   @override

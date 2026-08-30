@@ -109,6 +109,8 @@
   "settingsCalendarTargetEmpty": "No calendars available to choose from",
   "settingsCalendarImport": "Import from another calendar",
   "settingsCalendarImportDesc": "Import from or subscribe to an existing calendar",
+  "settingsHolidayCalendar": "Show holidays",
+  "settingsHolidayCalendarDesc": "Automatically loads a trusted holiday calendar",
   "calendarImportTitle": "Import or subscribe",
   "calendarImportEmpty": "No calendars available to import from",
   "calendarImportConfirmTitle": "Import from {calendarName}?",

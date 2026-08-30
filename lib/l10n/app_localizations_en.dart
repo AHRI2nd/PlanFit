@@ -270,6 +270,13 @@ class AppL10nEn extends AppL10n {
       'Import from or subscribe to an existing calendar';
 
   @override
+  String get settingsHolidayCalendar => 'Show holidays';
+
+  @override
+  String get settingsHolidayCalendarDesc =>
+      'Automatically loads a trusted holiday calendar';
+
+  @override
   String get calendarImportTitle => 'Import or subscribe';
 
   @override

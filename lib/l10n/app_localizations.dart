@@ -583,6 +583,18 @@ abstract class AppL10n {
   /// **'기존 캘린더에서 가져오거나 계속 구독해요'**
   String get settingsCalendarImportDesc;
 
+  /// No description provided for @settingsHolidayCalendar.
+  ///
+  /// In ko, this message translates to:
+  /// **'공휴일 표시'**
+  String get settingsHolidayCalendar;
+
+  /// No description provided for @settingsHolidayCalendarDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'믿을 수 있는 공휴일 캘린더를 자동으로 불러와요'**
+  String get settingsHolidayCalendarDesc;
+
   /// No description provided for @calendarImportTitle.
   ///
   /// In ko, this message translates to:
