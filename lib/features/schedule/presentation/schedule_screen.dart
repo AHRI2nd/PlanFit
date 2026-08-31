@@ -220,7 +220,18 @@ class _SwipeableTitle extends StatelessWidget {
             : null;
         if (target != null) onNavigate(target);
       },
-      child: Text(title, style: style),
+      // Padding, not just the bare Text, so the swipeable/tappable hit box
+      // (this Row uses the default `center` cross-alignment, so it can't be
+      // grown by stretching the Row — that forces an infinite-height layout
+      // exception, since the Row's own incoming height constraint here is
+      // unbounded) is noticeably taller than the text's own line height.
+      // Without this, the only draggable strip is a thin band vertically
+      // centered in the header, easy for a real swipe (which naturally
+      // drifts a bit vertically) to miss entirely.
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Text(title, style: style),
+      ),
     );
   }
 }
