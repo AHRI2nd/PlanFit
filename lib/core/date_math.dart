@@ -52,3 +52,39 @@ DateTime shiftTimeOfDay(DateTime dt, Duration delta) {
     dt.microsecond,
   );
 }
+
+/// Adds [months] calendar months to [dt], preserving time-of-day and
+/// clamping the day-of-month if the target month is shorter (e.g. Jan 31
+/// + 1 month lands on Feb 28, not rolling into March). Negative [months]
+/// moves into the past. Dart's `~/` truncates toward zero (not floor), so
+/// a naive `(dt.month - 1 + months) % 12` mishandles negative totals across
+/// a year boundary — this instead derives the year/month split from `%`'s
+/// Euclidean remainder (always non-negative for a positive divisor).
+DateTime addCalendarMonths(DateTime dt, int months) {
+  final total = dt.month - 1 + months;
+  final monthIndex = total % 12; // Euclidean mod: always in [0, 11].
+  final yearOffset = (total - monthIndex) ~/ 12; // exact multiple of 12.
+  final year = dt.year + yearOffset;
+  final month = monthIndex + 1;
+  // Day 0 of the *next* month is the last day of the target month; the
+  // DateTime constructor already normalizes month 13 into January of
+  // year+1, so December targets need no special-casing here.
+  final daysInTargetMonth = DateTime(year, month + 1, 0).day;
+  final day = dt.day > daysInTargetMonth ? daysInTargetMonth : dt.day;
+  return DateTime(
+    year,
+    month,
+    day,
+    dt.hour,
+    dt.minute,
+    dt.second,
+    dt.millisecond,
+    dt.microsecond,
+  );
+}
+
+/// Adds [years] calendar years to [dt], preserving time-of-day and
+/// clamping Feb 29 to Feb 28 in a non-leap target year — delegates to
+/// [addCalendarMonths] so both share one day-clamping rule.
+DateTime addCalendarYears(DateTime dt, int years) =>
+    addCalendarMonths(dt, years * 12);

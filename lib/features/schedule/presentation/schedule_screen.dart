@@ -19,6 +19,25 @@ import 'search/event_search_screen.dart';
 import 'week_view/week_view.dart';
 import 'year_view/year_view.dart';
 
+/// The date [selected] moves to for a title-row swipe on [view], one period
+/// in the direction implied by [forward] (true = next, false = previous).
+/// Returns null for views with no natural "period" to page through (agenda),
+/// meaning the swipe is a no-op there.
+DateTime? _swipeTarget({
+  required ScheduleView view,
+  required DateTime selected,
+  required bool forward,
+}) {
+  final sign = forward ? 1 : -1;
+  return switch (view) {
+    ScheduleView.day => addCalendarDays(selected, sign),
+    ScheduleView.week => addCalendarDays(selected, sign * 7),
+    ScheduleView.month => addCalendarMonths(selected, sign),
+    ScheduleView.year => addCalendarYears(selected, sign),
+    ScheduleView.agenda => null,
+  };
+}
+
 class ScheduleScreen extends ConsumerWidget {
   const ScheduleScreen({super.key});
 
@@ -71,9 +90,14 @@ class ScheduleScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        title,
+                      child: _SwipeableTitle(
+                        view: view,
+                        selected: selected,
+                        title: title,
                         style: Theme.of(context).textTheme.headlineSmall,
+                        onNavigate: (target) => ref
+                            .read(selectedDateProvider.notifier)
+                            .select(target),
                       ),
                     ),
                     IconButton(
@@ -155,6 +179,48 @@ class ScheduleScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The shared per-view title text, made swipeable so the user can page
+/// ±1 day/week/month/year without leaving [ScheduleScreen]'s title row.
+/// Deliberately scoped to just this text — not the view's scrollable body —
+/// since both [DayView]'s `_EventCard` and its embedded `HourlyTodoList`
+/// already use a horizontal-drag/`Dismissible` swipe for delete there; a
+/// gesture wired into the body would fight that instead of navigating.
+class _SwipeableTitle extends StatelessWidget {
+  const _SwipeableTitle({
+    required this.view,
+    required this.selected,
+    required this.title,
+    required this.style,
+    required this.onNavigate,
+  });
+
+  final ScheduleView view;
+  final DateTime selected;
+  final String title;
+  final TextStyle? style;
+  final ValueChanged<DateTime> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const Key('scheduleTitleSwipe'),
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: (details) {
+        // Same ±300 velocity threshold _EventCard's own swipe-to-delete
+        // uses, for consistency across the app's horizontal-drag gestures.
+        final velocity = details.primaryVelocity ?? 0;
+        final target = velocity < -300
+            ? _swipeTarget(view: view, selected: selected, forward: true)
+            : velocity > 300
+            ? _swipeTarget(view: view, selected: selected, forward: false)
+            : null;
+        if (target != null) onNavigate(target);
+      },
+      child: Text(title, style: style),
     );
   }
 }
