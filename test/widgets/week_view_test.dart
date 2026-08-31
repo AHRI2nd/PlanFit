@@ -229,29 +229,53 @@ void main() {
       expect(container.read(selectedDateProvider), DateTime(2026, 3, 3));
     });
 
-    // The core reliability fix: a real swipe doesn't always build up 300
-    // px/s of velocity, especially over a short target — a slow-but-past
-    // -threshold drag distance must still trigger navigation on its own.
-    testWidgets('a slow drag well past the distance threshold still navigates, '
-        'even with no meaningful velocity', (tester) async {
-      final anchor = DateTime(2026, 3, 10);
-      final container = await pumpWeek(tester, anchor);
+    // The core UX fix this pager exists for: a real PageView, so a slow
+    // drag (no meaningful velocity) still pages once it's dragged past
+    // roughly half the viewport, and magnet-snaps *back* to the original
+    // week if released short of that — not just a binary "did it flick
+    // fast enough" jump.
+    testWidgets(
+      'a slow drag past roughly half the header width still advances a '
+      'week, with no meaningful velocity',
+      (tester) async {
+        final anchor = DateTime(2026, 3, 10);
+        final container = await pumpWeek(tester, anchor);
 
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('weekHeaderSwipe'))),
-      );
-      // Several small, evenly-paced moves — a decisive total distance
-      // but nowhere near the 300 px/s velocity threshold.
-      for (var i = 0; i < 6; i++) {
-        await gesture.moveBy(const Offset(-15, 0));
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('weekHeaderSwipe'))),
+        );
+        // Several small, evenly-paced moves totaling well past half of the
+        // 800-wide test surface — a decisive total distance but nowhere
+        // near a fast flick's velocity.
+        for (var i = 0; i < 15; i++) {
+          await gesture.moveBy(const Offset(-30, 0));
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
+      },
+    );
+
+    testWidgets(
+      'a short drag that never crosses the halfway point snaps back to '
+      'the same week',
+      (tester) async {
+        final anchor = DateTime(2026, 3, 10);
+        final container = await pumpWeek(tester, anchor);
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('weekHeaderSwipe'))),
+        );
+        await gesture.moveBy(const Offset(-80, 0));
         await tester.pump(const Duration(milliseconds: 100));
-      }
-      await gesture.up();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+        await gesture.up();
+        await tester.pumpAndSettle();
 
-      expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
-    });
+        expect(container.read(selectedDateProvider), anchor);
+      },
+    );
 
     testWidgets('tapping a day cell still opens that day, not a swipe', (
       tester,
