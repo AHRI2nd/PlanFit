@@ -93,13 +93,24 @@ class HolidayCalendarService {
   /// screen lists whatever's in this map). Re-verify a new entry actually
   /// returns 200 before shipping — Google occasionally renames/retires
   /// these ids.
+  ///
+  /// The leading language code isn't a generic "give me any locale"
+  /// selector — stripping it (or guessing an unpublished one) 500s, so this
+  /// deliberately uses whichever code is each holiday's own native language
+  /// (`ko.`/`ja.`/`de.`/`fr.`) rather than defaulting every country to the
+  /// `en.` edition, confirmed via a direct curl+diff of both editions'
+  /// VEVENT SUMMARYs for each: same event count, titles genuinely
+  /// translated (e.g. KR's `en.` "Liberation Day" vs `ko.` "광복절"), not
+  /// two different calendars. GB/US/CA/AU keep `en.`, since English already
+  /// is their holidays' native language — there's no other edition to
+  /// prefer for them.
   static const Map<String, String> holidayCountryCalendarIds = {
-    'KR': 'en.south_korea.official#holiday@group.v.calendar.google.com',
+    'KR': 'ko.south_korea.official#holiday@group.v.calendar.google.com',
     'US': 'en.usa.official#holiday@group.v.calendar.google.com',
-    'JP': 'en.japanese#holiday@group.v.calendar.google.com',
+    'JP': 'ja.japanese#holiday@group.v.calendar.google.com',
     'GB': 'en.uk.official#holiday@group.v.calendar.google.com',
-    'DE': 'en.german#holiday@group.v.calendar.google.com',
-    'FR': 'en.french#holiday@group.v.calendar.google.com',
+    'DE': 'de.german#holiday@group.v.calendar.google.com',
+    'FR': 'fr.french#holiday@group.v.calendar.google.com',
     'CA': 'en.canadian#holiday@group.v.calendar.google.com',
     'AU': 'en.australian#holiday@group.v.calendar.google.com',
   };
