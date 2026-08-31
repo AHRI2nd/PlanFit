@@ -237,6 +237,17 @@ void main() {
     });
 
     testWidgets(
+      'year view: the year label renders exactly once — regression test '
+      'for YearView duplicating a second, non-swipeable "2026" over its '
+      'grid that visually shadowed the real (swipeable) title above it',
+      (tester) async {
+        final selected = DateTime(2026, 3, 15);
+        await pumpSchedule(tester, view: ScheduleView.year, selected: selected);
+        expect(find.text('2026'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'agenda view: swiping the title is a no-op (no period to page)',
       (tester) async {
         final selected = DateTime(2026, 3, 15);

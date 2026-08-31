@@ -11,6 +11,14 @@ import '../../domain/calendar_dot.dart';
 
 /// A year at a glance: twelve compact month grids whose days glow where events
 /// live. Tapping a month jumps to it in the month view.
+///
+/// No title of its own — [schedule_screen.dart]'s shared title row already
+/// shows the year, and (unlike this widget) is swipeable to page ±1 year.
+/// This used to render its own second, non-interactive "2026" above the
+/// grid; besides being a plain duplicate, its lack of any gesture made it
+/// an easy — and completely dead — target for a user trying to swipe the
+/// year, since it visually reads as *the* year label sitting right above
+/// the content.
 class YearView extends ConsumerWidget {
   const YearView({super.key});
 
@@ -22,7 +30,6 @@ class YearView extends ConsumerWidget {
     final overdueAsync = ref.watch(overdueTodosProvider);
     final todosAsync = ref.watch(todosForYearProvider(year));
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final theme = Theme.of(context);
     final startWeekday = ref.watch(weekStartWeekdayProvider);
 
     final counts = <DateTime, int>{};
@@ -40,63 +47,38 @@ class YearView extends ConsumerWidget {
         if (!t.isDone) dateOnly(t.slotStart),
     }..removeAll(overdueDays);
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.gutter,
-            vertical: AppSpacing.xs,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '$year',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontFeatures: null,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter,
-              AppSpacing.xs,
-              AppSpacing.gutter,
-              140,
-            ),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: AppSpacing.md,
-              crossAxisSpacing: AppSpacing.md,
-              childAspectRatio: 0.82,
-            ),
-            itemCount: 12,
-            itemBuilder: (context, i) {
-              final month = i + 1;
-              return _MiniMonth(
-                year: year,
-                month: month,
-                counts: counts,
-                overdueDays: overdueDays,
-                todoDays: todoDays,
-                locale: locale,
-                startWeekday: startWeekday,
-                onTap: () {
-                  ref
-                      .read(selectedDateProvider.notifier)
-                      .select(DateTime(year, month, 1));
-                  ref
-                      .read(scheduleViewProvider.notifier)
-                      .set(ScheduleView.month);
-                },
-              );
-            },
-          ),
-        ),
-      ],
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        AppSpacing.xs,
+        AppSpacing.gutter,
+        140,
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.md,
+        childAspectRatio: 0.82,
+      ),
+      itemCount: 12,
+      itemBuilder: (context, i) {
+        final month = i + 1;
+        return _MiniMonth(
+          year: year,
+          month: month,
+          counts: counts,
+          overdueDays: overdueDays,
+          todoDays: todoDays,
+          locale: locale,
+          startWeekday: startWeekday,
+          onTap: () {
+            ref
+                .read(selectedDateProvider.notifier)
+                .select(DateTime(year, month, 1));
+            ref.read(scheduleViewProvider.notifier).set(ScheduleView.month);
+          },
+        );
+      },
     );
   }
 }
