@@ -6,6 +6,7 @@ import '../../../core/format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/swipe_navigation_detector.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/schedule_providers.dart';
@@ -206,18 +207,22 @@ class _SwipeableTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return SwipeNavigationDetector(
       key: const Key('scheduleTitleSwipe'),
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragEnd: (details) {
-        // Same ±300 velocity threshold _EventCard's own swipe-to-delete
-        // uses, for consistency across the app's horizontal-drag gestures.
-        final velocity = details.primaryVelocity ?? 0;
-        final target = velocity < -300
-            ? _swipeTarget(view: view, selected: selected, forward: true)
-            : velocity > 300
-            ? _swipeTarget(view: view, selected: selected, forward: false)
-            : null;
+      onSwipeLeft: () {
+        final target = _swipeTarget(
+          view: view,
+          selected: selected,
+          forward: true,
+        );
+        if (target != null) onNavigate(target);
+      },
+      onSwipeRight: () {
+        final target = _swipeTarget(
+          view: view,
+          selected: selected,
+          forward: false,
+        );
         if (target != null) onNavigate(target);
       },
       // Padding, not just the bare Text, so the swipeable/tappable hit box

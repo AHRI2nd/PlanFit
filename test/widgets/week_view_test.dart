@@ -10,12 +10,23 @@ import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/app_colors.dart';
+import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/week_view/week_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'week_view_test.mocks.dart';
+
+/// Pins [selectedDateProvider] to a fixed date instead of its own default
+/// (today) — same pattern schedule_screen_test.dart's `_FixedSelectedDate`
+/// uses, needed here since the header swipe writes to this provider.
+class _FixedSelectedDate extends SelectedDate {
+  _FixedSelectedDate(this._date);
+  final DateTime _date;
+  @override
+  DateTime build() => _date;
+}
 
 @GenerateMocks([EventRepository, TodoDao])
 void main() {
@@ -84,31 +95,42 @@ void main() {
     when(todos.watchOverdue(any)).thenAnswer((_) => Stream.value(const []));
   });
 
-  Future<void> pumpWeek(WidgetTester tester, DateTime anchor) async {
+  Future<ProviderContainer> pumpWeek(
+    WidgetTester tester,
+    DateTime anchor,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
+    late ProviderContainer container;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
           eventRepositoryProvider.overrideWithValue(events),
           todoDaoProvider.overrideWithValue(todos),
+          selectedDateProvider.overrideWith(() => _FixedSelectedDate(anchor)),
         ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          locale: const Locale('ko'),
-          localizationsDelegates: const [
-            AppL10n.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppL10n.supportedLocales,
-          home: Scaffold(body: WeekView(anchor: anchor)),
+        child: Builder(
+          builder: (context) {
+            container = ProviderScope.containerOf(context);
+            return MaterialApp(
+              theme: AppTheme.light(),
+              locale: const Locale('ko'),
+              localizationsDelegates: const [
+                AppL10n.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: AppL10n.supportedLocales,
+              home: Scaffold(body: WeekView(anchor: anchor)),
+            );
+          },
         ),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
+    return container;
   }
 
   testWidgets(
@@ -120,9 +142,8 @@ void main() {
         events.watchBetween(any, any),
       ).thenAnswer((_) => Stream.value(const []));
       when(todos.watchBetween(any, any)).thenAnswer(
-        (_) => Stream.value([
-          todo(id: 't1', slotStart: DateTime(2026, 3, 11, 9)),
-        ]),
+        (_) =>
+            Stream.value([todo(id: 't1', slotStart: DateTime(2026, 3, 11, 9))]),
       );
 
       await pumpWeek(tester, anchor);
@@ -159,14 +180,92 @@ void main() {
 
     await pumpWeek(tester, anchor);
 
-    final dot = tester.widgetList<Container>(find.byType(Container)).where((
-      c,
-    ) {
+    final dot = tester.widgetList<Container>(find.byType(Container)).where((c) {
       final decoration = c.decoration;
       return decoration is BoxDecoration &&
           decoration.shape == BoxShape.circle &&
           decoration.color == palette.accent;
     });
     expect(dot, isNotEmpty);
+  });
+
+  group('swiping the header navigates by whole weeks', () {
+    setUp(() {
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+    });
+
+    testWidgets('a left fling advances to next week', (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      final container = await pumpWeek(tester, anchor);
+
+      await tester.fling(
+        find.byKey(const Key('weekHeaderSwipe')),
+        const Offset(-400, 0),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
+    });
+
+    testWidgets('a right fling goes back to the previous week', (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      final container = await pumpWeek(tester, anchor);
+
+      await tester.fling(
+        find.byKey(const Key('weekHeaderSwipe')),
+        const Offset(400, 0),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 3));
+    });
+
+    // The core reliability fix: a real swipe doesn't always build up 300
+    // px/s of velocity, especially over a short target — a slow-but-past
+    // -threshold drag distance must still trigger navigation on its own.
+    testWidgets('a slow drag well past the distance threshold still navigates, '
+        'even with no meaningful velocity', (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      final container = await pumpWeek(tester, anchor);
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('weekHeaderSwipe'))),
+      );
+      // Several small, evenly-paced moves — a decisive total distance
+      // but nowhere near the 300 px/s velocity threshold.
+      for (var i = 0; i < 6; i++) {
+        await gesture.moveBy(const Offset(-15, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
+    });
+
+    testWidgets('tapping a day cell still opens that day, not a swipe', (
+      tester,
+    ) async {
+      final anchor = DateTime(2026, 3, 10); // a Tuesday
+      final container = await pumpWeek(tester, anchor);
+
+      // Tuesday's own cell — its date number, "10".
+      await tester.tap(find.text('10').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 10));
+      expect(container.read(scheduleViewProvider), ScheduleView.day);
+    });
   });
 }

@@ -9,6 +9,7 @@ import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
+import '../../../../design/widgets/swipe_navigation_detector.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
 import '../../application/schedule_providers.dart';
@@ -68,6 +69,16 @@ class WeekView extends ConsumerWidget {
       ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
     }
 
+    // ±7 days off the raw anchor (not the derived weekStart) — same
+    // approach schedule_screen.dart's own title swipe uses for week, so
+    // the two swipe entry points always agree regardless of the week-start
+    // weekday setting.
+    void navigateWeek(bool forward) {
+      ref
+          .read(selectedDateProvider.notifier)
+          .select(addCalendarDays(anchor, forward ? 7 : -7));
+    }
+
     return eventsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
@@ -86,15 +97,27 @@ class WeekView extends ConsumerWidget {
 
         return Column(
           children: [
-            _WeekHeader(
-              days: days,
-              today: today,
-              locale: locale,
-              accent: palette.accent,
-              eventDays: eventDays,
-              todoDays: todoDays,
-              overdueDays: overdueDays,
-              onTapDay: openDay,
+            // Wraps the header only — not the grid below, which already
+            // has its own long-press-drag-to-create gesture and shouldn't
+            // also compete for horizontal drags. Each day cell's own tap
+            // (jumps into that day) still works fine nested inside this:
+            // a tap has essentially zero drag distance, so it never
+            // satisfies SwipeNavigationDetector's thresholds and the arena
+            // resolves it as a tap, not a swipe.
+            SwipeNavigationDetector(
+              key: const Key('weekHeaderSwipe'),
+              onSwipeLeft: () => navigateWeek(true),
+              onSwipeRight: () => navigateWeek(false),
+              child: _WeekHeader(
+                days: days,
+                today: today,
+                locale: locale,
+                accent: palette.accent,
+                eventDays: eventDays,
+                todoDays: todoDays,
+                overdueDays: overdueDays,
+                onTapDay: openDay,
+              ),
             ),
             if (allDay.isNotEmpty)
               _AllDayStrip(
