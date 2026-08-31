@@ -145,7 +145,15 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
             hintText: l10n.searchHint,
             border: InputBorder.none,
             filled: false,
-            contentPadding: EdgeInsets.zero,
+            // Zeroing this out entirely (as this used to) also zeroed the
+            // horizontal breathing room the AppBar's own titleSpacing isn't
+            // enough to make up for on its own — the cursor/hint text sat
+            // right at the sheet's curved left edge. isDense trims the
+            // excess vertical height a default InputDecorator would add
+            // (which is what contentPadding: zero was actually trying to
+            // fix) without also collapsing the horizontal inset.
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
           ),
         ),
       ),

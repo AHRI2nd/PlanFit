@@ -109,7 +109,17 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
         left: AppSpacing.gutter,
         right: AppSpacing.gutter,
         top: AppSpacing.sm,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
+        // The keyboard inset (when it's up, dwarfing the tab bar clearance
+        // below) plus enough to clear the floating tab bar when it isn't —
+        // see kFloatingNavBarClearance's own doc. Without this, the Save
+        // button (this column's last element) sat directly behind the tab
+        // bar with the keyboard down — not just visually hidden but
+        // literally untappable, since the tab bar itself still consumed the
+        // touch.
+        bottom:
+            MediaQuery.of(context).viewInsets.bottom +
+            AppSpacing.lg +
+            kFloatingNavBarClearance,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

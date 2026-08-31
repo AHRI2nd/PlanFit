@@ -5,20 +5,6 @@ import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../l10n/app_localizations.dart';
 
-/// Extra bottom clearance reserved below the sheet's own content, on top of
-/// [AppSpacing.lg] — [AppShell] runs its Scaffold with `extendBody: true` so
-/// the floating Liquid-Glass tab bar (`GlassTabBar.bottom`'s default
-/// `barHeight: 64`, plus its own vertical padding and margin from the screen
-/// edge) paints *above* body content rather than reserving space for it. A
-/// modal sheet inherits that same unreserved height, so content that reaches
-/// the sheet's natural bottom edge renders underneath the tab bar instead of
-/// above it — caught in live verification, where this sheet's closing info
-/// box was invisible on a real device despite rendering fine (off-screen,
-/// past flutter_test's default 800x600 surface) in the widget test. Sized
-/// generously rather than exactly, since the tab bar's real footprint isn't
-/// something this widget has a clean way to query.
-const double _kFloatingNavBarClearance = 96;
-
 /// Explains what the calendar dot's three colors mean — see
 /// `calendar_dot.dart`'s own doc for the rule this restates in plain
 /// language. The first explanatory UI of its kind in this app: every other
@@ -42,13 +28,13 @@ class _CalendarLegendSheet extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
-      // See _kFloatingNavBarClearance's own doc for why the bottom inset is
+      // See kFloatingNavBarClearance's own doc for why the bottom inset is
       // much larger than AppSpacing.lg alone.
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.gutter,
         AppSpacing.sm,
         AppSpacing.gutter,
-        AppSpacing.lg + _kFloatingNavBarClearance,
+        AppSpacing.lg + kFloatingNavBarClearance,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
