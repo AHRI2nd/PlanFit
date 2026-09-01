@@ -12,7 +12,6 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
-import '../../../../design/widgets/swipe_navigation_detector.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
@@ -73,12 +72,220 @@ class _DayViewState extends ConsumerState<DayView> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
+
+    if (widget.compact) {
+      // Compact instances (MonthView's embedded mini day view) skip the
+      // pager entirely — they're a preview, not a navigable view of their
+      // own, and don't share a selectedDateProvider swipe convention with
+      // anything else on screen.
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter,
+          AppSpacing.xs,
+          AppSpacing.gutter,
+          140,
+        ),
+        children: [
+          _DayContent(day: widget.day, compact: true),
+          const SizedBox(height: AppSpacing.lg),
+          SectionHeader(
+            l10n.todosSectionTitle,
+            trailing: IconButton(
+              tooltip: l10n.todoAdd,
+              onPressed: _focusAddTodo,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.add, size: 20, color: context.palette.inkFaint),
+            ),
+          ),
+          KeyedSubtree(
+            key: _todosSectionKey,
+            child: HourlyTodoList(
+              day: widget.day,
+              addFocusNode: _addTodoFocusNode,
+            ),
+          ),
+        ],
+      );
+    }
+
+    // A fixed height (PageView needs one) reserved for the *currently
+    // settled* day's own content — an empty day (_EmptyDay) needs far
+    // less than a populated one (the full 24-hour timeline). An adjacent
+    // day peeked at mid-drag may genuinely need a different actual
+    // height; _DayContent wraps each page in its own SingleChildScrollView
+    // so a taller peek is just scrollable-but-clipped rather than
+    // overflowing, and a shorter one just leaves blank space below —
+    // once the swipe settles, this recomputes for the new day and the
+    // box resizes to fit it exactly. Clock-mode days reserve the same
+    // (timeline-height) box even though the dial+legend are usually
+    // shorter — accepted as a minor over-reservation rather than adding
+    // the complexity of measuring that mode's own (screen-width-
+    // dependent) height.
+    final eventsAsync = ref.watch(eventsForDayProvider(widget.day));
+    final pagerHeight = switch (eventsAsync.asData?.value) {
+      null => DayView._hourHeight * 24,
+      final events when events.isEmpty => _DayContent.emptyContentHeight,
+      _ => DayView._hourHeight * 24,
+    };
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        AppSpacing.xs,
+        AppSpacing.gutter,
+        140,
+      ),
+      children: [
+        SizedBox(
+          height: pagerHeight,
+          child: _DayContentPager(
+            day: widget.day,
+            onDayChanged: (newDay) =>
+                ref.read(selectedDateProvider.notifier).select(newDay),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        SectionHeader(
+          l10n.todosSectionTitle,
+          trailing: IconButton(
+            tooltip: l10n.todoAdd,
+            onPressed: _focusAddTodo,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.add, size: 20, color: context.palette.inkFaint),
+          ),
+        ),
+        KeyedSubtree(
+          key: _todosSectionKey,
+          child: HourlyTodoList(
+            day: widget.day,
+            addFocusNode: _addTodoFocusNode,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Pages a full [_DayContent] (all-day cards + empty-state/clock/timeline)
+/// through a real, physically-dragged [PageView] — prev/current/next day,
+/// one per page — instead of a plain gesture detector that only jumps
+/// discretely once a swipe completes. Same shape as week_view.dart's
+/// `_WeekPager`/year_view.dart's `_YearPager`; see either's own doc for why
+/// a full [PageView] (rather than a simpler distance/velocity detector)
+/// gives the "follows the finger, then magnet-snaps" feel this exists for.
+///
+/// [day] is the source of truth from outside (derived from
+/// [SelectedDate], which the "오늘" button, the schedule title's own
+/// swipe, and this pager's [onDayChanged] can all change). The page index
+/// itself is just an arbitrary large offset — [_currentPage] and
+/// [_pageDay] are kept in lockstep so a page number can always be
+/// converted back to the real day it represents ([_dayForPage]), without
+/// needing every possible day to have one fixed, pre-assigned page
+/// number.
+class _DayContentPager extends StatefulWidget {
+  const _DayContentPager({required this.day, required this.onDayChanged});
+
+  final DateTime day;
+  final ValueChanged<DateTime> onDayChanged;
+
+  // ~550 years either side of startup — plenty, and PageView needs a
+  // finite itemCount rather than true unbounded paging.
+  static const int _pageCount = 200000;
+  static const int _initialPage = _pageCount ~/ 2;
+
+  @override
+  State<_DayContentPager> createState() => _DayContentPagerState();
+}
+
+class _DayContentPagerState extends State<_DayContentPager> {
+  late final PageController _controller;
+  late int _currentPage;
+  late DateTime _pageDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage = _DayContentPager._initialPage;
+    _pageDay = widget.day;
+    _controller = PageController(initialPage: _currentPage);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DayContentPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.day == _pageDay) return;
+    // day changed from outside this pager's own onPageChanged (the "오늘"
+    // button, the schedule title's own swipe, ...) — resync the
+    // controller to match instead of leaving it pointing at a stale day.
+    final deltaDays = widget.day.difference(_pageDay).inDays;
+    final targetPage = _currentPage + deltaDays;
+    _currentPage = targetPage;
+    _pageDay = widget.day;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_controller.hasClients) _controller.jumpToPage(targetPage);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  DateTime _dayForPage(int page) =>
+      addCalendarDays(_pageDay, page - _currentPage);
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView.builder(
+      key: const Key('dayContentSwipe'),
+      controller: _controller,
+      itemCount: _DayContentPager._pageCount,
+      onPageChanged: (page) {
+        final newDay = _dayForPage(page);
+        _currentPage = page;
+        _pageDay = newDay;
+        widget.onDayChanged(newDay);
+      },
+      itemBuilder: (context, page) =>
+          _DayContent(day: _dayForPage(page), scrollable: true),
+    );
+  }
+}
+
+/// Everything above the to-do section for one day — all-day cards plus
+/// the empty-state/clock/timeline body. Used two ways: directly, as a
+/// plain (unbounded-height) [ListView] item for the compact (MonthView-
+/// embedded) case; and with [scrollable] set, as one page of
+/// [_DayContentPager], where it sits inside a fixed-height [SizedBox] and
+/// needs its own [SingleChildScrollView] to safely absorb a mismatch
+/// between that reserved height and this specific day's actual content
+/// height (see [DayView.build]'s own doc on why that height is only an
+/// approximation for a peeked, not-yet-settled day).
+class _DayContent extends ConsumerWidget {
+  const _DayContent({
+    required this.day,
+    this.compact = false,
+    this.scrollable = false,
+  });
+
+  final DateTime day;
+  final bool compact;
+  final bool scrollable;
+
+  /// Close enough to _EmptyDay's own rendered height for
+  /// [DayView.build]'s pager-height reservation — see that doc.
+  static const double emptyContentHeight = 280;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppL10n.of(context);
     final palette = context.palette;
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final eventsAsync = ref.watch(eventsForDayProvider(widget.day));
+    final eventsAsync = ref.watch(eventsForDayProvider(day));
     final now = DateTime.now();
-    final isToday = dateOnly(now) == dateOnly(widget.day);
-    final layoutMode = widget.compact
+    final isToday = dateOnly(now) == dateOnly(day);
+    final layoutMode = compact
         ? DayViewLayoutMode.timeline
         : ref.watch(dayViewLayoutModeProvider);
 
@@ -89,12 +296,7 @@ class _DayViewState extends ConsumerState<DayView> {
         final timed = events.where((e) => !e.isAllDay).toList();
         final allDay = events.where((e) => e.isAllDay).toList();
 
-        // Everything above the to-do section — all-day cards plus the
-        // empty-state/clock/timeline body — grouped so it can be wrapped
-        // in one swipe-to-navigate surface below. Stretched, matching the
-        // full-bleed width these items got for free as direct ListView
-        // children before this grouping.
-        final dayContent = Column(
+        final content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (allDay.isNotEmpty) ...[
@@ -113,7 +315,7 @@ class _DayViewState extends ConsumerState<DayView> {
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: DayClockView(
-                    day: widget.day,
+                    day: day,
                     events: timed,
                     isToday: isToday,
                     now: now,
@@ -130,7 +332,7 @@ class _DayViewState extends ConsumerState<DayView> {
               SizedBox(
                 height: DayView._hourHeight * 24,
                 child: _Timeline(
-                  day: widget.day,
+                  day: day,
                   events: timed,
                   isToday: isToday,
                   now: now,
@@ -143,56 +345,7 @@ class _DayViewState extends ConsumerState<DayView> {
           ],
         );
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.xs,
-            AppSpacing.gutter,
-            140,
-          ),
-          children: [
-            // Compact instances (MonthView's embedded mini day view) skip
-            // this — they're a preview, not a navigable view of their own,
-            // and don't share a selectedDateProvider swipe convention with
-            // anything else on screen. Safe everywhere else now that
-            // _EventCard no longer has its own swipe-to-delete: the only
-            // other horizontal-drag-adjacent gestures left in this content
-            // (move/resize/create) are all long-press-first, a different
-            // recognizer type that only competes once it's already won the
-            // arena during its hold phase, so a plain swipe never reaches
-            // them.
-            if (widget.compact)
-              dayContent
-            else
-              SwipeNavigationDetector(
-                key: const Key('dayContentSwipe'),
-                onSwipeLeft: () => ref
-                    .read(selectedDateProvider.notifier)
-                    .select(addCalendarDays(widget.day, 1)),
-                onSwipeRight: () => ref
-                    .read(selectedDateProvider.notifier)
-                    .select(addCalendarDays(widget.day, -1)),
-                child: dayContent,
-              ),
-            const SizedBox(height: AppSpacing.lg),
-            SectionHeader(
-              l10n.todosSectionTitle,
-              trailing: IconButton(
-                tooltip: l10n.todoAdd,
-                onPressed: _focusAddTodo,
-                visualDensity: VisualDensity.compact,
-                icon: Icon(Icons.add, size: 20, color: palette.inkFaint),
-              ),
-            ),
-            KeyedSubtree(
-              key: _todosSectionKey,
-              child: HourlyTodoList(
-                day: widget.day,
-                addFocusNode: _addTodoFocusNode,
-              ),
-            ),
-          ],
-        );
+        return scrollable ? SingleChildScrollView(child: content) : content;
       },
     );
   }
@@ -718,8 +871,8 @@ class _EventCard extends ConsumerWidget {
     // bug — see git history if that's ever needed again) — deleting now
     // lives in the edit sheet's own delete button (tap the card to reach
     // it), freeing the whole all-day/timeline area to be a horizontal-drag
-    // *navigation* surface instead (see DayView's own `SwipeNavigationDetector`
-    // wrapping it) without the two competing for the same gesture.
+    // *navigation* surface instead (see `_DayContentPager`, which this
+    // card sits inside) without the two competing for the same gesture.
     return GestureDetector(
       // Tapping anywhere on the card — not just the title/time text — opens
       // it for editing.

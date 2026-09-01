@@ -18,6 +18,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'day_view_test.mocks.dart';
 
+/// Pins [selectedDateProvider] to a fixed date instead of its own default
+/// (today) — same pattern week_view_test.dart's `_FixedSelectedDate` uses,
+/// needed so a swipe that snaps back to the same day (no page change, so
+/// nothing writes to the provider) can be asserted against a known value
+/// rather than "whatever today happens to be."
+class _FixedSelectedDate extends SelectedDate {
+  _FixedSelectedDate(this._date);
+  final DateTime _date;
+  @override
+  DateTime build() => _date;
+}
+
 @GenerateMocks([EventRepository, TodoDao])
 void main() {
   late MockEventRepository events;
@@ -77,6 +89,7 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(prefs),
           eventRepositoryProvider.overrideWithValue(events),
           todoDaoProvider.overrideWithValue(todos),
+          selectedDateProvider.overrideWith(() => _FixedSelectedDate(day)),
         ],
         child: Builder(
           builder: (context) {
@@ -279,6 +292,55 @@ void main() {
       expect(container.read(selectedDateProvider), DateTime(2026, 3, 9));
     });
 
+    // The core UX fix this pager exists for — see _DayContentPager's own
+    // doc: a real PageView, so a slow drag (no meaningful velocity) still
+    // pages once it's dragged past roughly half the viewport, and
+    // magnet-snaps *back* to the original day if released short of that.
+    testWidgets('a slow drag past roughly half the page width still advances a '
+        'day, with no meaningful velocity', (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      final container = await pumpDay(tester, day);
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('dayContentSwipe'))),
+      );
+      for (var i = 0; i < 15; i++) {
+        await gesture.moveBy(const Offset(-30, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 11));
+    });
+
+    testWidgets(
+      'a short drag that never crosses the halfway point snaps back to '
+      'the same day',
+      (tester) async {
+        final day = DateTime(2026, 3, 10);
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value(const []));
+
+        final container = await pumpDay(tester, day);
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('dayContentSwipe'))),
+        );
+        await gesture.moveBy(const Offset(-80, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        expect(container.read(selectedDateProvider), day);
+      },
+    );
+
     // The compact embedded instance under MonthView's calendar grid is a
     // preview, not a navigable view of its own — it shouldn't silently
     // move selectedDateProvider (which MonthView's own grid selection also
@@ -296,9 +358,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      // selectedDateProvider was never touched at all — its own default
-      // (today), not day±1.
-      expect(container.read(selectedDateProvider), dateOnly(DateTime.now()));
+      // selectedDateProvider was never touched at all — still its pinned
+      // starting value, not day±1.
+      expect(container.read(selectedDateProvider), day);
     });
   });
 
