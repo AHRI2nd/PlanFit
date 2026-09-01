@@ -23,6 +23,7 @@ class AppSettings {
     this.holidayCalendarEnabled = true,
     this.holidayCountryCodes = const {},
     this.customHolidayCalendarUrls = const {},
+    this.holidaySourceColors = const {},
   });
 
   final ThemeMode themeMode;
@@ -99,6 +100,14 @@ class AppSettings {
   /// it; both can be active at once.
   final Set<String> customHolidayCalendarUrls;
 
+  /// Per-source display color for mirrored holiday events, keyed by the
+  /// same source id `holidayCountrySourceId`/`holidayCustomSourceId`
+  /// (`holiday_calendar_service.dart`) produce (values are `#RRGGBB`, same
+  /// as `Events.colorTag`'s hex form). A source with no entry here falls
+  /// back to `HolidayCalendarService.defaultColorHex` — the one fixed color
+  /// every holiday event used before per-source colors existed.
+  final Map<String, String> holidaySourceColors;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     bool? notificationSound,
@@ -116,6 +125,7 @@ class AppSettings {
     bool? holidayCalendarEnabled,
     Set<String>? holidayCountryCodes,
     Set<String>? customHolidayCalendarUrls,
+    Map<String, String>? holidaySourceColors,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -142,6 +152,7 @@ class AppSettings {
       holidayCountryCodes: holidayCountryCodes ?? this.holidayCountryCodes,
       customHolidayCalendarUrls:
           customHolidayCalendarUrls ?? this.customHolidayCalendarUrls,
+      holidaySourceColors: holidaySourceColors ?? this.holidaySourceColors,
     );
   }
 }

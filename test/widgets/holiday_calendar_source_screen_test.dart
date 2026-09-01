@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planfit/core/calendar_sync/holiday_calendar_service.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/tokens/event_color_tag.dart';
 import 'package:planfit/features/settings/application/app_settings.dart';
 import 'package:planfit/features/settings/application/settings_controller.dart';
 import 'package:planfit/features/settings/presentation/holiday_calendar_source_screen.dart';
@@ -11,9 +12,10 @@ import 'package:planfit/l10n/app_localizations.dart';
 
 /// A settings-controller test double — the screen only ever calls
 /// [setHolidayCountrySelected]/[addCustomHolidayCalendarUrl]/
-/// [removeCustomHolidayCalendarUrl] on the notifier, so this stubs just
-/// those three (plus [build] to seed a fixed starting state) instead of
-/// pulling in SettingsController's real `build()`, which reaches through
+/// [removeCustomHolidayCalendarUrl]/[setHolidayCountryColor]/
+/// [setCustomHolidayColor] on the notifier, so this stubs just those five
+/// (plus [build] to seed a fixed starting state) instead of pulling in
+/// SettingsController's real `build()`, which reaches through
 /// calendarServiceProvider/remindersServiceProvider/notificationServiceProvider
 /// — real platform-backed services this test has no reason to construct.
 class _FakeSettingsController extends SettingsController {
@@ -22,6 +24,8 @@ class _FakeSettingsController extends SettingsController {
     this.onSetCountrySelected,
     this.onAddCustomUrl,
     this.onRemoveCustomUrl,
+    this.onSetCountryColor,
+    this.onSetCustomColor,
   });
 
   final AppSettings _initial;
@@ -29,6 +33,9 @@ class _FakeSettingsController extends SettingsController {
   onSetCountrySelected;
   final Future<void> Function(String url)? onAddCustomUrl;
   final Future<void> Function(String url)? onRemoveCustomUrl;
+  final Future<void> Function(String countryCode, String? colorHex)?
+  onSetCountryColor;
+  final Future<void> Function(String url, String? colorHex)? onSetCustomColor;
 
   @override
   AppSettings build() => _initial;
@@ -67,9 +74,43 @@ class _FakeSettingsController extends SettingsController {
       await onRemoveCustomUrl!(url);
       return;
     }
-    final next = Set<String>.from(state.customHolidayCalendarUrls)
-      ..remove(url);
+    final next = Set<String>.from(state.customHolidayCalendarUrls)..remove(url);
     state = state.copyWith(customHolidayCalendarUrls: next);
+  }
+
+  @override
+  Future<void> setHolidayCountryColor(
+    String countryCode, {
+    String? colorHex,
+  }) async {
+    if (onSetCountryColor != null) {
+      await onSetCountryColor!(countryCode, colorHex);
+      return;
+    }
+    final next = Map<String, String>.from(state.holidaySourceColors);
+    final sourceId = holidayCountrySourceId(countryCode);
+    if (colorHex == null) {
+      next.remove(sourceId);
+    } else {
+      next[sourceId] = colorHex;
+    }
+    state = state.copyWith(holidaySourceColors: next);
+  }
+
+  @override
+  Future<void> setCustomHolidayColor(String url, {String? colorHex}) async {
+    if (onSetCustomColor != null) {
+      await onSetCustomColor!(url, colorHex);
+      return;
+    }
+    final next = Map<String, String>.from(state.holidaySourceColors);
+    final sourceId = holidayCustomSourceId(url);
+    if (colorHex == null) {
+      next.remove(sourceId);
+    } else {
+      next[sourceId] = colorHex;
+    }
+    state = state.copyWith(holidaySourceColors: next);
   }
 }
 
@@ -80,6 +121,8 @@ void main() {
     Future<void> Function(String, bool)? onSetCountrySelected,
     Future<void> Function(String)? onAddCustomUrl,
     Future<void> Function(String)? onRemoveCustomUrl,
+    Future<void> Function(String, String?)? onSetCountryColor,
+    Future<void> Function(String, String?)? onSetCustomColor,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -90,6 +133,8 @@ void main() {
               onSetCountrySelected: onSetCountrySelected,
               onAddCustomUrl: onAddCustomUrl,
               onRemoveCustomUrl: onRemoveCustomUrl,
+              onSetCountryColor: onSetCountryColor,
+              onSetCustomColor: onSetCustomColor,
             ),
           ),
         ],
@@ -134,8 +179,7 @@ void main() {
     await pumpScreen(
       tester,
       initial: const AppSettings(holidayCountryCodes: {'KR'}),
-      onSetCountrySelected: (code, selected) async =>
-          called = (code, selected),
+      onSetCountrySelected: (code, selected) async => called = (code, selected),
     );
 
     await tester.tap(find.widgetWithText(CheckboxListTile, '일본'));
@@ -149,8 +193,7 @@ void main() {
     await pumpScreen(
       tester,
       initial: const AppSettings(holidayCountryCodes: {'KR', 'JP'}),
-      onSetCountrySelected: (code, selected) async =>
-          called = (code, selected),
+      onSetCountrySelected: (code, selected) async => called = (code, selected),
     );
 
     await tester.tap(find.widgetWithText(CheckboxListTile, '대한민국'));
@@ -226,28 +269,25 @@ void main() {
     expect(removed, 'https://example.com/a.ics');
   });
 
-  testWidgets(
-    'submitting an invalid URL in the custom-calendar dialog shows a '
-    'validation snackbar and never calls the controller',
-    (tester) async {
-      bool called = false;
-      await pumpScreen(
-        tester,
-        initial: const AppSettings(),
-        onAddCustomUrl: (_) async => called = true,
-      );
+  testWidgets('submitting an invalid URL in the custom-calendar dialog shows a '
+      'validation snackbar and never calls the controller', (tester) async {
+    bool called = false;
+    await pumpScreen(
+      tester,
+      initial: const AppSettings(),
+      onAddCustomUrl: (_) async => called = true,
+    );
 
-      await tester.tap(find.text('URL로 직접 추가'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'not a url');
-      await tester.tap(find.text('완료'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('URL로 직접 추가'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'not a url');
+    await tester.tap(find.text('완료'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('올바른 http/https 링크를 입력해주세요'), findsOneWidget);
-      expect(called, isFalse);
-      await tester.pump(const Duration(seconds: 5));
-    },
-  );
+    expect(find.text('올바른 http/https 링크를 입력해주세요'), findsOneWidget);
+    expect(called, isFalse);
+    await tester.pump(const Duration(seconds: 5));
+  });
 
   testWidgets('submitting a valid URL calls addCustomHolidayCalendarUrl', (
     tester,
@@ -269,5 +309,135 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(submitted, 'https://example.com/calendar.ics');
+  });
+
+  group('per-source color', () {
+    Finder colorDotFor(Finder rowFinder) =>
+        find.descendant(of: rowFinder, matching: find.byTooltip('표시 색상 변경'));
+
+    testWidgets('tapping a country\'s color dot opens the color picker', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        initial: const AppSettings(holidayCountryCodes: {'KR'}),
+      );
+
+      await tester.tap(
+        colorDotFor(find.widgetWithText(CheckboxListTile, '대한민국')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('캘린더 색상 선택'), findsOneWidget);
+    });
+
+    testWidgets(
+      'choosing a preset swatch calls setHolidayCountryColor with that hex',
+      (tester) async {
+        (String, String?)? called;
+        await pumpScreen(
+          tester,
+          initial: const AppSettings(holidayCountryCodes: {'KR'}),
+          onSetCountryColor: (code, hex) async => called = (code, hex),
+        );
+
+        await tester.tap(
+          colorDotFor(find.widgetWithText(CheckboxListTile, '대한민국')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('colorChoice-amber')));
+        await tester.pumpAndSettle();
+
+        expect(called, ('KR', EventColorTag.toHex(EventColorTag.amber.color)));
+      },
+    );
+
+    testWidgets(
+      'choosing "기본값" calls setHolidayCountryColor with colorHex: null',
+      (tester) async {
+        (String, String?)? called;
+        await pumpScreen(
+          tester,
+          initial: const AppSettings(
+            holidayCountryCodes: {'KR'},
+            holidaySourceColors: {'holiday:country:KR': '#3388CC'},
+          ),
+          onSetCountryColor: (code, hex) async => called = (code, hex),
+        );
+
+        await tester.tap(
+          colorDotFor(find.widgetWithText(CheckboxListTile, '대한민국')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('colorChoice-default')));
+        await tester.pumpAndSettle();
+
+        expect(called, ('KR', null));
+      },
+    );
+
+    testWidgets('cancelling the color dialog calls nothing', (tester) async {
+      var called = false;
+      await pumpScreen(
+        tester,
+        initial: const AppSettings(holidayCountryCodes: {'KR'}),
+        onSetCountryColor: (_, _) async => called = true,
+      );
+
+      await tester.tap(
+        colorDotFor(find.widgetWithText(CheckboxListTile, '대한민국')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+
+      expect(called, isFalse);
+    });
+
+    testWidgets('tapping a custom URL\'s color dot and choosing a preset calls '
+        'setCustomHolidayColor with that hex', (tester) async {
+      (String, String?)? called;
+      await pumpScreen(
+        tester,
+        initial: const AppSettings(
+          customHolidayCalendarUrls: {'https://example.com/a.ics'},
+        ),
+        onSetCustomColor: (url, hex) async => called = (url, hex),
+      );
+
+      await tester.tap(
+        colorDotFor(find.widgetWithText(ListTile, 'https://example.com/a.ics')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('colorChoice-sky')));
+      await tester.pumpAndSettle();
+
+      expect(called, (
+        'https://example.com/a.ics',
+        EventColorTag.toHex(EventColorTag.sky.color),
+      ));
+    });
+
+    testWidgets(
+      'a sync failure while changing a color shows a snackbar, not a crash',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          initial: const AppSettings(holidayCountryCodes: {'KR'}),
+          onSetCountryColor: (_, _) async =>
+              throw HolidayCalendarSyncException('network down'),
+        );
+
+        await tester.tap(
+          colorDotFor(find.widgetWithText(CheckboxListTile, '대한민국')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('colorChoice-amber')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('공휴일 캘린더를 불러오지 못했어요'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
   });
 }

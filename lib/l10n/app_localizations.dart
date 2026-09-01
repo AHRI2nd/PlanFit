@@ -769,6 +769,24 @@ abstract class AppL10n {
   /// **'공휴일 캘린더를 불러오지 못했어요'**
   String get holidayCalendarSourceSyncFailedGeneric;
 
+  /// No description provided for @holidayCalendarSourceColorTooltip.
+  ///
+  /// In ko, this message translates to:
+  /// **'표시 색상 변경'**
+  String get holidayCalendarSourceColorTooltip;
+
+  /// No description provided for @holidayCalendarSourceColorTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'캘린더 색상 선택'**
+  String get holidayCalendarSourceColorTitle;
+
+  /// No description provided for @holidayCalendarSourceColorDefault.
+  ///
+  /// In ko, this message translates to:
+  /// **'기본값'**
+  String get holidayCalendarSourceColorDefault;
+
   /// No description provided for @calendarImportTitle.
   ///
   /// In ko, this message translates to:

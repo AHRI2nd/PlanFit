@@ -71,6 +71,54 @@ void main() {
   });
 
   test(
+    'a mirrored event gets the default color when no colorHex is given',
+    () async {
+      when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
+
+      await service.syncCountry('KR');
+
+      final rows = await db.eventDao.all();
+      expect(rows.single.colorTag, HolidayCalendarService.defaultColorHex);
+    },
+  );
+
+  test(
+    'a mirrored event gets colorHex when one is given, not the default',
+    () async {
+      when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
+
+      await service.syncCountry('KR', colorHex: '#3388CC');
+
+      final rows = await db.eventDao.all();
+      expect(rows.single.colorTag, '#3388CC');
+    },
+  );
+
+  test('re-syncing with a different colorHex updates already-mirrored rows, '
+      'not just newly-added ones', () async {
+    when(client.get(any)).thenAnswer((_) async => ok(_feedWithTwo));
+    await service.syncCountry('KR', colorHex: '#3388CC');
+
+    await service.syncCountry('KR', colorHex: '#AA2200');
+
+    final rows = await db.eventDao.all();
+    expect(rows, hasLength(2));
+    expect(rows.every((r) => r.colorTag == '#AA2200'), isTrue);
+  });
+
+  test('syncCustomUrl also respects colorHex, same as syncCountry', () async {
+    when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
+
+    await service.syncCustomUrl(
+      'https://example.com/cal.ics',
+      colorHex: '#00AA55',
+    );
+
+    final rows = await db.eventDao.all();
+    expect(rows.single.colorTag, '#00AA55');
+  });
+
+  test(
     're-syncing the same feed updates rows in place, no duplicates',
     () async {
       when(client.get(any)).thenAnswer((_) async => ok(_feedWithTwo));
@@ -192,35 +240,29 @@ void main() {
       );
     });
 
-    test(
-      'a 200 response that parses to zero events throws on the first sync '
-      '— a strong signal the URL isn\'t actually an ICS feed — and leaves '
-      'nothing mirrored',
-      () async {
-        when(client.get(any)).thenAnswer((_) async => ok(_feedWithNone));
+    test('a 200 response that parses to zero events throws on the first sync '
+        '— a strong signal the URL isn\'t actually an ICS feed — and leaves '
+        'nothing mirrored', () async {
+      when(client.get(any)).thenAnswer((_) async => ok(_feedWithNone));
 
-        await expectLater(
-          () => service.syncCustomUrl('https://example.com/calendar.ics'),
-          throwsA(isA<HolidayCalendarSyncException>()),
-        );
+      await expectLater(
+        () => service.syncCustomUrl('https://example.com/calendar.ics'),
+        throwsA(isA<HolidayCalendarSyncException>()),
+      );
 
-        expect(await db.eventDao.all(), isEmpty);
-      },
-    );
+      expect(await db.eventDao.all(), isEmpty);
+    });
 
-    test(
-      'a feed that later becomes empty does NOT throw on a re-sync — only '
-      'the first sync of a URL treats zero events as suspicious',
-      () async {
-        when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
-        await service.syncCustomUrl('https://example.com/calendar.ics');
+    test('a feed that later becomes empty does NOT throw on a re-sync — only '
+        'the first sync of a URL treats zero events as suspicious', () async {
+      when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
+      await service.syncCustomUrl('https://example.com/calendar.ics');
 
-        when(client.get(any)).thenAnswer((_) async => ok(_feedWithNone));
-        await service.syncCustomUrl('https://example.com/calendar.ics');
+      when(client.get(any)).thenAnswer((_) async => ok(_feedWithNone));
+      await service.syncCustomUrl('https://example.com/calendar.ics');
 
-        expect(await db.eventDao.all(), isEmpty);
-      },
-    );
+      expect(await db.eventDao.all(), isEmpty);
+    });
 
     test('unsubscribeCustom removes the mirrored custom rows', () async {
       when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
@@ -231,35 +273,27 @@ void main() {
       expect(await db.eventDao.all(), isEmpty);
     });
 
-    test(
-      'two different custom URLs are mirrored independently, under '
-      'distinct source ids',
-      () async {
-        when(
-          client.get(any),
-        ).thenAnswer((_) async => ok(_feedWithOne));
-        await service.syncCustomUrl('https://example.com/a.ics');
-        await service.syncCustomUrl('https://example.com/b.ics');
+    test('two different custom URLs are mirrored independently, under '
+        'distinct source ids', () async {
+      when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
+      await service.syncCustomUrl('https://example.com/a.ics');
+      await service.syncCustomUrl('https://example.com/b.ics');
 
-        final rows = await db.eventDao.all();
-        expect(rows, hasLength(2));
-        expect(
-          rows.map((r) => r.importSourceCalendarId).toSet(),
-          {
-            'holiday:custom:https://example.com/a.ics',
-            'holiday:custom:https://example.com/b.ics',
-          },
-        );
+      final rows = await db.eventDao.all();
+      expect(rows, hasLength(2));
+      expect(rows.map((r) => r.importSourceCalendarId).toSet(), {
+        'holiday:custom:https://example.com/a.ics',
+        'holiday:custom:https://example.com/b.ics',
+      });
 
-        await service.unsubscribeCustom('https://example.com/a.ics');
-        final remaining = await db.eventDao.all();
-        expect(remaining, hasLength(1));
-        expect(
-          remaining.single.importSourceCalendarId,
-          'holiday:custom:https://example.com/b.ics',
-        );
-      },
-    );
+      await service.unsubscribeCustom('https://example.com/a.ics');
+      final remaining = await db.eventDao.all();
+      expect(remaining, hasLength(1));
+      expect(
+        remaining.single.importSourceCalendarId,
+        'holiday:custom:https://example.com/b.ics',
+      );
+    });
   });
 
   group('migrateLegacySources', () {

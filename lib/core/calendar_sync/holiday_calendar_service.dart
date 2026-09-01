@@ -115,7 +115,11 @@ class HolidayCalendarService {
     'AU': 'en.australian#holiday@group.v.calendar.google.com',
   };
 
-  static final String _holidayColorHex = EventColorTag.toHex(
+  /// The color a mirrored holiday event gets when the user hasn't picked a
+  /// per-source color for it (see [AppSettings.holidaySourceColors]) — every
+  /// holiday event used this, unconditionally, before per-source colors
+  /// existed.
+  static final String defaultColorHex = EventColorTag.toHex(
     AppColors.holidayRed,
   );
 
@@ -134,8 +138,12 @@ class HolidayCalendarService {
 
   /// Syncs the built-in feed for [countryCode] (a key of
   /// [holidayCountryCalendarIds]) — throws [HolidayCalendarSyncException] if
-  /// the code isn't recognized or the fetch/parse fails.
-  Future<void> syncCountry(String countryCode) async {
+  /// the code isn't recognized or the fetch/parse fails. [colorHex] (a
+  /// `#RRGGBB` string) is this country's own chosen display color, if any —
+  /// omit it (or re-sync with the same value) to refresh every already-
+  /// mirrored event's `colorTag` too, since [_syncFrom] upserts every VEVENT
+  /// on every call regardless of whether its own fields changed.
+  Future<void> syncCountry(String countryCode, {String? colorHex}) async {
     final calendarId = holidayCountryCalendarIds[countryCode];
     if (calendarId == null) {
       throw HolidayCalendarSyncException(
@@ -145,6 +153,7 @@ class HolidayCalendarService {
     await _syncFrom(
       sourceId: holidayCountrySourceId(countryCode),
       feedUrl: _googleFeedUrl(calendarId),
+      colorHex: colorHex,
     );
   }
 
@@ -162,7 +171,7 @@ class HolidayCalendarService {
   /// implausible for a brand-new feed and this is much more likely a wrong
   /// or non-ICS URL the user should be told about immediately rather than
   /// silently "succeeding" with nothing to show for it.
-  Future<void> syncCustomUrl(String url) async {
+  Future<void> syncCustomUrl(String url, {String? colorHex}) async {
     final uri = Uri.tryParse(url);
     if (uri == null || !(uri.isScheme('HTTP') || uri.isScheme('HTTPS'))) {
       throw HolidayCalendarSyncException('Invalid calendar URL: $url');
@@ -173,7 +182,11 @@ class HolidayCalendarService {
       DateTime(2000),
       DateTime(2100),
     )).isEmpty;
-    final count = await _syncFrom(sourceId: sourceId, feedUrl: uri);
+    final count = await _syncFrom(
+      sourceId: sourceId,
+      feedUrl: uri,
+      colorHex: colorHex,
+    );
     if (isFirstSync && count == 0) {
       // Leave nothing mirrored from an apparently-bogus feed rather than a
       // silent zero-event "success."
@@ -217,6 +230,7 @@ class HolidayCalendarService {
   Future<int> _syncFrom({
     required String sourceId,
     required Uri feedUrl,
+    String? colorHex,
   }) async {
     final http.Response response;
     try {
@@ -256,7 +270,7 @@ class HolidayCalendarService {
             endAt: Value(v.end),
             isAllDay: Value(v.isAllDay),
             notify: const Value(false),
-            colorTag: Value(_holidayColorHex),
+            colorTag: Value(colorHex ?? defaultColorHex),
             syncStatus: const Value(SyncStatus.synced),
             importSourceCalendarId: Value(sourceId),
             importSourceEventId: Value(v.uid),

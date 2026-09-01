@@ -373,6 +373,15 @@ class AppL10nEn extends AppL10n {
       'Couldn\'t load the holiday calendar';
 
   @override
+  String get holidayCalendarSourceColorTooltip => 'Change display color';
+
+  @override
+  String get holidayCalendarSourceColorTitle => 'Choose calendar color';
+
+  @override
+  String get holidayCalendarSourceColorDefault => 'Default';
+
+  @override
   String get calendarImportTitle => 'Import or subscribe';
 
   @override

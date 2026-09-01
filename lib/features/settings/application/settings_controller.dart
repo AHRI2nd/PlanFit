@@ -1,10 +1,16 @@
+import 'dart:convert' show jsonDecode, jsonEncode;
+
 import 'package:device_calendar_plus/device_calendar_plus.dart' show Calendar;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/calendar_sync/holiday_calendar_service.dart'
-    show HolidayCalendarSyncException, defaultHolidayCountryCode;
+    show
+        HolidayCalendarSyncException,
+        defaultHolidayCountryCode,
+        holidayCountrySourceId,
+        holidayCustomSourceId;
 import '../../../core/di.dart';
 import '../../../core/serial_queue.dart';
 import 'app_settings.dart';
@@ -31,6 +37,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kLegacyHolidayCustomUrl = 'settings.customHolidayCalendarUrl';
   static const _kHolidayCountries = 'settings.holidayCountryCodes';
   static const _kHolidayCustomUrls = 'settings.customHolidayCalendarUrls';
+  static const _kHolidaySourceColors = 'settings.holidaySourceColors';
 
   static TimeFormatPreference _readTimeFormat(
     SharedPreferences prefs,
@@ -74,7 +81,10 @@ class SettingsController extends Notifier<AppSettings> {
     final storedCountries = prefs.getStringList(_kHolidayCountries);
     final storedCustomUrls = prefs.getStringList(_kHolidayCustomUrls);
     if (storedCountries != null || storedCustomUrls != null) {
-      return (storedCountries?.toSet() ?? const {}, storedCustomUrls?.toSet() ?? const {});
+      return (
+        storedCountries?.toSet() ?? const {},
+        storedCustomUrls?.toSet() ?? const {},
+      );
     }
     final legacyCustomUrl = prefs.getString(_kLegacyHolidayCustomUrl);
     if (legacyCustomUrl != null) {
@@ -82,6 +92,23 @@ class SettingsController extends Notifier<AppSettings> {
     }
     final legacyCountry = prefs.getString(_kLegacyHolidayCountry);
     return ({legacyCountry ?? defaultHolidayCountryCode()}, const {});
+  }
+
+  /// `SharedPreferences` has no native map type — stored as one JSON object
+  /// string, the same shape [_persistNow] writes back out. An unset key, or
+  /// one that fails to parse (corrupted prefs, a restore from an
+  /// incompatible app version), just means no source has a custom color yet
+  /// — never worth crashing [build] over.
+  Map<String, String> _readHolidaySourceColors(SharedPreferences prefs) {
+    final raw = prefs.getString(_kHolidaySourceColors);
+    if (raw == null) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      return decoded.map((k, v) => MapEntry(k as String, v as String));
+    } catch (_) {
+      return const {};
+    }
   }
 
   @override
@@ -105,6 +132,7 @@ class SettingsController extends Notifier<AppSettings> {
       holidayCalendarEnabled: prefs.getBool(_kHolidayCalendar) ?? true,
       holidayCountryCodes: holidayCountryCodes,
       customHolidayCalendarUrls: customHolidayCalendarUrls,
+      holidaySourceColors: _readHolidaySourceColors(prefs),
     );
     _apply(settings);
     return settings;
@@ -167,6 +195,14 @@ class SettingsController extends Notifier<AppSettings> {
       _kHolidayCustomUrls,
       s.customHolidayCalendarUrls.toList(),
     );
+    if (s.holidaySourceColors.isEmpty) {
+      await prefs.remove(_kHolidaySourceColors);
+    } else {
+      await prefs.setString(
+        _kHolidaySourceColors,
+        jsonEncode(s.holidaySourceColors),
+      );
+    }
   }
 
   Future<void> _update(AppSettings next) async {
@@ -234,7 +270,10 @@ class SettingsController extends Notifier<AppSettings> {
     for (final countryCode in state.holidayCountryCodes) {
       try {
         if (enabled) {
-          await holidays.syncCountry(countryCode);
+          await holidays.syncCountry(
+            countryCode,
+            colorHex: _holidayColorFor(holidayCountrySourceId(countryCode)),
+          );
         } else {
           await holidays.unsubscribeCountry(countryCode);
         }
@@ -245,7 +284,10 @@ class SettingsController extends Notifier<AppSettings> {
     for (final url in state.customHolidayCalendarUrls) {
       try {
         if (enabled) {
-          await holidays.syncCustomUrl(url);
+          await holidays.syncCustomUrl(
+            url,
+            colorHex: _holidayColorFor(holidayCustomSourceId(url)),
+          );
         } else {
           await holidays.unsubscribeCustom(url);
         }
@@ -254,6 +296,13 @@ class SettingsController extends Notifier<AppSettings> {
       }
     }
   }
+
+  /// [sourceId]'s own chosen color, if any — the shared lookup every
+  /// `syncCountry`/`syncCustomUrl` call site uses so a color picked while a
+  /// source was, say, temporarily deselected still applies the moment it's
+  /// mirrored again, not just from the two dedicated color setters below.
+  String? _holidayColorFor(String sourceId) =>
+      state.holidaySourceColors[sourceId];
 
   /// Adds or removes [countryCode] from the set of countries whose holidays
   /// are mirrored — any number can be selected at once, same shape as
@@ -268,7 +317,10 @@ class SettingsController extends Notifier<AppSettings> {
     final holidays = ref.read(holidayCalendarServiceProvider);
     if (state.holidayCalendarEnabled) {
       if (selected) {
-        await holidays.syncCountry(countryCode);
+        await holidays.syncCountry(
+          countryCode,
+          colorHex: _holidayColorFor(holidayCountrySourceId(countryCode)),
+        );
       } else {
         await holidays.unsubscribeCountry(countryCode);
       }
@@ -287,7 +339,12 @@ class SettingsController extends Notifier<AppSettings> {
   /// [setHolidayCountrySelected].
   Future<void> addCustomHolidayCalendarUrl(String url) async {
     if (state.holidayCalendarEnabled) {
-      await ref.read(holidayCalendarServiceProvider).syncCustomUrl(url);
+      await ref
+          .read(holidayCalendarServiceProvider)
+          .syncCustomUrl(
+            url,
+            colorHex: _holidayColorFor(holidayCustomSourceId(url)),
+          );
     }
     final next = Set<String>.from(state.customHolidayCalendarUrls)..add(url);
     await _update(state.copyWith(customHolidayCalendarUrls: next));
@@ -298,9 +355,57 @@ class SettingsController extends Notifier<AppSettings> {
     if (state.holidayCalendarEnabled) {
       await ref.read(holidayCalendarServiceProvider).unsubscribeCustom(url);
     }
-    final next = Set<String>.from(state.customHolidayCalendarUrls)
-      ..remove(url);
+    final next = Set<String>.from(state.customHolidayCalendarUrls)..remove(url);
     await _update(state.copyWith(customHolidayCalendarUrls: next));
+  }
+
+  /// Sets (or, with `colorHex: null`, clears back to the default)
+  /// [countryCode]'s own display color. If that country is currently
+  /// selected, re-syncs it first — [HolidayCalendarService._syncFrom]
+  /// upserts every already-mirrored event on every sync regardless of
+  /// whether its own fields changed, so this is what actually repaints
+  /// existing events with the new color rather than only affecting ones
+  /// mirrored from here on. Same "sync before persisting" ordering as
+  /// [setHolidayCountrySelected], so a failed re-sync leaves the setting
+  /// unchanged rather than claiming a color that never actually made it to
+  /// any mirrored row.
+  Future<void> setHolidayCountryColor(
+    String countryCode, {
+    String? colorHex,
+  }) async {
+    if (state.holidayCalendarEnabled &&
+        state.holidayCountryCodes.contains(countryCode)) {
+      await ref
+          .read(holidayCalendarServiceProvider)
+          .syncCountry(countryCode, colorHex: colorHex);
+    }
+    final next = Map<String, String>.from(state.holidaySourceColors);
+    final sourceId = holidayCountrySourceId(countryCode);
+    if (colorHex == null) {
+      next.remove(sourceId);
+    } else {
+      next[sourceId] = colorHex;
+    }
+    await _update(state.copyWith(holidaySourceColors: next));
+  }
+
+  /// [url]'s own display color — same shape as [setHolidayCountryColor], for
+  /// a custom feed instead of a built-in country.
+  Future<void> setCustomHolidayColor(String url, {String? colorHex}) async {
+    if (state.holidayCalendarEnabled &&
+        state.customHolidayCalendarUrls.contains(url)) {
+      await ref
+          .read(holidayCalendarServiceProvider)
+          .syncCustomUrl(url, colorHex: colorHex);
+    }
+    final next = Map<String, String>.from(state.holidaySourceColors);
+    final sourceId = holidayCustomSourceId(url);
+    if (colorHex == null) {
+      next.remove(sourceId);
+    } else {
+      next[sourceId] = colorHex;
+    }
+    await _update(state.copyWith(holidaySourceColors: next));
   }
 
   /// `null` turns the sweep off entirely — see

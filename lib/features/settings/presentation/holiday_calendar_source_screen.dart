@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/calendar_sync/holiday_calendar_service.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/tokens/event_color_tag.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -27,6 +29,12 @@ class HolidayCalendarSourceScreen extends ConsumerStatefulWidget {
 class _HolidayCalendarSourceScreenState
     extends ConsumerState<HolidayCalendarSourceScreen> {
   bool _busy = false;
+
+  /// Returned by [_pickColor] when the user chose "기본값"/"Default" —
+  /// distinct from `null`, which means the dialog was dismissed without any
+  /// choice at all. Never collides with a real color: [EventColorTag.toHex]
+  /// always starts with `#`.
+  static const String _defaultColorToken = '__default__';
 
   Future<void> _toggleCountry(String countryCode, bool selected) async {
     final l10n = AppL10n.of(context);
@@ -137,6 +145,141 @@ class _HolidayCalendarSourceScreenState
     }
   }
 
+  Future<void> _changeCountryColor(String countryCode, String? currentHex) =>
+      _changeColor(
+        currentHex,
+        (hex) => ref
+            .read(settingsControllerProvider.notifier)
+            .setHolidayCountryColor(countryCode, colorHex: hex),
+      );
+
+  Future<void> _changeCustomColor(String url, String? currentHex) =>
+      _changeColor(
+        currentHex,
+        (hex) => ref
+            .read(settingsControllerProvider.notifier)
+            .setCustomHolidayColor(url, colorHex: hex),
+      );
+
+  /// Shared flow behind [_changeCountryColor]/[_changeCustomColor]: shows
+  /// the picker, then applies the result via [apply] (`colorHex: null`
+  /// clears back to the default) — same busy-overlay + sync-failure-snackbar
+  /// handling every other change on this screen already uses.
+  Future<void> _changeColor(
+    String? currentHex,
+    Future<void> Function(String? colorHex) apply,
+  ) async {
+    final picked = await _pickColor(currentHex);
+    if (picked == null || !mounted) return; // dialog dismissed, or unmounted
+    final l10n = AppL10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await apply(picked == _defaultColorToken ? null : picked);
+    } on HolidayCalendarSyncException {
+      if (!mounted) return;
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.holidayCalendarSourceSyncFailedGeneric)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// A row of quick swatches — the default holiday red, the app's 6
+  /// [EventColorTag] presets, and a "custom" swatch opening the full
+  /// palette ([_pickCustomPaletteColor]). Returns a `#RRGGBB` hex,
+  /// [_defaultColorToken], or null if dismissed without a choice.
+  Future<String?> _pickColor(String? currentHex) {
+    final l10n = AppL10n.of(context);
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.holidayCalendarSourceColorTitle),
+        content: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _ColorChoice(
+                key: const Key('colorChoice-default'),
+                color: AppColors.holidayRed,
+                selected: currentHex == null,
+                semanticLabel: l10n.holidayCalendarSourceColorDefault,
+                onTap: () =>
+                    Navigator.of(dialogContext).pop(_defaultColorToken),
+              ),
+              for (final tag in EventColorTag.values)
+                _ColorChoice(
+                  key: Key('colorChoice-${tag.name}'),
+                  color: tag.color,
+                  selected: currentHex == EventColorTag.toHex(tag.color),
+                  semanticLabel: tag.name,
+                  onTap: () => Navigator.of(
+                    dialogContext,
+                  ).pop(EventColorTag.toHex(tag.color)),
+                ),
+              _CustomColorChoice(
+                key: const Key('colorChoice-custom'),
+                semanticLabel: l10n.eventColorPickerTitle,
+                onTap: () async {
+                  final custom = await _pickCustomPaletteColor(
+                    dialogContext,
+                    EventColorTag.parseHex(currentHex) ?? AppColors.holidayRed,
+                  );
+                  if (custom != null && dialogContext.mounted) {
+                    Navigator.of(
+                      dialogContext,
+                    ).pop(EventColorTag.toHex(custom));
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The full-palette picker — same widget and shape as
+  /// `EventEditorSheet._pickCustomColor`. [context] is the still-mounted
+  /// swatch-row dialog's own context (this one nests on top of it, rather
+  /// than replacing it).
+  Future<Color?> _pickCustomPaletteColor(BuildContext context, Color initial) {
+    final l10n = AppL10n.of(context);
+    var working = initial;
+    return showDialog<Color>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.eventColorPickerTitle),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: working,
+            onColorChanged: (c) => working = c,
+            enableAlpha: false,
+            hexInputBar: true,
+            labelTypes: const [],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(working),
+            child: Text(l10n.commonDone),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
@@ -161,10 +304,35 @@ class _HolidayCalendarSourceScreenState
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: IconButton(
-                    tooltip: l10n.holidayCalendarSourceRemoveCustomUrl,
-                    icon: Icon(Icons.close, color: palette.inkFaint),
-                    onPressed: _busy ? null : () => _removeCustomUrl(url),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SourceColorDot(
+                        color:
+                            EventColorTag.parseHex(
+                              settings
+                                  .holidaySourceColors[holidayCustomSourceId(
+                                url,
+                              )],
+                            ) ??
+                            AppColors.holidayRed,
+                        tooltip: l10n.holidayCalendarSourceColorTooltip,
+                        onTap: _busy
+                            ? null
+                            : () => _changeCustomColor(
+                                url,
+                                settings
+                                    .holidaySourceColors[holidayCustomSourceId(
+                                  url,
+                                )],
+                              ),
+                      ),
+                      IconButton(
+                        tooltip: l10n.holidayCalendarSourceRemoveCustomUrl,
+                        icon: Icon(Icons.close, color: palette.inkFaint),
+                        onPressed: _busy ? null : () => _removeCustomUrl(url),
+                      ),
+                    ],
                   ),
                 ),
               ListTile(
@@ -196,6 +364,24 @@ class _HolidayCalendarSourceScreenState
                   value: settings.holidayCountryCodes.contains(countryCode),
                   activeColor: palette.accent,
                   controlAffinity: ListTileControlAffinity.trailing,
+                  secondary: _SourceColorDot(
+                    color:
+                        EventColorTag.parseHex(
+                          settings.holidaySourceColors[holidayCountrySourceId(
+                            countryCode,
+                          )],
+                        ) ??
+                        AppColors.holidayRed,
+                    tooltip: l10n.holidayCalendarSourceColorTooltip,
+                    onTap: _busy
+                        ? null
+                        : () => _changeCountryColor(
+                            countryCode,
+                            settings.holidaySourceColors[holidayCountrySourceId(
+                              countryCode,
+                            )],
+                          ),
+                  ),
                   onChanged: _busy
                       ? null
                       : (selected) =>
@@ -212,6 +398,134 @@ class _HolidayCalendarSourceScreenState
               child: const Center(child: CircularProgressIndicator()),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The small color circle on each source row — tapping it opens
+/// [_HolidayCalendarSourceScreenState._pickColor] for that one source. A
+/// plain [IconButton] (not a bare [GestureDetector]) so it gets Material's
+/// own tap target sizing/ripple and, nested inside a [ListTile]/
+/// [CheckboxListTile], reliably claims taps on itself without the row's own
+/// tap (toggling the checkbox, opening the row) firing instead — the same
+/// nested-IconButton-inside-a-ListTile shape this screen's own "remove"
+/// button already relies on.
+class _SourceColorDot extends StatelessWidget {
+  const _SourceColorDot({
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final Color color;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onTap,
+      icon: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(color: palette.hairline),
+        ),
+      ),
+    );
+  }
+}
+
+/// One preset swatch inside [_HolidayCalendarSourceScreenState._pickColor]'s
+/// dialog — visually mirrors `event_editor_sheet.dart`'s own `_Swatch`
+/// (kept as a separate, private copy here rather than shared, since that
+/// one is tangled up with the event editor's extra "automatic" time-gradient
+/// option, which doesn't apply to a holiday source).
+class _ColorChoice extends StatelessWidget {
+  const _ColorChoice({
+    super.key,
+    required this.color,
+    required this.selected,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool selected;
+  final String semanticLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: semanticLabel,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(
+                color: selected ? palette.ink : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: selected
+                ? const Icon(Icons.check, color: Colors.white, size: 18)
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "custom color" swatch — opens the full palette picker instead of
+/// picking a color directly, same role as `event_editor_sheet.dart`'s own
+/// `_PaletteSwatch`.
+class _CustomColorChoice extends StatelessWidget {
+  const _CustomColorChoice({
+    super.key,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final String semanticLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: palette.hairline),
+          ),
+          child: Icon(Icons.palette_outlined, size: 18, color: palette.inkSoft),
+        ),
       ),
     );
   }

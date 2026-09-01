@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 
 import 'core/app_badge/app_badge_sync.dart';
+import 'core/calendar_sync/holiday_calendar_service.dart'
+    show holidayCountrySourceId, holidayCustomSourceId;
 import 'core/di.dart';
 import 'core/home_widget/home_widget_sync.dart';
 import 'core/notifications/notification_tap_target.dart';
@@ -222,14 +224,21 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     final holidays = ref.read(holidayCalendarServiceProvider);
     for (final countryCode in settings.holidayCountryCodes) {
       try {
-        await holidays.syncCountry(countryCode);
+        await holidays.syncCountry(
+          countryCode,
+          colorHex:
+              settings.holidaySourceColors[holidayCountrySourceId(countryCode)],
+        );
       } catch (_) {
         // Best-effort — one source failing shouldn't block the rest.
       }
     }
     for (final url in settings.customHolidayCalendarUrls) {
       try {
-        await holidays.syncCustomUrl(url);
+        await holidays.syncCustomUrl(
+          url,
+          colorHex: settings.holidaySourceColors[holidayCustomSourceId(url)],
+        );
       } catch (_) {
         // Best-effort — see above.
       }

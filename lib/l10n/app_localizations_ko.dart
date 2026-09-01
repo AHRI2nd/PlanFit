@@ -362,6 +362,15 @@ class AppL10nKo extends AppL10n {
   String get holidayCalendarSourceSyncFailedGeneric => '공휴일 캘린더를 불러오지 못했어요';
 
   @override
+  String get holidayCalendarSourceColorTooltip => '표시 색상 변경';
+
+  @override
+  String get holidayCalendarSourceColorTitle => '캘린더 색상 선택';
+
+  @override
+  String get holidayCalendarSourceColorDefault => '기본값';
+
+  @override
   String get calendarImportTitle => '가져오기 · 구독할 캘린더';
 
   @override
