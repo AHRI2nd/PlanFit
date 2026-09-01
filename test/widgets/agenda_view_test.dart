@@ -130,6 +130,65 @@ void main() {
     expect(find.text('Buy milk'), findsOneWidget);
   });
 
+  testWidgets('opens scrolled to the anchor day, not the past week of entries '
+      'before it', (tester) async {
+    final anchor = DateTime(2026, 3, 10);
+    when(events.watchBetween(any, any)).thenAnswer(
+      (_) => Stream.value([
+        for (var i = 1; i <= 6; i++)
+          event(
+            id: 'past$i',
+            title: 'Past $i',
+            startAt: DateTime(2026, 3, 10 - i, 9),
+          ),
+        event(
+          id: 'today',
+          title: 'Anchor day event',
+          startAt: DateTime(2026, 3, 10, 9),
+        ),
+      ]),
+    );
+    when(
+      todos.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
+
+    await pumpAgenda(tester, anchor);
+    await tester.pumpAndSettle();
+
+    // Scrolled forward past all 6 past-day groups before it, rather than
+    // sitting at the very top of the list (offset 0) the way it would
+    // with no auto-scroll at all.
+    final offset = tester
+        .state<ScrollableState>(find.byType(Scrollable))
+        .position
+        .pixels;
+    expect(offset, greaterThan(0));
+  });
+
+  testWidgets(
+    'an anchor with nothing on or after it never scrolls — nothing in '
+    'the window qualifies as a scroll target',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(
+            id: 'past',
+            title: 'Only past event',
+            startAt: DateTime(2026, 3, 5, 9),
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpAgenda(tester, anchor);
+
+      expect(find.text('Only past event'), findsOneWidget);
+    },
+  );
+
   testWidgets('tapping a to-do tile opens the to-do detail sheet', (
     tester,
   ) async {

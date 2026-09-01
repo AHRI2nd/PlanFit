@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/date_math.dart';
@@ -56,6 +57,42 @@ class AgendaView extends ConsumerStatefulWidget {
 class _AgendaViewState extends ConsumerState<AgendaView> {
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
+
+  /// Keys the one day-header row [build] wants scrolled to the top on
+  /// open — see the doc where it's assigned for exactly which row that
+  /// is. Never assigned at all if the list is empty or every entry in the
+  /// whole window is already in the past, in which case there's nothing
+  /// to scroll to.
+  final _scrollTargetKey = GlobalKey();
+  bool _scrolledToAnchor = false;
+
+  @override
+  void didUpdateWidget(covariant AgendaView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A genuinely different anchor (not just the same calendar day
+    // recomputed on some unrelated rebuild) means "start over" — re-scroll
+    // to the new one instead of leaving the view wherever the user had
+    // scrolled to under the old one.
+    if (dateOnly(widget.anchor) != dateOnly(oldWidget.anchor)) {
+      _scrolledToAnchor = false;
+    }
+  }
+
+  /// Scrolls [_scrollTargetKey]'s row to the very top of the list — once
+  /// per anchor (see [didUpdateWidget]), not on every rebuild, so e.g.
+  /// adding a new event doesn't keep snapping the user's own scroll
+  /// position back to the top. Schedules for the frame after this build,
+  /// since the keyed row's context isn't attached to the tree yet during
+  /// build itself.
+  void _scrollToAnchorOnce() {
+    if (_scrolledToAnchor) return;
+    _scrolledToAnchor = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _scrollTargetKey.currentContext;
+      if (target == null || !mounted) return;
+      Scrollable.ensureVisible(target, alignment: 0, duration: Duration.zero);
+    });
+  }
 
   void _enterSelection(String id) {
     setState(() {
@@ -150,6 +187,17 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
               ),
           ],
         ];
+        // The first row on or after the anchor day — [groups] (and so
+        // [rows]) is sorted ascending, and the window starts a week
+        // *before* the anchor (see eventsForAgendaProvider's own doc), so
+        // this is normally somewhere a little past the top rather than
+        // literally index 0. -1 (never scrolls) only if every entry in
+        // the whole ~6-month window is somehow already in the past.
+        final anchorDay = dateOnly(widget.anchor);
+        final scrollTargetIndex = rows.indexWhere(
+          (r) => r.day != null && !r.day!.isBefore(anchorDay),
+        );
+        _scrollToAnchorOnce();
         return Column(
           children: [
             if (_selectionMode)
@@ -161,6 +209,19 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
               ),
             Expanded(
               child: ListView.builder(
+                // Generous rather than the ~250px default — the anchor's
+                // scroll target (see _scrollToAnchorOnce) needs its row
+                // already *built* the moment the list first lays out, or
+                // Scrollable.ensureVisible has nothing to find via
+                // _scrollTargetKey. The past-week window before the
+                // anchor is always small (at most 7 day-groups), so this
+                // still only ever builds a modest, bounded number of
+                // extra rows up front — nothing close to the ~400-550
+                // eager-build cost the switch to .builder was fixing in
+                // the first place, which was about the *whole* up-to-187
+                // -day window, not just the week-back slice before the
+                // anchor.
+                scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.gutter,
                   AppSpacing.xs,
@@ -171,7 +232,12 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                 itemBuilder: (context, index) {
                   final row = rows[index];
                   final day = row.day;
-                  if (day != null) return _DayHeader(day: day);
+                  if (day != null) {
+                    final header = _DayHeader(day: day);
+                    return index == scrollTargetIndex
+                        ? KeyedSubtree(key: _scrollTargetKey, child: header)
+                        : header;
+                  }
                   return Padding(
                     // The last tile in a group carries its own AppSpacing.xs
                     // gap *plus* the AppSpacing.sm the old layout gave the

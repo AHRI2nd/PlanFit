@@ -173,7 +173,16 @@ class ScheduleScreen extends ConsumerWidget {
                   ScheduleView.week => WeekView(anchor: selected),
                   ScheduleView.month => const MonthView(),
                   ScheduleView.year => const YearView(),
-                  ScheduleView.agenda => AgendaView(anchor: selected),
+                  // Always "now", not `selected` — the list tab reads as
+                  // "what's coming up", not "what's around whatever day
+                  // some other tab last left selected". Doesn't lose any
+                  // real navigability: agenda is the one view _swipeTarget
+                  // never wires a swipe to (see its own switch above), so
+                  // `selected` was never something the user could actually
+                  // steer while already on this tab anyway.
+                  ScheduleView.agenda => AgendaView(
+                    anchor: dateOnly(DateTime.now()),
+                  ),
                 },
               ),
             ],
