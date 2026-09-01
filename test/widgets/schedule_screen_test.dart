@@ -265,44 +265,92 @@ void main() {
   });
 
   group('body-region swipes', () {
-    // The core safety constraint: day view's body already has its own
-    // horizontal-drag gestures (event-card swipe-to-delete, todo
-    // Dismissible), so the title-row swipe must never fire from there.
-    testWidgets('day view: swiping an event card only triggers its own delete '
+    // _EventCard's own swipe-to-delete was removed (deleting now lives in
+    // the edit sheet) specifically so this area could become a navigation
+    // surface instead — swiping it now behaves the same as the title.
+    testWidgets(
+      'day view: swiping an event card navigates the day, same as the '
+      'title (it no longer deletes)',
+      (tester) async {
+        final selected = DateTime(2026, 3, 10);
+        final event = row(
+          id: 'ev1',
+          title: 'Swipe target event',
+          startAt: DateTime(2026, 3, 10, 9, 0),
+          endAt: DateTime(2026, 3, 10, 10, 0),
+        );
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value([event]));
+        final container = await pumpSchedule(
+          tester,
+          view: ScheduleView.day,
+          selected: selected,
+        );
+
+        await tester.ensureVisible(find.text('Swipe target event'));
+        await tester.pump();
+        await tester.fling(
+          find.text('Swipe target event'),
+          const Offset(-400, 0),
+          1000,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(container.read(selectedDateProvider), DateTime(2026, 3, 11));
+        verifyNever(events.delete(any));
+      },
+    );
+
+    // The one remaining safety boundary: to-dos still keep their own
+    // swipe-to-delete (a real Dismissible, unlike events' now-removed
+    // hand-rolled one) undisturbed by the day-navigation swipe around it.
+    testWidgets('day view: swiping a to-do still only triggers its own delete '
         'gesture, never date navigation', (tester) async {
       final selected = DateTime(2026, 3, 10);
-      final event = row(
-        id: 'ev1',
-        title: 'Swipe target event',
-        startAt: DateTime(2026, 3, 10, 9, 0),
-        endAt: DateTime(2026, 3, 10, 10, 0),
-      );
       when(
         events.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value([event]));
-      when(events.delete(any)).thenAnswer((_) async {});
+      ).thenAnswer((_) => Stream.value(const []));
+      when(todos.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          TodoRow(
+            id: 't1',
+            eventId: null,
+            title: 'Swipe target todo',
+            slotStart: DateTime(2026, 3, 10, 9, 0),
+            slotEnd: null,
+            hasTime: true,
+            isDone: false,
+            sortOrder: 0,
+            priority: 0,
+            tags: null,
+            notify: false,
+            isPinned: false,
+            recurrenceRule: null,
+            recurrenceGroupId: null,
+            reminderSyncStatus: SyncStatus.pendingPush,
+            createdAt: DateTime(2020),
+          ),
+        ]),
+      );
       final container = await pumpSchedule(
         tester,
         view: ScheduleView.day,
         selected: selected,
       );
 
-      await tester.ensureVisible(find.text('Swipe target event'));
+      await tester.ensureVisible(find.text('Swipe target todo'));
       await tester.pump();
       await tester.fling(
-        find.text('Swipe target event'),
+        find.text('Swipe target todo'),
         const Offset(-400, 0),
         1000,
       );
       await tester.pump();
-      // Let the swipe-delete's auto-dismiss snackbar Timer finish so no
-      // pending Timer trips flutter_test's teardown check.
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(milliseconds: 50));
 
       expect(container.read(selectedDateProvider), selected);
-      // Confirms the swipe really did hit _EventCard's own gesture (not
-      // just silently doing nothing at all).
-      verify(events.delete('ev1')).called(1);
     });
 
     testWidgets(

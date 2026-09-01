@@ -12,7 +12,7 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
-import '../../../../design/widgets/snackbar_x.dart';
+import '../../../../design/widgets/swipe_navigation_detector.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
@@ -89,13 +89,13 @@ class _DayViewState extends ConsumerState<DayView> {
         final timed = events.where((e) => !e.isAllDay).toList();
         final allDay = events.where((e) => e.isAllDay).toList();
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.xs,
-            AppSpacing.gutter,
-            140,
-          ),
+        // Everything above the to-do section — all-day cards plus the
+        // empty-state/clock/timeline body — grouped so it can be wrapped
+        // in one swipe-to-navigate surface below. Stretched, matching the
+        // full-bleed width these items got for free as direct ListView
+        // children before this grouping.
+        final dayContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (allDay.isNotEmpty) ...[
               for (final e in allDay)
@@ -139,6 +139,40 @@ class _DayViewState extends ConsumerState<DayView> {
                   railInset: DayView._railInset,
                   accent: palette.accent,
                 ),
+              ),
+          ],
+        );
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.xs,
+            AppSpacing.gutter,
+            140,
+          ),
+          children: [
+            // Compact instances (MonthView's embedded mini day view) skip
+            // this — they're a preview, not a navigable view of their own,
+            // and don't share a selectedDateProvider swipe convention with
+            // anything else on screen. Safe everywhere else now that
+            // _EventCard no longer has its own swipe-to-delete: the only
+            // other horizontal-drag-adjacent gestures left in this content
+            // (move/resize/create) are all long-press-first, a different
+            // recognizer type that only competes once it's already won the
+            // arena during its hold phase, so a plain swipe never reaches
+            // them.
+            if (widget.compact)
+              dayContent
+            else
+              SwipeNavigationDetector(
+                key: const Key('dayContentSwipe'),
+                onSwipeLeft: () => ref
+                    .read(selectedDateProvider.notifier)
+                    .select(addCalendarDays(widget.day, 1)),
+                onSwipeRight: () => ref
+                    .read(selectedDateProvider.notifier)
+                    .select(addCalendarDays(widget.day, -1)),
+                child: dayContent,
               ),
             const SizedBox(height: AppSpacing.lg),
             SectionHeader(
@@ -654,30 +688,6 @@ class _EventCard extends ConsumerWidget {
   final ValueChanged<double>? onResizeUpdate;
   final VoidCallback? onResizeEnd;
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final l10n = AppL10n.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    final repo = ref.read(eventRepositoryProvider);
-    final removed = event;
-    await repo.delete(removed.id);
-    messenger.showAutoDismissSnackBar(
-      SnackBar(
-        content: Text(l10n.eventDeleted),
-        action: SnackBarAction(
-          label: l10n.eventUndo,
-          // restoreEvent(), not save() — the row is already gone by now, so
-          // save() would see no existing row and treat this as a brand-new
-          // event: reminderMinutesBefore resets to EventInput's default (0),
-          // and recurrenceGroupId/recurrenceRule/osCalendarId/osEventId all
-          // come from `existing`, which is null, silently severing the
-          // restored event from its recurring series and its OS-calendar
-          // link. restoreEvent() writes `removed` back exactly as it was.
-          onPressed: () => repo.restoreEvent(removed),
-        ),
-      ),
-    );
-  }
-
   /// [color] shifted [amount] (0-1) toward black in HSL lightness, fully
   /// opaque — used for the card border so it reads as a solid, slightly
   /// deeper shade of the card's own accent rather than the same color at
@@ -703,32 +713,17 @@ class _EventCard extends ConsumerWidget {
       context,
     );
 
-    // Swipe-to-delete is implemented by hand here rather than with
-    // Dismissible: Dismissible wraps its child in a SizeTransition (even
-    // with resizeDuration: null) and that combination, nested directly
-    // around GlassSurface's BackdropFilter inside this Stack's per-event,
-    // dynamically-sized cards, left the backdrop blur/tint painted at a
-    // stale, smaller size than the card's real (correct) layout bounds
-    // whenever that height differed between rebuilds — e.g. a 3-hour
-    // event sharing a column with a 1-hour one rendered its glass fill
-    // only ~1 hour tall, even though the card's own hit-test/border area
-    // was verifiably the full 3 hours (confirmed by bounding the
-    // ConstrainedBox itself in a debug border and watching only the
-    // GlassSurface fill inside it come up short). Wrapping in
-    // RepaintBoundary and disabling Dismissible's resize animation both
-    // failed to fix it; only removing Dismissible entirely did.
+    // No swipe-to-delete here (an earlier version had one, hand-rolled
+    // rather than via Dismissible for a GlassSurface/BackdropFilter sizing
+    // bug — see git history if that's ever needed again) — deleting now
+    // lives in the edit sheet's own delete button (tap the card to reach
+    // it), freeing the whole all-day/timeline area to be a horizontal-drag
+    // *navigation* surface instead (see DayView's own `SwipeNavigationDetector`
+    // wrapping it) without the two competing for the same gesture.
     return GestureDetector(
       // Tapping anywhere on the card — not just the title/time text — opens
       // it for editing.
       onTap: () => showEventEditor(context, existing: event),
-      // A decisive leftward swipe deletes — mirrors Dismissible's own
-      // DismissDirection.endToStart, just without its slide/reveal
-      // animation. Scoped to horizontal drags only, so it doesn't fight
-      // the inner GestureDetector's long-press-drag (move) or the day
-      // timeline's own vertical scroll.
-      onHorizontalDragEnd: (details) {
-        if ((details.primaryVelocity ?? 0) < -300) _delete(context, ref);
-      },
       // Long-press-then-drag (not a plain vertical drag) so a swipe that
       // starts on top of a card still scrolls the day timeline instead of
       // picking the event up — the two would otherwise both claim the same

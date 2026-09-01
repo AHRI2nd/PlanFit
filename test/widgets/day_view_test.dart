@@ -9,6 +9,7 @@ import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_clock_view.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_view.dart';
@@ -63,12 +64,13 @@ void main() {
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
   });
 
-  Future<void> pumpDay(
+  Future<ProviderContainer> pumpDay(
     WidgetTester tester,
     DateTime day, {
     bool compact = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    late ProviderContainer container;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -76,24 +78,30 @@ void main() {
           eventRepositoryProvider.overrideWithValue(events),
           todoDaoProvider.overrideWithValue(todos),
         ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          locale: const Locale('ko'),
-          localizationsDelegates: const [
-            AppL10n.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppL10n.supportedLocales,
-          home: Scaffold(
-            body: DayView(day: day, compact: compact),
-          ),
+        child: Builder(
+          builder: (context) {
+            container = ProviderScope.containerOf(context);
+            return MaterialApp(
+              theme: AppTheme.light(),
+              locale: const Locale('ko'),
+              localizationsDelegates: const [
+                AppL10n.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: AppL10n.supportedLocales,
+              home: Scaffold(
+                body: DayView(day: day, compact: compact),
+              ),
+            );
+          },
         ),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
+    return container;
   }
 
   testWidgets('a 2-hour event fully containing a shorter one keeps its full '
@@ -204,8 +212,11 @@ void main() {
   });
 
   testWidgets(
-    'swiping an event card left with enough velocity deletes it — the '
-    'hand-rolled replacement for Dismissible',
+    // _EventCard's own swipe-to-delete was removed in favor of freeing the
+    // whole all-day/timeline area for swipe-to-navigate instead — deleting
+    // an event now only happens from the edit sheet's own delete button.
+    'swiping an event card no longer deletes it — that horizontal drag is '
+    'now the day-navigation surface',
     (tester) async {
       final day = DateTime(2026, 3, 10);
       final e = row(
@@ -215,21 +226,81 @@ void main() {
         endAt: DateTime(2026, 3, 10, 3),
       );
       when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
-      when(events.delete(any)).thenAnswer((_) async {});
 
-      await pumpDay(tester, day);
+      final container = await pumpDay(tester, day);
 
       await tester.fling(find.text('Swipe me'), const Offset(-400, 0), 1000);
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
-      verify(events.delete('e1')).called(1);
-
-      // The delete flow shows an auto-dismissing SnackBar with its own
-      // timer — let it run out before teardown, same as event_editor_
-      // sheet_test.dart's truncation-snackbar tests.
-      await tester.pump(const Duration(seconds: 5));
+      verifyNever(events.delete(any));
+      // The swipe navigates the day instead, same as swiping anywhere else
+      // in this all-day/timeline area.
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 11));
     },
   );
+
+  group('swiping the all-day/timeline area navigates by whole days', () {
+    testWidgets('a left fling advances to the next day', (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      final container = await pumpDay(tester, day);
+
+      await tester.fling(
+        find.byKey(const Key('dayContentSwipe')),
+        const Offset(-400, 0),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 11));
+    });
+
+    testWidgets('a right fling goes back to the previous day', (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      final container = await pumpDay(tester, day);
+
+      await tester.fling(
+        find.byKey(const Key('dayContentSwipe')),
+        const Offset(400, 0),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 9));
+    });
+
+    // The compact embedded instance under MonthView's calendar grid is a
+    // preview, not a navigable view of its own — it shouldn't silently
+    // move selectedDateProvider (which MonthView's own grid selection also
+    // drives) out from under whatever the grid says is selected.
+    testWidgets('compact:true does not swipe-navigate', (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      final container = await pumpDay(tester, day, compact: true);
+
+      expect(find.byKey(const Key('dayContentSwipe')), findsNothing);
+      await tester.fling(find.byType(DayView), const Offset(-400, 0), 1000);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // selectedDateProvider was never touched at all — its own default
+      // (today), not day±1.
+      expect(container.read(selectedDateProvider), dateOnly(DateTime.now()));
+    });
+  });
 
   testWidgets(
     'the to-dos header "+" focuses the inline add field, no scrolling by hand',
