@@ -23,7 +23,9 @@ import '../event_edit/event_editor_sheet.dart';
 /// column. No existing-event drag/resize (unlike the day view): tapping an
 /// event opens it for editing, tapping a day's header jumps into that day's
 /// own [DayView] for finer-grained interactions, and a long-press-drag on
-/// empty grid space creates a new event spanning the dragged range.
+/// empty grid space creates a new event spanning the dragged range. The
+/// whole page (header, all-day strip, and hour grid together) is itself a
+/// swipeable page — see [_WeekPager].
 class WeekView extends ConsumerWidget {
   const WeekView({super.key, required this.anchor});
 
@@ -34,15 +36,140 @@ class WeekView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.palette;
-    final locale = Localizations.localeOf(context).toLanguageTag();
     final startWeekday = ref.watch(weekStartWeekdayProvider);
     final weekStart = startOfWeek(anchor, startWeekday: startWeekday);
+    return _WeekPager(
+      weekStart: weekStart,
+      // Lands on the same day-of-week the pager started from (e.g. swiping
+      // from a Tuesday lands on the next week's Tuesday), not always that
+      // week's Monday — matches how schedule_screen.dart's own title swipe
+      // already navigates week view (`addCalendarDays(selected, ±7)`, off
+      // the raw anchor), so every swipe entry point always agrees.
+      onWeekChanged: (newWeekStart) => ref
+          .read(selectedDateProvider.notifier)
+          .select(
+            addCalendarDays(newWeekStart, anchor.difference(weekStart).inDays),
+          ),
+    );
+  }
+}
+
+/// Pages a full [_WeekPageContent] (header, all-day strip, and hour grid
+/// together) through a real, physically-dragged [PageView] — prev/current/
+/// next week, one per page — instead of a plain gesture detector that only
+/// jumps discretely once a swipe completes. [PageView]'s own default
+/// [PageScrollPhysics] already gives exactly the "follows the finger, then
+/// magnet-snaps to the nearer page" feel this exists for, so none of that
+/// needs reimplementing here.
+///
+/// Safe to wrap the *whole* page, not just the header (an earlier version
+/// of this only wrapped the header) — the grid below has a long-press-drag
+/// gesture for creating events, not a plain one, and a genuine long-press
+/// wins Flutter's gesture arena during its hold phase (no horizontal
+/// movement has happened yet for a drag recognizer to compete over), so it
+/// never fights this pager's own horizontal [PageView] drag. Tapping a day
+/// cell (header or grid) still works the same way, since a tap has ~zero
+/// drag distance.
+///
+/// [weekStart] is the source of truth from outside (derived from
+/// [SelectedDate], which the "오늘" button, the schedule title's own
+/// swipe, and this pager's [onWeekChanged] can all change). The page index
+/// itself is just an arbitrary large offset — [_currentPage] and
+/// [_pageWeekStart] are kept in lockstep so a page number can always be
+/// converted back to the real week it represents ([_weekStartForPage]),
+/// without needing every possible week to have one fixed, pre-assigned page
+/// number.
+class _WeekPager extends StatefulWidget {
+  const _WeekPager({required this.weekStart, required this.onWeekChanged});
+
+  final DateTime weekStart;
+  final ValueChanged<DateTime> onWeekChanged;
+
+  // A fixed, generously wide page range (~960 years either side of
+  // startup) rather than true unbounded paging — PageView needs a finite
+  // itemCount, and no realistic use of this app gets anywhere near this
+  // edge.
+  static const int _pageCount = 100000;
+  static const int _initialPage = _pageCount ~/ 2;
+
+  @override
+  State<_WeekPager> createState() => _WeekPagerState();
+}
+
+class _WeekPagerState extends State<_WeekPager> {
+  late final PageController _controller;
+  late int _currentPage;
+  late DateTime _pageWeekStart;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage = _WeekPager._initialPage;
+    _pageWeekStart = widget.weekStart;
+    _controller = PageController(initialPage: _currentPage);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WeekPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.weekStart == _pageWeekStart) return;
+    // weekStart changed from outside this pager's own onPageChanged (the
+    // "오늘" button, the schedule title's own swipe, ...) — resync the
+    // controller to match instead of leaving it pointing at a stale week.
+    final deltaWeeks = widget.weekStart.difference(_pageWeekStart).inDays ~/ 7;
+    final targetPage = _currentPage + deltaWeeks;
+    _currentPage = targetPage;
+    _pageWeekStart = widget.weekStart;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_controller.hasClients) _controller.jumpToPage(targetPage);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  DateTime _weekStartForPage(int page) =>
+      addCalendarDays(_pageWeekStart, (page - _currentPage) * 7);
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView.builder(
+      key: const Key('weekPageSwipe'),
+      controller: _controller,
+      itemCount: _WeekPager._pageCount,
+      onPageChanged: (page) {
+        final newWeekStart = _weekStartForPage(page);
+        _currentPage = page;
+        _pageWeekStart = newWeekStart;
+        widget.onWeekChanged(newWeekStart);
+      },
+      itemBuilder: (context, page) =>
+          _WeekPageContent(weekStart: _weekStartForPage(page)),
+    );
+  }
+}
+
+/// One week's full content — everything [WeekView] used to build directly,
+/// just keyed by an explicit [weekStart] (rather than reading
+/// [selectedDateProvider] itself) so [_WeekPager] can render several
+/// different weeks' worth of these as sibling pages.
+class _WeekPageContent extends ConsumerWidget {
+  const _WeekPageContent({required this.weekStart});
+
+  final DateTime weekStart;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final locale = Localizations.localeOf(context).toLanguageTag();
     final weekEnd = addCalendarDays(weekStart, 7);
     final days = [for (var i = 0; i < 7; i++) addCalendarDays(weekStart, i)];
-    final eventsAsync = ref.watch(eventsForWeekProvider(anchor));
+    final eventsAsync = ref.watch(eventsForWeekProvider(weekStart));
     final weekTodos =
-        ref.watch(todosForWeekProvider(anchor)).asData?.value ??
+        ref.watch(todosForWeekProvider(weekStart)).asData?.value ??
         const <TodoRow>[];
     final overdueTodos =
         ref.watch(overdueTodosProvider).asData?.value ?? const <TodoRow>[];
@@ -86,19 +213,8 @@ class WeekView extends ConsumerWidget {
 
         return Column(
           children: [
-            // A real PageView, not just a gesture detector that jumps on
-            // release — the header visually tracks the finger 1:1 while
-            // dragging and magnet-snaps to whichever week is closer on
-            // release (PageView's own default scroll physics), instead of
-            // abruptly cutting to the next/prev week only once the gesture
-            // completes. Scoped to just this header, not the grid below,
-            // which already has its own long-press-drag-to-create gesture
-            // and shouldn't also compete for horizontal drags. Each day
-            // cell's own tap (jumps into that day) still works nested
-            // inside it — a tap has ~zero drag distance, so PageView's
-            // pan recognizer never claims it.
-            _WeekHeaderPager(
-              weekStart: weekStart,
+            _WeekHeader(
+              days: days,
               today: today,
               locale: locale,
               accent: palette.accent,
@@ -106,20 +222,6 @@ class WeekView extends ConsumerWidget {
               todoDays: todoDays,
               overdueDays: overdueDays,
               onTapDay: openDay,
-              // Lands on the same day-of-week the pager started from (e.g.
-              // swiping from a Tuesday lands on the next week's Tuesday),
-              // not always that week's Monday — matches how
-              // schedule_screen.dart's own title swipe already navigates
-              // week view (`addCalendarDays(selected, ±7)`, off the raw
-              // anchor), so the two swipe entry points always agree.
-              onWeekChanged: (newWeekStart) => ref
-                  .read(selectedDateProvider.notifier)
-                  .select(
-                    addCalendarDays(
-                      newWeekStart,
-                      anchor.difference(weekStart).inDays,
-                    ),
-                  ),
             ),
             if (allDay.isNotEmpty)
               _AllDayStrip(
@@ -127,22 +229,22 @@ class WeekView extends ConsumerWidget {
                 weekStart: weekStart,
                 weekEnd: weekEnd,
                 events: allDay,
-                railInset: _railInset,
+                railInset: WeekView._railInset,
               ),
             const Divider(height: 1),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: AppSpacing.lg),
                 child: SizedBox(
-                  height: _hourHeight * 24,
+                  height: WeekView._hourHeight * 24,
                   child: _WeekGrid(
                     days: days,
                     today: today,
                     now: now,
                     byDay: byDay,
                     locale: locale,
-                    hourHeight: _hourHeight,
-                    railInset: _railInset,
+                    hourHeight: WeekView._hourHeight,
+                    railInset: WeekView._railInset,
                     accent: palette.accent,
                     onTapDay: openDay,
                     use24Hour: use24,
@@ -153,139 +255,6 @@ class WeekView extends ConsumerWidget {
           ],
         );
       },
-    );
-  }
-}
-
-/// Pages [_WeekHeader] through a real, physically-dragged [PageView] —
-/// prev/current/next week, one per page — instead of a plain gesture
-/// detector that only jumps discretely once a swipe completes.
-/// [PageView]'s own default [PageScrollPhysics] already gives exactly the
-/// "follows the finger, then magnet-snaps to the nearer page" feel this
-/// exists for, so none of that needs reimplementing here.
-///
-/// [weekStart] is the source of truth from outside (derived from
-/// [SelectedDate], which the "오늘" button, the schedule title's own
-/// swipe, and this pager's [onWeekChanged] can all change). The page
-/// index itself is just an arbitrary large offset — [_currentPage] and
-/// [_pageWeekStart] are kept in lockstep so a page number can always be
-/// converted back to the real week it represents ([_weekStartForPage]),
-/// without needing every possible week to have one fixed, pre-assigned
-/// page number.
-class _WeekHeaderPager extends StatefulWidget {
-  const _WeekHeaderPager({
-    required this.weekStart,
-    required this.today,
-    required this.locale,
-    required this.accent,
-    required this.eventDays,
-    required this.todoDays,
-    required this.overdueDays,
-    required this.onTapDay,
-    required this.onWeekChanged,
-  });
-
-  final DateTime weekStart;
-  final DateTime today;
-  final String locale;
-  final Color accent;
-  final Set<DateTime> eventDays;
-  final Set<DateTime> todoDays;
-  final Set<DateTime> overdueDays;
-  final ValueChanged<DateTime> onTapDay;
-  final ValueChanged<DateTime> onWeekChanged;
-
-  // Matches _WeekHeader's own rendered height: the weekday-label row
-  // (~16) + 2 + the 6-tall dot slot + 2 + the 28-diameter day-number
-  // circle, plus this Padding's 2×AppSpacing.xs (8) vertical inset —
-  // rounded up a hair since PageView needs an explicit bounded height
-  // from its parent, unlike a plain Column child sized to content.
-  static const double _height = 72;
-
-  // A fixed, generously wide page range (~960 years either side of
-  // startup) rather than true unbounded paging — PageView needs a finite
-  // itemCount, and no realistic use of this app gets anywhere near this
-  // edge.
-  static const int _pageCount = 100000;
-  static const int _initialPage = _pageCount ~/ 2;
-
-  @override
-  State<_WeekHeaderPager> createState() => _WeekHeaderPagerState();
-}
-
-class _WeekHeaderPagerState extends State<_WeekHeaderPager> {
-  late final PageController _controller;
-  late int _currentPage;
-  late DateTime _pageWeekStart;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentPage = _WeekHeaderPager._initialPage;
-    _pageWeekStart = widget.weekStart;
-    _controller = PageController(initialPage: _currentPage);
-  }
-
-  @override
-  void didUpdateWidget(covariant _WeekHeaderPager oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.weekStart == _pageWeekStart) return;
-    // weekStart changed from outside this pager's own onPageChanged (the
-    // "오늘" button, the schedule title's own swipe, ...) — resync the
-    // controller to match instead of leaving it pointing at a stale week.
-    final deltaWeeks = widget.weekStart.difference(_pageWeekStart).inDays ~/ 7;
-    final targetPage = _currentPage + deltaWeeks;
-    _currentPage = targetPage;
-    _pageWeekStart = widget.weekStart;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_controller.hasClients) _controller.jumpToPage(targetPage);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  DateTime _weekStartForPage(int page) =>
-      addCalendarDays(_pageWeekStart, (page - _currentPage) * 7);
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: _WeekHeaderPager._height,
-      child: PageView.builder(
-        key: const Key('weekHeaderSwipe'),
-        controller: _controller,
-        itemCount: _WeekHeaderPager._pageCount,
-        onPageChanged: (page) {
-          final newWeekStart = _weekStartForPage(page);
-          _currentPage = page;
-          _pageWeekStart = newWeekStart;
-          widget.onWeekChanged(newWeekStart);
-        },
-        itemBuilder: (context, page) {
-          final ws = _weekStartForPage(page);
-          // Marker data (event/todo dots) is only fetched for the
-          // currently-settled week — a page still mid-drag previews dates
-          // with no dots rather than stale ones from the wrong week; once
-          // the drag settles, WeekView rebuilds for the new anchor and the
-          // dots catch up.
-          final isSettled = ws == widget.weekStart;
-          final days = [for (var i = 0; i < 7; i++) addCalendarDays(ws, i)];
-          return _WeekHeader(
-            days: days,
-            today: widget.today,
-            locale: widget.locale,
-            accent: widget.accent,
-            eventDays: isSettled ? widget.eventDays : const {},
-            todoDays: isSettled ? widget.todoDays : const {},
-            overdueDays: isSettled ? widget.overdueDays : const {},
-            onTapDay: widget.onTapDay,
-          );
-        },
-      ),
     );
   }
 }

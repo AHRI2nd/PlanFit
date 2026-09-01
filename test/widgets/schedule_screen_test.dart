@@ -264,9 +264,9 @@ void main() {
     );
   });
 
-  group('body-region swipes never trigger navigation', () {
-    // The core safety constraint: day/week view bodies already have their
-    // own horizontal-drag gestures (event-card swipe-to-delete, todo
+  group('body-region swipes', () {
+    // The core safety constraint: day view's body already has its own
+    // horizontal-drag gestures (event-card swipe-to-delete, todo
     // Dismissible), so the title-row swipe must never fire from there.
     testWidgets('day view: swiping an event card only triggers its own delete '
         'gesture, never date navigation', (tester) async {
@@ -306,7 +306,14 @@ void main() {
     });
 
     testWidgets(
-      'week view: swiping the body does not change the selected date',
+      // Unlike day view: week view's own body has no delete-swipe (its
+      // grid's only drag gesture is long-press-to-create, a different
+      // recognizer type — see week_view.dart's own `_WeekPager` doc), so
+      // its body is deliberately swipeable for week navigation, not
+      // excluded from it. Thoroughly covered from week_view.dart's own
+      // side in week_view_test.dart; this is just the integration-level
+      // confirmation that ScheduleScreen doesn't get in the way of it.
+      'week view: swiping the body navigates weeks, same as the title',
       (tester) async {
         final selected = DateTime(2026, 3, 10);
         final container = await pumpSchedule(
@@ -319,7 +326,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        expect(container.read(selectedDateProvider), selected);
+        expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
       },
     );
   });

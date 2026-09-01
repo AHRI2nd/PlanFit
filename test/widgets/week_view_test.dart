@@ -20,7 +20,7 @@ import 'week_view_test.mocks.dart';
 
 /// Pins [selectedDateProvider] to a fixed date instead of its own default
 /// (today) — same pattern schedule_screen_test.dart's `_FixedSelectedDate`
-/// uses, needed here since the header swipe writes to this provider.
+/// uses, needed here since the page swipe writes to this provider.
 class _FixedSelectedDate extends SelectedDate {
   _FixedSelectedDate(this._date);
   final DateTime _date;
@@ -189,107 +189,138 @@ void main() {
     expect(dot, isNotEmpty);
   });
 
-  group('swiping the header navigates by whole weeks', () {
-    setUp(() {
-      when(
-        events.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value(const []));
-      when(
-        todos.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value(const []));
-    });
+  group(
+    'swiping the page (header, strip, or grid) navigates by whole weeks',
+    () {
+      setUp(() {
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value(const []));
+        when(
+          todos.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value(const []));
+      });
 
-    testWidgets('a left fling advances to next week', (tester) async {
-      final anchor = DateTime(2026, 3, 10);
-      final container = await pumpWeek(tester, anchor);
-
-      await tester.fling(
-        find.byKey(const Key('weekHeaderSwipe')),
-        const Offset(-400, 0),
-        1000,
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-
-      expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
-    });
-
-    testWidgets('a right fling goes back to the previous week', (tester) async {
-      final anchor = DateTime(2026, 3, 10);
-      final container = await pumpWeek(tester, anchor);
-
-      await tester.fling(
-        find.byKey(const Key('weekHeaderSwipe')),
-        const Offset(400, 0),
-        1000,
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-
-      expect(container.read(selectedDateProvider), DateTime(2026, 3, 3));
-    });
-
-    // The core UX fix this pager exists for: a real PageView, so a slow
-    // drag (no meaningful velocity) still pages once it's dragged past
-    // roughly half the viewport, and magnet-snaps *back* to the original
-    // week if released short of that — not just a binary "did it flick
-    // fast enough" jump.
-    testWidgets(
-      'a slow drag past roughly half the header width still advances a '
-      'week, with no meaningful velocity',
-      (tester) async {
+      testWidgets('a left fling advances to next week', (tester) async {
         final anchor = DateTime(2026, 3, 10);
         final container = await pumpWeek(tester, anchor);
 
-        final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('weekHeaderSwipe'))),
+        await tester.fling(
+          find.byKey(const Key('weekPageSwipe')),
+          const Offset(-400, 0),
+          1000,
         );
-        // Several small, evenly-paced moves totaling well past half of the
-        // 800-wide test surface — a decisive total distance but nowhere
-        // near a fast flick's velocity.
-        for (var i = 0; i < 15; i++) {
-          await gesture.moveBy(const Offset(-30, 0));
-          await tester.pump(const Duration(milliseconds: 100));
-        }
-        await gesture.up();
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
         expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
-      },
-    );
+      });
 
-    testWidgets(
-      'a short drag that never crosses the halfway point snaps back to '
-      'the same week',
-      (tester) async {
+      testWidgets('a right fling goes back to the previous week', (
+        tester,
+      ) async {
         final anchor = DateTime(2026, 3, 10);
         final container = await pumpWeek(tester, anchor);
 
-        final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('weekHeaderSwipe'))),
+        await tester.fling(
+          find.byKey(const Key('weekPageSwipe')),
+          const Offset(400, 0),
+          1000,
         );
-        await gesture.moveBy(const Offset(-80, 0));
-        await tester.pump(const Duration(milliseconds: 100));
-        await gesture.up();
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
-        expect(container.read(selectedDateProvider), anchor);
-      },
-    );
+        expect(container.read(selectedDateProvider), DateTime(2026, 3, 3));
+      });
 
-    testWidgets('tapping a day cell still opens that day, not a swipe', (
-      tester,
-    ) async {
-      final anchor = DateTime(2026, 3, 10); // a Tuesday
-      final container = await pumpWeek(tester, anchor);
+      // The core UX fix this pager exists for: a real PageView, so a slow
+      // drag (no meaningful velocity) still pages once it's dragged past
+      // roughly half the viewport, and magnet-snaps *back* to the original
+      // week if released short of that — not just a binary "did it flick
+      // fast enough" jump.
+      testWidgets(
+        'a slow drag past roughly half the page width still advances a '
+        'week, with no meaningful velocity',
+        (tester) async {
+          final anchor = DateTime(2026, 3, 10);
+          final container = await pumpWeek(tester, anchor);
 
-      // Tuesday's own cell — its date number, "10".
-      await tester.tap(find.text('10').first);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.byKey(const Key('weekPageSwipe'))),
+          );
+          // Several small, evenly-paced moves totaling well past half of the
+          // 800-wide test surface — a decisive total distance but nowhere
+          // near a fast flick's velocity.
+          for (var i = 0; i < 15; i++) {
+            await gesture.moveBy(const Offset(-30, 0));
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await gesture.up();
+          await tester.pumpAndSettle();
 
-      expect(container.read(selectedDateProvider), DateTime(2026, 3, 10));
-      expect(container.read(scheduleViewProvider), ScheduleView.day);
-    });
-  });
+          expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
+        },
+      );
+
+      testWidgets(
+        'a short drag that never crosses the halfway point snaps back to '
+        'the same week',
+        (tester) async {
+          final anchor = DateTime(2026, 3, 10);
+          final container = await pumpWeek(tester, anchor);
+
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.byKey(const Key('weekPageSwipe'))),
+          );
+          await gesture.moveBy(const Offset(-80, 0));
+          await tester.pump(const Duration(milliseconds: 100));
+          await gesture.up();
+          await tester.pumpAndSettle();
+
+          expect(container.read(selectedDateProvider), anchor);
+        },
+      );
+
+      testWidgets('tapping a day cell still opens that day, not a swipe', (
+        tester,
+      ) async {
+        final anchor = DateTime(2026, 3, 10); // a Tuesday
+        final container = await pumpWeek(tester, anchor);
+
+        // Tuesday's own cell — its date number, "10".
+        await tester.tap(find.text('10').first);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(container.read(selectedDateProvider), DateTime(2026, 3, 10));
+        expect(container.read(scheduleViewProvider), ScheduleView.day);
+      });
+
+      // The point of wrapping the *whole* page rather than just the header
+      // (see _WeekPager's own doc) — a fling starting well below the header,
+      // inside the hour grid's own scroll area, still pages the week. Safe
+      // because the grid's own gesture there is long-press-to-create (a
+      // different recognizer type that only competes once it's already won
+      // the arena during its hold phase) plus a vertical scroll (an
+      // orthogonal axis) — neither claims a quick horizontal fling.
+      testWidgets(
+        'a fling starting inside the hour grid, not just the header, also '
+        'navigates',
+        (tester) async {
+          final anchor = DateTime(2026, 3, 10);
+          final container = await pumpWeek(tester, anchor);
+
+          await tester.fling(
+            find.byType(SingleChildScrollView),
+            const Offset(-400, 0),
+            1000,
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
+
+          expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
+        },
+      );
+    },
+  );
 }
