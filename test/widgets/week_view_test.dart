@@ -222,6 +222,51 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a crowded time slot never renders event cards narrower than the '
+    'width floor — regression test for a title\'s second wrapped line '
+    'silently failing to paint at extreme narrow widths (confirmed live '
+    'on device: layout reported two lines, only the first one actually '
+    'rendered, with no ellipsis either)',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      // Four events sharing the exact same slot — enough columns that the
+      // floor binds regardless of the test harness's own (much wider than
+      // a phone's) default viewport.
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          for (var i = 1; i <= 4; i++)
+            event(
+              id: 'e$i',
+              startAt: DateTime(2026, 3, 11, 11),
+              endAt: DateTime(2026, 3, 11, 14),
+            ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      for (var i = 1; i <= 4; i++) {
+        final positioned = tester
+            .widgetList<Positioned>(
+              find.ancestor(
+                of: find.text('e$i'),
+                matching: find.byType(Positioned),
+              ),
+            )
+            .first;
+        expect(
+          positioned.width,
+          greaterThanOrEqualTo(34.0),
+          reason: 'event e$i',
+        );
+      }
+    },
+  );
+
   group(
     'swiping the page (header, strip, or grid) navigates by whole weeks',
     () {

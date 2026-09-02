@@ -18,6 +18,18 @@ import '../../domain/event_overlap.dart';
 import '../../domain/event_span.dart';
 import '../event_edit/event_editor_sheet.dart';
 
+// The narrowest a cascaded (overlapping-events) card is ever drawn — below
+// this, there's so little width left per card that even a single line of
+// title text barely fits, and a 2nd wrapped line (see the Text below) was
+// found to silently fail to paint at all on this width range specifically
+// (confirmed live: layout metrics reported two lines correctly, but only
+// the first one actually rendered, with no visible ellipsis either).
+// Crowded columns are widened up to this floor and overlapped evenly
+// within their own day instead, the same "short events already extend a
+// bit past their true span" trade-off day_view.dart's own
+// _minEventCardHeight doc describes, just along the width axis here.
+const double _minWeekEventWidth = 34.0;
+
 /// A 7-day grid: hours down the rail, one column per day, events positioned
 /// by day + time-of-day — the zoomed-out counterpart to [DayView]'s single
 /// column. No existing-event drag/resize (unlike the day view): tapping an
@@ -691,8 +703,22 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                     builder: (context) {
                       final e = c.event;
                       final columnAvailable = columnWidth - 2;
-                      final eventWidth = columnAvailable / c.columnCount;
-                      final leftInset = c.column * eventWidth;
+                      final naturalWidth = columnAvailable / c.columnCount;
+                      // Below _minWeekEventWidth, widen the card up to that
+                      // floor and overlap cascaded cards evenly within
+                      // their own day column instead — see its own doc.
+                      // This formula is exactly `column * naturalWidth`
+                      // (the plain non-overlapping tiling) whenever the
+                      // floor doesn't bind, so it only changes anything in
+                      // the crowded case.
+                      final eventWidth = naturalWidth < _minWeekEventWidth
+                          ? _minWeekEventWidth
+                          : naturalWidth;
+                      final maxLeftInset = (columnAvailable - eventWidth)
+                          .clamp(0.0, columnAvailable);
+                      final leftInset = c.columnCount > 1
+                          ? (c.column / (c.columnCount - 1)) * maxLeftInset
+                          : 0.0;
                       return Positioned(
                         top: _offsetFor(days[i], e.startAt),
                         left: railInset + i * columnWidth + 1 + leftInset,
