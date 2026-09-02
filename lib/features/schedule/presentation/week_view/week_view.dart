@@ -27,7 +27,10 @@ import '../event_edit/event_editor_sheet.dart';
 /// pre-computing a plain, already-truncated string and painting it with
 /// `TextOverflow.clip` sidesteps whatever in Flutter's own ellipsis-fitting
 /// decides that, since there's no ellipsis decision left for it to make.
-/// Returns [text] unchanged whenever it already fits.
+/// Returns [text] unchanged whenever it already fits. When [maxWidth] is so
+/// narrow that not even one character plus an ellipsis fits, falls back to a
+/// single bare character (still real content) before finally falling back to
+/// a bare ellipsis, then an empty string.
 String fitOneLine({
   required String text,
   required TextStyle? style,
@@ -43,26 +46,34 @@ String fitOneLine({
 
   if (widthOf(text) <= maxWidth) return text;
 
-  const ellipsis = '…';
-  if (widthOf(ellipsis) > maxWidth) {
-    // Not even the ellipsis alone fits — nothing sensible to show.
-    return '';
-  }
-
-  // The longest prefix of `text` that, with the ellipsis appended, still
+  // The longest prefix of `text` that, with an ellipsis appended, still
   // fits — found by binary search since widthOf() is monotonic in prefix
   // length.
+  const ellipsis = '…';
+  final ellipsisFits = widthOf(ellipsis) <= maxWidth;
   var lo = 0;
   var hi = text.length;
-  while (lo < hi) {
-    final mid = (lo + hi + 1) ~/ 2;
-    if (widthOf(text.substring(0, mid) + ellipsis) <= maxWidth) {
-      lo = mid;
-    } else {
-      hi = mid - 1;
+  if (ellipsisFits) {
+    while (lo < hi) {
+      final mid = (lo + hi + 1) ~/ 2;
+      if (widthOf(text.substring(0, mid) + ellipsis) <= maxWidth) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
     }
   }
-  return lo == 0 ? ellipsis : '${text.substring(0, lo)}$ellipsis';
+  if (lo > 0) return '${text.substring(0, lo)}$ellipsis';
+
+  // Not even one character plus an ellipsis fits (common for a single CJK
+  // glyph at these extremely narrow cascaded-card widths). A bare "…"
+  // carries no information, so prefer a single raw, unadorned character —
+  // still real content — whenever that alone is narrow enough; only fall
+  // back to the ellipsis, then to nothing, when even that doesn't fit.
+  final firstChar = text.characters.isEmpty ? '' : text.characters.first;
+  if (firstChar.isNotEmpty && widthOf(firstChar) <= maxWidth) return firstChar;
+  if (ellipsisFits) return ellipsis;
+  return '';
 }
 
 /// A 7-day grid: hours down the rail, one column per day, events positioned
@@ -756,8 +767,8 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                                           _offsetFor(days[i], e.startAt))
                                       .clamp(14, hourHeight * 24),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 3,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: crowded ? 1 : 3,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
@@ -790,7 +801,7 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                                   ? fitOneLine(
                                       text: title,
                                       style: style,
-                                      maxWidth: eventWidth - 6,
+                                      maxWidth: eventWidth - 2,
                                     )
                                   : title,
                               maxLines: crowded ? 1 : 2,

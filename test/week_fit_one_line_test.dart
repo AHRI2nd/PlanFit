@@ -69,4 +69,22 @@ void main() {
     expect(fitOneLine(text: 'Hi', style: _style, maxWidth: 0), 'Hi');
     expect(fitOneLine(text: 'Hi', style: _style, maxWidth: -5), 'Hi');
   });
+
+  test(
+    'falls back to a single bare character — real content, not just a dot '
+    '— when maxWidth is too narrow even for one character plus an ellipsis '
+    '(the width a 2-way cascaded week-view card can actually have)',
+    () {
+      // Wide enough for one glyph alone, but not for glyph + ellipsis:
+      // widthOf() is monotonic in codepoint count for any real font, so a
+      // maxWidth strictly between the two is guaranteed to land here.
+      final oneChar = _widthOf('밥');
+      final oneCharPlusEllipsis = _widthOf('밥…');
+      expect(oneChar, lessThan(oneCharPlusEllipsis));
+      final maxWidth = (oneChar + oneCharPlusEllipsis) / 2;
+
+      final result = fitOneLine(text: '밥먹기', style: _style, maxWidth: maxWidth);
+      expect(result, '밥');
+    },
+  );
 }
