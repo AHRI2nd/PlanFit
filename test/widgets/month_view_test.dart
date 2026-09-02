@@ -283,4 +283,100 @@ void main() {
       );
     },
   );
+
+  group('expanded list mode (row dragged tall enough for a real list)', () {
+    /// Mirrors MonthCalendarRowHeight's own persistence key — pre-seeding
+    /// SharedPreferences with it is the simplest way to get the grid into
+    /// expanded-list mode for these tests, without needing a whole
+    /// override-the-notifier ceremony.
+    const rowHeightPrefsKey = 'schedule.monthCalendarRowHeight';
+
+    /// The events.watchBetween mock below answers with the same fixed list
+    /// for *any* date range (the `any, any` matchers don't check the actual
+    /// range), so the selected day's own embedded compact DayView ends up
+    /// "seeing" these same events too, alongside the month grid's own
+    /// (correctly day-bucketed) cell — rendering each title twice, in two
+    /// different text styles. Matching on the month list row's own style
+    /// (not just the string) disambiguates a cell's real row from that
+    /// unrelated duplicate.
+    Finder monthListText(String data) => find.byWidgetPredicate(
+      (w) => w is Text && w.data == data && w.style?.fontSize == 9,
+    );
+
+    /// maxMonthRowHeight clamps the row height down to whatever the
+    /// available viewport can fit rowCount rows into — the default test
+    /// surface is short enough that a 6-row month wouldn't actually reach
+    /// MonthCalendarRowHeight.max even after seeding that value into
+    /// SharedPreferences below. A tall, generous viewport keeps that clamp
+    /// out of the way so these tests exercise the true max row height.
+    void useTallViewport(WidgetTester tester) {
+      tester.view.physicalSize = const Size(400, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    testWidgets(
+      'shows every item directly, with no "+N" row at all, when exactly '
+      'one item is left over past listCapacity — regression test for a '
+      '"+N" row always costing the very slot it could have shown that '
+      'last item in instead, which made "+1" mathematically unreachable '
+      'and growing the row taller jump straight from "+2" to everything '
+      'shown rather than settling on "+1" first',
+      (tester) async {
+        useTallViewport(tester);
+        SharedPreferences.setMockInitialValues({
+          rowHeightPrefsKey: MonthCalendarRowHeight.max,
+        });
+        // At the max row height, monthEventListCapacity is 5 for a typical
+        // column width — 6 events is exactly one more than that.
+        final day = DateTime(2026, 3, 15);
+        const eventCount = 6;
+        when(events.watchBetween(any, any)).thenAnswer(
+          (_) => Stream.value([
+            for (var i = 0; i < eventCount; i++)
+              singleDayEvent(id: 'e$i', day: day),
+          ]),
+        );
+
+        await pumpMonth(tester, DateTime(2026, 3, 1));
+
+        for (var i = 0; i < eventCount; i++) {
+          expect(monthListText('e$i'), findsOneWidget);
+        }
+        expect(monthListText('+1'), findsNothing);
+        // A real overflow (not just a wrong count) would have surfaced as
+        // a thrown exception during the pump above — tester.takeException
+        // makes that assertion explicit rather than relying on the test
+        // merely not crashing.
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'still falls back to an accurate "+N" once 2 or more items are '
+      'genuinely left over',
+      (tester) async {
+        useTallViewport(tester);
+        SharedPreferences.setMockInitialValues({
+          rowHeightPrefsKey: MonthCalendarRowHeight.max,
+        });
+        final day = DateTime(2026, 3, 15);
+        const eventCount = 7; // two more than the capacity of 5
+        when(events.watchBetween(any, any)).thenAnswer(
+          (_) => Stream.value([
+            for (var i = 0; i < eventCount; i++)
+              singleDayEvent(id: 'e$i', day: day),
+          ]),
+        );
+
+        await pumpMonth(tester, DateTime(2026, 3, 1));
+
+        // capacity(5) - 1 = 4 real rows shown, leaving 7-4=3 genuinely
+        // without their own row.
+        expect(monthListText('+3'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
 }
