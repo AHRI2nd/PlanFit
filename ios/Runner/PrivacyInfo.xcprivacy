@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Apple's privacy manifest for the Runner app target itself (not any
+  plugin's own — device_calendar_plus, flutter_local_notifications,
+  home_widget, etc. each ship their own if they need one; this one only
+  needs to cover what PlanFit's own code and its most direct data
+  storage do). Required since May 2024 for any app using a "required
+  reason" API; its absence can surface as an App Store Connect upload
+  warning/rejection (ITMS-91053) even when every individual dependency
+  is otherwise fine.
+
+  PlanFit is a fully local, no-account, no-analytics app (see
+  AndroidManifest.xml's android:allowBackup="false" for the same
+  privacy stance on the other platform) — it collects nothing and
+  tracks nothing, so NSPrivacyCollectedDataTypes stays empty and
+  NSPrivacyTracking is false.
+
+  This is a conservative starting point covering the two required-
+  reason categories PlanFit's own local storage actually touches
+  (UserDefaults via shared_preferences/home_widget, and file
+  timestamps via path_provider/sqlite3's on-disk database) — re-check
+  against Xcode's own Privacy Report (Product > Archive > Distribute
+  App, or the App Store Connect upload step) once a real archive
+  build exists, in case a bundled pod's own manifest surfaces
+  something this one doesn't need to separately declare.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- shared_preferences: the app's own settings, read/written
+				     only by PlanFit itself. -->
+				<string>CA92.1</string>
+				<!-- home_widget: settings shared with the home-screen widget
+				     extension via an App Group UserDefaults suite. -->
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- path_provider/sqlite3 (via drift): timestamps of files
+				     PlanFit manages inside its own app/App Group container
+				     (the local database, exported backups), never surfaced
+				     to the user as file metadata. -->
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
