@@ -208,29 +208,20 @@ class _SwipeableTitle extends StatelessWidget {
   final Color chevronColor;
   final ValueChanged<DateTime> onNavigate;
 
+  void _navigate(bool forward) {
+    final target = _swipeTarget(view: view, selected: selected, forward: forward);
+    if (target != null) onNavigate(target);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Agenda has no period for _swipeTarget to page through (see its own
-    // switch above), so there's nothing real to hint at there.
+    // switch above), so there's nothing real to hint at or tap there.
     final swipeable = view != ScheduleView.agenda;
     return SwipeNavigationDetector(
       key: const Key('scheduleTitleSwipe'),
-      onSwipeLeft: () {
-        final target = _swipeTarget(
-          view: view,
-          selected: selected,
-          forward: true,
-        );
-        if (target != null) onNavigate(target);
-      },
-      onSwipeRight: () {
-        final target = _swipeTarget(
-          view: view,
-          selected: selected,
-          forward: false,
-        );
-        if (target != null) onNavigate(target);
-      },
+      onSwipeLeft: () => _navigate(true),
+      onSwipeRight: () => _navigate(false),
       // Padding, not just the bare Text, so the swipeable/tappable hit box
       // (this Row uses the default `center` cross-alignment, so it can't be
       // grown by stretching the Row — that forces an infinite-height layout
@@ -244,17 +235,19 @@ class _SwipeableTitle extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Purely visual "you can swipe this" hint, not its own tap
-            // target — IgnorePointer keeps the whole title's hit box (and
-            // its swipe gesture) intact instead of splitting it into
-            // separate, individually-unswipeable zones.
+            // Doubles as both the "you can page this" hint and its own
+            // tap target — a plain tap here steps by one period, the same
+            // as reaching the end of a swipe, for anyone who'd rather tap
+            // than drag. A quick tap and the swipe gesture above coexist
+            // fine on the same area (Flutter's gesture arena resolves a
+            // near-zero-movement tap in the InkWell's favor), the same way
+            // day_view.dart's event cards already combine a tap with a
+            // separate drag gesture.
             if (swipeable) ...[
-              IgnorePointer(
-                child: Icon(
-                  Icons.chevron_left,
-                  size: 18,
-                  color: chevronColor,
-                ),
+              _TitleChevron(
+                icon: Icons.chevron_left,
+                color: chevronColor,
+                onTap: () => _navigate(false),
               ),
               const SizedBox(width: 2),
             ],
@@ -268,16 +261,40 @@ class _SwipeableTitle extends StatelessWidget {
             ),
             if (swipeable) ...[
               const SizedBox(width: 2),
-              IgnorePointer(
-                child: Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: chevronColor,
-                ),
+              _TitleChevron(
+                icon: Icons.chevron_right,
+                color: chevronColor,
+                onTap: () => _navigate(true),
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// One of [_SwipeableTitle]'s two chevrons — small, but padded out to a
+/// comfortable tap target rather than just the bare 18px glyph.
+class _TitleChevron extends StatelessWidget {
+  const _TitleChevron({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      onTap: onTap,
+      radius: 18,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(icon, size: 18, color: color),
       ),
     );
   }

@@ -264,6 +264,57 @@ void main() {
     );
   });
 
+  group('title chevrons navigate selectedDateProvider', () {
+    // Regression tests for the chevrons being IgnorePointer'd hint-only
+    // decoration — a user tapping directly on ‹ / › (rather than dragging
+    // the title) got no response at all.
+    testWidgets('day view: tapping › advances by 1 day', (tester) async {
+      final selected = DateTime(2026, 3, 10);
+      final container = await pumpSchedule(
+        tester,
+        view: ScheduleView.day,
+        selected: selected,
+      );
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pump();
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 11));
+    });
+
+    testWidgets('day view: tapping ‹ goes back 1 day', (tester) async {
+      final selected = DateTime(2026, 3, 10);
+      final container = await pumpSchedule(
+        tester,
+        view: ScheduleView.day,
+        selected: selected,
+      );
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pump();
+      expect(container.read(selectedDateProvider), DateTime(2026, 3, 9));
+    });
+
+    testWidgets('month view: tapping › advances by 1 month', (tester) async {
+      final selected = DateTime(2026, 3, 15);
+      final container = await pumpSchedule(
+        tester,
+        view: ScheduleView.month,
+        selected: selected,
+      );
+      await tester.tap(find.byIcon(Icons.chevron_right));
+      await tester.pump();
+      expect(container.read(selectedDateProvider), DateTime(2026, 4, 15));
+    });
+
+    testWidgets(
+      'agenda view: no chevrons render at all — no period to page',
+      (tester) async {
+        final selected = DateTime(2026, 3, 15);
+        await pumpSchedule(tester, view: ScheduleView.agenda, selected: selected);
+        expect(find.byIcon(Icons.chevron_left), findsNothing);
+        expect(find.byIcon(Icons.chevron_right), findsNothing);
+      },
+    );
+  });
+
   group('body-region swipes', () {
     // _EventCard's own swipe-to-delete was removed (deleting now lives in
     // the edit sheet) specifically so this area could become a navigation
