@@ -372,10 +372,18 @@ class _HeaderTrailingIcons extends StatelessWidget {
   }
 }
 
-/// An [IconButton] with its surrounding tap padding trimmed down — the icon
-/// glyph itself renders at the normal, unscaled size (no `size:` override),
-/// only the button's own footprint shrinks, freeing room for 3 of these to
-/// sit where 2 normal-padded ones used to. See [_HeaderTrailingIcons].
+/// A tap target for the day view's tightened 3-icon cluster (see
+/// [_HeaderTrailingIcons]) — deliberately built on [InkResponse], not
+/// [IconButton]. Measured live: even with `visualDensity: compact` and
+/// `padding: EdgeInsets.zero`, [IconButton]'s own theme still enforces a
+/// ~40px minimum tap box underneath (baseline default measured 44px, the
+/// "compact" IconButton only reached 40px) — three of those can't fit in
+/// the ~96px two normal `IconButton`s use, so the space would still run out
+/// and fall back to the [FittedBox] safety net, uniformly shrinking the
+/// icon glyphs along with everything else. [InkResponse] has no such
+/// enforced minimum, so the icon itself (default 24dp, unscaled — no `size`
+/// override) plus a small fixed padding is *all* of this widget's real
+/// footprint, comfortably fitting 3 of them in that same reserved width.
 class _CompactHeaderIconButton extends StatelessWidget {
   const _CompactHeaderIconButton({
     required this.tooltip,
@@ -389,13 +397,16 @@ class _CompactHeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      icon: Icon(icon),
-      onPressed: onPressed,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 20,
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Icon(icon),
+        ),
+      ),
     );
   }
 }
@@ -420,20 +431,15 @@ class _DayLayoutToggle extends ConsumerWidget {
     final targetMode = mode == DayViewLayoutMode.timeline
         ? DayViewLayoutMode.clock
         : DayViewLayoutMode.timeline;
-    return IconButton(
+    return _CompactHeaderIconButton(
       tooltip: targetMode == DayViewLayoutMode.clock
           ? l10n.dayLayoutSwitchToClock
           : l10n.dayLayoutSwitchToTimeline,
-      icon: Icon(
-        targetMode == DayViewLayoutMode.clock
-            ? Icons.donut_large_outlined
-            : Icons.view_timeline_outlined,
-      ),
+      icon: targetMode == DayViewLayoutMode.clock
+          ? Icons.donut_large_outlined
+          : Icons.view_timeline_outlined,
       onPressed: () =>
           ref.read(dayViewLayoutModeProvider.notifier).set(targetMode),
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
     );
   }
 }
