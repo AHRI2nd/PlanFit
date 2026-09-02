@@ -48,9 +48,6 @@ class AppL10nEn extends AppL10n {
   String get tabSchedule => 'Schedule';
 
   @override
-  String get tabSocial => 'Social';
-
-  @override
   String get tabSettings => 'Settings';
 
   @override

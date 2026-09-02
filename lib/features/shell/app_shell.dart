@@ -57,11 +57,6 @@ class AppShell extends ConsumerWidget {
         badgeCount: undoneToday,
       ),
       GlassNavItem(
-        icon: Icons.people_alt_outlined,
-        activeIcon: Icons.people_alt,
-        label: l10n.tabSocial,
-      ),
-      GlassNavItem(
         icon: Icons.tune_outlined,
         activeIcon: Icons.tune,
         label: l10n.tabSettings,

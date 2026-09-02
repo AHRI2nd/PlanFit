@@ -169,12 +169,6 @@ abstract class AppL10n {
   /// **'시간표'**
   String get tabSchedule;
 
-  /// No description provided for @tabSocial.
-  ///
-  /// In ko, this message translates to:
-  /// **'소셜'**
-  String get tabSocial;
-
   /// No description provided for @tabSettings.
   ///
   /// In ko, this message translates to:

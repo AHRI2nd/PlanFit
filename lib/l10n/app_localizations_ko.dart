@@ -45,9 +45,6 @@ class AppL10nKo extends AppL10n {
   String get tabSchedule => '시간표';
 
   @override
-  String get tabSocial => '소셜';
-
-  @override
   String get tabSettings => '설정';
 
   @override
