@@ -405,35 +405,48 @@ class _AllDayStrip extends StatelessWidget {
                             e.colorTag,
                             e.startAt,
                           );
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 1),
-                            height: 16,
-                            padding: EdgeInsets.only(
-                              left: isFirst ? AppSpacing.xxs : 0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: accent.withValues(alpha: 0.28),
-                              borderRadius: BorderRadius.horizontal(
-                                left: isFirst
-                                    ? const Radius.circular(4)
-                                    : Radius.zero,
-                                right: isLast
-                                    ? const Radius.circular(4)
-                                    : Radius.zero,
+                          // Same tap target every other all-day/holiday bar
+                          // in the app already has (DayView's own
+                          // all-day _EventCard) — this strip was missing it
+                          // entirely, so a holiday or all-day event was
+                          // visible here but unopenable. showEventEditor
+                          // itself routes a subscribed/holiday-mirrored
+                          // event to its read-only detail screen instead of
+                          // the editable form — see its own doc.
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () =>
+                                showEventEditor(context, existing: e),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 1),
+                              height: 16,
+                              padding: EdgeInsets.only(
+                                left: isFirst ? AppSpacing.xxs : 0,
                               ),
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.28),
+                                borderRadius: BorderRadius.horizontal(
+                                  left: isFirst
+                                      ? const Radius.circular(4)
+                                      : Radius.zero,
+                                  right: isLast
+                                      ? const Radius.circular(4)
+                                      : Radius.zero,
+                                ),
+                              ),
+                              alignment: Alignment.centerLeft,
+                              child: isFirst
+                                  ? Text(
+                                      e.title.isEmpty ? '—' : e.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(color: accent),
+                                    )
+                                  : null,
                             ),
-                            alignment: Alignment.centerLeft,
-                            child: isFirst
-                                ? Text(
-                                    e.title.isEmpty ? '—' : e.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(color: accent),
-                                  )
-                                : null,
                           );
                         },
                       ),

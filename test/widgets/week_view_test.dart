@@ -37,6 +37,7 @@ void main() {
     required String id,
     required DateTime startAt,
     required DateTime endAt,
+    bool isAllDay = false,
   }) {
     return EventRow(
       id: id,
@@ -45,7 +46,7 @@ void main() {
       location: null,
       startAt: startAt,
       endAt: endAt,
-      isAllDay: false,
+      isAllDay: isAllDay,
       colorTag: null,
       notify: true,
       reminderMinutesBefore: 0,
@@ -188,6 +189,38 @@ void main() {
     });
     expect(dot, isNotEmpty);
   });
+
+  testWidgets(
+    'tapping an all-day bar in the strip opens it for editing — regression '
+    'test for the strip having no tap target at all, which made a holiday '
+    'or all-day event visible but unopenable',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10); // a Tuesday
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(
+            id: 'Holiday',
+            startAt: DateTime(2026, 3, 11),
+            endAt: DateTime(2026, 3, 12),
+            isAllDay: true,
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      await tester.tap(find.text('Holiday'));
+      await tester.pumpAndSettle();
+
+      // showEventEditor for an existing event opens its title pre-filled
+      // into the editor's own text field — same assertion day_view_test.dart
+      // uses for its own (already-tappable) event cards.
+      expect(find.widgetWithText(TextField, 'Holiday'), findsOneWidget);
+    },
+  );
 
   group(
     'swiping the page (header, strip, or grid) navigates by whole weeks',
