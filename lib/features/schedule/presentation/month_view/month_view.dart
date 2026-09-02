@@ -68,10 +68,27 @@ double maxMonthRowHeight({
   );
 }
 
-// Height budgeted per event row in the expanded list — tuned for the tiny
-// (9px) label style [MonthView] uses there, tight enough that 2-3 events
-// still fit inside a reasonably-sized cell.
-const double _monthEventRowHeight = 12.0;
+// The tiny label style every expanded-list row (event, to-do, "+N"
+// overflow) renders its text in — a single shared constant so
+// [monthEventRowHeight]'s measurement can never drift out of sync with
+// what these rows actually paint.
+const _monthEventRowTextStyle = TextStyle(fontSize: 9, height: 1.1);
+
+/// The real height one expanded-list row needs, measured from
+/// [_monthEventRowTextStyle] itself rather than a guessed constant —
+/// [monthEventListCapacity]'s "how many rows fit" arithmetic used to budget
+/// a flat 12.0 per row, well above this text's own actual rendered height,
+/// which quietly left an unused sliver of most cells' available space and
+/// undercounted how many events a tall row could actually show before
+/// falling back to a "+N" count. Measuring the real height instead keeps
+/// the capacity math and the rows it counts honest with each other.
+double monthEventRowHeight() {
+  final painter = TextPainter(
+    text: const TextSpan(text: 'Ag', style: _monthEventRowTextStyle),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  return painter.height;
+}
 
 // Small breathing room between the day-number circle and whatever sits
 // below it (dot/bar summary or the expanded list), and between that content
@@ -125,6 +142,16 @@ double monthMarkerTop({required double rowHeight, required double columnWidth}) 
 /// — 0 means there isn't room for a real list yet, so the caller should
 /// keep showing the compact dot/bar summary instead. See
 /// [monthDayNumberDiameter].
+///
+/// Requires room for at least 2 rows before returning anything nonzero, not
+/// just 1: a list showing a single row isn't meaningfully more useful than
+/// the collapsed dot summary it would be replacing, so switching visual
+/// modes for it isn't worth it — this is also what keeps the list from
+/// unlocking uninvited at [MonthCalendarRowHeight.defaultHeight] itself
+/// (which has just enough room for exactly one row's real, measured
+/// height), preserving the "only once the user drags the row taller"
+/// behavior a flatter, more generous row-height budget used to provide
+/// somewhat by accident.
 int monthEventListCapacity({
   required double rowHeight,
   required double columnWidth,
@@ -133,8 +160,10 @@ int monthEventListCapacity({
       rowHeight -
       monthMarkerTop(rowHeight: rowHeight, columnWidth: columnWidth) -
       _monthMarkerBottomPad;
-  if (available < _monthEventRowHeight) return 0;
-  return (available / _monthEventRowHeight).floor().clamp(0, 5);
+  final rowHeightNeeded = monthEventRowHeight();
+  final raw = (available / rowHeightNeeded).floor();
+  if (raw < 2) return 0;
+  return raw.clamp(0, 5);
 }
 
 // Public aliases of this file's own private layout constants, purely so
@@ -333,7 +362,7 @@ class MonthView extends ConsumerWidget {
                       // gets the same fixed height so the list's own
                       // capacity math (monthEventListCapacity) stays exact.
                       return SizedBox(
-                        height: _monthEventRowHeight,
+                        height: monthEventRowHeight(),
                         child: Align(
                           alignment: Alignment.topCenter,
                           child: Padding(
@@ -538,7 +567,7 @@ class MonthView extends ConsumerWidget {
 /// [monthEventListCapacity]. A small leading dot in the event's own color
 /// (unlike the collapsed dot summary, which is deliberately blind to any
 /// individual event's color — see [calendarDotColor]'s doc) plus its title,
-/// both sized to fit inside [_monthEventRowHeight].
+/// both sized to fit inside [monthEventRowHeight].
 class _MonthEventListRow extends StatelessWidget {
   const _MonthEventListRow({required this.color, required this.label});
 
@@ -549,7 +578,7 @@ class _MonthEventListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return SizedBox(
-      height: _monthEventRowHeight,
+      height: monthEventRowHeight(),
       child: Row(
         children: [
           Container(
@@ -563,11 +592,7 @@ class _MonthEventListRow extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 9,
-                height: 1.1,
-                color: palette.inkSoft,
-              ),
+              style: _monthEventRowTextStyle.copyWith(color: palette.inkSoft),
             ),
           ),
         ],
@@ -588,13 +613,12 @@ class _MonthMoreRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return SizedBox(
-      height: _monthEventRowHeight,
+      height: monthEventRowHeight(),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
           '+$count',
-          style: TextStyle(
-            fontSize: 9,
+          style: _monthEventRowTextStyle.copyWith(
             fontWeight: FontWeight.w700,
             color: palette.inkFaint,
           ),

@@ -47,4 +47,20 @@ void main() {
     expect(capacity, greaterThanOrEqualTo(0));
     expect(capacity, lessThanOrEqualTo(5));
   });
+
+  test(
+    'the row budget is the real, measured row height, not a flat guess — '
+    'regression test for the old flat 12.0-per-row budget leaving a chunk '
+    "of the max row height's own real available space unused and "
+    'undercounting how many events actually fit there',
+    () {
+      final capacity = monthEventListCapacity(
+        rowHeight: MonthCalendarRowHeight.max,
+        columnWidth: _typicalColumnWidth,
+      );
+      // At the max row height the old flat budget worked out to 2; the
+      // real, measured row height leaves room for more than that.
+      expect(capacity, greaterThan(2));
+    },
+  );
 }
