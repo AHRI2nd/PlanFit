@@ -506,36 +506,23 @@ class MonthView extends ConsumerWidget {
                         ),
                     ];
                     // Showing a "+N" hint always costs the row it's drawn
-                    // in, which itself could have shown one more real
-                    // item — so naively reserving that row the moment
-                    // items overflow listCapacity always reports one MORE
-                    // hidden than are actually left over once you count
-                    // that cost in (e.g. exactly 1 real item left over
-                    // still shows "+2", not "+1", since showing "+1"
-                    // would've displaced a 2nd item just to make room for
-                    // the label). That makes "+1" mathematically
-                    // unreachable, and growing the row taller jumps
-                    // straight from "+2" to everything shown, never
-                    // settling on "+1" in between. When exactly one item
-                    // is left over, show it directly instead of a label
-                    // that would occupy the exact same row for less
-                    // information. That leaves items.length rows to fit
-                    // into a box only strictly sized for listCapacity of
-                    // them — solved below by giving every row an Expanded
-                    // share of the box instead of its own fixed height, so
-                    // Column's normal flex layout divides the real
-                    // available space evenly across all of them, however
-                    // many there are, rather than any one row demanding
-                    // more than what's actually there (which is what
-                    // triggers a genuine RenderFlex overflow — confirmed
-                    // live that a plain ClipRect around a fixed-height
-                    // Column does *not* prevent that; it only hides the
-                    // debug paint stripes after the fact, not safe to
-                    // ship). Each row ends up at most a hair shorter than
-                    // its usual height in this one case, imperceptibly.
-                    final overflow = items.length - listCapacity;
-                    final rowsCompressed = overflow == 1;
-                    final visible = overflow <= 1
+                    // in, which itself could instead have shown one more
+                    // real item — so reserving that row the moment items
+                    // overflow listCapacity always reports one MORE hidden
+                    // than a naive "items past the fitted ones" count
+                    // would suggest (e.g. exactly 1 item left over still
+                    // shows "+2", not "+1"). That specific value ("+1") is
+                    // mathematically unreachable this way, so growing the
+                    // row taller jumps straight from "+2" to everything
+                    // shown once there's room, with no "+1" step at that
+                    // exact boundary — accepted as the one unavoidable
+                    // gap, rather than compressing rows to squeeze an
+                    // extra one in (tried and reverted: it visibly shrank
+                    // that row's text, and — because it only special-cased
+                    // this exact boundary — made "+2" itself stop
+                    // appearing too, which read as a worse regression than
+                    // the original single missing step).
+                    final visible = items.length <= listCapacity
                         ? items
                         : [
                             // Reserve the list's last visible slot for a
@@ -554,9 +541,7 @@ class MonthView extends ConsumerWidget {
                       bottom: _monthMarkerBottomPad,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: rowsCompressed
-                            ? [for (final row in visible) Expanded(child: row)]
-                            : visible,
+                        children: visible,
                       ),
                     );
                   },

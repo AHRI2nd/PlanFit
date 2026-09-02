@@ -317,12 +317,12 @@ void main() {
     }
 
     testWidgets(
-      'shows every item directly, with no "+N" row at all, when exactly '
-      'one item is left over past listCapacity — regression test for a '
-      '"+N" row always costing the very slot it could have shown that '
-      'last item in instead, which made "+1" mathematically unreachable '
-      'and growing the row taller jump straight from "+2" to everything '
-      'shown rather than settling on "+1" first',
+      'shows an accurate "+N" as soon as even one item is left over — '
+      'regression test for an earlier attempt at squeezing that one extra '
+      'item in directly instead (shrinking every row\'s text to do it) '
+      'that made this state disappear entirely, jumping straight from '
+      'everything shown to "+3" once 2 were left over with no "+1" *or* '
+      '"+2" step in between — worse than never reaching "+1" at all',
       (tester) async {
         useTallViewport(tester);
         SharedPreferences.setMockInitialValues({
@@ -341,28 +341,26 @@ void main() {
 
         await pumpMonth(tester, DateTime(2026, 3, 1));
 
-        for (var i = 0; i < eventCount; i++) {
-          expect(monthListText('e$i'), findsOneWidget);
-        }
-        expect(monthListText('+1'), findsNothing);
-        // A real overflow (not just a wrong count) would have surfaced as
-        // a thrown exception during the pump above — tester.takeException
-        // makes that assertion explicit rather than relying on the test
-        // merely not crashing.
+        // capacity(5) - 1 = 4 real rows shown, leaving 6-4=2 without
+        // their own row — "+1" itself is mathematically unreachable (a
+        // "+N" row always costs the very slot it could've shown one more
+        // real item in instead), but every other value, "+2" included,
+        // should surface reliably.
+        expect(monthListText('+2'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
 
     testWidgets(
-      'still falls back to an accurate "+N" once 2 or more items are '
-      'genuinely left over',
+      'still shows an accurate "+N" once more items are genuinely left '
+      'over',
       (tester) async {
         useTallViewport(tester);
         SharedPreferences.setMockInitialValues({
           rowHeightPrefsKey: MonthCalendarRowHeight.max,
         });
         final day = DateTime(2026, 3, 15);
-        const eventCount = 7; // two more than the capacity of 5
+        const eventCount = 7; // three more than capacity(5) - 1 = 4 shown
         when(events.watchBetween(any, any)).thenAnswer(
           (_) => Stream.value([
             for (var i = 0; i < eventCount; i++)
@@ -372,8 +370,6 @@ void main() {
 
         await pumpMonth(tester, DateTime(2026, 3, 1));
 
-        // capacity(5) - 1 = 4 real rows shown, leaving 7-4=3 genuinely
-        // without their own row.
         expect(monthListText('+3'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
