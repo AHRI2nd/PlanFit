@@ -291,9 +291,13 @@ class _SwipeableTitle extends StatelessWidget {
 /// [Expanded] right next to this, so if this cluster's width changed
 /// between views, the switcher pill itself would resize and visibly shift
 /// left/right when switching tabs. A [Visibility] with `maintainSize` locks
-/// that width in; day view's extra button is then squeezed into the same
-/// footprint via [FittedBox] instead of claiming space of its own — only
-/// that tab's own icon spacing/size adapts, never the reserved width.
+/// that width in; day view's extra button then reuses that same footprint
+/// by tightening the *gaps* between the 3 icons (smaller inter-icon spacing,
+/// smaller tap padding around each) — the icons themselves stay their
+/// normal size, never scaled down, only repositioned closer together. The
+/// [FittedBox] around them is a pure safety net (`scaleDown` never enlarges,
+/// and does nothing at all once the 3 tightened icons already fit) in case
+/// some device/text-scale combination makes them not quite fit.
 class _HeaderTrailingIcons extends StatelessWidget {
   const _HeaderTrailingIcons({
     required this.view,
@@ -337,28 +341,61 @@ class _HeaderTrailingIcons extends StatelessWidget {
           child: baseIcons,
         ),
         Positioned.fill(
-          child: FittedBox(
-            fit: BoxFit.fitWidth,
+          child: Align(
             alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: l10n.quickAddEventTitle,
-                  icon: const Icon(Icons.bolt_outlined),
-                  onPressed: onQuickAdd,
-                ),
-                IconButton(
-                  tooltip: l10n.calendarLegendTooltip,
-                  icon: const Icon(Icons.info_outline),
-                  onPressed: onLegend,
-                ),
-                const _DayLayoutToggle(),
-              ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _CompactHeaderIconButton(
+                    tooltip: l10n.quickAddEventTitle,
+                    icon: Icons.bolt_outlined,
+                    onPressed: onQuickAdd,
+                  ),
+                  const SizedBox(width: 2),
+                  _CompactHeaderIconButton(
+                    tooltip: l10n.calendarLegendTooltip,
+                    icon: Icons.info_outline,
+                    onPressed: onLegend,
+                  ),
+                  const SizedBox(width: 2),
+                  const _DayLayoutToggle(),
+                ],
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// An [IconButton] with its surrounding tap padding trimmed down — the icon
+/// glyph itself renders at the normal, unscaled size (no `size:` override),
+/// only the button's own footprint shrinks, freeing room for 3 of these to
+/// sit where 2 normal-padded ones used to. See [_HeaderTrailingIcons].
+class _CompactHeaderIconButton extends StatelessWidget {
+  const _CompactHeaderIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      icon: Icon(icon),
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
     );
   }
 }
@@ -368,6 +405,11 @@ class _HeaderTrailingIcons extends StatelessWidget {
 /// layout applies to. Shows the icon for the layout a tap would switch *to*
 /// (matching the icon convention play/pause buttons use), not the one
 /// currently showing.
+///
+/// Its only call site is inside [_HeaderTrailingIcons]' tightened 3-icon
+/// cluster, so it uses the same compact tap-padding as
+/// [_CompactHeaderIconButton] there — the icon glyph itself is still full
+/// size, unscaled.
 class _DayLayoutToggle extends ConsumerWidget {
   const _DayLayoutToggle();
 
@@ -389,6 +431,9 @@ class _DayLayoutToggle extends ConsumerWidget {
       ),
       onPressed: () =>
           ref.read(dayViewLayoutModeProvider.notifier).set(targetMode),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
     );
   }
 }
