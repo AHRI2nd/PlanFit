@@ -63,4 +63,28 @@ void main() {
       expect(capacity, greaterThan(2));
     },
   );
+
+  test(
+    "capacity grows close to 1:1 with rowHeight past the unlock threshold, "
+    "not roughly half that — regression test for the day-number circle's "
+    'own vertical centering silently spending half of every extra pixel a '
+    'taller row gets on more blank space above the number instead of '
+    'passing it down to the list',
+    () {
+      final at70 = monthEventListCapacity(
+        rowHeight: 70,
+        columnWidth: _typicalColumnWidth,
+      );
+      final at96 = monthEventListCapacity(
+        rowHeight: MonthCalendarRowHeight.max,
+        columnWidth: _typicalColumnWidth,
+      );
+      // A symmetric (centering) margin only ever passed ~half of a taller
+      // row's growth down to the list; a fixed top margin passes down
+      // essentially all of it. Real device text-measurement means this
+      // can't be pinned to an exact number, but it should be nowhere near
+      // as low as the "half" a centering margin would produce.
+      expect(at96 - at70, greaterThanOrEqualTo(2));
+    },
+  );
 }

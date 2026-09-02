@@ -112,6 +112,23 @@ const int _monthCollapsedMaxDots = 4;
 // doc for why this doesn't vary with rowHeight at all.
 const double _monthDayNumberDiameterTarget = 24.0;
 
+// The day-number circle's own top margin — FIXED regardless of rowHeight,
+// rather than growing with it the way vertically centering the circle
+// would. Derived once from MonthCalendarRowHeight.min so it exactly
+// reproduces the small margin that height already needs (tuned there to
+// avoid the circle overlapping the marker below it at the shortest allowed
+// row height — see that constant's own doc); every pixel a taller row adds
+// beyond the minimum goes entirely to the marker/list area below instead
+// of half of it just becoming more blank space above the number, which is
+// what a plain symmetric margin — literally centering the circle — was
+// doing before. BoxDecoration's own circle painting always uses a box's
+// *shorter* side for the circle's diameter regardless of the box's aspect
+// ratio, so making the box asymmetric (see cellMargin below) doesn't risk
+// distorting the circle the way an earlier, unrelated bug did — that one
+// came from the box's height itself changing size, not its shape.
+const double _monthNumberTopMargin =
+    (MonthCalendarRowHeight.min - _monthDayNumberDiameterTarget) / 2;
+
 /// The day-number circle's diameter — a single fixed size (24, or smaller
 /// only on an unusually narrow column) that never changes as the split
 /// handle drags [MonthCalendarRowHeight] taller or shorter. An earlier
@@ -129,13 +146,15 @@ double monthDayNumberDiameter({required double columnWidth}) {
 /// Where the marker area (the collapsed dot/bar summary, or the expanded
 /// list — see [monthEventListCapacity]) starts, in pixels from the cell's
 /// own top edge — always right below [monthDayNumberDiameter]'s circle
-/// (itself vertically centered in the cell) plus a small gap. The single
-/// source of truth both the collapsed and expanded branches in [MonthView]
-/// position themselves against, so the two can never drift out of sync.
-double monthMarkerTop({required double rowHeight, required double columnWidth}) {
+/// (itself sitting at the fixed [_monthNumberTopMargin], not vertically
+/// centered — see that constant's own doc) plus a small gap. Doesn't
+/// depend on rowHeight at all, unlike an earlier version that vertically
+/// centered the circle: the single source of truth both the collapsed and
+/// expanded branches in [MonthView] position themselves against, so the
+/// two can never drift out of sync.
+double monthMarkerTop({required double columnWidth}) {
   final diameter = monthDayNumberDiameter(columnWidth: columnWidth);
-  final numberVerticalMargin = (rowHeight - diameter) / 2;
-  return numberVerticalMargin + diameter + _monthMarkerTopGap;
+  return _monthNumberTopMargin + diameter + _monthMarkerTopGap;
 }
 
 /// How many event-title rows fit below the day-number circle at [rowHeight]
@@ -158,7 +177,7 @@ int monthEventListCapacity({
 }) {
   final available =
       rowHeight -
-      monthMarkerTop(rowHeight: rowHeight, columnWidth: columnWidth) -
+      monthMarkerTop(columnWidth: columnWidth) -
       _monthMarkerBottomPad;
   final rowHeightNeeded = monthEventRowHeight();
   final raw = (available / rowHeightNeeded).floor();
@@ -374,15 +393,14 @@ class MonthView extends ConsumerWidget {
                     }
 
                     // Where the day-number circle's own bottom edge actually
-                    // lands at this rowHeight — shared by both branches
-                    // below so the marker always starts right under it,
-                    // never overlapping it. See monthDayNumberDiameter's
-                    // doc for why this can't just be a flat offset from the
-                    // cell's own bottom edge instead.
-                    final markerTop =
-                        ((effectiveRowHeight - numberDiameter) / 2) +
-                        numberDiameter +
-                        _monthMarkerTopGap;
+                    // lands — shared by both branches below so the marker
+                    // always starts right under it, never overlapping it.
+                    // monthMarkerTop is the single source of truth for
+                    // this (also used by monthEventListCapacity's own
+                    // arithmetic, and by cellMargin below, so all three
+                    // agree on exactly where the circle sits) — see its
+                    // own doc for why this no longer depends on rowHeight.
+                    final markerTop = monthMarkerTop(columnWidth: columnWidth);
 
                     // Below monthEventListCapacity's own threshold: the
                     // compact dot/bar summary. One dot per single-day
@@ -513,16 +531,28 @@ class MonthView extends ConsumerWidget {
                 ),
                 calendarStyle: CalendarStyle(
                   outsideDaysVisible: false,
-                  // Vertical margin derived from numberDiameter (fixed
-                  // regardless of rowHeight — see its own doc), not a flat
-                  // constant: table_calendar sizes the day-number circle to
-                  // whatever's left after this margin is subtracted from
-                  // the cell, so a flat margin let the circle stretch into
-                  // an oval at both ends of the split handle's drag range
-                  // instead of staying round.
-                  cellMargin: EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: (effectiveRowHeight - numberDiameter) / 2,
+                  // table_calendar's CellContent sizes the day-number
+                  // circle's own box to whatever's left after this margin
+                  // is subtracted from the cell (a flat margin either let
+                  // the circle change size with rowHeight, or — the
+                  // now-fixed numberDiameter — wasted an ever-growing
+                  // chunk of a taller row as blank space just centering
+                  // it). Asymmetric on purpose: a small fixed top margin
+                  // (matching monthMarkerTop's own _monthNumberTopMargin,
+                  // so the circle and the marker below it agree on where
+                  // it sits) and a bottom margin that absorbs the rest —
+                  // BoxDecoration's circle painting uses a box's *shorter*
+                  // side for the circle's own diameter regardless of the
+                  // box's aspect ratio, so an asymmetric (non-square) box
+                  // doesn't risk distorting it, as long as this bottom
+                  // margin still leaves the box's own height exactly
+                  // matching numberDiameter (which it does, by
+                  // construction, below).
+                  cellMargin: EdgeInsets.fromLTRB(
+                    6,
+                    _monthNumberTopMargin,
+                    6,
+                    effectiveRowHeight - _monthNumberTopMargin - numberDiameter,
                   ),
                   defaultTextStyle: theme.textTheme.bodyLarge!,
                   weekendTextStyle: theme.textTheme.bodyLarge!,

@@ -20,10 +20,7 @@ void main() {
       ) {
         final available =
             rowHeight -
-            monthMarkerTop(
-              rowHeight: rowHeight,
-              columnWidth: _typicalColumnWidth,
-            ) -
+            monthMarkerTop(columnWidth: _typicalColumnWidth) -
             monthMarkerBottomPad;
         expect(
           available,
