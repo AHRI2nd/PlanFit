@@ -47,16 +47,6 @@ const double _monthHandleHeight = 32.0;
 // nothing even at the calendar's tallest allowed rowHeight.
 const double _monthMinDayViewHeight = 96.0;
 
-/// Rendered height of [TableCalendar]'s own month-title/chevron header row
-/// (see `HeaderStyle.headerPadding`'s 8+8 default), scaled for the user's
-/// text-size setting so this stays accurate under larger accessibility
-/// fonts too.
-double _monthHeaderHeight(BuildContext context) {
-  final titleFontSize = Theme.of(context).textTheme.titleLarge?.fontSize ?? 22;
-  final scaledFontSize = MediaQuery.textScalerOf(context).scale(titleFontSize);
-  return scaledFontSize * 1.3 + 16;
-}
-
 /// The tallest [MonthCalendarRowHeight] can go without the grid + handle
 /// pushing [DayView] (and the handle itself) out of the viewport — see the
 /// doc on [_MonthSplitHandle] for why an unbounded rowHeight let the handle
@@ -64,14 +54,10 @@ double _monthHeaderHeight(BuildContext context) {
 double maxMonthRowHeight({
   required double availableHeight,
   required int rowCount,
-  required BuildContext context,
 }) {
   if (rowCount <= 0) return MonthCalendarRowHeight.min;
   final reserved =
-      _monthHeaderHeight(context) +
-      _monthDowHeight +
-      _monthHandleHeight +
-      _monthMinDayViewHeight;
+      _monthDowHeight + _monthHandleHeight + _monthMinDayViewHeight;
   final forRows = availableHeight - reserved;
   if (forRows <= 0) return MonthCalendarRowHeight.min;
   return (forRows / rowCount).clamp(
@@ -140,7 +126,6 @@ class MonthView extends ConsumerWidget {
         final maxRowHeight = maxMonthRowHeight(
           availableHeight: constraints.maxHeight,
           rowCount: rowCount,
-          context: context,
         );
         final effectiveRowHeight = rowHeight.clamp(
           MonthCalendarRowHeight.min,
@@ -166,18 +151,21 @@ class MonthView extends ConsumerWidget {
                     ? StartingDayOfWeek.monday
                     : StartingDayOfWeek.sunday,
                 availableGestures: AvailableGestures.horizontalSwipe,
-                headerStyle: HeaderStyle(
+                // Collapsed to zero height (formatButton already off,
+                // both chevrons hidden, headerTitleBuilder below returns
+                // nothing, padding zeroed) rather than left showing its
+                // own "‹ 2026년 9월 ›" — schedule_screen.dart's shared
+                // title row directly above already shows the same month/
+                // year and is itself swipeable, so this was a second,
+                // redundant copy of the same text a few hundred pixels
+                // away. See maxMonthRowHeight's own doc: the space this
+                // used to reserve for the header is no longer subtracted,
+                // freeing it for the grid/day view below instead.
+                headerStyle: const HeaderStyle(
                   formatButtonVisible: false,
-                  titleCentered: true,
-                  titleTextStyle: theme.textTheme.titleLarge!,
-                  leftChevronIcon: Icon(
-                    Icons.chevron_left,
-                    color: palette.inkSoft,
-                  ),
-                  rightChevronIcon: Icon(
-                    Icons.chevron_right,
-                    color: palette.inkSoft,
-                  ),
+                  leftChevronVisible: false,
+                  rightChevronVisible: false,
+                  headerPadding: EdgeInsets.zero,
                 ),
                 daysOfWeekStyle: DaysOfWeekStyle(
                   weekdayStyle: theme.textTheme.labelMedium!.copyWith(
@@ -188,6 +176,7 @@ class MonthView extends ConsumerWidget {
                   ),
                 ),
                 calendarBuilders: CalendarBuilders<EventRow>(
+                  headerTitleBuilder: (context, day) => const SizedBox.shrink(),
                   markerBuilder: (context, day, events) {
                     final d = dateOnly(day);
                     // eventLoader only buckets an event under its *start* day, so a
