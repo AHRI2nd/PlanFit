@@ -14,6 +14,15 @@
         android:protectionLevel="signature"/>
     <uses-permission android:name="com.arisair.planfit.permission.BIND_WIDGET_BACKGROUND"/>
 
+    <!-- Holiday calendar sync (HolidayCalendarService) — plain https GET,
+         no API key. Without this, only the debug/profile manifest variants
+         (which each declare it themselves, for Flutter tooling's own use —
+         see their own comments) would grant it, so a release build would
+         silently fail every holiday sync with no INTERNET permission at
+         all: never reproducible via `flutter run`, only in a real signed
+         build. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- Calendar sync (device_calendar_plus) -->
     <uses-permission android:name="android.permission.READ_CALENDAR"/>
     <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
