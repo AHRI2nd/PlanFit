@@ -160,7 +160,7 @@ class AppL10nKo extends AppL10n {
   String get dayEmpty => '이 날은 아직 비어 있어요';
 
   @override
-  String get dayAddHint => '오른쪽 아래 + 로 일정을 더해보세요';
+  String get dayAddHint => '오른쪽 아래 + 를 누르거나, 빈 시간을 길게 눌러 일정을 더해보세요';
 
   @override
   String get agendaEmpty => '예정된 일정이 없어요';

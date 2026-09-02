@@ -388,7 +388,7 @@ abstract class AppL10n {
   /// No description provided for @dayAddHint.
   ///
   /// In ko, this message translates to:
-  /// **'오른쪽 아래 + 로 일정을 더해보세요'**
+  /// **'오른쪽 아래 + 를 누르거나, 빈 시간을 길게 눌러 일정을 더해보세요'**
   String get dayAddHint;
 
   /// No description provided for @agendaEmpty.

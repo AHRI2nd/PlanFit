@@ -67,7 +67,7 @@
   "calendarLegendMultiDayBarNote": "A multi-day event's color bar is different — it's just the color you picked for that event.",
   "monthSplitHandleLabel": "Adjust calendar size",
   "dayEmpty": "This day is still empty",
-  "dayAddHint": "Tap + to add something",
+  "dayAddHint": "Tap + or long-press an empty time to add something",
   "agendaEmpty": "No events coming up",
   "commonTomorrow": "Tomorrow",
   "todosSectionTitle": "To-dos",

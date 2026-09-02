@@ -163,7 +163,7 @@ class AppL10nEn extends AppL10n {
   String get dayEmpty => 'This day is still empty';
 
   @override
-  String get dayAddHint => 'Tap + to add something';
+  String get dayAddHint => 'Tap + or long-press an empty time to add something';
 
   @override
   String get agendaEmpty => 'No events coming up';

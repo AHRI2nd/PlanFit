@@ -96,16 +96,11 @@ class ScheduleScreen extends ConsumerWidget {
                         selected: selected,
                         title: title,
                         style: Theme.of(context).textTheme.headlineSmall,
+                        chevronColor: palette.inkFaint,
                         onNavigate: (target) => ref
                             .read(selectedDateProvider.notifier)
                             .select(target),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: l10n.quickAddEventTitle,
-                      icon: const Icon(Icons.bolt_outlined),
-                      onPressed: () =>
-                          showQuickAddEvent(context, anchorDay: selected),
                     ),
                     IconButton(
                       tooltip: l10n.searchTooltip,
@@ -153,6 +148,13 @@ class ScheduleScreen extends ConsumerWidget {
                     // string back into wrapping onto two lines, so the same
                     // "add it to the switcher row instead" fix applies here
                     // too rather than repeating that regression.
+                    const SizedBox(width: AppSpacing.xs),
+                    IconButton(
+                      tooltip: l10n.quickAddEventTitle,
+                      icon: const Icon(Icons.bolt_outlined),
+                      onPressed: () =>
+                          showQuickAddEvent(context, anchorDay: selected),
+                    ),
                     const SizedBox(width: AppSpacing.xs),
                     IconButton(
                       tooltip: l10n.calendarLegendTooltip,
@@ -205,6 +207,7 @@ class _SwipeableTitle extends StatelessWidget {
     required this.selected,
     required this.title,
     required this.style,
+    required this.chevronColor,
     required this.onNavigate,
   });
 
@@ -212,10 +215,14 @@ class _SwipeableTitle extends StatelessWidget {
   final DateTime selected;
   final String title;
   final TextStyle? style;
+  final Color chevronColor;
   final ValueChanged<DateTime> onNavigate;
 
   @override
   Widget build(BuildContext context) {
+    // Agenda has no period for _swipeTarget to page through (see its own
+    // switch above), so there's nothing real to hint at there.
+    final swipeable = view != ScheduleView.agenda;
     return SwipeNavigationDetector(
       key: const Key('scheduleTitleSwipe'),
       onSwipeLeft: () {
@@ -244,7 +251,43 @@ class _SwipeableTitle extends StatelessWidget {
       // drifts a bit vertically) to miss entirely.
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-        child: Text(title, style: style),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Purely visual "you can swipe this" hint, not its own tap
+            // target — IgnorePointer keeps the whole title's hit box (and
+            // its swipe gesture) intact instead of splitting it into
+            // separate, individually-unswipeable zones.
+            if (swipeable) ...[
+              IgnorePointer(
+                child: Icon(
+                  Icons.chevron_left,
+                  size: 18,
+                  color: chevronColor,
+                ),
+              ),
+              const SizedBox(width: 2),
+            ],
+            Flexible(
+              child: Text(
+                title,
+                style: style,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (swipeable) ...[
+              const SizedBox(width: 2),
+              IgnorePointer(
+                child: Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: chevronColor,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

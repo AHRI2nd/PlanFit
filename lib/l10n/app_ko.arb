@@ -67,7 +67,7 @@
   "calendarLegendMultiDayBarNote": "여러 날에 걸친 일정의 색 막대는 이 규칙과 달라요 — 직접 고른 일정 색이 그대로 표시돼요.",
   "monthSplitHandleLabel": "달력 크기 조절",
   "dayEmpty": "이 날은 아직 비어 있어요",
-  "dayAddHint": "오른쪽 아래 + 로 일정을 더해보세요",
+  "dayAddHint": "오른쪽 아래 + 를 누르거나, 빈 시간을 길게 눌러 일정을 더해보세요",
   "agendaEmpty": "예정된 일정이 없어요",
   "commonTomorrow": "내일",
   "todosSectionTitle": "할 일",
