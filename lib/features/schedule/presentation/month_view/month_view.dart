@@ -85,6 +85,12 @@ const double _monthMarkerBottomPad = 2.0;
 // needs to budget room for exactly this size, not guess at it.
 const double _monthCollapsedDotSize = 6.0;
 
+// How many individual dots the collapsed summary draws (one per event/
+// to-do entry, each in its own color) before switching to a single "+N"
+// count instead — a typical day cell is too narrow to keep adding dots
+// indefinitely without them running into each other.
+const int _monthCollapsedMaxDots = 4;
+
 // The day-number circle's one fixed diameter — see monthDayNumberDiameter's
 // doc for why this doesn't vary with rowHeight at all.
 const double _monthDayNumberDiameterTarget = 24.0;
@@ -349,8 +355,27 @@ class MonthView extends ConsumerWidget {
                         numberDiameter +
                         _monthMarkerTopGap;
 
-                    // Below monthEventListCapacity's own threshold: same
-                    // compact dot/bar summary this has always shown.
+                    // Below monthEventListCapacity's own threshold: the
+                    // compact dot/bar summary. One dot per single-day
+                    // event/to-do entry, each in its own real color (up to
+                    // _monthCollapsedMaxDots), so the count is actually
+                    // visible at a glance instead of collapsing straight to
+                    // one generic "something's here" dot; beyond that, a
+                    // "+N" count instead — mirrors _MonthMoreRow's own
+                    // overflow style in the expanded list, just centered
+                    // under the date here rather than left-aligned in a
+                    // list row.
+                    final entryColors = <Color>[
+                      for (final e in dots)
+                        EventColorTag.resolve(e.colorTag, e.startAt),
+                      if (hasOverdueTodo || hasTodo)
+                        calendarDotColor(
+                          palette: palette,
+                          hasEvent: false,
+                          hasTodo: hasTodo,
+                          hasOverdueTodo: hasOverdueTodo,
+                        )!,
+                    ];
                     if (listCapacity <= 0) {
                       return Positioned(
                         left: 0,
@@ -361,20 +386,52 @@ class MonthView extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (spanning.isNotEmpty) spanBar(asListRow: false),
-                            if (dots.isNotEmpty || hasOverdueTodo || hasTodo)
-                              Container(
-                                width: _monthCollapsedDotSize,
-                                height: _monthCollapsedDotSize,
-                                decoration: BoxDecoration(
-                                  color: calendarDotColor(
-                                    palette: palette,
-                                    hasEvent: dots.isNotEmpty,
-                                    hasTodo: hasTodo,
-                                    hasOverdueTodo: hasOverdueTodo,
+                            if (entryColors.isNotEmpty)
+                              if (entryColors.length <=
+                                  _monthCollapsedMaxDots)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (final color in entryColors)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 1,
+                                        ),
+                                        child: Container(
+                                          width: _monthCollapsedDotSize,
+                                          height: _monthCollapsedDotSize,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                )
+                              else
+                                // Flexible+FittedBox, not a bare Text: at
+                                // the shortest allowed row height there's
+                                // only as much vertical room as
+                                // _monthCollapsedDotSize's own tiny dot
+                                // needs (that size is exactly what
+                                // MonthCalendarRowHeight.min budgets for),
+                                // which a 9px-font line doesn't always fit
+                                // without this scaling down to whatever
+                                // room is actually available instead of
+                                // overflowing the cell.
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '+${entryColors.length}',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: palette.inkFaint,
+                                      ),
+                                    ),
                                   ),
-                                  shape: BoxShape.circle,
                                 ),
-                              ),
                           ],
                         ),
                       );

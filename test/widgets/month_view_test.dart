@@ -67,6 +67,36 @@ void main() {
     );
   }
 
+  EventRow singleDayEvent({
+    required String id,
+    required DateTime day,
+    String? colorTag,
+  }) {
+    return EventRow(
+      id: id,
+      title: id,
+      memo: null,
+      location: null,
+      startAt: day,
+      endAt: day.add(const Duration(hours: 1)),
+      isAllDay: false,
+      colorTag: colorTag,
+      notify: false,
+      reminderMinutesBefore: 0,
+      additionalReminderMinutes: null,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      osCalendarId: null,
+      osEventId: null,
+      osLastKnownModified: null,
+      syncStatus: SyncStatus.pendingPush,
+      importSourceCalendarId: null,
+      importSourceEventId: null,
+      createdAt: DateTime(2020),
+      updatedAt: DateTime(2020),
+    );
+  }
+
   setUp(() {
     events = MockEventRepository();
     todos = MockTodoDao();
@@ -158,31 +188,7 @@ void main() {
     (tester) async {
       final day = DateTime(2026, 3, 15);
       when(events.watchBetween(any, any)).thenAnswer(
-        (_) => Stream.value([
-          EventRow(
-            id: 'e1',
-            title: 'e1',
-            memo: null,
-            location: null,
-            startAt: day,
-            endAt: day.add(const Duration(hours: 1)),
-            isAllDay: false,
-            colorTag: null,
-            notify: false,
-            reminderMinutesBefore: 0,
-            additionalReminderMinutes: null,
-            recurrenceRule: null,
-            recurrenceGroupId: null,
-            osCalendarId: null,
-            osEventId: null,
-            osLastKnownModified: null,
-            syncStatus: SyncStatus.pendingPush,
-            importSourceCalendarId: null,
-            importSourceEventId: null,
-            createdAt: DateTime(2020),
-            updatedAt: DateTime(2020),
-          ),
-        ]),
+        (_) => Stream.value([singleDayEvent(id: 'e1', day: day)]),
       );
 
       // Select the very day the event is on — exactly the scenario that
@@ -202,6 +208,78 @@ void main() {
       expect(
         (dots.first.decoration as BoxDecoration).color,
         isNot(Colors.white),
+      );
+    },
+  );
+
+  testWidgets(
+    "the collapsed summary shows one dot per event, each in that event's "
+    'own color, instead of collapsing straight to a single generic dot — '
+    'up to _monthCollapsedMaxDots (4)',
+    (tester) async {
+      final day = DateTime(2026, 3, 15);
+      const tags = ['#3388CC', '#CC3388', '#88CC33'];
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          for (var i = 0; i < tags.length; i++)
+            singleDayEvent(id: 'e$i', day: day, colorTag: tags[i]),
+        ]),
+      );
+
+      await pumpMonth(tester, DateTime(2026, 3, 1));
+
+      final dots = tester
+          .widgetList<Container>(find.byType(Container))
+          .where((c) {
+            final decoration = c.decoration;
+            return decoration is BoxDecoration &&
+                decoration.shape == BoxShape.circle &&
+                c.constraints?.maxWidth == monthCollapsedDotSize;
+          })
+          .toList();
+
+      expect(dots, hasLength(tags.length));
+      final dotColors = dots
+          .map((c) => (c.decoration as BoxDecoration).color)
+          .toSet();
+      final expectedColors = tags
+          .map((t) => EventColorTag.resolve(t, day))
+          .toSet();
+      expect(dotColors, expectedColors);
+      // No "+N" overflow text should render — there's room for one dot per
+      // event at this count.
+      expect(find.text('+${tags.length}'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the collapsed summary switches to a "+N" count once a day has more '
+    'events than fit as individual dots',
+    (tester) async {
+      final day = DateTime(2026, 3, 15);
+      const eventCount = 5; // one more than _monthCollapsedMaxDots (4)
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          for (var i = 0; i < eventCount; i++)
+            singleDayEvent(id: 'e$i', day: day),
+        ]),
+      );
+
+      await pumpMonth(tester, DateTime(2026, 3, 1));
+
+      expect(find.text('+$eventCount'), findsOneWidget);
+      final dots = tester.widgetList<Container>(find.byType(Container)).where(
+        (c) {
+          final decoration = c.decoration;
+          return decoration is BoxDecoration &&
+              decoration.shape == BoxShape.circle &&
+              c.constraints?.maxWidth == monthCollapsedDotSize;
+        },
+      );
+      expect(
+        dots,
+        isEmpty,
+        reason: 'once over the dot cap, no individual dots should render',
       );
     },
   );
