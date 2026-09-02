@@ -223,19 +223,15 @@ void main() {
   );
 
   testWidgets(
-    'a crowded time slot never renders event cards narrower than the '
-    'width floor — regression test for a title\'s second wrapped line '
-    'silently failing to paint at extreme narrow widths (confirmed live '
-    'on device: layout reported two lines, only the first one actually '
-    'rendered, with no ellipsis either)',
+    "a crowded time slot never lets one event card's width overlap "
+    "another's — regression test for an earlier attempt at widening "
+    'crowded cards that let them overlap each other instead, painting '
+    "two different events' titles on top of one another",
     (tester) async {
       final anchor = DateTime(2026, 3, 10);
-      // Four events sharing the exact same slot — enough columns that the
-      // floor binds regardless of the test harness's own (much wider than
-      // a phone's) default viewport.
       when(events.watchBetween(any, any)).thenAnswer(
         (_) => Stream.value([
-          for (var i = 1; i <= 4; i++)
+          for (var i = 1; i <= 3; i++)
             event(
               id: 'e$i',
               startAt: DateTime(2026, 3, 11, 11),
@@ -249,21 +245,76 @@ void main() {
 
       await pumpWeek(tester, anchor);
 
-      for (var i = 1; i <= 4; i++) {
-        final positioned = tester
-            .widgetList<Positioned>(
-              find.ancestor(
-                of: find.text('e$i'),
-                matching: find.byType(Positioned),
-              ),
-            )
-            .first;
+      final ranges =
+          [
+              for (var i = 1; i <= 3; i++)
+                tester
+                    .widgetList<Positioned>(
+                      find.ancestor(
+                        of: find.text('e$i'),
+                        matching: find.byType(Positioned),
+                      ),
+                    )
+                    .first,
+            ]
+            .map((p) => (left: p.left!, right: p.left! + p.width!))
+            .toList()
+          ..sort((a, b) => a.left.compareTo(b.left));
+
+      for (var i = 0; i < ranges.length - 1; i++) {
         expect(
-          positioned.width,
-          greaterThanOrEqualTo(34.0),
-          reason: 'event e$i',
+          ranges[i].right,
+          lessThanOrEqualTo(ranges[i + 1].left + 0.01),
+          reason:
+              'card $i (spanning ${ranges[i].left}-${ranges[i].right}) '
+              'overlaps the next one (starting at ${ranges[i + 1].left})',
         );
       }
+    },
+  );
+
+  testWidgets(
+    'a crowded event card caps its title to one line, but an uncrowded '
+    "one still gets two — a crowded card's own narrow width was found to "
+    'silently drop a 2nd wrapped line entirely rather than paint it '
+    '(confirmed live on device: layout metrics reported two lines, only '
+    'the first one actually rendered, no ellipsis either) — capping to '
+    'one line there sidesteps that renderer-level issue rather than '
+    'triggering it',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      // Short (1-2 char) titles so fitOneLine (see the crowded card's own
+      // comment) never actually needs to truncate either one — this test
+      // is about the maxLines each card picks, not fitOneLine's own
+      // truncation, which week_fit_one_line_test.dart covers directly.
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(
+            id: 'C1',
+            startAt: DateTime(2026, 3, 11, 11),
+            endAt: DateTime(2026, 3, 11, 14),
+          ),
+          event(
+            id: 'C2',
+            startAt: DateTime(2026, 3, 11, 11),
+            endAt: DateTime(2026, 3, 11, 14),
+          ),
+          event(
+            id: 'A1',
+            startAt: DateTime(2026, 3, 12, 9),
+            endAt: DateTime(2026, 3, 12, 10),
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      expect(tester.widget<Text>(find.text('C1')).maxLines, 1);
+      expect(tester.widget<Text>(find.text('C2')).maxLines, 1);
+      expect(tester.widget<Text>(find.text('A1')).maxLines, 2);
     },
   );
 

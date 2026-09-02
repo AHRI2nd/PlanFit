@@ -18,17 +18,52 @@ import '../../domain/event_overlap.dart';
 import '../../domain/event_span.dart';
 import '../event_edit/event_editor_sheet.dart';
 
-// The narrowest a cascaded (overlapping-events) card is ever drawn — below
-// this, there's so little width left per card that even a single line of
-// title text barely fits, and a 2nd wrapped line (see the Text below) was
-// found to silently fail to paint at all on this width range specifically
-// (confirmed live: layout metrics reported two lines correctly, but only
-// the first one actually rendered, with no visible ellipsis either).
-// Crowded columns are widened up to this floor and overlapped evenly
-// within their own day instead, the same "short events already extend a
-// bit past their true span" trade-off day_view.dart's own
-// _minEventCardHeight doc describes, just along the width axis here.
-const double _minWeekEventWidth = 34.0;
+/// Truncates [text] to fit one line at [maxWidth]/[style], appending an
+/// ellipsis itself — used only for a cascaded (overlapping-events) card's
+/// title, whose own slice of the day's width can be extremely narrow (see
+/// the call site's own comment). Text's *own* `maxLines`/`overflow:
+/// ellipsis` was found, live on device, to render nothing at all — not
+/// even a clipped character — at that width, rather than a partial line;
+/// pre-computing a plain, already-truncated string and painting it with
+/// `TextOverflow.clip` sidesteps whatever in Flutter's own ellipsis-fitting
+/// decides that, since there's no ellipsis decision left for it to make.
+/// Returns [text] unchanged whenever it already fits.
+String fitOneLine({
+  required String text,
+  required TextStyle? style,
+  required double maxWidth,
+}) {
+  if (text.isEmpty || maxWidth <= 0) return text;
+  final painter = TextPainter(textDirection: TextDirection.ltr);
+  double widthOf(String s) {
+    painter.text = TextSpan(text: s, style: style);
+    painter.layout();
+    return painter.width;
+  }
+
+  if (widthOf(text) <= maxWidth) return text;
+
+  const ellipsis = '…';
+  if (widthOf(ellipsis) > maxWidth) {
+    // Not even the ellipsis alone fits — nothing sensible to show.
+    return '';
+  }
+
+  // The longest prefix of `text` that, with the ellipsis appended, still
+  // fits — found by binary search since widthOf() is monotonic in prefix
+  // length.
+  var lo = 0;
+  var hi = text.length;
+  while (lo < hi) {
+    final mid = (lo + hi + 1) ~/ 2;
+    if (widthOf(text.substring(0, mid) + ellipsis) <= maxWidth) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return lo == 0 ? ellipsis : '${text.substring(0, lo)}$ellipsis';
+}
 
 /// A 7-day grid: hours down the rail, one column per day, events positioned
 /// by day + time-of-day — the zoomed-out counterpart to [DayView]'s single
@@ -703,22 +738,11 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                     builder: (context) {
                       final e = c.event;
                       final columnAvailable = columnWidth - 2;
-                      final naturalWidth = columnAvailable / c.columnCount;
-                      // Below _minWeekEventWidth, widen the card up to that
-                      // floor and overlap cascaded cards evenly within
-                      // their own day column instead — see its own doc.
-                      // This formula is exactly `column * naturalWidth`
-                      // (the plain non-overlapping tiling) whenever the
-                      // floor doesn't bind, so it only changes anything in
-                      // the crowded case.
-                      final eventWidth = naturalWidth < _minWeekEventWidth
-                          ? _minWeekEventWidth
-                          : naturalWidth;
-                      final maxLeftInset = (columnAvailable - eventWidth)
-                          .clamp(0.0, columnAvailable);
-                      final leftInset = c.columnCount > 1
-                          ? (c.column / (c.columnCount - 1)) * maxLeftInset
-                          : 0.0;
+                      final eventWidth = columnAvailable / c.columnCount;
+                      final leftInset = c.column * eventWidth;
+                      final crowded = c.columnCount > 1;
+                      final style = Theme.of(context).textTheme.labelSmall;
+                      final title = e.title.isEmpty ? '—' : e.title;
                       return Positioned(
                         top: _offsetFor(days[i], e.startAt),
                         left: railInset + i * columnWidth + 1 + leftInset,
@@ -743,11 +767,37 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                               ).withValues(alpha: palette.isDark ? 0.32 : 0.22),
                               borderRadius: BorderRadius.circular(4),
                             ),
+                            // A crowded (columnCount > 1) card's own slice of
+                            // the day's width can be extremely narrow — at
+                            // that width, both a 2-line Text and even a
+                            // plain 1-line Text(overflow: ellipsis) were
+                            // found, live on device, to silently render
+                            // nothing useful (the 2nd line of a 2-line one
+                            // never painted at all; a 1-line one rendered
+                            // completely blank, no ellipsis either) instead
+                            // of a partial line. fitOneLine sidesteps both:
+                            // it pre-computes the exact (already-truncated,
+                            // already-ellipsis'd) string that fits, so
+                            // there's no overflow decision left for Text's
+                            // own layout to get wrong — painted with
+                            // TextOverflow.clip as a pure safety net, not
+                            // the mechanism doing the truncating. An
+                            // uncrowded card keeps the original 2-line
+                            // auto-wrap, which was confirmed working
+                            // correctly at that (much less narrow) width.
                             child: Text(
-                              e.title.isEmpty ? '—' : e.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelSmall,
+                              crowded
+                                  ? fitOneLine(
+                                      text: title,
+                                      style: style,
+                                      maxWidth: eventWidth - 6,
+                                    )
+                                  : title,
+                              maxLines: crowded ? 1 : 2,
+                              overflow: crowded
+                                  ? TextOverflow.clip
+                                  : TextOverflow.ellipsis,
+                              style: style,
                             ),
                           ),
                         ),
