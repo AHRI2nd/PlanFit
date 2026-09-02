@@ -76,6 +76,66 @@ String fitOneLine({
   return '';
 }
 
+/// Manually wraps [text] into at most two lines at [maxWidth]/[style], each
+/// pre-truncated to a plain, already-fitting string — the same escape hatch
+/// [fitOneLine] uses, extended to a second line. A cascaded card's own
+/// `Text(maxLines: 2, ...)` was found, live on device, to compute the wrap
+/// correctly but only ever paint the first line — the second line silently
+/// never rendered, rather than wrapping or eliding. Building two independent
+/// single-line strings and painting each with its own `Text(maxLines: 1,
+/// overflow: clip)` sidesteps that renderer-level failure the same way
+/// [fitOneLine] sidesteps the single-line one, rather than triggering it.
+///
+/// The first line is a plain wrap point (no ellipsis — there's a second
+/// line for the rest); the second is exactly [fitOneLine]'s own output for
+/// whatever didn't fit on the first, so it gets the same
+/// character/ellipsis/empty fallback ladder. Returns a single-element list
+/// when [text] already fits on one line, or when [maxWidth] is too narrow
+/// for even one full character (in which case that one element is already
+/// [fitOneLine]'s own best-effort single-line result).
+List<String> fitTwoLines({
+  required String text,
+  required TextStyle? style,
+  required double maxWidth,
+}) {
+  if (text.isEmpty || maxWidth <= 0) return [text];
+  final painter = TextPainter(textDirection: TextDirection.ltr);
+  double widthOf(String s) {
+    painter.text = TextSpan(text: s, style: style);
+    painter.layout();
+    return painter.width;
+  }
+
+  if (widthOf(text) <= maxWidth) return [text];
+
+  // The longest prefix of `text` that fits as-is (no ellipsis — it's a wrap
+  // point, not a truncation) — binary search since widthOf() is monotonic
+  // in prefix length.
+  var lo = 0;
+  var hi = text.length;
+  while (lo < hi) {
+    final mid = (lo + hi + 1) ~/ 2;
+    if (widthOf(text.substring(0, mid)) <= maxWidth) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  if (lo == 0) {
+    // Not even one character fits on a line — fall back to fitOneLine's
+    // own single-line ladder rather than emitting an empty first line.
+    return [fitOneLine(text: text, style: style, maxWidth: maxWidth)];
+  }
+
+  final line1 = text.substring(0, lo);
+  final line2 = fitOneLine(
+    text: text.substring(lo),
+    style: style,
+    maxWidth: maxWidth,
+  );
+  return line2.isEmpty ? [line1] : [line1, line2];
+}
+
 /// A 7-day grid: hours down the rail, one column per day, events positioned
 /// by day + time-of-day — the zoomed-out counterpart to [DayView]'s single
 /// column. No existing-event drag/resize (unlike the day view): tapping an
@@ -547,6 +607,13 @@ class _WeekGrid extends StatefulWidget {
 }
 
 class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
+  /// Extra height budget a crowded (cascaded, `columnCount > 1`) event card
+  /// needs so its second wrapped title line (see [fitTwoLines]) has real
+  /// space to paint instead of overflowing a card sized only for its true
+  /// time span — mirrors DayView's own `_crowdedColumnExtraHeight` trade-off
+  /// of letting a short event's card extend a bit past its span.
+  static const double _weekCrowdedExtraHeight = 14;
+
   /// Long-press-drag-to-create state, mirroring DayView's own — see its doc
   /// comment. [_createDayIndex] pins the drag to whichever column it started
   /// in even if the finger wanders sideways into a neighboring one.
@@ -754,6 +821,32 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                       final crowded = c.columnCount > 1;
                       final style = Theme.of(context).textTheme.labelSmall;
                       final title = e.title.isEmpty ? '—' : e.title;
+                      // A crowded (columnCount > 1) card's own slice of the
+                      // day's width can be extremely narrow — at that
+                      // width, Text(maxLines: 2, overflow: ellipsis) was
+                      // found, live on device, to compute the wrap
+                      // correctly but silently never paint the 2nd line
+                      // (no ellipsis either); Text(maxLines: 1, overflow:
+                      // ellipsis) rendered nothing at all. fitTwoLines
+                      // sidesteps both by pre-computing up to two already-
+                      // fitting single-line strings and painting each with
+                      // its own Text(maxLines: 1, overflow: clip) — clip is
+                      // a passive safety net here, not the truncation
+                      // mechanism. _weekCrowdedExtraHeight budgets the
+                      // vertical room that 2nd line needs, the same trade-
+                      // off DayView's own crowded cards already make (a
+                      // short event's card extends a bit past its true time
+                      // span so the wrapped title has somewhere to go). An
+                      // uncrowded card keeps the original 2-line auto-wrap,
+                      // confirmed working correctly at that much less
+                      // narrow width.
+                      final lines = crowded
+                          ? fitTwoLines(
+                              text: title,
+                              style: style,
+                              maxWidth: eventWidth - 2,
+                            )
+                          : const <String>[];
                       return Positioned(
                         top: _offsetFor(days[i], e.startAt),
                         left: railInset + i * columnWidth + 1 + leftInset,
@@ -765,7 +858,12 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                               minHeight:
                                   (_offsetFor(days[i], e.endAt) -
                                           _offsetFor(days[i], e.startAt))
-                                      .clamp(14, hourHeight * 24),
+                                      .clamp(
+                                        crowded
+                                            ? 14 + _weekCrowdedExtraHeight
+                                            : 14,
+                                        hourHeight * 24,
+                                      ),
                             ),
                             padding: EdgeInsets.symmetric(
                               horizontal: crowded ? 1 : 3,
@@ -778,38 +876,27 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                               ).withValues(alpha: palette.isDark ? 0.32 : 0.22),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            // A crowded (columnCount > 1) card's own slice of
-                            // the day's width can be extremely narrow — at
-                            // that width, both a 2-line Text and even a
-                            // plain 1-line Text(overflow: ellipsis) were
-                            // found, live on device, to silently render
-                            // nothing useful (the 2nd line of a 2-line one
-                            // never painted at all; a 1-line one rendered
-                            // completely blank, no ellipsis either) instead
-                            // of a partial line. fitOneLine sidesteps both:
-                            // it pre-computes the exact (already-truncated,
-                            // already-ellipsis'd) string that fits, so
-                            // there's no overflow decision left for Text's
-                            // own layout to get wrong — painted with
-                            // TextOverflow.clip as a pure safety net, not
-                            // the mechanism doing the truncating. An
-                            // uncrowded card keeps the original 2-line
-                            // auto-wrap, which was confirmed working
-                            // correctly at that (much less narrow) width.
-                            child: Text(
-                              crowded
-                                  ? fitOneLine(
-                                      text: title,
-                                      style: style,
-                                      maxWidth: eventWidth - 2,
-                                    )
-                                  : title,
-                              maxLines: crowded ? 1 : 2,
-                              overflow: crowded
-                                  ? TextOverflow.clip
-                                  : TextOverflow.ellipsis,
-                              style: style,
-                            ),
+                            child: crowded
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      for (final line in lines)
+                                        Text(
+                                          line,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.clip,
+                                          style: style,
+                                        ),
+                                    ],
+                                  )
+                                : Text(
+                                    title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: style,
+                                  ),
                           ),
                         ),
                       );

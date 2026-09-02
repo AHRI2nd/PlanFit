@@ -87,4 +87,74 @@ void main() {
       expect(result, '밥');
     },
   );
+
+  group('fitTwoLines', () {
+    test('returns a single-element list once the text already fits', () {
+      expect(fitTwoLines(text: 'Hi', style: _style, maxWidth: 500), ['Hi']);
+    });
+
+    test('returns the empty string unchanged', () {
+      expect(fitTwoLines(text: '', style: _style, maxWidth: 500), ['']);
+    });
+
+    test('a maxWidth of zero (or less) is a no-op, not a crash', () {
+      expect(fitTwoLines(text: 'Hi', style: _style, maxWidth: 0), ['Hi']);
+      expect(fitTwoLines(text: 'Hi', style: _style, maxWidth: -5), ['Hi']);
+    });
+
+    test(
+      'wraps overflowing text onto a real second line — regression test '
+      'for Text(maxLines: 2) reporting two wrapped lines in its own layout '
+      'metrics but silently painting only the first one at a cascaded '
+      "card's narrow width",
+      () {
+        // Wide enough for two glyphs but not three, so '밥먹기' (3
+        // characters) is guaranteed to need a second line.
+        final twoChars = _widthOf('밥먹');
+        final threeChars = _widthOf('밥먹기');
+        expect(twoChars, lessThan(threeChars));
+        final maxWidth = (twoChars + threeChars) / 2;
+
+        final result = fitTwoLines(
+          text: '밥먹기',
+          style: _style,
+          maxWidth: maxWidth,
+        );
+        expect(result, hasLength(2));
+        expect(result[0], '밥먹');
+        expect(result[1], isNotEmpty);
+      },
+    );
+
+    test(
+      'each line never renders wider than maxWidth, across a range of '
+      'widths',
+      () {
+        for (final maxWidth in [1.0, 5.0, 10.0, 20.0, 30.0, 50.0, 100.0]) {
+          final lines = fitTwoLines(
+            text: '밥먹기 회의 준비 자료 정리',
+            style: _style,
+            maxWidth: maxWidth,
+          );
+          expect(lines.length, lessThanOrEqualTo(2));
+          for (final line in lines) {
+            expect(
+              _widthOf(line),
+              lessThanOrEqualTo(maxWidth),
+              reason: 'at maxWidth $maxWidth, fitTwoLines returned $lines',
+            );
+          }
+        }
+      },
+    );
+
+    test(
+      'falls back to fitOneLine\'s own single-line result when not even '
+      'one character fits on a line',
+      () {
+        final result = fitTwoLines(text: 'Anything', style: _style, maxWidth: 0.5);
+        expect(result, [fitOneLine(text: 'Anything', style: _style, maxWidth: 0.5)]);
+      },
+    );
+  });
 }

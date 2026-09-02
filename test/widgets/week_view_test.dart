@@ -318,6 +318,54 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a crowded event card whose title needs more than one line renders a '
+    'real second line instead of silently dropping it — regression test '
+    "for Text(maxLines: 2)'s own layout reporting two wrapped lines but "
+    'only ever painting the first one at a cascaded card\'s narrow width',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      // Long enough that no cascaded (2-way) slice of the day column can
+      // fit it on one line, whatever the exact test viewport width is.
+      const longTitle = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(
+            id: longTitle,
+            startAt: DateTime(2026, 3, 11, 11),
+            endAt: DateTime(2026, 3, 11, 14),
+          ),
+          event(
+            id: 'Y2',
+            startAt: DateTime(2026, 3, 11, 11),
+            endAt: DateTime(2026, 3, 11, 14),
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      final xLines = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data ?? '')
+          .where((data) => data.startsWith('X'))
+          .toList();
+
+      expect(
+        xLines.length,
+        2,
+        reason:
+            'expected the title to wrap into exactly two rendered lines, '
+            'got: $xLines',
+      );
+      expect(xLines[0], isNot(xLines[1]));
+      expect(xLines[1], isNotEmpty);
+    },
+  );
+
   group(
     'swiping the page (header, strip, or grid) navigates by whole weeks',
     () {
