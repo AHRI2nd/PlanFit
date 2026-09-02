@@ -668,11 +668,23 @@ class _MonthEventListRow extends StatelessWidget {
             ),
           ),
           if (trailingHint != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 2),
+            // A small filled chip, not just adjacent text with a sliver
+            // of padding — at this row's own cramped width, "title+2px
+            // gap+bold text" read as the hint being glued onto the title
+            // itself rather than its own distinct element. The chip's own
+            // background gives it a clear boundary regardless of how
+            // little room the (already-ellipsized) title leaves it.
+            Container(
+              margin: const EdgeInsets.only(left: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: palette.inkFaint.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(3),
+              ),
               child: Text(
                 '+$trailingHint',
                 style: _monthEventRowTextStyle.copyWith(
+                  fontSize: 8,
                   fontWeight: FontWeight.w700,
                   color: palette.inkFaint,
                 ),

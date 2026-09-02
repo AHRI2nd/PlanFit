@@ -300,7 +300,10 @@ void main() {
     /// (not just the string) disambiguates a cell's real row from that
     /// unrelated duplicate.
     Finder monthListText(String data) => find.byWidgetPredicate(
-      (w) => w is Text && w.data == data && w.style?.fontSize == 9,
+      (w) =>
+          w is Text &&
+          w.data == data &&
+          (w.style?.fontSize == 9 || w.style?.fontSize == 8),
     );
 
     /// maxMonthRowHeight clamps the row height down to whatever the
