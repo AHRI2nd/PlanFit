@@ -88,18 +88,41 @@ void main() {
     },
   );
 
-  group('fitTwoLines', () {
+  group('fitLines', () {
     test('returns a single-element list once the text already fits', () {
-      expect(fitTwoLines(text: 'Hi', style: _style, maxWidth: 500), ['Hi']);
+      expect(
+        fitLines(text: 'Hi', style: _style, maxWidth: 500, maxLines: 2),
+        ['Hi'],
+      );
     });
 
     test('returns the empty string unchanged', () {
-      expect(fitTwoLines(text: '', style: _style, maxWidth: 500), ['']);
+      expect(
+        fitLines(text: '', style: _style, maxWidth: 500, maxLines: 2),
+        [''],
+      );
     });
 
     test('a maxWidth of zero (or less) is a no-op, not a crash', () {
-      expect(fitTwoLines(text: 'Hi', style: _style, maxWidth: 0), ['Hi']);
-      expect(fitTwoLines(text: 'Hi', style: _style, maxWidth: -5), ['Hi']);
+      expect(
+        fitLines(text: 'Hi', style: _style, maxWidth: 0, maxLines: 2),
+        ['Hi'],
+      );
+      expect(
+        fitLines(text: 'Hi', style: _style, maxWidth: -5, maxLines: 2),
+        ['Hi'],
+      );
+    });
+
+    test('a maxLines of zero (or less) returns no lines at all', () {
+      expect(
+        fitLines(text: 'Hi', style: _style, maxWidth: 500, maxLines: 0),
+        <String>[],
+      );
+      expect(
+        fitLines(text: 'Hi', style: _style, maxWidth: 500, maxLines: -1),
+        <String>[],
+      );
     });
 
     test(
@@ -115,10 +138,11 @@ void main() {
         expect(twoChars, lessThan(threeChars));
         final maxWidth = (twoChars + threeChars) / 2;
 
-        final result = fitTwoLines(
+        final result = fitLines(
           text: '밥먹기',
           style: _style,
           maxWidth: maxWidth,
+          maxLines: 2,
         );
         expect(result, hasLength(2));
         expect(result[0], '밥먹');
@@ -127,22 +151,75 @@ void main() {
     );
 
     test(
+      'keeps wrapping onto a third (and further) line when maxLines allows '
+      'it — this is the whole point of generalizing past a fixed two-line '
+      "cap: a tall event card's box should get as many lines as its own "
+      'height allows, not be stuck at two',
+      () {
+        // One glyph per line, five glyphs of text, plenty of maxLines —
+        // every glyph should end up on its own line.
+        final oneChar = _widthOf('밥');
+        final twoChars = _widthOf('밥먹');
+        expect(oneChar, lessThan(twoChars));
+        final maxWidth = (oneChar + twoChars) / 2;
+
+        final result = fitLines(
+          text: '밥먹기회의',
+          style: _style,
+          maxWidth: maxWidth,
+          maxLines: 10,
+        );
+        expect(result, ['밥', '먹', '기', '회', '의']);
+      },
+    );
+
+    test(
+      'stops at maxLines even when more text remains, ellipsizing the '
+      'last line',
+      () {
+        // Two glyphs per line, with more than two glyphs still left over
+        // for the last line — enough room there for fitOneLine to prefer
+        // a real ellipsis over its own bare-character fallback (see
+        // fitOneLine's own tests for when that fallback instead applies).
+        final twoChars = _widthOf('밥먹');
+        final threeChars = _widthOf('밥먹기');
+        expect(twoChars, lessThan(threeChars));
+        final maxWidth = (twoChars + threeChars) / 2;
+
+        final result = fitLines(
+          text: '밥먹기회의록',
+          style: _style,
+          maxWidth: maxWidth,
+          maxLines: 2,
+        );
+        expect(result, hasLength(2));
+        expect(result[0], '밥먹');
+        expect(result[1], endsWith('…'));
+      },
+    );
+
+    test(
       'each line never renders wider than maxWidth, across a range of '
-      'widths',
+      'widths and line counts',
       () {
         for (final maxWidth in [1.0, 5.0, 10.0, 20.0, 30.0, 50.0, 100.0]) {
-          final lines = fitTwoLines(
-            text: '밥먹기 회의 준비 자료 정리',
-            style: _style,
-            maxWidth: maxWidth,
-          );
-          expect(lines.length, lessThanOrEqualTo(2));
-          for (final line in lines) {
-            expect(
-              _widthOf(line),
-              lessThanOrEqualTo(maxWidth),
-              reason: 'at maxWidth $maxWidth, fitTwoLines returned $lines',
+          for (final maxLines in [1, 2, 3, 5]) {
+            final lines = fitLines(
+              text: '밥먹기 회의 준비 자료 정리',
+              style: _style,
+              maxWidth: maxWidth,
+              maxLines: maxLines,
             );
+            expect(lines.length, lessThanOrEqualTo(maxLines));
+            for (final line in lines) {
+              expect(
+                _widthOf(line),
+                lessThanOrEqualTo(maxWidth),
+                reason:
+                    'at maxWidth $maxWidth / maxLines $maxLines, fitLines '
+                    'returned $lines',
+              );
+            }
           }
         }
       },
@@ -152,9 +229,22 @@ void main() {
       'falls back to fitOneLine\'s own single-line result when not even '
       'one character fits on a line',
       () {
-        final result = fitTwoLines(text: 'Anything', style: _style, maxWidth: 0.5);
-        expect(result, [fitOneLine(text: 'Anything', style: _style, maxWidth: 0.5)]);
+        final result = fitLines(
+          text: 'Anything',
+          style: _style,
+          maxWidth: 0.5,
+          maxLines: 2,
+        );
+        expect(result, [
+          fitOneLine(text: 'Anything', style: _style, maxWidth: 0.5),
+        ]);
       },
     );
+  });
+
+  group('lineHeightOf', () {
+    test('returns a positive height for a normal style', () {
+      expect(lineHeightOf(_style), greaterThan(0));
+    });
   });
 }

@@ -274,19 +274,12 @@ void main() {
   );
 
   testWidgets(
-    'a crowded event card caps its title to one line, but an uncrowded '
-    "one still gets two — a crowded card's own narrow width was found to "
-    'silently drop a 2nd wrapped line entirely rather than paint it '
-    '(confirmed live on device: layout metrics reported two lines, only '
-    'the first one actually rendered, no ellipsis either) — capping to '
-    'one line there sidesteps that renderer-level issue rather than '
-    'triggering it',
+    'a short title still renders as exactly one line, whether the event '
+    'is crowded or not — each individually-painted line is its own '
+    'Text(maxLines: 1, overflow: clip) (see fitLines\' own doc for why), '
+    'not a single Text capped at a fixed line count',
     (tester) async {
       final anchor = DateTime(2026, 3, 10);
-      // Short (1-2 char) titles so fitOneLine (see the crowded card's own
-      // comment) never actually needs to truncate either one — this test
-      // is about the maxLines each card picks, not fitOneLine's own
-      // truncation, which week_fit_one_line_test.dart covers directly.
       when(events.watchBetween(any, any)).thenAnswer(
         (_) => Stream.value([
           event(
@@ -312,33 +305,41 @@ void main() {
 
       await pumpWeek(tester, anchor);
 
-      expect(tester.widget<Text>(find.text('C1')).maxLines, 1);
-      expect(tester.widget<Text>(find.text('C2')).maxLines, 1);
-      expect(tester.widget<Text>(find.text('A1')).maxLines, 2);
+      for (final id in ['C1', 'C2', 'A1']) {
+        expect(find.text(id), findsOneWidget);
+        expect(tester.widget<Text>(find.text(id)).maxLines, 1);
+      }
     },
   );
 
   testWidgets(
-    'a crowded event card whose title needs more than one line renders a '
-    'real second line instead of silently dropping it — regression test '
-    "for Text(maxLines: 2)'s own layout reporting two wrapped lines but "
-    'only ever painting the first one at a cascaded card\'s narrow width',
+    "a crowded card's title wraps onto more lines the taller its own box "
+    'is, rather than being stuck at a fixed cap — the whole point of '
+    "computing maxLines from the card's real (duration-based) height "
+    'instead of a constant',
     (tester) async {
       final anchor = DateTime(2026, 3, 10);
-      // Long enough that no cascaded (2-way) slice of the day column can
-      // fit it on one line, whatever the exact test viewport width is.
-      const longTitle = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+      // Same length, same (single-repeated-glyph) width per character —
+      // only the two events' durations, and so their card heights,
+      // differ. Distinct leading letters ('A'.../'B'...) so the two
+      // cards' own rendered lines can be told apart below.
+      const shortTitle = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+      const longTitle = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
       when(events.watchBetween(any, any)).thenAnswer(
         (_) => Stream.value([
+          // 30 minutes — a short, low box.
+          event(
+            id: shortTitle,
+            startAt: DateTime(2026, 3, 11, 11),
+            endAt: DateTime(2026, 3, 11, 11, 30),
+          ),
+          // 4 hours — a tall box with far more room to keep wrapping.
+          // Overlaps the short event above so both get cascaded
+          // (columnCount > 1, i.e. the same narrow width as each other).
           event(
             id: longTitle,
             startAt: DateTime(2026, 3, 11, 11),
-            endAt: DateTime(2026, 3, 11, 14),
-          ),
-          event(
-            id: 'Y2',
-            startAt: DateTime(2026, 3, 11, 11),
-            endAt: DateTime(2026, 3, 11, 14),
+            endAt: DateTime(2026, 3, 11, 15),
           ),
         ]),
       );
@@ -348,21 +349,23 @@ void main() {
 
       await pumpWeek(tester, anchor);
 
-      final xLines = tester
+      int lineCountFor(String prefix) => tester
           .widgetList<Text>(find.byType(Text))
           .map((t) => t.data ?? '')
-          .where((data) => data.startsWith('X'))
-          .toList();
+          .where((data) => data.startsWith(prefix))
+          .length;
 
+      final shortLines = lineCountFor('A');
+      final longLines = lineCountFor('B');
+      expect(shortLines, greaterThanOrEqualTo(1));
       expect(
-        xLines.length,
-        2,
+        longLines,
+        greaterThan(shortLines),
         reason:
-            'expected the title to wrap into exactly two rendered lines, '
-            'got: $xLines',
+            'the 4-hour event ($longLines line(s)) should wrap onto more '
+            'lines than the 30-minute one ($shortLines line(s)) since its '
+            'own card is taller',
       );
-      expect(xLines[0], isNot(xLines[1]));
-      expect(xLines[1], isNotEmpty);
     },
   );
 
