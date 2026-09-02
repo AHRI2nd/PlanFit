@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -66,6 +68,55 @@ double maxMonthRowHeight({
   );
 }
 
+// Height budgeted per event row in the expanded list — tuned for the tiny
+// (9px) label style [MonthView] uses there, tight enough that 2-3 events
+// still fit inside a reasonably-sized cell.
+const double _monthEventRowHeight = 12.0;
+
+// Small breathing room between the day-number circle and whatever sits
+// below it (dot/bar summary or the expanded list), and between that content
+// and the cell's own bottom edge.
+const double _monthMarkerTopGap = 1.0;
+const double _monthMarkerBottomPad = 2.0;
+
+/// The day-number circle's diameter at a given [rowHeight]/[columnWidth] —
+/// capped by *both*, never just [rowHeight] alone. [MonthCalendarRowHeight]
+/// ranges from 32 to 96, but the grid's column width barely moves (it only
+/// depends on screen width, not the split-handle drag) — sizing the circle
+/// off [rowHeight] alone let it stretch into a tall oval at the drag range's
+/// upper end and squash into a short one at its lower end, instead of
+/// staying a circle either way. In practice this settles on a single fixed
+/// size across the whole drag range (28 comfortably clears both
+/// [MonthCalendarRowHeight.min]'s height budget and a normal column's
+/// width), but still shrinks further on a narrower device/column rather
+/// than assuming that always holds.
+double monthDayNumberDiameter({
+  required double rowHeight,
+  required double columnWidth,
+}) {
+  final capped = math.min(columnWidth - 12, rowHeight - 4);
+  return capped.clamp(20.0, 28.0);
+}
+
+/// How many event-title rows fit below the day-number circle at [rowHeight]
+/// — 0 means there isn't room for a real list yet, so the caller should
+/// keep showing the compact dot/bar summary instead. See
+/// [monthDayNumberDiameter].
+int monthEventListCapacity({
+  required double rowHeight,
+  required double columnWidth,
+}) {
+  final diameter = monthDayNumberDiameter(
+    rowHeight: rowHeight,
+    columnWidth: columnWidth,
+  );
+  final numberVerticalMargin = (rowHeight - diameter) / 2;
+  final markerTop = numberVerticalMargin + diameter + _monthMarkerTopGap;
+  final available = rowHeight - markerTop - _monthMarkerBottomPad;
+  if (available < _monthEventRowHeight) return 0;
+  return (available / _monthEventRowHeight).floor().clamp(0, 5);
+}
+
 /// Month grid with per-day event dots. Tapping a day selects it and reveals
 /// that day's detail below, so month and day stay one continuous surface.
 class MonthView extends ConsumerWidget {
@@ -75,6 +126,7 @@ class MonthView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final theme = Theme.of(context);
+    final l10n = AppL10n.of(context);
     final selected = ref.watch(selectedDateProvider);
     final eventsAsync = ref.watch(eventsForMonthProvider(selected));
     final overdueAsync = ref.watch(overdueTodosProvider);
@@ -130,6 +182,21 @@ class MonthView extends ConsumerWidget {
         final effectiveRowHeight = rowHeight.clamp(
           MonthCalendarRowHeight.min,
           maxRowHeight,
+        );
+        // TableCalendar sits inside this same horizontal gutter padding, so
+        // this is its actual per-day column width — used to keep the day-
+        // number circle a true circle (not stretched by rowHeight alone)
+        // and to size the expanded event list. See monthDayNumberDiameter's
+        // doc for why rowHeight alone isn't enough to derive either from.
+        final columnWidth =
+            (constraints.maxWidth - AppSpacing.gutter * 2) / 7;
+        final numberDiameter = monthDayNumberDiameter(
+          rowHeight: effectiveRowHeight,
+          columnWidth: columnWidth,
+        );
+        final listCapacity = monthEventListCapacity(
+          rowHeight: effectiveRowHeight,
+          columnWidth: columnWidth,
         );
 
         return Column(
@@ -209,74 +276,152 @@ class MonthView extends ConsumerWidget {
                     // there for contrast instead.
                     final isSelected = d == dateOnly(selected);
 
+                    Widget spanBar({required bool asListRow}) {
+                      // Only the first spanning event gets a bar — a packed
+                      // month cell has no room for more than one, and
+                      // stacking several would crowd the day number.
+                      final e = spanning.first;
+                      final span = eventDaysInRange(e, monthStart, monthEnd);
+                      final isFirst = span.first == d;
+                      final isLast = span.last == d;
+                      final color = EventColorTag.resolve(
+                        e.colorTag,
+                        e.startAt,
+                      );
+                      final bar = Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.white : color,
+                          borderRadius: BorderRadius.horizontal(
+                            left: isFirst
+                                ? const Radius.circular(2)
+                                : Radius.zero,
+                            right: isLast
+                                ? const Radius.circular(2)
+                                : Radius.zero,
+                          ),
+                        ),
+                      );
+                      if (!asListRow) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: bar,
+                        );
+                      }
+                      // In the expanded list, every row (this bar included)
+                      // gets the same fixed height so the list's own
+                      // capacity math (monthEventListCapacity) stays exact.
+                      return SizedBox(
+                        height: _monthEventRowHeight,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: bar,
+                          ),
+                        ),
+                      );
+                    }
+
+                    // Below monthEventListCapacity's own threshold: same
+                    // compact dot/bar summary this has always shown.
+                    if (listCapacity <= 0) {
+                      return Positioned(
+                        left: 0,
+                        right: 0,
+                        // Lifted well clear of the cell's bottom edge so it reads
+                        // as sitting inside the selected/today circle, not clipped
+                        // against it.
+                        bottom: 6,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (spanning.isNotEmpty) spanBar(asListRow: false),
+                            if (dots.isNotEmpty || hasOverdueTodo || hasTodo)
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : calendarDotColor(
+                                          palette: palette,
+                                          hasEvent: dots.isNotEmpty,
+                                          hasTodo: hasTodo,
+                                          hasOverdueTodo: hasOverdueTodo,
+                                        ),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Room for a real list — show each event's own title
+                    // (and its own color) instead of a single generic dot,
+                    // with a to-do row appended when there's a pending one.
+                    final items = <Widget>[
+                      if (spanning.isNotEmpty) spanBar(asListRow: true),
+                      for (final e in dots)
+                        _MonthEventListRow(
+                          color: EventColorTag.resolve(e.colorTag, e.startAt),
+                          label: e.title.isEmpty ? '—' : e.title,
+                          isSelected: isSelected,
+                        ),
+                      if (hasOverdueTodo || hasTodo)
+                        _MonthEventListRow(
+                          color: calendarDotColor(
+                            palette: palette,
+                            hasEvent: false,
+                            hasTodo: hasTodo,
+                            hasOverdueTodo: hasOverdueTodo,
+                          )!,
+                          label: l10n.todosSectionTitle,
+                          isSelected: isSelected,
+                        ),
+                    ];
+                    final visible = items.length <= listCapacity
+                        ? items
+                        : [
+                            // Reserve the list's last visible slot for a
+                            // "+N" hint instead of silently dropping
+                            // whatever doesn't fit with no trace of it.
+                            ...items.take(listCapacity - 1),
+                            _MonthMoreRow(
+                              count: items.length - (listCapacity - 1),
+                              isSelected: isSelected,
+                            ),
+                          ];
+
                     return Positioned(
                       left: 0,
                       right: 0,
-                      // Lifted well clear of the cell's bottom edge so it reads
-                      // as sitting inside the selected/today circle, not clipped
-                      // against it.
-                      bottom: 6,
+                      top:
+                          ((effectiveRowHeight - numberDiameter) / 2) +
+                          numberDiameter +
+                          _monthMarkerTopGap,
+                      bottom: _monthMarkerBottomPad,
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (spanning.isNotEmpty)
-                            Builder(
-                              builder: (context) {
-                                // Only the first spanning event gets a bar — a
-                                // packed month cell has no room for more than one,
-                                // and stacking several would crowd the day number.
-                                final e = spanning.first;
-                                final span = eventDaysInRange(
-                                  e,
-                                  monthStart,
-                                  monthEnd,
-                                );
-                                final isFirst = span.first == d;
-                                final isLast = span.last == d;
-                                final color = EventColorTag.resolve(
-                                  e.colorTag,
-                                  e.startAt,
-                                );
-                                return Container(
-                                  height: 4,
-                                  margin: const EdgeInsets.only(bottom: 2),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? Colors.white : color,
-                                    borderRadius: BorderRadius.horizontal(
-                                      left: isFirst
-                                          ? const Radius.circular(2)
-                                          : Radius.zero,
-                                      right: isLast
-                                          ? const Radius.circular(2)
-                                          : Radius.zero,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          if (dots.isNotEmpty || hasOverdueTodo || hasTodo)
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? Colors.white
-                                    : calendarDotColor(
-                                        palette: palette,
-                                        hasEvent: dots.isNotEmpty,
-                                        hasTodo: hasTodo,
-                                        hasOverdueTodo: hasOverdueTodo,
-                                      ),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                        ],
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: visible,
                       ),
                     );
                   },
                 ),
                 calendarStyle: CalendarStyle(
                   outsideDaysVisible: false,
+                  // Vertical margin derived from numberDiameter (fixed
+                  // regardless of rowHeight — see its own doc), not a flat
+                  // constant: table_calendar sizes the day-number circle to
+                  // whatever's left after this margin is subtracted from
+                  // the cell, so a flat margin let the circle stretch into
+                  // an oval at both ends of the split handle's drag range
+                  // instead of staying round.
+                  cellMargin: EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: (effectiveRowHeight - numberDiameter) / 2,
+                  ),
                   defaultTextStyle: theme.textTheme.bodyLarge!,
                   weekendTextStyle: theme.textTheme.bodyLarge!,
                   todayDecoration: BoxDecoration(
@@ -312,6 +457,85 @@ class MonthView extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// One event's title in a month cell's expanded list — see
+/// [monthEventListCapacity]. A small leading dot in the event's own color
+/// (unlike the collapsed dot summary, which is deliberately blind to any
+/// individual event's color — see [calendarDotColor]'s doc) plus its title,
+/// both sized to fit inside [_monthEventRowHeight].
+class _MonthEventListRow extends StatelessWidget {
+  const _MonthEventListRow({
+    required this.color,
+    required this.label,
+    required this.isSelected,
+  });
+
+  final Color color;
+  final String label;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return SizedBox(
+      height: _monthEventRowHeight,
+      child: Row(
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            margin: const EdgeInsets.only(right: 3),
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.white : color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9,
+                height: 1.1,
+                color: isSelected ? Colors.white : palette.inkSoft,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The expanded list's overflow row — "+N" for however many items didn't
+/// fit in [monthEventListCapacity]'s budget, rather than the list silently
+/// dropping them with no trace they exist.
+class _MonthMoreRow extends StatelessWidget {
+  const _MonthMoreRow({required this.count, required this.isSelected});
+
+  final int count;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return SizedBox(
+      height: _monthEventRowHeight,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          '+$count',
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? Colors.white : palette.inkFaint,
+          ),
+        ),
+      ),
     );
   }
 }
