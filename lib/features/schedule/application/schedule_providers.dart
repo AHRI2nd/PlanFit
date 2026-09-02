@@ -62,12 +62,12 @@ final scheduleViewProvider = NotifierProvider<ScheduleViewMode, ScheduleView>(
 class MonthCalendarRowHeight extends Notifier<double> {
   static const _key = 'schedule.monthCalendarRowHeight';
 
-  /// Below this, there's no longer room for both a legible day-number
-  /// circle and the dot/bar marker sitting just under it without the two
-  /// overlapping — see monthDayNumberDiameter's doc for the exact budget
-  /// this floor is tuned against. Above [max], a short month leaves little
-  /// room for the day timeline underneath.
-  static const min = 38.0;
+  /// The day-number circle is a fixed size regardless of this drag range
+  /// (see monthDayNumberDiameter's doc) — below this floor, there's no
+  /// longer room for that fixed circle *and* the dot/bar marker sitting
+  /// just under it without the two overlapping. Above [max], a short month
+  /// leaves little room for the day timeline underneath.
+  static const min = 44.0;
   static const max = 96.0;
 
   /// table_calendar's own built-in default — unadjusted rows match today's
