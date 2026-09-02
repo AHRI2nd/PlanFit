@@ -207,9 +207,11 @@
   "settingsVersion": "Version",
 
   "settingsData": "Data",
-  "settingsExport": "Export",
+  "settingsDataBackupSection": "Backup",
+  "settingsDataIcsSection": "Calendar file (.ics)",
+  "settingsExport": "Export full backup",
   "settingsExportDesc": "Save every event and to-do into one file",
-  "settingsImport": "Import",
+  "settingsImport": "Import full backup",
   "settingsImportDesc": "Restore events and to-dos from an exported file",
   "settingsExportIcs": "Export as calendar file",
   "settingsExportIcsDesc": "A standard file (.ics) other calendar apps can open",

@@ -518,13 +518,19 @@ class AppL10nEn extends AppL10n {
   String get settingsData => 'Data';
 
   @override
-  String get settingsExport => 'Export';
+  String get settingsDataBackupSection => 'Backup';
+
+  @override
+  String get settingsDataIcsSection => 'Calendar file (.ics)';
+
+  @override
+  String get settingsExport => 'Export full backup';
 
   @override
   String get settingsExportDesc => 'Save every event and to-do into one file';
 
   @override
-  String get settingsImport => 'Import';
+  String get settingsImport => 'Import full backup';
 
   @override
   String get settingsImportDesc =>

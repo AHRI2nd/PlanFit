@@ -390,6 +390,12 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
 
             SectionHeader(l10n.settingsData),
+            // Split into two labeled groups instead of one flat stack of 5
+            // rows — "내보내기"/"가져오기" alone (now "전체 백업
+            // 내보내기"/"가져오기") used to read as near-duplicates of the
+            // .ics rows below them; grouping under an explicit subtitle
+            // does more to separate them than the label wording alone can.
+            _DataSubsectionLabel(l10n.settingsDataBackupSection),
             SectionCard(
               children: [
                 _ActionRow(
@@ -406,6 +412,16 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: importBackup,
                 ),
                 const _RowDivider(),
+                _NavRow(
+                  title: l10n.settingsAutoBackup,
+                  onTap: () => context.go('/settings/auto-backup'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DataSubsectionLabel(l10n.settingsDataIcsSection),
+            SectionCard(
+              children: [
                 _ActionRow(
                   title: l10n.settingsExportIcs,
                   subtitle: l10n.settingsExportIcsDesc,
@@ -418,11 +434,6 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: l10n.settingsImportIcsDesc,
                   icon: Icons.event_available_outlined,
                   onTap: importIcs,
-                ),
-                const _RowDivider(),
-                _NavRow(
-                  title: l10n.settingsAutoBackup,
-                  onTap: () => context.go('/settings/auto-backup'),
                 ),
               ],
             ),
@@ -444,6 +455,31 @@ class _RowDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Divider(height: 1, color: context.palette.hairline);
+}
+
+/// A small label above one of two or more [SectionCard]s that together make
+/// up a single [SectionHeader]'d section — one step quieter than
+/// [SectionHeader] itself, since it's a subdivision within an already-named
+/// section rather than a new one.
+class _DataSubsectionLabel extends StatelessWidget {
+  const _DataSubsectionLabel(this.title);
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: AppSpacing.xxs,
+        bottom: AppSpacing.xs,
+      ),
+      child: Text(
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: context.palette.inkFaint),
+      ),
+    );
+  }
 }
 
 class _SwitchRow extends StatelessWidget {

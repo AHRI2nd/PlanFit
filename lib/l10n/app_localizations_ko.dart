@@ -498,13 +498,19 @@ class AppL10nKo extends AppL10n {
   String get settingsData => '데이터';
 
   @override
-  String get settingsExport => '내보내기';
+  String get settingsDataBackupSection => '백업';
+
+  @override
+  String get settingsDataIcsSection => '캘린더 파일 (.ics)';
+
+  @override
+  String get settingsExport => '전체 백업 내보내기';
 
   @override
   String get settingsExportDesc => '모든 일정과 할 일을 파일 하나로 저장해요';
 
   @override
-  String get settingsImport => '가져오기';
+  String get settingsImport => '전체 백업 가져오기';
 
   @override
   String get settingsImportDesc => '내보낸 파일에서 일정과 할 일을 복원해요';

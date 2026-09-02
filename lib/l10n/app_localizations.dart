@@ -1021,10 +1021,22 @@ abstract class AppL10n {
   /// **'데이터'**
   String get settingsData;
 
+  /// No description provided for @settingsDataBackupSection.
+  ///
+  /// In ko, this message translates to:
+  /// **'백업'**
+  String get settingsDataBackupSection;
+
+  /// No description provided for @settingsDataIcsSection.
+  ///
+  /// In ko, this message translates to:
+  /// **'캘린더 파일 (.ics)'**
+  String get settingsDataIcsSection;
+
   /// No description provided for @settingsExport.
   ///
   /// In ko, this message translates to:
-  /// **'내보내기'**
+  /// **'전체 백업 내보내기'**
   String get settingsExport;
 
   /// No description provided for @settingsExportDesc.
@@ -1036,7 +1048,7 @@ abstract class AppL10n {
   /// No description provided for @settingsImport.
   ///
   /// In ko, this message translates to:
-  /// **'가져오기'**
+  /// **'전체 백업 가져오기'**
   String get settingsImport;
 
   /// No description provided for @settingsImportDesc.
