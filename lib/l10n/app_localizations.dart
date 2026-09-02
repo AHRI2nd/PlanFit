@@ -1591,6 +1591,18 @@ abstract class AppL10n {
   /// **'시간 없음'**
   String get todoNoTime;
 
+  /// No description provided for @todoMoreOptions.
+  ///
+  /// In ko, this message translates to:
+  /// **'옵션 더 보기 (우선순위, 반복, 시간 없음)'**
+  String get todoMoreOptions;
+
+  /// No description provided for @todoFewerOptions.
+  ///
+  /// In ko, this message translates to:
+  /// **'옵션 접기'**
+  String get todoFewerOptions;
+
   /// No description provided for @todoRepeatIndicator.
   ///
   /// In ko, this message translates to:

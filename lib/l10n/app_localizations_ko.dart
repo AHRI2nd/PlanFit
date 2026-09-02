@@ -800,6 +800,12 @@ class AppL10nKo extends AppL10n {
   String get todoNoTime => '시간 없음';
 
   @override
+  String get todoMoreOptions => '옵션 더 보기 (우선순위, 반복, 시간 없음)';
+
+  @override
+  String get todoFewerOptions => '옵션 접기';
+
+  @override
   String get todoRepeatIndicator => '반복되는 할 일';
 
   @override

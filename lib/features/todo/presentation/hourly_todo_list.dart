@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/quick_add/quick_add_parser.dart';
 import '../../../design/tokens/app_colors.dart';
+import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
@@ -53,6 +54,14 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
   RecurrenceFrequency _addRecurrence = RecurrenceFrequency.none;
   bool _addHasTime = true;
   TodoPriority _addPriority = TodoPriority.none;
+
+  /// Whether the priority/repeat/no-time controls are expanded below the
+  /// main add row — collapsed by default so the "quick" add row actually
+  /// reads as quick (add icon + text field + time chip), not a five-control
+  /// wall. Deliberately not reset in [didUpdateWidget] on a day change —
+  /// it's a display preference, not per-day data, so it stays as the user
+  /// left it while paging between days.
+  bool _addOptionsExpanded = false;
 
   /// Multi-select state, entered by long-pressing any tile — see
   /// `_TodoTile.onEnterSelection`. `_selectedIds` is only ever non-empty
@@ -307,106 +316,170 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
             borderRadius: AppRadius.cardMd,
             border: Border.all(color: palette.hairline),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(Icons.add, size: 20, color: palette.inkFaint),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _addFocusNode,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _add(),
-                  decoration: InputDecoration(
-                    hintText: l10n.todoHint,
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.sm,
-                    ),
-                  ),
-                ),
-              ),
-              PopupMenuButton<TodoPriority>(
-                tooltip: l10n.todoPriorityLabel,
-                initialValue: _addPriority,
-                onSelected: (v) => setState(() => _addPriority = v),
-                itemBuilder: (context) => TodoPriority.values
-                    .map(
-                      (p) =>
-                          PopupMenuItem(value: p, child: Text(p.label(l10n))),
-                    )
-                    .toList(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xxs,
-                    vertical: AppSpacing.xxs,
-                  ),
-                  child: Icon(
-                    _addPriority == TodoPriority.none
-                        ? Icons.flag_outlined
-                        : Icons.flag,
-                    size: 18,
-                    color: _addPriority.color(palette) ?? palette.inkFaint,
-                  ),
-                ),
-              ),
-              PopupMenuButton<RecurrenceFrequency>(
-                tooltip: l10n.todoRepeat,
-                initialValue: _addRecurrence,
-                onSelected: (v) => setState(() => _addRecurrence = v),
-                itemBuilder: (context) => RecurrenceFrequency.values
-                    .map(
-                      (f) => PopupMenuItem(
-                        value: f,
-                        child: Text(_recurrenceLabel(l10n, f)),
+              Row(
+                children: [
+                  Icon(Icons.add, size: 20, color: palette.inkFaint),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _addFocusNode,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _add(),
+                      decoration: InputDecoration(
+                        hintText: l10n.todoHint,
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm,
+                        ),
                       ),
-                    )
-                    .toList(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xxs,
-                    vertical: AppSpacing.xxs,
-                  ),
-                  child: Icon(
-                    Icons.repeat_rounded,
-                    size: 18,
-                    color: repeating ? palette.accent : palette.inkFaint,
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: _pickAddTime,
-                borderRadius: BorderRadius.all(AppRadius.xs),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                    vertical: AppSpacing.xxs,
-                  ),
-                  child: Text(
-                    _addHasTime ? _addTime.format(context) : l10n.todoNoTime,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _addHasTime ? palette.inkSoft : palette.accent,
                     ),
                   ),
-                ),
+                  InkWell(
+                    onTap: _pickAddTime,
+                    borderRadius: BorderRadius.all(AppRadius.xs),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: AppSpacing.xxs,
+                      ),
+                      child: Text(
+                        _addHasTime
+                            ? _addTime.format(context)
+                            : l10n.todoNoTime,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelMedium?.copyWith(
+                          color: _addHasTime
+                              ? palette.inkSoft
+                              : palette.accent,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Priority/repeat/no-time all sit behind this toggle by
+                  // default (see _addOptionsExpanded's doc) — tinted accent
+                  // whenever one of them is set to something non-default,
+                  // so a collapsed panel never silently hides an active
+                  // choice from view.
+                  IconButton(
+                    tooltip: _addOptionsExpanded
+                        ? l10n.todoFewerOptions
+                        : l10n.todoMoreOptions,
+                    onPressed: () => setState(
+                      () => _addOptionsExpanded = !_addOptionsExpanded,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      _addOptionsExpanded ? Icons.expand_less : Icons.tune,
+                      size: 18,
+                      color: (repeating || _addPriority != TodoPriority.none)
+                          ? palette.accent
+                          : palette.inkFaint,
+                    ),
+                  ),
+                ],
               ),
-              // Toggles between a picked time and no-time-at-all — tapping
-              // the chip above always sets a concrete time (that's what
-              // showTimePicker does), so clearing it needs its own control.
-              IconButton(
-                tooltip: l10n.todoNoTime,
-                onPressed: () => setState(() => _addHasTime = !_addHasTime),
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  _addHasTime
-                      ? Icons.timer_off_outlined
-                      : Icons.access_time_outlined,
-                  size: 16,
-                  color: palette.inkFaint,
+              AnimatedSize(
+                duration: context.motionDuration(
+                  const Duration(milliseconds: 180),
                 ),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                child: !_addOptionsExpanded
+                    ? const SizedBox(width: double.infinity)
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            PopupMenuButton<TodoPriority>(
+                              tooltip: l10n.todoPriorityLabel,
+                              initialValue: _addPriority,
+                              onSelected: (v) =>
+                                  setState(() => _addPriority = v),
+                              itemBuilder: (context) => TodoPriority.values
+                                  .map(
+                                    (p) => PopupMenuItem(
+                                      value: p,
+                                      child: Text(p.label(l10n)),
+                                    ),
+                                  )
+                                  .toList(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xxs,
+                                  vertical: AppSpacing.xxs,
+                                ),
+                                child: Icon(
+                                  _addPriority == TodoPriority.none
+                                      ? Icons.flag_outlined
+                                      : Icons.flag,
+                                  size: 18,
+                                  color:
+                                      _addPriority.color(palette) ??
+                                      palette.inkFaint,
+                                ),
+                              ),
+                            ),
+                            PopupMenuButton<RecurrenceFrequency>(
+                              tooltip: l10n.todoRepeat,
+                              initialValue: _addRecurrence,
+                              onSelected: (v) =>
+                                  setState(() => _addRecurrence = v),
+                              itemBuilder: (context) =>
+                                  RecurrenceFrequency.values
+                                      .map(
+                                        (f) => PopupMenuItem(
+                                          value: f,
+                                          child: Text(
+                                            _recurrenceLabel(l10n, f),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xxs,
+                                  vertical: AppSpacing.xxs,
+                                ),
+                                child: Icon(
+                                  Icons.repeat_rounded,
+                                  size: 18,
+                                  color: repeating
+                                      ? palette.accent
+                                      : palette.inkFaint,
+                                ),
+                              ),
+                            ),
+                            // Toggles between a picked time and no-time-at-
+                            // all — tapping the chip in the row above always
+                            // sets a concrete time (that's what
+                            // showTimePicker does), so clearing it needs its
+                            // own control.
+                            IconButton(
+                              tooltip: l10n.todoNoTime,
+                              onPressed: () => setState(
+                                () => _addHasTime = !_addHasTime,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                _addHasTime
+                                    ? Icons.timer_off_outlined
+                                    : Icons.access_time_outlined,
+                                size: 16,
+                                color: palette.inkFaint,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),

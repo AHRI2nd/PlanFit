@@ -331,6 +331,8 @@
   "todoHint": "Enter a to-do",
   "todoRepeat": "Repeat",
   "todoNoTime": "No time",
+  "todoMoreOptions": "More options (priority, repeat, no time)",
+  "todoFewerOptions": "Fewer options",
   "todoRepeatIndicator": "Recurring to-do",
   "todoDragHandle": "Reorder",
   "todoDeleteSeriesTitle": "Delete recurring to-do",
