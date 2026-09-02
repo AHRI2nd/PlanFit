@@ -11,6 +11,20 @@ import '../time/timezone_setup.dart';
 import '../../features/schedule/domain/ports.dart';
 import 'notification_window.dart';
 
+/// `PlatformDispatcher.instance.locale`, not `Localizations.localeOf` — this
+/// file's own strings (the notification channel name shown in system
+/// settings, the snooze action label, a title-less event/to-do's fallback
+/// title) reach both `NotificationService`'s own methods and a background
+/// isolate's top-level `handleNotificationAction`/
+/// `_onBackgroundNotificationResponse` (a real notification action tap with
+/// the app fully terminated), neither of which has a `BuildContext` to read
+/// `AppLocalizations` from. Same pattern `holiday_calendar_service.dart`'s
+/// `defaultHolidayCountryCode` already established for the same reason —
+/// without it, these were hardcoded Korean literals every locale saw
+/// regardless of device language.
+bool _isKoreanLocale() =>
+    PlatformDispatcher.instance.locale.languageCode == 'ko';
+
 /// Wraps `flutter_local_notifications` and implements the [NotificationPort]
 /// the event repository drives. An event (or a to-do — see
 /// `TodoAlertX.reminderOffsets`) can have more than one reminder; each
@@ -38,8 +52,10 @@ class NotificationService implements NotificationPort {
   void Function(NotificationResponse response)? onTap;
 
   static const String _channelId = 'planfit_events';
-  static const String _channelName = '일정 알림';
-  static const String _channelDescription = '일정이 시작될 때 알려드려요';
+  static String get _channelName =>
+      _isKoreanLocale() ? '일정 알림' : 'Event reminders';
+  static String get _channelDescription =>
+      _isKoreanLocale() ? '일정이 시작될 때 알려드려요' : 'Alerts you when an event starts';
 
   /// Action/category ids shared with the top-level background handler below
   /// — a "5 minutes from now" snooze that re-fires the same notification
@@ -47,7 +63,8 @@ class NotificationService implements NotificationPort {
   /// false on both platforms).
   static const String snoozeActionId = 'snooze';
   static const String _categoryId = 'planfit_event';
-  static const String snoozeLabel = '5분 뒤 다시 알림';
+  static String get snoozeLabel =>
+      _isKoreanLocale() ? '5분 뒤 다시 알림' : 'Remind me in 5 min';
   static const Duration snoozeDuration = Duration(minutes: 5);
 
   Future<void> init() async {
@@ -140,7 +157,7 @@ class NotificationService implements NotificationPort {
       importance: Importance.high,
       priority: Priority.high,
       playSound: soundEnabled,
-      actions: const [
+      actions: [
         AndroidNotificationAction(
           snoozeActionId,
           snoozeLabel,
@@ -224,7 +241,9 @@ class NotificationService implements NotificationPort {
     required AndroidScheduleMode mode,
   }) {
     if (alertAt == null) return _plugin.cancel(id: id);
-    final title = event.title.isEmpty ? '일정' : event.title;
+    final title = event.title.isEmpty
+        ? (_isKoreanLocale() ? '일정' : 'Event')
+        : event.title;
     return _plugin.zonedSchedule(
       id: id,
       title: title,
@@ -354,7 +373,9 @@ class NotificationService implements NotificationPort {
         : AndroidScheduleMode.inexactAllowWhileIdle;
     final now = DateTime.now();
     final selected = todo.reminderOffsets.toSet();
-    final title = todo.title.isEmpty ? '할 일' : todo.title;
+    final title = todo.title.isEmpty
+        ? (_isKoreanLocale() ? '할 일' : 'To-do')
+        : todo.title;
 
     for (final offset in reminderOffsetOptions) {
       final id = todoNotificationId(todo.id, offset);
@@ -447,7 +468,7 @@ Future<void> handleNotificationAction(
     channelDescription: NotificationService._channelDescription,
     importance: Importance.high,
     priority: Priority.high,
-    actions: const [
+    actions: [
       AndroidNotificationAction(
         NotificationService.snoozeActionId,
         NotificationService.snoozeLabel,
@@ -476,7 +497,7 @@ Future<void> handleNotificationAction(
 
   await plugin.zonedSchedule(
     id: notificationId,
-    title: data['title'] as String? ?? '일정',
+    title: data['title'] as String? ?? (_isKoreanLocale() ? '일정' : 'Event'),
     body: data['body'] as String?,
     scheduledDate: TimezoneSetup.toLocal(
       DateTime.now().add(NotificationService.snoozeDuration),
