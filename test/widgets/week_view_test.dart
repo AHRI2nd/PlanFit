@@ -366,6 +366,38 @@ void main() {
     },
   );
 
+  testWidgets(
+    "the hour grid's scroll view reserves real clearance below its last "
+    "hour — regression test for the floating glass nav bar (which lives "
+    'outside this screen\'s own Scaffold, so nothing reserves space for it '
+    'automatically) permanently covering the last couple of hours (e.g. '
+    '22시+) even at max scroll extent',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.byType(SingleChildScrollView),
+      );
+      final bottomPadding = scrollView.padding?.resolve(TextDirection.ltr).bottom ?? 0;
+      expect(
+        bottomPadding,
+        greaterThanOrEqualTo(100),
+        reason:
+            'day_view.dart and agenda_view.dart both reserve 140 for the '
+            'same floating nav bar — a much smaller value (e.g. '
+            'AppSpacing.lg = 24) leaves the last hour(s) hidden behind it',
+      );
+    },
+  );
+
   group(
     'swiping the page (header, strip, or grid) navigates by whole weeks',
     () {

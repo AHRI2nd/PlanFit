@@ -352,7 +352,14 @@ class _WeekPageContent extends ConsumerWidget {
             const Divider(height: 1),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                // 140, not AppSpacing.lg — the floating glass nav bar lives
+                // outside this screen's own Scaffold (in AppShell) so
+                // nothing reserves space for it automatically; without this
+                // much clearance the last couple of hours (e.g. 22시+) stay
+                // permanently hidden behind it even at max scroll extent.
+                // Same value day_view.dart's and agenda_view.dart's own
+                // bottom-of-list padding already use for the same reason.
+                padding: const EdgeInsets.only(bottom: 140),
                 child: SizedBox(
                   height: WeekView._hourHeight * 24,
                   child: _WeekGrid(
