@@ -10,9 +10,49 @@ const _typicalColumnWidth = 52.0;
 
 void main() {
   test(
-    'stays the same fixed diameter at both ends of the row-height drag '
-    'range, instead of stretching into an oval the way sizing off rowHeight '
-    'alone used to',
+    'never overlaps the collapsed dot/bar summary sitting just below it, at '
+    'any rowHeight in the drag range — regression test for the circle '
+    'growing large enough at the shortest allowed row to collide with the '
+    'marker underneath it',
+    () {
+      for (
+        var rowHeight = MonthCalendarRowHeight.min;
+        rowHeight <= MonthCalendarRowHeight.max;
+        rowHeight += 2
+      ) {
+        final available =
+            rowHeight -
+            monthMarkerTop(
+              rowHeight: rowHeight,
+              columnWidth: _typicalColumnWidth,
+            ) -
+            monthMarkerBottomPad;
+        expect(
+          available,
+          greaterThanOrEqualTo(monthCollapsedDotSize),
+          reason: 'at rowHeight $rowHeight',
+        );
+      }
+    },
+  );
+
+  test('caps out at a single fixed diameter for the top of the drag range, '
+      "instead of stretching into an oval the way sizing off rowHeight alone "
+      'used to', () {
+    final atMax = monthDayNumberDiameter(
+      rowHeight: MonthCalendarRowHeight.max,
+      columnWidth: _typicalColumnWidth,
+    );
+    final aboveDefault = monthDayNumberDiameter(
+      rowHeight: MonthCalendarRowHeight.defaultHeight + 20,
+      columnWidth: _typicalColumnWidth,
+    );
+    expect(atMax, aboveDefault);
+  });
+
+  test(
+    'shrinks toward the shortest allowed rowHeight instead of overlapping '
+    'the marker, but never below its own legible floor',
     () {
       final atMin = monthDayNumberDiameter(
         rowHeight: MonthCalendarRowHeight.min,
@@ -22,7 +62,8 @@ void main() {
         rowHeight: MonthCalendarRowHeight.max,
         columnWidth: _typicalColumnWidth,
       );
-      expect(atMin, atMax);
+      expect(atMin, lessThan(atMax));
+      expect(atMin, greaterThanOrEqualTo(20.0));
     },
   );
 
@@ -35,7 +76,7 @@ void main() {
   });
 
   test(
-    'shrinks below its usual fixed size on a narrower column, rather than '
+    'shrinks below its usual size on a narrower column, rather than '
     'overflowing it',
     () {
       final narrow = monthDayNumberDiameter(

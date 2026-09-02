@@ -75,27 +75,55 @@ const double _monthEventRowHeight = 12.0;
 
 // Small breathing room between the day-number circle and whatever sits
 // below it (dot/bar summary or the expanded list), and between that content
-// and the cell's own bottom edge.
+// and the cell's own bottom edge. Shared by both the collapsed and expanded
+// marker, and by monthDayNumberDiameter's own budget — see its doc.
 const double _monthMarkerTopGap = 1.0;
-const double _monthMarkerBottomPad = 2.0;
+const double _monthMarkerBottomPad = 1.0;
+
+// The collapsed dot/bar summary's plain dot — also a named constant (not
+// just a literal on the Container below) because monthDayNumberDiameter
+// needs to budget room for exactly this size, not guess at it.
+const double _monthCollapsedDotSize = 6.0;
 
 /// The day-number circle's diameter at a given [rowHeight]/[columnWidth] —
 /// capped by *both*, never just [rowHeight] alone. [MonthCalendarRowHeight]
-/// ranges from 32 to 96, but the grid's column width barely moves (it only
-/// depends on screen width, not the split-handle drag) — sizing the circle
-/// off [rowHeight] alone let it stretch into a tall oval at the drag range's
-/// upper end and squash into a short one at its lower end, instead of
-/// staying a circle either way. In practice this settles on a single fixed
-/// size across the whole drag range (28 comfortably clears both
-/// [MonthCalendarRowHeight.min]'s height budget and a normal column's
-/// width), but still shrinks further on a narrower device/column rather
-/// than assuming that always holds.
+/// ranges from [MonthCalendarRowHeight.min] to `.max`, but the grid's
+/// column width barely moves (it only depends on screen width, not the
+/// split-handle drag) — sizing the circle off [rowHeight] alone let it
+/// stretch into a tall oval at the drag range's upper end and squash into a
+/// short one at its lower end, instead of staying a circle either way.
+///
+/// The subtracted term also isn't just "a little breathing room": it's
+/// sized so the collapsed dot/bar summary (or the expanded list — see
+/// [monthEventListCapacity]) always has at least [_monthCollapsedDotSize]
+/// of clearance below the circle, at every [rowHeight] down to
+/// [MonthCalendarRowHeight.min]. A flat, smaller subtraction let the circle
+/// grow large enough at the shortest allowed row that its own bottom edge
+/// overlapped the dot sitting just underneath it.
 double monthDayNumberDiameter({
   required double rowHeight,
   required double columnWidth,
 }) {
-  final capped = math.min(columnWidth - 12, rowHeight - 4);
+  final reserved =
+      2 * (_monthCollapsedDotSize + _monthMarkerTopGap + _monthMarkerBottomPad) +
+      2; // +2: a little extra slack so the dot clears the circle, not just touches it.
+  final capped = math.min(columnWidth - 12, rowHeight - reserved);
   return capped.clamp(20.0, 28.0);
+}
+
+/// Where the marker area (the collapsed dot/bar summary, or the expanded
+/// list — see [monthEventListCapacity]) starts, in pixels from the cell's
+/// own top edge — always right below [monthDayNumberDiameter]'s circle
+/// plus a small gap, at every [rowHeight]. The single source of truth both
+/// the collapsed and expanded branches in [MonthView] position themselves
+/// against, so the two can never drift out of sync with each other.
+double monthMarkerTop({required double rowHeight, required double columnWidth}) {
+  final diameter = monthDayNumberDiameter(
+    rowHeight: rowHeight,
+    columnWidth: columnWidth,
+  );
+  final numberVerticalMargin = (rowHeight - diameter) / 2;
+  return numberVerticalMargin + diameter + _monthMarkerTopGap;
 }
 
 /// How many event-title rows fit below the day-number circle at [rowHeight]
@@ -106,16 +134,20 @@ int monthEventListCapacity({
   required double rowHeight,
   required double columnWidth,
 }) {
-  final diameter = monthDayNumberDiameter(
-    rowHeight: rowHeight,
-    columnWidth: columnWidth,
-  );
-  final numberVerticalMargin = (rowHeight - diameter) / 2;
-  final markerTop = numberVerticalMargin + diameter + _monthMarkerTopGap;
-  final available = rowHeight - markerTop - _monthMarkerBottomPad;
+  final available =
+      rowHeight -
+      monthMarkerTop(rowHeight: rowHeight, columnWidth: columnWidth) -
+      _monthMarkerBottomPad;
   if (available < _monthEventRowHeight) return 0;
   return (available / _monthEventRowHeight).floor().clamp(0, 5);
 }
+
+// Public aliases of this file's own private layout constants, purely so
+// tests can verify the no-overlap invariant (rowHeight - monthMarkerTop(...)
+// - monthMarkerBottomPad >= monthCollapsedDotSize) using this file's actual
+// tuning instead of a second, easily-stale copy of the same numbers.
+const double monthMarkerBottomPad = _monthMarkerBottomPad;
+const double monthCollapsedDotSize = _monthCollapsedDotSize;
 
 /// Month grid with per-day event dots. Tapping a day selects it and reveals
 /// that day's detail below, so month and day stay one continuous surface.
@@ -323,24 +355,33 @@ class MonthView extends ConsumerWidget {
                       );
                     }
 
+                    // Where the day-number circle's own bottom edge actually
+                    // lands at this rowHeight — shared by both branches
+                    // below so the marker always starts right under it,
+                    // never overlapping it. See monthDayNumberDiameter's
+                    // doc for why this can't just be a flat offset from the
+                    // cell's own bottom edge instead.
+                    final markerTop =
+                        ((effectiveRowHeight - numberDiameter) / 2) +
+                        numberDiameter +
+                        _monthMarkerTopGap;
+
                     // Below monthEventListCapacity's own threshold: same
                     // compact dot/bar summary this has always shown.
                     if (listCapacity <= 0) {
                       return Positioned(
                         left: 0,
                         right: 0,
-                        // Lifted well clear of the cell's bottom edge so it reads
-                        // as sitting inside the selected/today circle, not clipped
-                        // against it.
-                        bottom: 6,
+                        top: markerTop,
+                        bottom: _monthMarkerBottomPad,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (spanning.isNotEmpty) spanBar(asListRow: false),
                             if (dots.isNotEmpty || hasOverdueTodo || hasTodo)
                               Container(
-                                width: 6,
-                                height: 6,
+                                width: _monthCollapsedDotSize,
+                                height: _monthCollapsedDotSize,
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? Colors.white
@@ -397,10 +438,7 @@ class MonthView extends ConsumerWidget {
                     return Positioned(
                       left: 0,
                       right: 0,
-                      top:
-                          ((effectiveRowHeight - numberDiameter) / 2) +
-                          numberDiameter +
-                          _monthMarkerTopGap,
+                      top: markerTop,
                       bottom: _monthMarkerBottomPad,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
