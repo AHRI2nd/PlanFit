@@ -166,6 +166,111 @@ void main() {
   });
 
   testWidgets(
+    'returning to the tab within the same session restores the last '
+    'scroll offset instead of re-anchoring to today again — the '
+    'anchor-to-today behavior is only for a genuinely fresh app launch',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          for (var i = 1; i <= 6; i++)
+            event(
+              id: 'past$i',
+              title: 'Past $i',
+              startAt: DateTime(2026, 3, 10 - i, 9),
+            ),
+          event(
+            id: 'today',
+            title: 'Anchor day event',
+            startAt: DateTime(2026, 3, 10, 9),
+          ),
+          // Enough future entries that the initial anchor scroll (which
+          // lands the anchor day at the very top) still leaves real room
+          // to scroll further down below it — otherwise the drag below
+          // would already be pinned at the list's own max extent, and
+          // couldn't tell "scrolled further" apart from "nowhere further
+          // to go".
+          for (var i = 1; i <= 20; i++)
+            event(
+              id: 'future$i',
+              title: 'Future $i',
+              startAt: DateTime(2026, 3, 10 + i, 9),
+            ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      final prefs = await SharedPreferences.getInstance();
+      // Same ProviderScope (and so the same agendaScrollMemoryProvider
+      // state) reused across every pump below via this one override list
+      // and Widget builder — only what sits in `home` changes, to unmount
+      // and remount AgendaView the same way switching schedule tabs does.
+      final overrides = [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        eventRepositoryProvider.overrideWithValue(events),
+        todoDaoProvider.overrideWithValue(todos),
+      ];
+      Widget buildTree(Widget home) => ProviderScope(
+        overrides: overrides,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          locale: const Locale('ko'),
+          localizationsDelegates: const [
+            AppL10n.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppL10n.supportedLocales,
+          home: home,
+        ),
+      );
+
+      // First open this session — anchors to today, same as the dedicated
+      // test above.
+      await tester.pumpWidget(
+        buildTree(Scaffold(body: AgendaView(anchor: anchor))),
+      );
+      await tester.pumpAndSettle();
+      final anchoredOffset = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      expect(anchoredOffset, greaterThan(0));
+
+      // The user scrolls further down, away from the anchor.
+      await tester.drag(find.byType(Scrollable), const Offset(0, -300));
+      await tester.pump();
+      final scrolledOffset = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      expect(scrolledOffset, greaterThan(anchoredOffset));
+
+      // Switch away — same ProviderScope/container underneath, but
+      // AgendaView itself unmounts, same as picking a different schedule
+      // tab does.
+      await tester.pumpWidget(buildTree(const SizedBox.shrink()));
+      await tester.pump();
+
+      // ...and back — a brand-new AgendaView State, same as a real tab
+      // switch back to it.
+      await tester.pumpWidget(
+        buildTree(Scaffold(body: AgendaView(anchor: anchor))),
+      );
+      await tester.pumpAndSettle();
+
+      final restoredOffset = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      expect(restoredOffset, closeTo(scrolledOffset, 1));
+    },
+  );
+
+  testWidgets(
     'an anchor with nothing on or after it never scrolls — nothing in '
     'the window qualifies as a scroll target',
     (tester) async {

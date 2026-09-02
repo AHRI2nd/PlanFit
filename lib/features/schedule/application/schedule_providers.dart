@@ -51,6 +51,31 @@ final scheduleViewProvider = NotifierProvider<ScheduleViewMode, ScheduleView>(
   ScheduleViewMode.new,
 );
 
+/// The agenda (목록) tab's last scroll offset, remembered only for the
+/// life of this app session — `null` means "hasn't been visited yet this
+/// session", which is what lets [AgendaView] tell a genuinely fresh app
+/// launch apart from the user having just switched to another tab (or
+/// opened an editor) and come back to it. Deliberately never persisted to
+/// SharedPreferences: a real app relaunch should always land back on
+/// "today first", the same as it always has — only navigating *within* a
+/// running session should keep the user's own scroll position instead.
+class AgendaScrollMemory extends Notifier<double?> {
+  @override
+  double? build() => null;
+
+  void save(double offset) => state = offset;
+
+  /// Forgets the remembered offset, so the next open re-anchors to today
+  /// exactly like a fresh app launch would — used when the calendar day
+  /// itself rolls over (midnight) while the tab happens to still be open,
+  /// which deserves the same "today first" treatment a real relaunch gets.
+  void clear() => state = null;
+}
+
+final agendaScrollMemoryProvider = NotifierProvider<AgendaScrollMemory, double?>(
+  AgendaScrollMemory.new,
+);
+
 /// Height (in logical pixels) of a single week row in [MonthView]'s
 /// calendar grid — dragging the handle between the grid and the day
 /// timeline below it changes this, trading grid space for timeline space.

@@ -58,38 +58,79 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
 
-  /// Keys the one day-header row [build] wants scrolled to the top on
-  /// open — see the doc where it's assigned for exactly which row that
-  /// is. Never assigned at all if the list is empty or every entry in the
-  /// whole window is already in the past, in which case there's nothing
-  /// to scroll to.
+  /// Keys the one day-header row [build] wants scrolled to the top on a
+  /// fresh app launch — see the doc where it's assigned for exactly which
+  /// row that is, and [_handleInitialScroll] for when this is used versus
+  /// [_scrollController]'s own remembered offset. Never assigned at all if
+  /// the list is empty or every entry in the whole window is already in
+  /// the past, in which case there's nothing to scroll to.
   final _scrollTargetKey = GlobalKey();
-  bool _scrolledToAnchor = false;
+  bool _initialScrollHandled = false;
+
+  /// Explicit (not the implicit `PrimaryScrollController`) so
+  /// [_rememberScrollOffset] can read its live offset and
+  /// [_handleInitialScroll] can jump it directly to a remembered one.
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()
+      ..addListener(_rememberScrollOffset);
+  }
 
   @override
   void didUpdateWidget(covariant AgendaView oldWidget) {
     super.didUpdateWidget(oldWidget);
     // A genuinely different anchor (not just the same calendar day
-    // recomputed on some unrelated rebuild) means "start over" — re-scroll
-    // to the new one instead of leaving the view wherever the user had
-    // scrolled to under the old one.
+    // recomputed on some unrelated rebuild) means the calendar day itself
+    // rolled over (midnight) while this tab happened to still be open —
+    // that deserves the same "today first" treatment a real app launch
+    // gets, not a restore to wherever yesterday's session had scrolled to.
     if (dateOnly(widget.anchor) != dateOnly(oldWidget.anchor)) {
-      _scrolledToAnchor = false;
+      _initialScrollHandled = false;
+      ref.read(agendaScrollMemoryProvider.notifier).clear();
     }
   }
 
-  /// Scrolls [_scrollTargetKey]'s row to the very top of the list — once
-  /// per anchor (see [didUpdateWidget]), not on every rebuild, so e.g.
-  /// adding a new event doesn't keep snapping the user's own scroll
-  /// position back to the top. Schedules for the frame after this build,
-  /// since the keyed row's context isn't attached to the tree yet during
-  /// build itself.
-  void _scrollToAnchorOnce() {
-    if (_scrolledToAnchor) return;
-    _scrolledToAnchor = true;
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Keeps [agendaScrollMemoryProvider] live-updated with wherever the user
+  /// has actually scrolled to — including the initial anchor-to-today jump
+  /// itself, so a first launch that's never touched beyond that still has
+  /// *something* remembered for the next visit. Cheap to call on every
+  /// scroll frame: nothing `ref.watch`es this provider, so writing to it
+  /// triggers no rebuilds of its own.
+  void _rememberScrollOffset() {
+    if (!_scrollController.hasClients) return;
+    ref.read(agendaScrollMemoryProvider.notifier).save(_scrollController.offset);
+  }
+
+  /// Once per anchor (see [didUpdateWidget]): either restores the scroll
+  /// offset [agendaScrollMemoryProvider] remembers from this same app
+  /// session's last visit, or — only when nothing's remembered yet, i.e.
+  /// this is that session's first-ever open of the agenda tab — scrolls
+  /// [_scrollTargetKey]'s row to the top instead, same as before. Schedules
+  /// for the frame after this build, since neither the keyed row's context
+  /// nor the controller's scroll extent is available during build itself.
+  void _handleInitialScroll() {
+    if (_initialScrollHandled) return;
+    _initialScrollHandled = true;
+    final remembered = ref.read(agendaScrollMemoryProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (remembered != null) {
+        if (!_scrollController.hasClients) return;
+        final maxExtent = _scrollController.position.maxScrollExtent;
+        _scrollController.jumpTo(remembered.clamp(0.0, maxExtent));
+        return;
+      }
       final target = _scrollTargetKey.currentContext;
-      if (target == null || !mounted) return;
+      if (target == null) return;
       Scrollable.ensureVisible(target, alignment: 0, duration: Duration.zero);
     });
   }
@@ -197,7 +238,7 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
         final scrollTargetIndex = rows.indexWhere(
           (r) => r.day != null && !r.day!.isBefore(anchorDay),
         );
-        _scrollToAnchorOnce();
+        _handleInitialScroll();
         return Column(
           children: [
             if (_selectionMode)
@@ -209,8 +250,9 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
               ),
             Expanded(
               child: ListView.builder(
+                controller: _scrollController,
                 // Generous rather than the ~250px default — the anchor's
-                // scroll target (see _scrollToAnchorOnce) needs its row
+                // scroll target (see _handleInitialScroll) needs its row
                 // already *built* the moment the list first lays out, or
                 // Scrollable.ensureVisible has nothing to find via
                 // _scrollTargetKey. The past-week window before the
