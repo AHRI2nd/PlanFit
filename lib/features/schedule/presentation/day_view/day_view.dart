@@ -396,8 +396,17 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// missing from the space budget, not a cosmetic sliver.
   static const double _locationRowExtraHeight = 20;
 
-  double _minHeightFor(EventRow e) =>
+  /// Extra headroom for a card sharing its time slot with others (see
+  /// [cascadeEvents]) — its column is only a fraction of the full timeline
+  /// width, so a title that would fit on one line at full width often
+  /// doesn't at that narrower width. `_EventCard`'s title allows a 2nd line
+  /// for exactly this case; this is the height that 2nd line needs, so it
+  /// wraps into real space instead of overflowing the card.
+  static const double _crowdedColumnExtraHeight = 22;
+
+  double _minHeightFor(EventRow e, {bool crowded = false}) =>
       _minEventCardHeight +
+      (crowded ? _crowdedColumnExtraHeight : 0) +
       ((e.location?.isNotEmpty ?? false) ? _locationRowExtraHeight : 0);
 
   /// The event currently being dragged, if any — only one card can drag at a
@@ -755,7 +764,10 @@ class _TimelineState extends ConsumerState<_Timeline>
                     0.0,
                     widget.hourHeight * 24,
                   );
-                  final minHeight = _minHeightFor(e);
+                  final minHeight = _minHeightFor(
+                    e,
+                    crowded: c.columnCount > 1,
+                  );
                   final height = rawHeight < minHeight ? minHeight : rawHeight;
                   return Positioned(
                     top: _offsetFor(start),
@@ -936,7 +948,18 @@ class _EventCard extends ConsumerWidget {
                           children: [
                             Text(
                               event.title.isEmpty ? '—' : event.title,
-                              maxLines: 1,
+                              // 2, not 1: a card sharing its time slot with
+                              // others (see cascadeEvents) only gets a
+                              // fraction of the timeline's width, so a title
+                              // that reads fine at full width often doesn't
+                              // in that narrow column — letting it wrap
+                              // downward instead of just clipping
+                              // sideways uses the card's own height, which
+                              // _minHeightFor already budgets extra room for
+                              // in that case (see _crowdedColumnExtraHeight)
+                              // rather than a single word or two surviving
+                              // and the rest disappearing behind an ellipsis.
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleMedium,
                             ),
