@@ -149,22 +149,12 @@ class ScheduleScreen extends ConsumerWidget {
                     // "add it to the switcher row instead" fix applies here
                     // too rather than repeating that regression.
                     const SizedBox(width: AppSpacing.xs),
-                    IconButton(
-                      tooltip: l10n.quickAddEventTitle,
-                      icon: const Icon(Icons.bolt_outlined),
-                      onPressed: () =>
+                    _HeaderTrailingIcons(
+                      view: view,
+                      onQuickAdd: () =>
                           showQuickAddEvent(context, anchorDay: selected),
+                      onLegend: () => showCalendarLegendSheet(context),
                     ),
-                    const SizedBox(width: AppSpacing.xs),
-                    IconButton(
-                      tooltip: l10n.calendarLegendTooltip,
-                      icon: const Icon(Icons.info_outline),
-                      onPressed: () => showCalendarLegendSheet(context),
-                    ),
-                    if (view == ScheduleView.day) ...[
-                      const SizedBox(width: AppSpacing.xs),
-                      const _DayLayoutToggle(),
-                    ],
                   ],
                 ),
               ),
@@ -289,6 +279,86 @@ class _SwipeableTitle extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The view-switcher row's trailing icon cluster: quick-add + legend on
+/// every view, plus [_DayLayoutToggle] on [ScheduleView.day] only.
+///
+/// Always reserves exactly the width the 2-icon (non-day) cluster needs,
+/// regardless of which view is active — [_ViewSwitcher] sits in an
+/// [Expanded] right next to this, so if this cluster's width changed
+/// between views, the switcher pill itself would resize and visibly shift
+/// left/right when switching tabs. A [Visibility] with `maintainSize` locks
+/// that width in; day view's extra button is then squeezed into the same
+/// footprint via [FittedBox] instead of claiming space of its own — only
+/// that tab's own icon spacing/size adapts, never the reserved width.
+class _HeaderTrailingIcons extends StatelessWidget {
+  const _HeaderTrailingIcons({
+    required this.view,
+    required this.onQuickAdd,
+    required this.onLegend,
+  });
+
+  final ScheduleView view;
+  final VoidCallback onQuickAdd;
+  final VoidCallback onLegend;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final baseIcons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: l10n.quickAddEventTitle,
+          icon: const Icon(Icons.bolt_outlined),
+          onPressed: onQuickAdd,
+        ),
+        IconButton(
+          tooltip: l10n.calendarLegendTooltip,
+          icon: const Icon(Icons.info_outline),
+          onPressed: onLegend,
+        ),
+      ],
+    );
+
+    if (view != ScheduleView.day) return baseIcons;
+
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        Visibility(
+          visible: false,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: baseIcons,
+        ),
+        Positioned.fill(
+          child: FittedBox(
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: l10n.quickAddEventTitle,
+                  icon: const Icon(Icons.bolt_outlined),
+                  onPressed: onQuickAdd,
+                ),
+                IconButton(
+                  tooltip: l10n.calendarLegendTooltip,
+                  icon: const Icon(Icons.info_outline),
+                  onPressed: onLegend,
+                ),
+                const _DayLayoutToggle(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
