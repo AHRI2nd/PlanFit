@@ -505,34 +505,50 @@ class MonthView extends ConsumerWidget {
                           label: l10n.todosSectionTitle,
                         ),
                     ];
-                    // Showing a "+N" hint always costs the row it's drawn
-                    // in, which itself could instead have shown one more
-                    // real item — so reserving that row the moment items
-                    // overflow listCapacity always reports one MORE hidden
-                    // than a naive "items past the fitted ones" count
-                    // would suggest (e.g. exactly 1 item left over still
-                    // shows "+2", not "+1"). That specific value ("+1") is
-                    // mathematically unreachable this way, so growing the
-                    // row taller jumps straight from "+2" to everything
-                    // shown once there's room, with no "+1" step at that
-                    // exact boundary — accepted as the one unavoidable
-                    // gap, rather than compressing rows to squeeze an
-                    // extra one in (tried and reverted: it visibly shrank
-                    // that row's text, and — because it only special-cased
-                    // this exact boundary — made "+2" itself stop
-                    // appearing too, which read as a worse regression than
-                    // the original single missing step).
-                    final visible = items.length <= listCapacity
-                        ? items
-                        : [
-                            // Reserve the list's last visible slot for a
-                            // "+N" hint instead of silently dropping
-                            // whatever doesn't fit with no trace of it.
-                            ...items.take(listCapacity - 1),
-                            _MonthMoreRow(
-                              count: items.length - (listCapacity - 1),
-                            ),
-                          ];
+                    // A "+N" hint on its own dedicated row always costs
+                    // exactly the row it could otherwise have shown one
+                    // more real item in — so reserving a whole row the
+                    // moment items overflow listCapacity always inflates
+                    // the count by 1 versus what's truly left over past
+                    // what's shown (e.g. exactly 1 item left over still
+                    // showed "+2", never "+1"), and growing the row
+                    // taller used to jump straight from that "+2" to
+                    // everything shown, revealing 2 items at once instead
+                    // of one. Fixed by never reserving a whole row for
+                    // the hint at all: show every item that fits
+                    // (listCapacity of them — using every row for real
+                    // content) and attach the count to the *last* shown
+                    // row's own line instead of a separate one below it.
+                    // That costs no extra vertical space, stays exactly
+                    // accurate at any overflow amount, and reveals one
+                    // more real title each time the row grows by one
+                    // capacity step — "+3" → "+2" → "+1" → nothing, in
+                    // lockstep with listCapacity itself.
+                    List<Widget> visible;
+                    if (items.length <= listCapacity) {
+                      visible = items;
+                    } else {
+                      final shown = items.take(listCapacity).toList();
+                      final hint = items.length - listCapacity;
+                      final last = shown.removeLast();
+                      shown.add(
+                        // The spanning bar (always item 0, if present) can
+                        // only ever land here if listCapacity is 1, which
+                        // monthEventListCapacity never actually returns
+                        // (it requires room for at least 2 rows) — this
+                        // fallback exists purely so that invariant
+                        // changing elsewhere couldn't silently drop items
+                        // with no trace, not because it's expected to run.
+                        last is _MonthEventListRow
+                            ? _MonthEventListRow(
+                                color: last.color,
+                                label: last.label,
+                                trailingHint: hint,
+                              )
+                            : _MonthMoreRow(count: hint),
+                      );
+                      visible = shown;
+                    }
 
                     return Positioned(
                       left: 0,
@@ -614,12 +630,21 @@ class MonthView extends ConsumerWidget {
 /// [monthEventListCapacity]. A small leading dot in the event's own color
 /// (unlike the collapsed dot summary, which is deliberately blind to any
 /// individual event's color — see [calendarDotColor]'s doc) plus its title,
-/// both sized to fit inside [monthEventRowHeight].
+/// both sized to fit inside [monthEventRowHeight]. [trailingHint], when
+/// set, appends a compact "+N" on this same row (for however many more
+/// items exist beyond the visible list) instead of that count needing an
+/// entire extra row of its own — see the expanded-list building code's own
+/// comment for why.
 class _MonthEventListRow extends StatelessWidget {
-  const _MonthEventListRow({required this.color, required this.label});
+  const _MonthEventListRow({
+    required this.color,
+    required this.label,
+    this.trailingHint,
+  });
 
   final Color color;
   final String label;
+  final int? trailingHint;
 
   @override
   Widget build(BuildContext context) {
@@ -642,6 +667,17 @@ class _MonthEventListRow extends StatelessWidget {
               style: _monthEventRowTextStyle.copyWith(color: palette.inkSoft),
             ),
           ),
+          if (trailingHint != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Text(
+                '+$trailingHint',
+                style: _monthEventRowTextStyle.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: palette.inkFaint,
+                ),
+              ),
+            ),
         ],
       ),
     );

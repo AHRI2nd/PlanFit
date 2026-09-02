@@ -316,63 +316,66 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
     }
 
+    /// Sets up [eventCount] single-day events on one day, seeds the row
+    /// height, pumps, and returns which of the events' own titles rendered
+    /// (as a Set, order-independent) — the shared setup all three tests
+    /// below build on.
+    Future<Set<String>> pumpWithEvents(
+      WidgetTester tester,
+      int eventCount,
+    ) async {
+      useTallViewport(tester);
+      SharedPreferences.setMockInitialValues({
+        rowHeightPrefsKey: MonthCalendarRowHeight.max,
+      });
+      final day = DateTime(2026, 3, 15);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          for (var i = 0; i < eventCount; i++)
+            singleDayEvent(id: 'e$i', day: day),
+        ]),
+      );
+
+      await pumpMonth(tester, DateTime(2026, 3, 1));
+
+      return {
+        for (var i = 0; i < eventCount; i++)
+          if (monthListText('e$i').evaluate().isNotEmpty) 'e$i',
+      };
+    }
+
     testWidgets(
-      'shows an accurate "+N" as soon as even one item is left over — '
-      'regression test for an earlier attempt at squeezing that one extra '
-      'item in directly instead (shrinking every row\'s text to do it) '
-      'that made this state disappear entirely, jumping straight from '
-      'everything shown to "+3" once 2 were left over with no "+1" *or* '
-      '"+2" step in between — worse than never reaching "+1" at all',
+      'shows an accurate "+1" the moment even a single item is left over '
+      '— regression test for two earlier, opposite failures: reserving a '
+      'whole row for the hint made "+1" mathematically unreachable '
+      '(jumping straight from "+2" to everything shown, revealing 2 at '
+      'once instead of 1), and squeezing that one extra item in by '
+      'shrinking every row\'s text made "+2" itself disappear too',
       (tester) async {
-        useTallViewport(tester);
-        SharedPreferences.setMockInitialValues({
-          rowHeightPrefsKey: MonthCalendarRowHeight.max,
-        });
-        // At the max row height, monthEventListCapacity is 5 for a typical
-        // column width — 6 events is exactly one more than that.
-        final day = DateTime(2026, 3, 15);
-        const eventCount = 6;
-        when(events.watchBetween(any, any)).thenAnswer(
-          (_) => Stream.value([
-            for (var i = 0; i < eventCount; i++)
-              singleDayEvent(id: 'e$i', day: day),
-          ]),
-        );
+        // At the max row height, monthEventListCapacity is 5 for a
+        // typical column width — 6 events is exactly one more than that.
+        final shownTitles = await pumpWithEvents(tester, 6);
 
-        await pumpMonth(tester, DateTime(2026, 3, 1));
+        // Every item up to capacity gets its own row now — the hint rides
+        // along on the last one instead of costing a row of its own.
+        expect(shownTitles, {'e0', 'e1', 'e2', 'e3', 'e4'});
+        expect(monthListText('+1'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-        // capacity(5) - 1 = 4 real rows shown, leaving 6-4=2 without
-        // their own row — "+1" itself is mathematically unreachable (a
-        // "+N" row always costs the very slot it could've shown one more
-        // real item in instead), but every other value, "+2" included,
-        // should surface reliably.
+    testWidgets(
+      'stays accurate at "+2", not "+3", when two items are genuinely '
+      'left over',
+      (tester) async {
+        final shownTitles = await pumpWithEvents(tester, 7);
+
+        expect(shownTitles, {'e0', 'e1', 'e2', 'e3', 'e4'});
         expect(monthListText('+2'), findsOneWidget);
+        expect(monthListText('+3'), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
 
-    testWidgets(
-      'still shows an accurate "+N" once more items are genuinely left '
-      'over',
-      (tester) async {
-        useTallViewport(tester);
-        SharedPreferences.setMockInitialValues({
-          rowHeightPrefsKey: MonthCalendarRowHeight.max,
-        });
-        final day = DateTime(2026, 3, 15);
-        const eventCount = 7; // three more than capacity(5) - 1 = 4 shown
-        when(events.watchBetween(any, any)).thenAnswer(
-          (_) => Stream.value([
-            for (var i = 0; i < eventCount; i++)
-              singleDayEvent(id: 'e$i', day: day),
-          ]),
-        );
-
-        await pumpMonth(tester, DateTime(2026, 3, 1));
-
-        expect(monthListText('+3'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      },
-    );
   });
 }
