@@ -604,6 +604,18 @@ class AppL10nEn extends AppL10n {
   String get eventEdit => 'Edit event';
 
   @override
+  String get eventSectionBasic => 'Basic';
+
+  @override
+  String get eventSectionSchedule => 'Date & time';
+
+  @override
+  String get eventSectionNotify => 'Notification';
+
+  @override
+  String get eventSectionDisplay => 'Display';
+
+  @override
   String get eventDuplicate => 'Duplicate event';
 
   @override

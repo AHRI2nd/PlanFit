@@ -243,6 +243,10 @@
 
   "eventNew": "New event",
   "eventEdit": "Edit event",
+  "eventSectionBasic": "Basic",
+  "eventSectionSchedule": "Date & time",
+  "eventSectionNotify": "Notification",
+  "eventSectionDisplay": "Display",
   "eventDuplicate": "Duplicate event",
   "eventShare": "Share event",
   "eventShareFailed": "Share failed",

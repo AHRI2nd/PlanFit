@@ -13,9 +13,9 @@ import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
-import '../../../design/glass/glass_surface.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/section_card.dart';
 import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../design/widgets/time_gradient_background.dart';
@@ -255,7 +255,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
 
             SectionHeader(l10n.settingsNotifications),
-            _Card(
+            SectionCard(
               children: [
                 _SwitchRow(
                   title: l10n.settingsNotificationSound,
@@ -270,7 +270,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
 
             SectionHeader(l10n.settingsCalendar),
-            _Card(
+            SectionCard(
               children: [
                 _SwitchRow(
                   title: l10n.settingsCalendarSync,
@@ -332,7 +332,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
 
             SectionHeader(l10n.settingsAppearance),
-            _Card(
+            SectionCard(
               children: [
                 _ThemeRow(
                   current: settings.themeMode,
@@ -368,7 +368,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
 
             SectionHeader(l10n.settingsTodo),
-            _Card(
+            SectionCard(
               children: [
                 // iOS only — Android has no OS reminders app/API to sync to.
                 if (Platform.isIOS) ...[
@@ -390,7 +390,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
 
             SectionHeader(l10n.settingsData),
-            _Card(
+            SectionCard(
               children: [
                 _ActionRow(
                   title: l10n.settingsExport,
@@ -429,29 +429,12 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.lg),
 
             SectionHeader(l10n.settingsAbout),
-            _Card(
+            SectionCard(
               children: [_InfoRow(title: l10n.settingsVersion, value: '1.0.0')],
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  const _Card({required this.children});
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassSurface(
-      borderRadius: AppRadius.cardLg,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      child: Column(children: children),
     );
   }
 }

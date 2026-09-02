@@ -243,6 +243,10 @@
 
   "eventNew": "새 일정",
   "eventEdit": "일정 편집",
+  "eventSectionBasic": "기본",
+  "eventSectionSchedule": "일시",
+  "eventSectionNotify": "알림",
+  "eventSectionDisplay": "표시",
   "eventDuplicate": "일정 복제",
   "eventShare": "일정 공유",
   "eventShareFailed": "공유에 실패했어요",

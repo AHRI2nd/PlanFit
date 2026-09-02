@@ -574,6 +574,18 @@ class AppL10nKo extends AppL10n {
   String get eventEdit => '일정 편집';
 
   @override
+  String get eventSectionBasic => '기본';
+
+  @override
+  String get eventSectionSchedule => '일시';
+
+  @override
+  String get eventSectionNotify => '알림';
+
+  @override
+  String get eventSectionDisplay => '표시';
+
+  @override
   String get eventDuplicate => '일정 복제';
 
   @override

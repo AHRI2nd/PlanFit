@@ -20,6 +20,8 @@ import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../../design/widgets/multi_chip_row.dart';
+import '../../../../design/widgets/section_card.dart';
+import '../../../../design/widgets/section_header.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../application/schedule_providers.dart';
@@ -689,214 +691,239 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: _title,
-                autofocus: widget.existing == null,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  hintText: l10n.eventTitleHint,
-                  errorText: _titleError ? l10n.eventTitleRequired : null,
-                ),
-                onChanged: (_) {
-                  if (_titleError) {
-                    setState(() => _titleError = false);
-                  }
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: _memo,
-                minLines: 1,
-                maxLines: 3,
-                decoration: InputDecoration(hintText: l10n.eventMemoHint),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: _location,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  hintText: l10n.eventLocationHint,
-                  prefixIcon: const Icon(Icons.place_outlined),
-                  suffixIcon: AnimatedBuilder(
-                    animation: _location,
-                    builder: (context, _) => IconButton(
-                      icon: const Icon(Icons.directions_outlined),
-                      tooltip: l10n.eventOpenInMaps,
-                      onPressed: _location.text.trim().isEmpty
-                          ? null
-                          : _openInMaps,
+              SectionHeader(l10n.eventSectionBasic),
+              SectionCard(
+                children: [
+                  TextField(
+                    controller: _title,
+                    autofocus: widget.existing == null,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      hintText: l10n.eventTitleHint,
+                      errorText: _titleError ? l10n.eventTitleRequired : null,
+                    ),
+                    onChanged: (_) {
+                      if (_titleError) {
+                        setState(() => _titleError = false);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: _memo,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: InputDecoration(hintText: l10n.eventMemoHint),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: _location,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      hintText: l10n.eventLocationHint,
+                      prefixIcon: const Icon(Icons.place_outlined),
+                      suffixIcon: AnimatedBuilder(
+                        animation: _location,
+                        builder: (context, _) => IconButton(
+                          icon: const Icon(Icons.directions_outlined),
+                          tooltip: l10n.eventOpenInMaps,
+                          onPressed: _location.text.trim().isEmpty
+                              ? null
+                              : _openInMaps,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _ToggleRow(
-                label: l10n.eventAllDay,
-                value: _allDay,
-                onChanged: (v) => setState(() => _allDay = v),
-              ),
-              const Divider(height: AppSpacing.lg),
-              _DateRow(
-                label: l10n.eventStart,
-                dateText: Fmt.monthDay(_start, locale),
-                onDateTap: () => _pick(true),
-                timeText: _allDay
-                    ? null
-                    : Fmt.time(_start, locale, use24Hour: use24),
-                onTimeTap: _allDay ? null : () => _pickTime(true),
-                accent: accent,
-                dateKey: const ValueKey('date-start'),
-                timeKey: const ValueKey('time-start'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _DateRow(
-                label: l10n.eventEnd,
-                dateText: Fmt.monthDay(_end, locale),
-                onDateTap: () => _pick(false),
-                timeText: _allDay
-                    ? null
-                    : Fmt.time(_end, locale, use24Hour: use24),
-                onTimeTap: _allDay ? null : () => _pickTime(false),
-                accent: accent,
-                dateKey: const ValueKey('date-end'),
-                timeKey: const ValueKey('time-end'),
-              ),
-              if (widget.existing == null) ...[
-                const Divider(height: AppSpacing.lg),
-                _ChipRow<RecurrenceFrequency>(
-                  label: l10n.eventRepeat,
-                  options: RecurrenceFrequency.values,
-                  selected: _recurrence,
-                  labelFor: (f) => _recurrenceLabel(l10n, f),
-                  accent: accent,
-                  onChanged: (v) => setState(() => _recurrence = v),
-                ),
-                if (_recurrence == RecurrenceFrequency.weekly) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  MultiChipRow(
-                    label: l10n.eventRepeatWeekdays,
-                    options: _weekdayOptions,
-                    // The start date's own weekday is always implicitly
-                    // included (see EventInput.recurrenceByWeekdays), so it's
-                    // shown selected here even before the user touches
-                    // anything — reflecting what will actually be saved.
-                    selected: {..._recurrenceWeekdays, _start.weekday},
-                    labelFor: (w) => _weekdayLabel(w, locale),
-                    accent: accent,
-                    onChanged: (v) => setState(() {
-                      if (_recurrenceWeekdays.contains(v)) {
-                        // The start date's own weekday can't be removed —
-                        // it's always implicitly included (see
-                        // EventInput.recurrenceByWeekdays), so leaving it
-                        // selectable-but-inert here would be misleading.
-                        if (v == _start.weekday) return;
-                        _recurrenceWeekdays.remove(v);
-                      } else {
-                        _recurrenceWeekdays.add(v);
-                      }
-                    }),
+                  _ToggleRow(
+                    label: l10n.eventAllDay,
+                    value: _allDay,
+                    onChanged: (v) => setState(() => _allDay = v),
                   ),
                 ],
-                if (_recurrence != RecurrenceFrequency.none) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  _ChipRow<bool>(
-                    label: l10n.eventRepeatEndLabel,
-                    options: const [false, true],
-                    selected: _recurrenceEndByCount,
-                    labelFor: (byCount) => byCount
-                        ? l10n.eventRepeatEndByCount
-                        : l10n.eventRepeatEndByDate,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SectionHeader(l10n.eventSectionSchedule),
+              SectionCard(
+                children: [
+                  _DateRow(
+                    label: l10n.eventStart,
+                    dateText: Fmt.monthDay(_start, locale),
+                    onDateTap: () => _pick(true),
+                    timeText: _allDay
+                        ? null
+                        : Fmt.time(_start, locale, use24Hour: use24),
+                    onTimeTap: _allDay ? null : () => _pickTime(true),
                     accent: accent,
-                    onChanged: (v) => setState(() => _recurrenceEndByCount = v),
-                    trailing: _recurrenceEndByCount
-                        ? _CountStepper(
-                            count: _recurrenceCount,
-                            max: RecurrenceExpansion.maxOccurrences,
-                            accent: accent,
-                            labelFor: (n) => l10n.eventRepeatCountTimes(n),
-                            onChanged: (v) =>
-                                setState(() => _recurrenceCount = v),
-                          )
-                        : TextButton(
-                            onPressed: _pickUntil,
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: Text(
-                              Fmt.monthDay(_recurrenceUntil, locale),
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: accent,
+                    dateKey: const ValueKey('date-start'),
+                    timeKey: const ValueKey('time-start'),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _DateRow(
+                    label: l10n.eventEnd,
+                    dateText: Fmt.monthDay(_end, locale),
+                    onDateTap: () => _pick(false),
+                    timeText: _allDay
+                        ? null
+                        : Fmt.time(_end, locale, use24Hour: use24),
+                    onTimeTap: _allDay ? null : () => _pickTime(false),
+                    accent: accent,
+                    dateKey: const ValueKey('date-end'),
+                    timeKey: const ValueKey('time-end'),
+                  ),
+                  if (widget.existing == null) ...[
+                    const Divider(height: AppSpacing.lg),
+                    _ChipRow<RecurrenceFrequency>(
+                      label: l10n.eventRepeat,
+                      options: RecurrenceFrequency.values,
+                      selected: _recurrence,
+                      labelFor: (f) => _recurrenceLabel(l10n, f),
+                      accent: accent,
+                      onChanged: (v) => setState(() => _recurrence = v),
+                    ),
+                    if (_recurrence == RecurrenceFrequency.weekly) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      MultiChipRow(
+                        label: l10n.eventRepeatWeekdays,
+                        options: _weekdayOptions,
+                        // The start date's own weekday is always implicitly
+                        // included (see EventInput.recurrenceByWeekdays), so
+                        // it's shown selected here even before the user
+                        // touches anything — reflecting what will actually
+                        // be saved.
+                        selected: {..._recurrenceWeekdays, _start.weekday},
+                        labelFor: (w) => _weekdayLabel(w, locale),
+                        accent: accent,
+                        onChanged: (v) => setState(() {
+                          if (_recurrenceWeekdays.contains(v)) {
+                            // The start date's own weekday can't be removed
+                            // — it's always implicitly included (see
+                            // EventInput.recurrenceByWeekdays), so leaving
+                            // it selectable-but-inert here would be
+                            // misleading.
+                            if (v == _start.weekday) return;
+                            _recurrenceWeekdays.remove(v);
+                          } else {
+                            _recurrenceWeekdays.add(v);
+                          }
+                        }),
+                      ),
+                    ],
+                    if (_recurrence != RecurrenceFrequency.none) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      _ChipRow<bool>(
+                        label: l10n.eventRepeatEndLabel,
+                        options: const [false, true],
+                        selected: _recurrenceEndByCount,
+                        labelFor: (byCount) => byCount
+                            ? l10n.eventRepeatEndByCount
+                            : l10n.eventRepeatEndByDate,
+                        accent: accent,
+                        onChanged: (v) =>
+                            setState(() => _recurrenceEndByCount = v),
+                        trailing: _recurrenceEndByCount
+                            ? _CountStepper(
+                                count: _recurrenceCount,
+                                max: RecurrenceExpansion.maxOccurrences,
+                                accent: accent,
+                                labelFor: (n) =>
+                                    l10n.eventRepeatCountTimes(n),
+                                onChanged: (v) =>
+                                    setState(() => _recurrenceCount = v),
+                              )
+                            : TextButton(
+                                onPressed: _pickUntil,
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  Fmt.monthDay(_recurrenceUntil, locale),
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: accent,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SectionHeader(l10n.eventSectionNotify),
+              SectionCard(
+                children: [
+                  _ToggleRow(
+                    key: const ValueKey('row-notify'),
+                    label: l10n.eventNotify,
+                    value: _notify,
+                    onChanged: (v) => setState(() => _notify = v),
+                  ),
+                  if (_notify) ...[
+                    const SizedBox(
+                      key: ValueKey('gap-reminder'),
+                      height: AppSpacing.sm,
+                    ),
+                    _ChipRow<int>(
+                      key: const ValueKey('chips-reminder'),
+                      label: l10n.eventReminderLead,
+                      options: _leadTimeOptions,
+                      selected: _reminderMinutesBefore,
+                      labelFor: (m) => _leadTimeLabel(l10n, m),
+                      accent: accent,
+                      onChanged: (v) => setState(() {
+                        _reminderMinutesBefore = v;
+                        // Keep the primary and additional pickers
+                        // disjoint so the same offset never shows
+                        // selected in both.
+                        _additionalReminders.remove(v);
+                      }),
+                    ),
+                    const SizedBox(
+                      key: ValueKey('gap-reminder-extra'),
+                      height: AppSpacing.sm,
+                    ),
+                    MultiChipRow(
+                      key: const ValueKey('chips-reminder-extra'),
+                      label: l10n.eventReminderAdditional,
+                      options: _leadTimeOptions
+                          .where((m) => m != _reminderMinutesBefore)
+                          .toList(),
+                      selected: _additionalReminders,
+                      labelFor: (m) => _leadTimeLabel(l10n, m),
+                      accent: accent,
+                      onChanged: (v) => setState(() {
+                        if (_additionalReminders.contains(v)) {
+                          _additionalReminders.remove(v);
+                        } else {
+                          _additionalReminders.add(v);
+                        }
+                      }),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SectionHeader(l10n.eventSectionDisplay),
+              SectionCard(
+                children: [
+                  _ColorTagRow(
+                    key: const ValueKey('row-color'),
+                    label: l10n.eventColor,
+                    autoLabel: l10n.eventColorAuto,
+                    customLabel: l10n.eventColorCustom,
+                    autoColor: accent,
+                    selected: _colorTag,
+                    customColor: _customColor,
+                    onChanged: (v) => setState(() {
+                      _colorTag = v;
+                      _customColor = null;
+                    }),
+                    onCustomColorTap: _pickCustomColor,
                   ),
                 ],
-              ],
-              const Divider(key: ValueKey('div-notify'), height: AppSpacing.lg),
-              _ToggleRow(
-                key: const ValueKey('row-notify'),
-                label: l10n.eventNotify,
-                value: _notify,
-                onChanged: (v) => setState(() => _notify = v),
-              ),
-              if (_notify) ...[
-                const SizedBox(
-                  key: ValueKey('gap-reminder'),
-                  height: AppSpacing.sm,
-                ),
-                _ChipRow<int>(
-                  key: const ValueKey('chips-reminder'),
-                  label: l10n.eventReminderLead,
-                  options: _leadTimeOptions,
-                  selected: _reminderMinutesBefore,
-                  labelFor: (m) => _leadTimeLabel(l10n, m),
-                  accent: accent,
-                  onChanged: (v) => setState(() {
-                    _reminderMinutesBefore = v;
-                    // Keep the primary and additional pickers
-                    // disjoint so the same offset never shows
-                    // selected in both.
-                    _additionalReminders.remove(v);
-                  }),
-                ),
-                const SizedBox(
-                  key: ValueKey('gap-reminder-extra'),
-                  height: AppSpacing.sm,
-                ),
-                MultiChipRow(
-                  key: const ValueKey('chips-reminder-extra'),
-                  label: l10n.eventReminderAdditional,
-                  options: _leadTimeOptions
-                      .where((m) => m != _reminderMinutesBefore)
-                      .toList(),
-                  selected: _additionalReminders,
-                  labelFor: (m) => _leadTimeLabel(l10n, m),
-                  accent: accent,
-                  onChanged: (v) => setState(() {
-                    if (_additionalReminders.contains(v)) {
-                      _additionalReminders.remove(v);
-                    } else {
-                      _additionalReminders.add(v);
-                    }
-                  }),
-                ),
-              ],
-              const Divider(key: ValueKey('div-color'), height: AppSpacing.lg),
-              _ColorTagRow(
-                key: const ValueKey('row-color'),
-                label: l10n.eventColor,
-                autoLabel: l10n.eventColorAuto,
-                customLabel: l10n.eventColorCustom,
-                autoColor: accent,
-                selected: _colorTag,
-                customColor: _customColor,
-                onChanged: (v) => setState(() {
-                  _colorTag = v;
-                  _customColor = null;
-                }),
-                onCustomColorTap: _pickCustomColor,
               ),
             ],
           ),

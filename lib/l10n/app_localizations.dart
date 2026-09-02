@@ -1159,6 +1159,30 @@ abstract class AppL10n {
   /// **'일정 편집'**
   String get eventEdit;
 
+  /// No description provided for @eventSectionBasic.
+  ///
+  /// In ko, this message translates to:
+  /// **'기본'**
+  String get eventSectionBasic;
+
+  /// No description provided for @eventSectionSchedule.
+  ///
+  /// In ko, this message translates to:
+  /// **'일시'**
+  String get eventSectionSchedule;
+
+  /// No description provided for @eventSectionNotify.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림'**
+  String get eventSectionNotify;
+
+  /// No description provided for @eventSectionDisplay.
+  ///
+  /// In ko, this message translates to:
+  /// **'표시'**
+  String get eventSectionDisplay;
+
   /// No description provided for @eventDuplicate.
   ///
   /// In ko, this message translates to:

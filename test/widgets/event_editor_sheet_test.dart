@@ -147,10 +147,21 @@ void main() {
       await pumpEditor(tester);
 
       await tester.enterText(find.byType(TextField).at(0), 'Standup');
+      // The repeat chips sit below the ListView's initial viewport now that
+      // the 기본 section has its own header + card padding above them —
+      // scroll incrementally until the target chip itself is on-screen and
+      // clear of anything overlapping it, rather than guessing one drag
+      // distance that happens to land exactly right.
+      await tester.dragUntilVisible(
+        find.text('매월'),
+        find.byType(ListView),
+        const Offset(0, -100),
+      );
+      await tester.pumpAndSettle();
       // Monthly, not daily: the default 365-day recurrence window stays under
       // RecurrenceExpansion.maxOccurrences at a monthly cadence, so no
       // truncation snackbar (and its auto-dismiss timer) gets scheduled.
-      await tester.tap(find.text('매월'));
+      await tester.tap(find.text('매월'), warnIfMissed: false);
       await tester.pump();
       await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
@@ -249,6 +260,11 @@ void main() {
 
     final allDay = tester.widget<Switch>(find.byType(Switch).first);
     expect(allDay.value, isTrue);
+
+    // The 알림 card sits below the ListView's initial viewport — scroll it
+    // into reach before it's even mounted for find() to see.
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pump();
     expect(notifySwitch(tester).value, isFalse);
   });
 
@@ -268,6 +284,12 @@ void main() {
       );
       await pumpEditor(tester, existing: existing);
 
+      // The 알림 card sits below the ListView's initial viewport now that
+      // the 기본/일시 cards above it carry their own headers and padding —
+      // scroll it into reach before it's even mounted for find()/tap() to
+      // see.
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pump();
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('row-notify')),
@@ -277,8 +299,8 @@ void main() {
       await tester.pump();
       expect(notifySwitch(tester).value, isFalse);
 
-      // The color row sits below the ListView's initial viewport — drag it
-      // into reach before the semantics tree can even see the swatch.
+      // The color row sits further below still — drag it into reach before
+      // the semantics tree can even see the swatch.
       await tester.drag(find.byType(ListView), const Offset(0, -400));
       await tester.pump();
       final semantics = tester.ensureSemantics();
