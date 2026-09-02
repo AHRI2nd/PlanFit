@@ -110,11 +110,10 @@ void main() {
     'days it spans',
     (tester) async {
       final eventStart = DateTime(2026, 3, 10);
-      // A different day than the event's own start/span, same month — the
-      // selected day's own marker renders white for contrast (see
-      // month_view.dart's `isSelected ? Colors.white : color`), which would
-      // otherwise swallow one of the 3 expected colored bars if the
-      // selected day and the event's start coincided.
+      // A different day than the event's own start/span, same month —
+      // just keeps this test's selection independent of the span under
+      // test, unrelated to a selected day's own marker (see the dedicated
+      // regression test below for that).
       final selectedDay = DateTime(2026, 3, 20);
       const tag = '#3388CC';
       when(events.watchBetween(any, any)).thenAnswer(
@@ -147,6 +146,63 @@ void main() {
 
       // One bar per day cell the 3-day event actually spans.
       expect(bars, hasLength(3));
+    },
+  );
+
+  testWidgets(
+    "a selected day's collapsed event dot keeps its real color instead of "
+    'turning white — regression test for the marker being invisible '
+    "against the cell's own (plain) background once selected: the accent "
+    'selection circle only wraps the day number, never the whole cell, so '
+    'a marker positioned below it never actually sits on that circle',
+    (tester) async {
+      final day = DateTime(2026, 3, 15);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          EventRow(
+            id: 'e1',
+            title: 'e1',
+            memo: null,
+            location: null,
+            startAt: day,
+            endAt: day.add(const Duration(hours: 1)),
+            isAllDay: false,
+            colorTag: null,
+            notify: false,
+            reminderMinutesBefore: 0,
+            additionalReminderMinutes: null,
+            recurrenceRule: null,
+            recurrenceGroupId: null,
+            osCalendarId: null,
+            osEventId: null,
+            osLastKnownModified: null,
+            syncStatus: SyncStatus.pendingPush,
+            importSourceCalendarId: null,
+            importSourceEventId: null,
+            createdAt: DateTime(2020),
+            updatedAt: DateTime(2020),
+          ),
+        ]),
+      );
+
+      // Select the very day the event is on — exactly the scenario that
+      // used to turn the marker white.
+      await pumpMonth(tester, day);
+
+      final dots = tester.widgetList<Container>(find.byType(Container)).where(
+        (c) {
+          final decoration = c.decoration;
+          return decoration is BoxDecoration &&
+              decoration.shape == BoxShape.circle &&
+              c.constraints?.maxWidth == monthCollapsedDotSize;
+        },
+      );
+
+      expect(dots, hasLength(1));
+      expect(
+        (dots.first.decoration as BoxDecoration).color,
+        isNot(Colors.white),
+      );
     },
   );
 }

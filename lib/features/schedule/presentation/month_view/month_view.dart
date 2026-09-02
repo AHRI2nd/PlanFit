@@ -291,11 +291,6 @@ class MonthView extends ConsumerWidget {
                       return null;
                     }
 
-                    // The selected day fills its cell with a solid accent circle, so
-                    // an accent-colored marker would vanish into it — use white
-                    // there for contrast instead.
-                    final isSelected = d == dateOnly(selected);
-
                     Widget spanBar({required bool asListRow}) {
                       // Only the first spanning event gets a bar — a packed
                       // month cell has no room for more than one, and
@@ -311,7 +306,7 @@ class MonthView extends ConsumerWidget {
                       final bar = Container(
                         height: 4,
                         decoration: BoxDecoration(
-                          color: isSelected ? Colors.white : color,
+                          color: color,
                           borderRadius: BorderRadius.horizontal(
                             left: isFirst
                                 ? const Radius.circular(2)
@@ -371,14 +366,12 @@ class MonthView extends ConsumerWidget {
                                 width: _monthCollapsedDotSize,
                                 height: _monthCollapsedDotSize,
                                 decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : calendarDotColor(
-                                          palette: palette,
-                                          hasEvent: dots.isNotEmpty,
-                                          hasTodo: hasTodo,
-                                          hasOverdueTodo: hasOverdueTodo,
-                                        ),
+                                  color: calendarDotColor(
+                                    palette: palette,
+                                    hasEvent: dots.isNotEmpty,
+                                    hasTodo: hasTodo,
+                                    hasOverdueTodo: hasOverdueTodo,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -396,7 +389,6 @@ class MonthView extends ConsumerWidget {
                         _MonthEventListRow(
                           color: EventColorTag.resolve(e.colorTag, e.startAt),
                           label: e.title.isEmpty ? '—' : e.title,
-                          isSelected: isSelected,
                         ),
                       if (hasOverdueTodo || hasTodo)
                         _MonthEventListRow(
@@ -407,7 +399,6 @@ class MonthView extends ConsumerWidget {
                             hasOverdueTodo: hasOverdueTodo,
                           )!,
                           label: l10n.todosSectionTitle,
-                          isSelected: isSelected,
                         ),
                     ];
                     final visible = items.length <= listCapacity
@@ -419,7 +410,6 @@ class MonthView extends ConsumerWidget {
                             ...items.take(listCapacity - 1),
                             _MonthMoreRow(
                               count: items.length - (listCapacity - 1),
-                              isSelected: isSelected,
                             ),
                           ];
 
@@ -493,15 +483,10 @@ class MonthView extends ConsumerWidget {
 /// individual event's color — see [calendarDotColor]'s doc) plus its title,
 /// both sized to fit inside [_monthEventRowHeight].
 class _MonthEventListRow extends StatelessWidget {
-  const _MonthEventListRow({
-    required this.color,
-    required this.label,
-    required this.isSelected,
-  });
+  const _MonthEventListRow({required this.color, required this.label});
 
   final Color color;
   final String label;
-  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -514,10 +499,7 @@ class _MonthEventListRow extends StatelessWidget {
             width: 5,
             height: 5,
             margin: const EdgeInsets.only(right: 3),
-            decoration: BoxDecoration(
-              color: isSelected ? Colors.white : color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           Expanded(
             child: Text(
@@ -527,7 +509,7 @@ class _MonthEventListRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 9,
                 height: 1.1,
-                color: isSelected ? Colors.white : palette.inkSoft,
+                color: palette.inkSoft,
               ),
             ),
           ),
@@ -541,10 +523,9 @@ class _MonthEventListRow extends StatelessWidget {
 /// fit in [monthEventListCapacity]'s budget, rather than the list silently
 /// dropping them with no trace they exist.
 class _MonthMoreRow extends StatelessWidget {
-  const _MonthMoreRow({required this.count, required this.isSelected});
+  const _MonthMoreRow({required this.count});
 
   final int count;
-  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -558,7 +539,7 @@ class _MonthMoreRow extends StatelessWidget {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w700,
-            color: isSelected ? Colors.white : palette.inkFaint,
+            color: palette.inkFaint,
           ),
         ),
       ),
