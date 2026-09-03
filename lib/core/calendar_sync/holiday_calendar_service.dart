@@ -36,16 +36,23 @@ String holidayCustomSourceId(String url) => 'holiday:custom:$url';
 /// than two countries exist, so these can't just be reinterpreted in place).
 const List<String> legacyHolidayLocaleSourceIds = ['holiday:ko', 'holiday:en'];
 
-/// `'ko'` -> `'KR'`, everything else -> `'US'` — the exact default the old
-/// locale-keyed sync used (`_calendarIds[localeCode] ?? _calendarIds['en']`),
-/// reimplemented off `dart:ui`'s [PlatformDispatcher] (no `BuildContext`
-/// needed) so `SettingsController`'s one-time seed of
-/// `AppSettings.holidayCountryCodes` and the background resume-sync in
-/// app.dart can both resolve "auto" without needing a
-/// widget-tree `Localizations.localeOf(context)` call (which the resume-sync
-/// path historically got wrong — see app.dart's own history on this).
-String defaultHolidayCountryCode() =>
-    PlatformDispatcher.instance.locale.languageCode == 'ko' ? 'KR' : 'US';
+/// `'ko'` -> `'KR'`, `'ja'` -> `'JP'`, everything else -> `'US'` — the same
+/// idea as the old locale-keyed sync's default
+/// (`_calendarIds[localeCode] ?? _calendarIds['en']`), reimplemented off
+/// `dart:ui`'s [PlatformDispatcher] (no `BuildContext` needed) so
+/// `SettingsController`'s one-time seed of `AppSettings.holidayCountryCodes`
+/// and the background resume-sync in app.dart can both resolve "auto"
+/// without needing a widget-tree `Localizations.localeOf(context)` call
+/// (which the resume-sync path historically got wrong — see app.dart's own
+/// history on this). The `ja` branch was added alongside full Japanese
+/// localization — before that, a Japanese-locale user's default holiday
+/// calendar would have silently fallen all the way to US public holidays.
+String defaultHolidayCountryCode() {
+  final language = PlatformDispatcher.instance.locale.languageCode;
+  if (language == 'ko') return 'KR';
+  if (language == 'ja') return 'JP';
+  return 'US';
+}
 
 /// Thrown by [HolidayCalendarService.syncCountry]/[syncCustomUrl] when the
 /// interactive picker's sync attempt fails — a network error, a non-200

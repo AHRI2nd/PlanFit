@@ -397,5 +397,11 @@
   "commonCancel": "취소",
   "commonDone": "완료",
   "commonToday": "오늘",
-  "errorWidgetFallback": "문제가 발생했어요"
+  "errorWidgetFallback": "문제가 발생했어요",
+
+  "notificationChannelName": "일정 알림",
+  "notificationChannelDescription": "일정이 시작될 때 알려드려요",
+  "notificationSnoozeLabel": "5분 뒤 다시 알림",
+  "notificationEventFallbackTitle": "일정",
+  "notificationTodoFallbackTitle": "할 일"
 }

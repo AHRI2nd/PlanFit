@@ -9,6 +9,7 @@ import '../db/event_row_x.dart';
 import '../db/todo_row_x.dart';
 import '../time/timezone_setup.dart';
 import '../../features/schedule/domain/ports.dart';
+import '../../l10n/app_localizations.dart';
 import 'notification_window.dart';
 
 /// `PlatformDispatcher.instance.locale`, not `Localizations.localeOf` — this
@@ -18,12 +19,16 @@ import 'notification_window.dart';
 /// isolate's top-level `handleNotificationAction`/
 /// `_onBackgroundNotificationResponse` (a real notification action tap with
 /// the app fully terminated), neither of which has a `BuildContext` to read
-/// `AppLocalizations` from. Same pattern `holiday_calendar_service.dart`'s
-/// `defaultHolidayCountryCode` already established for the same reason —
-/// without it, these were hardcoded Korean literals every locale saw
-/// regardless of device language.
-bool _isKoreanLocale() =>
-    PlatformDispatcher.instance.locale.languageCode == 'ko';
+/// `AppLocalizations.of(context)` from. `lookupAppL10n` is the generated
+/// l10n package's own context-free locale lookup (falls back to its
+/// `AppL10n` default — currently `ko`, the template arb — for a locale we
+/// don't ship a translation for), so this resolves every supported locale's
+/// real translated string instead of a hand-rolled binary ko/other ternary
+/// that silently stopped being correct the moment a third locale (`ja`) was
+/// added. Same underlying reasoning `holiday_calendar_service.dart`'s
+/// `defaultHolidayCountryCode` documents for the same context-free
+/// constraint.
+AppL10n _l10n() => lookupAppL10n(PlatformDispatcher.instance.locale);
 
 /// Wraps `flutter_local_notifications` and implements the [NotificationPort]
 /// the event repository drives. An event (or a to-do — see
@@ -52,10 +57,9 @@ class NotificationService implements NotificationPort {
   void Function(NotificationResponse response)? onTap;
 
   static const String _channelId = 'planfit_events';
-  static String get _channelName =>
-      _isKoreanLocale() ? '일정 알림' : 'Event reminders';
+  static String get _channelName => _l10n().notificationChannelName;
   static String get _channelDescription =>
-      _isKoreanLocale() ? '일정이 시작될 때 알려드려요' : 'Alerts you when an event starts';
+      _l10n().notificationChannelDescription;
 
   /// Action/category ids shared with the top-level background handler below
   /// — a "5 minutes from now" snooze that re-fires the same notification
@@ -63,8 +67,7 @@ class NotificationService implements NotificationPort {
   /// false on both platforms).
   static const String snoozeActionId = 'snooze';
   static const String _categoryId = 'planfit_event';
-  static String get snoozeLabel =>
-      _isKoreanLocale() ? '5분 뒤 다시 알림' : 'Remind me in 5 min';
+  static String get snoozeLabel => _l10n().notificationSnoozeLabel;
   static const Duration snoozeDuration = Duration(minutes: 5);
 
   Future<void> init() async {
@@ -242,7 +245,7 @@ class NotificationService implements NotificationPort {
   }) {
     if (alertAt == null) return _plugin.cancel(id: id);
     final title = event.title.isEmpty
-        ? (_isKoreanLocale() ? '일정' : 'Event')
+        ? _l10n().notificationEventFallbackTitle
         : event.title;
     return _plugin.zonedSchedule(
       id: id,
@@ -374,7 +377,7 @@ class NotificationService implements NotificationPort {
     final now = DateTime.now();
     final selected = todo.reminderOffsets.toSet();
     final title = todo.title.isEmpty
-        ? (_isKoreanLocale() ? '할 일' : 'To-do')
+        ? _l10n().notificationTodoFallbackTitle
         : todo.title;
 
     for (final offset in reminderOffsetOptions) {
@@ -497,7 +500,7 @@ Future<void> handleNotificationAction(
 
   await plugin.zonedSchedule(
     id: notificationId,
-    title: data['title'] as String? ?? (_isKoreanLocale() ? '일정' : 'Event'),
+    title: data['title'] as String? ?? _l10n().notificationEventFallbackTitle,
     body: data['body'] as String?,
     scheduledDate: TimezoneSetup.toLocal(
       DateTime.now().add(NotificationService.snoozeDuration),

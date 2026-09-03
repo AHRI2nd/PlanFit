@@ -960,4 +960,19 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get errorWidgetFallback => '문제가 발생했어요';
+
+  @override
+  String get notificationChannelName => '일정 알림';
+
+  @override
+  String get notificationChannelDescription => '일정이 시작될 때 알려드려요';
+
+  @override
+  String get notificationSnoozeLabel => '5분 뒤 다시 알림';
+
+  @override
+  String get notificationEventFallbackTitle => '일정';
+
+  @override
+  String get notificationTodoFallbackTitle => '할 일';
 }

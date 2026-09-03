@@ -397,5 +397,11 @@
   "commonCancel": "Cancel",
   "commonDone": "Done",
   "commonToday": "Today",
-  "errorWidgetFallback": "Something went wrong"
+  "errorWidgetFallback": "Something went wrong",
+
+  "notificationChannelName": "Event reminders",
+  "notificationChannelDescription": "Alerts you when an event starts",
+  "notificationSnoozeLabel": "Remind me in 5 min",
+  "notificationEventFallbackTitle": "Event",
+  "notificationTodoFallbackTitle": "To-do"
 }

@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
+import 'app_localizations_ja.dart';
 import 'app_localizations_ko.dart';
 
 // ignore_for_file: type=lint
@@ -94,6 +95,7 @@ abstract class AppL10n {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
+    Locale('ja'),
     Locale('ko'),
   ];
 
@@ -1902,6 +1904,36 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'문제가 발생했어요'**
   String get errorWidgetFallback;
+
+  /// No description provided for @notificationChannelName.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정 알림'**
+  String get notificationChannelName;
+
+  /// No description provided for @notificationChannelDescription.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정이 시작될 때 알려드려요'**
+  String get notificationChannelDescription;
+
+  /// No description provided for @notificationSnoozeLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'5분 뒤 다시 알림'**
+  String get notificationSnoozeLabel;
+
+  /// No description provided for @notificationEventFallbackTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정'**
+  String get notificationEventFallbackTitle;
+
+  /// No description provided for @notificationTodoFallbackTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일'**
+  String get notificationTodoFallbackTitle;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
@@ -1914,7 +1946,7 @@ class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'ko'].contains(locale.languageCode);
+      <String>['en', 'ja', 'ko'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppL10nDelegate old) => false;
@@ -1925,6 +1957,8 @@ AppL10n lookupAppL10n(Locale locale) {
   switch (locale.languageCode) {
     case 'en':
       return AppL10nEn();
+    case 'ja':
+      return AppL10nJa();
     case 'ko':
       return AppL10nKo();
   }

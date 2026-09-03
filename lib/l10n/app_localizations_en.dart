@@ -1000,4 +1000,20 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get errorWidgetFallback => 'Something went wrong';
+
+  @override
+  String get notificationChannelName => 'Event reminders';
+
+  @override
+  String get notificationChannelDescription =>
+      'Alerts you when an event starts';
+
+  @override
+  String get notificationSnoozeLabel => 'Remind me in 5 min';
+
+  @override
+  String get notificationEventFallbackTitle => 'Event';
+
+  @override
+  String get notificationTodoFallbackTitle => 'To-do';
 }
