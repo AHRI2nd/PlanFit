@@ -252,8 +252,41 @@ class SettingsController extends Notifier<AppSettings> {
   /// but nothing stops the persisted flag from staying on if the user later
   /// turns calendar sync off; `CalendarReconciler` itself re-checks
   /// `CalendarService.isEnabled` before ever acting on it, so that's safe.
-  Future<void> setAutoImportCalendarEnabled(bool enabled) =>
-      _update(state.copyWith(autoImportCalendarEnabled: enabled));
+  ///
+  /// Turning it off also sweeps out every row it previously pulled in (see
+  /// [_removeAutoImportedEvents]) — otherwise those events would keep
+  /// showing up in PlanFit forever, having quietly stopped being kept in
+  /// sync with the device calendar the moment this flag flipped, with
+  /// nothing in the UI to explain why they never update again.
+  Future<void> setAutoImportCalendarEnabled(bool enabled) async {
+    await _update(state.copyWith(autoImportCalendarEnabled: enabled));
+    if (!enabled) {
+      await _removeAutoImportedEvents();
+    }
+  }
+
+  /// Deletes every row [CalendarReconciler] previously auto-imported
+  /// directly from the device calendar (see [EventDao.autoImported]) — the
+  /// cleanup half of [setAutoImportCalendarEnabled]. Cancels each row's
+  /// notification first: auto-imported events default to no reminder, but
+  /// nothing stops the user from editing one afterward like any other
+  /// PlanFit event and turning a reminder on. The device-calendar event
+  /// itself is never touched — this only removes PlanFit's local copy of
+  /// it, the same contract [CalendarImportService.removeMirroredCalendar]
+  /// has for unsubscribing from a mirrored calendar.
+  Future<void> _removeAutoImportedEvents() async {
+    final eventDao = ref.read(eventDaoProvider);
+    final rows = await eventDao.autoImported();
+    final notifications = ref.read(notificationPortProvider);
+    for (final row in rows) {
+      await notifications.cancelForEvent(row.id);
+    }
+    await eventDao.transaction(() async {
+      for (final row in rows) {
+        await eventDao.deleteById(row.id);
+      }
+    });
+  }
 
   /// Flips to-do/reminders sync — access request and reminders-list
   /// resolution happen in the settings screen before this is called, same

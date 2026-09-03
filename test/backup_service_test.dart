@@ -292,6 +292,64 @@ void main() {
   });
 
   test(
+    'excludes events mirrored from a subscribed calendar (holidays '
+    'included) from the export — they are re-derived from their source, '
+    'not this device\'s data to carry around, and previously came back '
+    'from a restore looking PlanFit-owned and got pushed to the device '
+    'calendar',
+    () async {
+      final sourceDb = newDb();
+      final notifications = MockNotificationPort();
+      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+      final eventRepo = EventRepositoryImpl(
+        dao: sourceDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      await eventRepo.save(
+        EventInput(
+          id: 'own-event',
+          title: 'My own plan',
+          startAt: DateTime.now().add(const Duration(days: 1)),
+          endAt: DateTime.now().add(const Duration(days: 1, hours: 1)),
+        ),
+      );
+      // A holiday-mirror row, written the way CalendarImportService does:
+      // straight through EventDao, never through EventRepository.save.
+      await sourceDb.eventDao.upsert(
+        EventsCompanion.insert(
+          id: 'holiday-event',
+          title: const Value('추석'),
+          startAt: DateTime.now().add(const Duration(days: 2)),
+          endAt: DateTime.now().add(const Duration(days: 3)),
+          isAllDay: const Value(true),
+          notify: const Value(false),
+          importSourceCalendarId: const Value(
+            'ko.south_korea#holiday@group.v.calendar.google.com',
+          ),
+          importSourceEventId: const Value('holiday-src-1'),
+        ),
+      );
+
+      final backup = BackupService(
+        eventRepository: eventRepo,
+        todoDao: sourceDb.todoDao,
+        notifications: notifications,
+      );
+      final json = jsonDecode(await backup.buildJson()) as Map<String, dynamic>;
+      final exportedIds = (json['events'] as List)
+          .map((e) => (e as Map<String, dynamic>)['id'])
+          .toSet();
+
+      expect(exportedIds, {'own-event'});
+
+      await sourceDb.close();
+    },
+  );
+
+  test(
     'drops the eventId link when the parent event is missing from the backup',
     () async {
       final sourceDb = newDb();

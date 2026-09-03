@@ -32,6 +32,7 @@ void main() {
     String? recurrenceRule,
     String? recurrenceGroupId,
     String? osEventId,
+    String? osCalendarId,
     SyncStatus syncStatus = SyncStatus.pendingPush,
   }) {
     final now = DateTime(2020);
@@ -47,7 +48,7 @@ void main() {
       colorTag: colorTag,
       recurrenceRule: recurrenceRule,
       recurrenceGroupId: recurrenceGroupId,
-      osCalendarId: null,
+      osCalendarId: osCalendarId,
       osEventId: osEventId,
       osLastKnownModified: null,
       syncStatus: syncStatus,
@@ -629,6 +630,50 @@ void main() {
         final captured =
             verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
         expect(captured.syncStatus.value, SyncStatus.pendingPush);
+      },
+    );
+
+    test(
+      'editing an event auto-imported from the device calendar pushes an '
+      'update against its existing osEventId rather than dropping it — '
+      "the row's osCalendarId (never set by PlanFit's own push path) is "
+      'what marks it as auto-imported, and only carries an osEventId if a '
+      'prior sync already linked it to a live OS event',
+      () async {
+        final start = DateTime.now().add(const Duration(hours: 2));
+        final end = start.add(const Duration(hours: 1));
+        // As CalendarReconciler._importNewEvent originally wrote it, before
+        // this edit: osCalendarId set (the auto-import marker), osEventId
+        // already linking it to a real OS event.
+        final existing = row(
+          id: 'e5c',
+          startAt: start,
+          endAt: end,
+          osCalendarId: 'os-cal-1',
+          osEventId: 'os-999',
+          syncStatus: SyncStatus.synced,
+        );
+        when(dao.findById('e5c')).thenAnswer((_) async => existing);
+        when(calendar.isEnabled).thenReturn(true);
+        when(calendar.pushEvent(any)).thenAnswer((_) async => 'os-999');
+
+        await repo.save(
+          EventInput(
+            id: 'e5c',
+            title: 'Edited after auto-import',
+            startAt: start,
+            endAt: end,
+          ),
+        );
+
+        // CalendarService.pushEvent only updates in place — instead of
+        // creating a duplicate OS event — when the row it's handed still
+        // carries its existing osEventId. This is the repository's half of
+        // that contract: an edit must not drop it.
+        final pushed =
+            verify(calendar.pushEvent(captureAny)).captured.single
+                as EventRow;
+        expect(pushed.osEventId, 'os-999');
       },
     );
   });

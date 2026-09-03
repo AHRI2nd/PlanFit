@@ -30,6 +30,15 @@ class BackupImportSummary {
 /// those ids only mean something on the device/calendar that created them,
 /// and are reset on import so the calendar reconciler re-pushes cleanly
 /// (see [EventRepository.restoreEvent]).
+///
+/// Events PlanFit only *mirrors* from a subscribed calendar (holidays and
+/// other imported calendars — [EventRow.importSourceCalendarId] set) are
+/// excluded from the export entirely, for the same reason: they aren't this
+/// device's data to carry around, they're re-derived from their source the
+/// next time that subscription syncs. Including them would also mean losing
+/// their import-source marker on the round trip (it isn't serialized below),
+/// which previously caused a restored mirror row to look PlanFit-owned and
+/// get pushed to the device calendar as if the user had created it.
 class BackupService {
   BackupService({
     required this.eventRepository,
@@ -48,7 +57,9 @@ class BackupService {
   /// can write it to its own rolling-retention location instead of the
   /// share-sheet temp file.
   Future<String> buildJson() async {
-    final events = await eventRepository.allEvents();
+    final events = (await eventRepository.allEvents())
+        .where((e) => e.importSourceCalendarId == null)
+        .toList();
     final todos = await todoDao.all();
     final subtasks = await todoDao.allSubtasks();
 

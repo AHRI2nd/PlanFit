@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planfit/core/db/app_database.dart';
+import 'package:planfit/core/db/sync_status.dart';
 
 void main() {
   late AppDatabase db;
@@ -16,12 +17,20 @@ void main() {
     required String id,
     required DateTime startAt,
     required DateTime endAt,
+    SyncStatus? syncStatus,
+    String? osCalendarId,
+    String? osEventId,
+    String? importSourceCalendarId,
   }) {
     return EventsCompanion.insert(
       id: id,
       title: Value(id),
       startAt: startAt,
       endAt: endAt,
+      syncStatus: syncStatus == null ? const Value.absent() : Value(syncStatus),
+      osCalendarId: Value(osCalendarId),
+      osEventId: Value(osEventId),
+      importSourceCalendarId: Value(importSourceCalendarId),
     );
   }
 
@@ -103,6 +112,116 @@ void main() {
         'upcoming-4',
       ]);
     });
+  });
+
+  group('EventDao.needingPush', () {
+    final start = DateTime(2026, 3, 10, 9);
+    final end = start.add(const Duration(hours: 1));
+
+    test('returns a plain pendingPush row PlanFit owns', () async {
+      await db.eventDao.upsert(
+        event(
+          id: 'own',
+          startAt: start,
+          endAt: end,
+          syncStatus: SyncStatus.pendingPush,
+        ),
+      );
+
+      final rows = await db.eventDao.needingPush();
+
+      expect(rows.map((r) => r.id), ['own']);
+    });
+
+    test(
+      'excludes a pendingPush row that carries importSourceCalendarId — a '
+      'holiday/subscribed-calendar mirror row should never be pushed back '
+      'out to the device calendar, even if a bug elsewhere (e.g. a backup '
+      'restore) left it marked pendingPush',
+      () async {
+        await db.eventDao.upsert(
+          event(
+            id: 'holiday',
+            startAt: start,
+            endAt: end,
+            syncStatus: SyncStatus.pendingPush,
+            importSourceCalendarId: 'ko.south_korea#holiday@group.v.calendar.google.com',
+          ),
+        );
+        await db.eventDao.upsert(
+          event(
+            id: 'own',
+            startAt: start,
+            endAt: end,
+            syncStatus: SyncStatus.pendingPush,
+          ),
+        );
+
+        final rows = await db.eventDao.needingPush();
+
+        expect(rows.map((r) => r.id), ['own']);
+      },
+    );
+  });
+
+  group('EventDao.autoImported', () {
+    final start = DateTime(2026, 3, 10, 9);
+    final end = start.add(const Duration(hours: 1));
+
+    test(
+      'returns a row with osCalendarId set and no importSourceCalendarId — '
+      'an event CalendarReconciler pulled in directly from the device '
+      'calendar',
+      () async {
+        await db.eventDao.upsert(
+          event(
+            id: 'auto',
+            startAt: start,
+            endAt: end,
+            osCalendarId: 'device-cal-1',
+            osEventId: 'os-1',
+            syncStatus: SyncStatus.synced,
+          ),
+        );
+
+        final rows = await db.eventDao.autoImported();
+
+        expect(rows.map((r) => r.id), ['auto']);
+      },
+    );
+
+    test('excludes a plain PlanFit-owned row (no osCalendarId)', () async {
+      await db.eventDao.upsert(
+        event(
+          id: 'own',
+          startAt: start,
+          endAt: end,
+          osEventId: 'os-2',
+          syncStatus: SyncStatus.synced,
+        ),
+      );
+
+      expect(await db.eventDao.autoImported(), isEmpty);
+    });
+
+    test(
+      'excludes a subscribed-calendar mirror row even though it also has '
+      'no importSourceCalendarId ambiguity to worry about — importSourceCalendarId '
+      'set is what rules it out',
+      () async {
+        await db.eventDao.upsert(
+          event(
+            id: 'mirror',
+            startAt: start,
+            endAt: end,
+            importSourceCalendarId: 'family-cal',
+            syncStatus: SyncStatus.synced,
+          ),
+        );
+
+        expect(await db.eventDao.autoImported(), isEmpty);
+      },
+    );
   });
 
   group('TodoDao.search', () {

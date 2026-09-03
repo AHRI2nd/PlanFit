@@ -75,10 +75,20 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   )..where((t) => t.osEventId.equals(osEventId))).getSingleOrNull();
 
   /// Events created/edited locally that still need pushing to the OS calendar.
+  ///
+  /// Explicitly excludes anything with an [Events.importSourceCalendarId] —
+  /// a row PlanFit pulled *from* a subscribed calendar (holidays included).
+  /// Those should never round-trip back out to the OS calendar; normally
+  /// their [Events.syncStatus] is never `pendingPush` to begin with, but this
+  /// filter is the last line of defense so a bug elsewhere (e.g. a backup
+  /// restore resetting sync state) can't turn imported data into a push.
   Future<List<EventRow>> needingPush() {
-    return (select(
-      events,
-    )..where((t) => t.syncStatus.equalsValue(SyncStatus.pendingPush))).get();
+    return (select(events)..where(
+          (t) =>
+              t.syncStatus.equalsValue(SyncStatus.pendingPush) &
+              t.importSourceCalendarId.isNull(),
+        ))
+        .get();
   }
 
   Future<void> upsert(EventsCompanion companion) =>
@@ -99,6 +109,28 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
           (t) =>
               t.recurrenceGroupId.equals(groupId) &
               t.startAt.isBiggerOrEqualValue(from),
+        ))
+        .get();
+  }
+
+  /// Rows [CalendarReconciler] auto-imported from the device calendar
+  /// directly (an event the user created in the OS calendar app itself,
+  /// pulled into PlanFit's target calendar automatically) — as opposed to
+  /// a row PlanFit pushed there itself, or one mirrored from a *subscribed*
+  /// calendar via [CalendarImportService].
+  ///
+  /// [Events.osCalendarId] is the marker: PlanFit's own push path
+  /// (`EventRepositoryImpl._applySideEffects`) never sets it, only
+  /// [Events.osEventId] — `osCalendarId` is written exactly once, by the
+  /// auto-import write path, and then just carried forward untouched on any
+  /// later edit (`EventRepositoryImpl._upsertRow` preserves the existing
+  /// value rather than re-deriving it). [Events.importSourceCalendarId] must
+  /// also be null to exclude subscribed-calendar mirror rows, which set
+  /// that column instead and never touch `osCalendarId`.
+  Future<List<EventRow>> autoImported() {
+    return (select(events)..where(
+          (t) =>
+              t.osCalendarId.isNotNull() & t.importSourceCalendarId.isNull(),
         ))
         .get();
   }
