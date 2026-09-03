@@ -1833,6 +1833,12 @@ abstract class AppL10n {
   /// **'고정됨'**
   String get todoPinned;
 
+  /// No description provided for @todoUpdateFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'저장하지 못했어요. 다시 시도해주세요'**
+  String get todoUpdateFailed;
+
   /// No description provided for @smartListTitle.
   ///
   /// In ko, this message translates to:
@@ -2024,6 +2030,24 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'음력 날짜 선택'**
   String get lunarDatePickerTitle;
+
+  /// No description provided for @lunarDatePickerYear.
+  ///
+  /// In ko, this message translates to:
+  /// **'연도'**
+  String get lunarDatePickerYear;
+
+  /// No description provided for @lunarDatePickerMonth.
+  ///
+  /// In ko, this message translates to:
+  /// **'월'**
+  String get lunarDatePickerMonth;
+
+  /// No description provided for @lunarDatePickerDay.
+  ///
+  /// In ko, this message translates to:
+  /// **'일'**
+  String get lunarDatePickerDay;
 
   /// No description provided for @lunarLeapMonthToggle.
   ///

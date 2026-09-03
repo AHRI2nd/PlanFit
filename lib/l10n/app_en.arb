@@ -384,6 +384,7 @@
   "todoPin": "Pin",
   "todoUnpin": "Unpin",
   "todoPinned": "Pinned",
+  "todoUpdateFailed": "Couldn't save — please try again",
 
   "smartListTitle": "All to-dos",
   "smartListToday": "Today",
@@ -440,5 +441,8 @@
   "eventLunarInputToggle": "Enter by lunar date",
   "eventLunarInputToggleOn": "Entering a lunar date — it'll be saved as the matching solar date",
   "lunarDatePickerTitle": "Pick a lunar date",
+  "lunarDatePickerYear": "Year",
+  "lunarDatePickerMonth": "Month",
+  "lunarDatePickerDay": "Day",
   "lunarLeapMonthToggle": "Leap month"
 }

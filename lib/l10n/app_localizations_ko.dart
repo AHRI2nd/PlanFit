@@ -927,6 +927,9 @@ class AppL10nKo extends AppL10n {
   String get todoPinned => '고정됨';
 
   @override
+  String get todoUpdateFailed => '저장하지 못했어요. 다시 시도해주세요';
+
+  @override
   String get smartListTitle => '할 일 모아보기';
 
   @override
@@ -1028,6 +1031,15 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get lunarDatePickerTitle => '음력 날짜 선택';
+
+  @override
+  String get lunarDatePickerYear => '연도';
+
+  @override
+  String get lunarDatePickerMonth => '월';
+
+  @override
+  String get lunarDatePickerDay => '일';
 
   @override
   String get lunarLeapMonthToggle => '윤달';

@@ -968,6 +968,9 @@ class AppL10nEn extends AppL10n {
   String get todoPinned => 'Pinned';
 
   @override
+  String get todoUpdateFailed => 'Couldn\'t save — please try again';
+
+  @override
   String get smartListTitle => 'All to-dos';
 
   @override
@@ -1071,6 +1074,15 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get lunarDatePickerTitle => 'Pick a lunar date';
+
+  @override
+  String get lunarDatePickerYear => 'Year';
+
+  @override
+  String get lunarDatePickerMonth => 'Month';
+
+  @override
+  String get lunarDatePickerDay => 'Day';
 
   @override
   String get lunarLeapMonthToggle => 'Leap month';

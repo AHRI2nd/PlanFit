@@ -384,6 +384,7 @@
   "todoPin": "ピン留め",
   "todoUnpin": "ピン留め解除",
   "todoPinned": "ピン留め済み",
+  "todoUpdateFailed": "保存できませんでした。もう一度お試しください",
 
   "smartListTitle": "やることまとめ",
   "smartListToday": "今日",
@@ -440,5 +441,8 @@
   "eventLunarInputToggle": "旧暦で入力",
   "eventLunarInputToggleOn": "旧暦の日付を入力しています — 対応する新暦の日付として保存されます",
   "lunarDatePickerTitle": "旧暦の日付を選択",
+  "lunarDatePickerYear": "年",
+  "lunarDatePickerMonth": "月",
+  "lunarDatePickerDay": "日",
   "lunarLeapMonthToggle": "閏月"
 }

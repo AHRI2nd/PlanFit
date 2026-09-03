@@ -927,6 +927,9 @@ class AppL10nJa extends AppL10n {
   String get todoPinned => 'ピン留め済み';
 
   @override
+  String get todoUpdateFailed => '保存できませんでした。もう一度お試しください';
+
+  @override
   String get smartListTitle => 'やることまとめ';
 
   @override
@@ -1027,6 +1030,15 @@ class AppL10nJa extends AppL10n {
 
   @override
   String get lunarDatePickerTitle => '旧暦の日付を選択';
+
+  @override
+  String get lunarDatePickerYear => '年';
+
+  @override
+  String get lunarDatePickerMonth => '月';
+
+  @override
+  String get lunarDatePickerDay => '日';
 
   @override
   String get lunarLeapMonthToggle => '閏月';
