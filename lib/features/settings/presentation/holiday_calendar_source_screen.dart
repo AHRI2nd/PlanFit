@@ -186,10 +186,18 @@ class _HolidayCalendarSourceScreenState
     }
   }
 
-  /// A row of quick swatches — the default holiday red, the app's 6
-  /// [EventColorTag] presets, and a "custom" swatch opening the full
-  /// palette ([_pickCustomPaletteColor]). Returns a `#RRGGBB` hex,
-  /// [_defaultColorToken], or null if dismissed without a choice.
+  /// A row of quick swatches — the default holiday color, the app's 4
+  /// "day's arc" [EventColorTag] presets (indigo/sky/amber/violet — see
+  /// that enum's declaration order and [AppColors]'s own doc on which
+  /// hues are the core family vs. "extra"), and a "custom" swatch opening
+  /// the full palette ([_pickCustomPaletteColor]) for those or anything
+  /// else. Deliberately capped at 5 swatches + custom = 6 total: any more
+  /// and the row needs a horizontal scroll to see them all, which on a
+  /// phone-width dialog reliably fills with exactly this many swatches —
+  /// so scrolling was never discoverable and "custom" (previously past the
+  /// 6th slot, alongside the 2 dropped presets) went unseen entirely.
+  /// Returns a `#RRGGBB` hex, [_defaultColorToken], or null if dismissed
+  /// without a choice.
   Future<String?> _pickColor(String? currentHex) {
     final l10n = AppL10n.of(context);
     return showDialog<String>(
@@ -208,7 +216,7 @@ class _HolidayCalendarSourceScreenState
                 onTap: () =>
                     Navigator.of(dialogContext).pop(_defaultColorToken),
               ),
-              for (final tag in EventColorTag.values)
+              for (final tag in EventColorTag.values.take(4))
                 _ColorChoice(
                   key: Key('colorChoice-${tag.name}'),
                   color: tag.color,

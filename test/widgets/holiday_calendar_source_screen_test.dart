@@ -332,6 +332,35 @@ void main() {
     });
 
     testWidgets(
+      'shows exactly 5 preset swatches plus the custom swatch — a 7th '
+      "(default + all 6 EventColorTag presets) used to fill a phone-width "
+      'dialog exactly, hiding that the row scrolled at all and burying the '
+      'custom swatch (and 2 presets) past the fold where nobody found them',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          initial: const AppSettings(holidayCountryCodes: {'KR'}),
+        );
+
+        await tester.tap(
+          colorDotFor(find.widgetWithText(CheckboxListTile, '대한민국')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('colorChoice-default')), findsOneWidget);
+        expect(find.byKey(const Key('colorChoice-indigo')), findsOneWidget);
+        expect(find.byKey(const Key('colorChoice-sky')), findsOneWidget);
+        expect(find.byKey(const Key('colorChoice-amber')), findsOneWidget);
+        expect(find.byKey(const Key('colorChoice-violet')), findsOneWidget);
+        expect(find.byKey(const Key('colorChoice-custom')), findsOneWidget);
+        // The 2 dropped presets — still reachable through the custom swatch's
+        // full palette, just not as a quick one-tap preset any more.
+        expect(find.byKey(const Key('colorChoice-rose')), findsNothing);
+        expect(find.byKey(const Key('colorChoice-sage')), findsNothing);
+      },
+    );
+
+    testWidgets(
       'choosing a preset swatch calls setHolidayCountryColor with that hex',
       (tester) async {
         (String, String?)? called;
