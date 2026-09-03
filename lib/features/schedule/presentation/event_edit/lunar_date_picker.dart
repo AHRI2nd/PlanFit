@@ -7,26 +7,48 @@ import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
 
-/// The lunar-year range this picker offers — narrower than klc's own
-/// 1391-2050 table (see [LunarDate]'s doc) since a personal calendar app's
-/// only realistic uses for a lunar-date *input* are birthdays/anniversaries
-/// within a lifetime and near-future planning, not historical dates. Wide
-/// enough to cover any living person's birth year with room to spare.
+/// The lunar-year range this picker offers by default — narrower than
+/// klc's own 1391-2050 table (see [LunarDate]'s doc) since a personal
+/// calendar app's only realistic uses for a lunar-date *input* are
+/// birthdays/anniversaries within a lifetime and near-future planning, not
+/// historical dates. Wide enough to cover any living person's birth year
+/// with room to spare. [_LunarDatePickerSheetState] widens this on its own,
+/// per instance, if [showLunarDatePicker]'s own clamp ever hands it a year
+/// outside this default window — see its `_effectiveMinYear`.
 const int _minLunarYear = 1920;
 const int _maxLunarYear = 2050;
+
+/// klc's own supported solar range (see [LunarDate]'s doc) — the exact
+/// bounds [showLunarDatePicker] clamps an out-of-range [initialDate] into,
+/// rather than falling back to today's date (which could be wildly
+/// unrelated to whatever the user was actually configuring) or, past 2050,
+/// crashing outright once `DateTime.now()` itself stops converting.
+final DateTime _klcSolarMin = DateTime(1391, 2, 5);
+final DateTime _klcSolarMax = DateTime(2050, 12, 31);
 
 /// Opens a wheel picker for a lunar-calendar date and resolves it to the
 /// matching solar [DateTime] — mirrors [showDatePicker]'s own
 /// `Future<DateTime?>` contract (null on cancel) so call sites can swap
 /// between the two with no other change needed. [initialDate] seeds the
-/// wheels from whatever lunar date it converts to (today's, if it's outside
-/// [LunarDate]'s supported range).
+/// wheels from whatever lunar date it converts to; a date outside
+/// [LunarDate]'s supported range is clamped to the nearest end of that
+/// range first (this app's own native date picker allows solar dates up to
+/// year 2100, well past klc's 2050 ceiling — reachable today, not just a
+/// theoretical future concern, and the clamp is guaranteed to itself
+/// convert since it sits exactly on klc's own documented bounds).
 Future<DateTime?> showLunarDatePicker({
   required BuildContext context,
   required DateTime initialDate,
 }) {
-  final initialLunar =
-      LunarDate.fromSolar(initialDate) ?? LunarDate.fromSolar(DateTime.now())!;
+  // Date-only comparison — LunarDate.fromSolar only ever reads
+  // initialDate's year/month/day (klc's own conversion has no notion of
+  // time-of-day), so a nonzero time on the boundary day itself (e.g.
+  // 2050-12-31 23:00) must not clamp down a whole day early.
+  final date = DateTime(initialDate.year, initialDate.month, initialDate.day);
+  final clamped = date.isBefore(_klcSolarMin)
+      ? _klcSolarMin
+      : (date.isAfter(_klcSolarMax) ? _klcSolarMax : date);
+  final initialLunar = LunarDate.fromSolar(clamped)!;
   return showAdaptiveBottomSheet<DateTime>(
     context: context,
     builder: (_) => _LunarDatePickerSheet(initial: initialLunar),
@@ -48,8 +70,27 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
   late int _day = widget.initial.day;
   late bool _isLeap = widget.initial.isLeapMonth;
 
+  /// [_minLunarYear]/[_maxLunarYear] widened, if needed, to actually
+  /// include [widget.initial]'s own year — that default window covers any
+  /// living person's birthday, but `showLunarDatePicker`'s own clamp (for a
+  /// solar [DateTime] so far outside klc's range that even *that* clamp's
+  /// result still falls outside this picker's usual window — e.g. an event
+  /// date picked via the native picker's own much wider year range) can
+  /// still hand this a year the default window doesn't cover. Without this,
+  /// [_yearController]'s `initialItem` could go negative (below
+  /// [_minLunarYear]) or past the wheel's last item (above
+  /// [_maxLunarYear]), silently landing on the wrong year — or throwing —
+  /// rather than showing the actual (already-clamped-to-klc's-real-range)
+  /// date the sheet was opened with.
+  late final int _effectiveMinYear = _minLunarYear < widget.initial.year
+      ? _minLunarYear
+      : widget.initial.year;
+  late final int _effectiveMaxYear = _maxLunarYear > widget.initial.year
+      ? _maxLunarYear
+      : widget.initial.year;
+
   late final _yearController = FixedExtentScrollController(
-    initialItem: _year - _minLunarYear,
+    initialItem: _year - _effectiveMinYear,
   );
   late final _monthController = FixedExtentScrollController(
     initialItem: _month - 1,
@@ -136,10 +177,16 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
               children: [
                 wheel(
                   controller: _yearController,
-                  itemCount: _maxLunarYear - _minLunarYear + 1,
-                  labelFor: (i) => '${_minLunarYear + i}',
+                  itemCount: _effectiveMaxYear - _effectiveMinYear + 1,
+                  labelFor: (i) => '${_effectiveMinYear + i}',
                   onChanged: (i) => setState(() {
-                    _year = _minLunarYear + i;
+                    _year = _effectiveMinYear + i;
+                    // Same reasoning as the month wheel's own reset below —
+                    // a leap-month selection doesn't carry over to a
+                    // different *year* that doesn't share the same leap
+                    // month either, and this wheel can change that just as
+                    // easily as the month one can.
+                    if (_leapMonthThisYear != _month) _isLeap = false;
                     _clampDay();
                   }),
                 ),

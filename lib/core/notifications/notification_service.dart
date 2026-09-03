@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:ui' show Locale;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../db/app_database.dart';
 import '../db/event_row_x.dart';
@@ -11,6 +13,15 @@ import '../time/timezone_setup.dart';
 import '../../features/schedule/domain/ports.dart';
 import '../../l10n/app_localizations.dart';
 import 'notification_window.dart';
+
+/// The exact `SharedPreferences` key `SettingsController` persists
+/// `AppSettings.languageOverride` under — duplicated here (rather than
+/// imported) since `settings_controller.dart` sits in the settings
+/// feature's own layer, and this file has to stay reachable from a
+/// background isolate that never touches Riverpod/that layer at all (see
+/// [_l10n]'s own doc). A plain string constant, not a real dependency,
+/// so this is the lowest-friction way to stay in sync with it.
+const String _kLanguageOverridePrefsKey = 'settings.languageOverride';
 
 /// `PlatformDispatcher.instance.locale`, not `Localizations.localeOf` — this
 /// file's own strings (the notification channel name shown in system
@@ -28,7 +39,24 @@ import 'notification_window.dart';
 /// added. Same underlying reasoning `holiday_calendar_service.dart`'s
 /// `defaultHolidayCountryCode` documents for the same context-free
 /// constraint.
-AppL10n _l10n() => lookupAppL10n(PlatformDispatcher.instance.locale);
+///
+/// [languageOverride] — [AppSettings.languageOverride] — takes priority over
+/// the device's own OS locale when given, so this file's strings agree with
+/// whatever the user actually sees on screen (via `MaterialApp.locale` in
+/// app.dart) rather than the device's locale, the moment those two diverge.
+/// Every call site inside [NotificationService] itself passes its own
+/// [NotificationService.languageOverride] instance field (kept in sync by
+/// `SettingsController._apply`, the same way [NotificationService
+/// .soundEnabled] already is); [handleNotificationAction] has no
+/// [NotificationService] instance to read that field from (a background
+/// isolate's snooze re-fire builds its own bare plugin — see that
+/// function's own doc), so it resolves the override itself, straight out of
+/// `SharedPreferences`, before calling in here.
+AppL10n _l10n({String? languageOverride}) => lookupAppL10n(
+  languageOverride != null
+      ? Locale(languageOverride)
+      : PlatformDispatcher.instance.locale,
+);
 
 /// Wraps `flutter_local_notifications` and implements the [NotificationPort]
 /// the event repository drives. An event (or a to-do — see
@@ -38,13 +66,21 @@ AppL10n _l10n() => lookupAppL10n(PlatformDispatcher.instance.locale);
 /// previous alert for that same offset) and any offset the user removes
 /// gets its own notification canceled without disturbing the others.
 class NotificationService implements NotificationPort {
-  NotificationService({this.soundEnabled = true});
+  NotificationService({this.soundEnabled = true, this.languageOverride});
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
   /// Whether notifications play a sound. Flipped from settings.
   bool soundEnabled;
+
+  /// [AppSettings.languageOverride] — kept in sync by
+  /// `SettingsController._apply`, the same way [soundEnabled] already is.
+  /// Threaded into every [_l10n] call this instance makes so a scheduled
+  /// notification's channel name/snooze label/fallback title agree with
+  /// whatever language the user actually sees on screen, not the device's
+  /// own OS locale, the moment the two diverge — see [_l10n]'s own doc.
+  String? languageOverride;
   bool _initialized = false;
 
   /// Fired on every response `init()`'s `onDidReceiveNotificationResponse`
@@ -57,9 +93,11 @@ class NotificationService implements NotificationPort {
   void Function(NotificationResponse response)? onTap;
 
   static const String _channelId = 'planfit_events';
-  static String get _channelName => _l10n().notificationChannelName;
-  static String get _channelDescription =>
-      _l10n().notificationChannelDescription;
+  static String _channelName({String? languageOverride}) =>
+      _l10n(languageOverride: languageOverride).notificationChannelName;
+  static String _channelDescription({String? languageOverride}) => _l10n(
+    languageOverride: languageOverride,
+  ).notificationChannelDescription;
 
   /// Action/category ids shared with the top-level background handler below
   /// — a "5 minutes from now" snooze that re-fires the same notification
@@ -67,7 +105,8 @@ class NotificationService implements NotificationPort {
   /// false on both platforms).
   static const String snoozeActionId = 'snooze';
   static const String _categoryId = 'planfit_event';
-  static String get snoozeLabel => _l10n().notificationSnoozeLabel;
+  static String snoozeLabel({String? languageOverride}) =>
+      _l10n(languageOverride: languageOverride).notificationSnoozeLabel;
   static const Duration snoozeDuration = Duration(minutes: 5);
 
   Future<void> init() async {
@@ -82,7 +121,10 @@ class NotificationService implements NotificationPort {
         DarwinNotificationCategory(
           _categoryId,
           actions: [
-            DarwinNotificationAction.plain(snoozeActionId, snoozeLabel),
+            DarwinNotificationAction.plain(
+              snoozeActionId,
+              snoozeLabel(languageOverride: languageOverride),
+            ),
           ],
         ),
       ],
@@ -155,15 +197,17 @@ class NotificationService implements NotificationPort {
   NotificationDetails _details() {
     final android = AndroidNotificationDetails(
       _channelId,
-      _channelName,
-      channelDescription: _channelDescription,
+      _channelName(languageOverride: languageOverride),
+      channelDescription: _channelDescription(
+        languageOverride: languageOverride,
+      ),
       importance: Importance.high,
       priority: Priority.high,
       playSound: soundEnabled,
       actions: [
         AndroidNotificationAction(
           snoozeActionId,
-          snoozeLabel,
+          snoozeLabel(languageOverride: languageOverride),
           showsUserInterface: false,
         ),
       ],
@@ -184,8 +228,10 @@ class NotificationService implements NotificationPort {
   NotificationDetails _todoDetails() {
     final android = AndroidNotificationDetails(
       _channelId,
-      _channelName,
-      channelDescription: _channelDescription,
+      _channelName(languageOverride: languageOverride),
+      channelDescription: _channelDescription(
+        languageOverride: languageOverride,
+      ),
       importance: Importance.high,
       priority: Priority.high,
       playSound: soundEnabled,
@@ -245,7 +291,9 @@ class NotificationService implements NotificationPort {
   }) {
     if (alertAt == null) return _plugin.cancel(id: id);
     final title = event.title.isEmpty
-        ? _l10n().notificationEventFallbackTitle
+        ? _l10n(
+            languageOverride: languageOverride,
+          ).notificationEventFallbackTitle
         : event.title;
     return _plugin.zonedSchedule(
       id: id,
@@ -377,7 +425,9 @@ class NotificationService implements NotificationPort {
     final now = DateTime.now();
     final selected = todo.reminderOffsets.toSet();
     final title = todo.title.isEmpty
-        ? _l10n().notificationTodoFallbackTitle
+        ? _l10n(
+            languageOverride: languageOverride,
+          ).notificationTodoFallbackTitle
         : todo.title;
 
     for (final offset in reminderOffsetOptions) {
@@ -465,16 +515,26 @@ Future<void> handleNotificationAction(
       NotificationService.notificationId(eventId, 0);
 
   await TimezoneSetup.init();
+  // No NotificationService instance exists on this background isolate to
+  // read AppSettings.languageOverride's already-synced value off of (see
+  // NotificationService.languageOverride's own doc) — read the persisted
+  // setting straight out of SharedPreferences instead, the same way
+  // TimezoneSetup.init() above stands up its own state from scratch rather
+  // than relying on anything the foreground app already initialized.
+  final prefs = await SharedPreferences.getInstance();
+  final languageOverride = prefs.getString(_kLanguageOverridePrefsKey);
   final android = AndroidNotificationDetails(
     NotificationService._channelId,
-    NotificationService._channelName,
-    channelDescription: NotificationService._channelDescription,
+    NotificationService._channelName(languageOverride: languageOverride),
+    channelDescription: NotificationService._channelDescription(
+      languageOverride: languageOverride,
+    ),
     importance: Importance.high,
     priority: Priority.high,
     actions: [
       AndroidNotificationAction(
         NotificationService.snoozeActionId,
-        NotificationService.snoozeLabel,
+        NotificationService.snoozeLabel(languageOverride: languageOverride),
         showsUserInterface: false,
       ),
     ],
@@ -500,7 +560,9 @@ Future<void> handleNotificationAction(
 
   await plugin.zonedSchedule(
     id: notificationId,
-    title: data['title'] as String? ?? _l10n().notificationEventFallbackTitle,
+    title:
+        data['title'] as String? ??
+        _l10n(languageOverride: languageOverride).notificationEventFallbackTitle,
     body: data['body'] as String?,
     scheduledDate: TimezoneSetup.toLocal(
       DateTime.now().add(NotificationService.snoozeDuration),

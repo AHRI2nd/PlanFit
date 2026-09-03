@@ -119,5 +119,24 @@ void main() {
       expect(Fmt.hour(15, 'ja', use24Hour: false), '午後 3時');
       expect(Fmt.hour(9, 'ja', use24Hour: false), '午前 9時');
     });
+
+    test(
+      "a locale whose own 24-hour pattern quotes a literal 'h' isn't fooled "
+      'into thinking it\'s already 12-hour — regression test: this app '
+      "only ships ko/en/ja (none of which hit this), but _force12h's own "
+      'contains(\'h\')/contains(\'a\') checks used to search the *whole* '
+      'pattern string including quoted literal text, not just real fields. '
+      "French's own `j` skeleton is exactly this case: `\"HH 'h'\"` — a "
+      'real 24-hour HH field followed by the literal word "h" (heures), '
+      'not a second hour field',
+      () {
+        // Not a supported locale in this app — reachable via intl's own
+        // CLDR data directly, which is all Fmt.hour actually needs.
+        expect(Fmt.hour(15, 'fr', use24Hour: true), contains('15'));
+        final forced = Fmt.hour(15, 'fr', use24Hour: false);
+        expect(forced, isNot(contains('15')));
+        expect(forced, contains('3'));
+      },
+    );
   });
 }

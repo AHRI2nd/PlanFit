@@ -225,6 +225,51 @@ void main() {
       );
 
       test(
+        'a day-30 anchor clamps to 29 in a year whose target month is only '
+        '29 days, instead of terminating the whole series there — '
+        'regression test: this used to be indistinguishable from running '
+        "out of klc's range entirely, ending the series decades early the "
+        'first time a 30-day anchor hit an ordinary 29-day year (which '
+        'happens to roughly half of all lunar months, routinely)',
+        () {
+          final start = DateTime(2025, 12, 19, 8); // lunar 2025-10-30
+          final end = start.add(const Duration(hours: 1));
+          final result = RecurrenceExpansion.occurrences(
+            start: start,
+            end: end,
+            frequency: RecurrenceFrequency.yearlyLunar,
+            count: 8,
+          );
+          // All 8 requested occurrences exist — the old bug stopped after
+          // just 4 (years 2025-2028), the last one before the first 29-day
+          // year.
+          expect(result.length, 8);
+          expect(result.map((o) => (o.$1.year, o.$1.month, o.$1.day)), [
+            (2025, 12, 19),
+            (2026, 12, 8),
+            (2027, 11, 27),
+            (2028, 12, 15),
+            (2029, 12, 4),
+            (2030, 11, 24),
+            (2031, 12, 13),
+            (2032, 12, 2),
+          ]);
+          // The lunar month stays 10 throughout; the day clamps to 29 for
+          // the three years (2029-2031) whose month 10 is only 29 days,
+          // and returns to the anchor's own 30 the moment a 30-day year
+          // comes back around — never drifting to a different month.
+          final lunarDays = [
+            for (final o in result) LunarDate.fromSolar(o.$1)!,
+          ];
+          expect(lunarDays.every((l) => l.month == 10), isTrue);
+          expect(
+            lunarDays.map((l) => l.day),
+            [30, 30, 30, 30, 29, 29, 29, 30],
+          );
+        },
+      );
+
+      test(
         'stops (rather than crashing or looping) once stepping past the '
         "solar year 2050 — klc's own supported range runs out there",
         () {

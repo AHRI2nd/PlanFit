@@ -93,7 +93,15 @@ class SettingsController extends Notifier<AppSettings> {
       return (const {}, {legacyCustomUrl});
     }
     final legacyCountry = prefs.getString(_kLegacyHolidayCountry);
-    return ({legacyCountry ?? defaultHolidayCountryCode()}, const {});
+    return (
+      {
+        legacyCountry ??
+            defaultHolidayCountryCode(
+              languageOverride: prefs.getString(_kLanguageOverride),
+            ),
+      },
+      const {},
+    );
   }
 
   /// `SharedPreferences` has no native map type — stored as one JSON object
@@ -144,7 +152,9 @@ class SettingsController extends Notifier<AppSettings> {
 
   /// Pushes config into the long-lived services so the repository sees it.
   void _apply(AppSettings s) {
-    ref.read(notificationServiceProvider).soundEnabled = s.notificationSound;
+    final notifications = ref.read(notificationServiceProvider);
+    notifications.soundEnabled = s.notificationSound;
+    notifications.languageOverride = s.languageOverride;
     final calendar = ref.read(calendarServiceProvider);
     calendar.enabled = s.calendarSyncEnabled;
     calendar.targetCalendarId = s.targetCalendarId;

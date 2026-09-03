@@ -223,16 +223,48 @@ class RecurrenceExpansion {
   /// isn't special-cased here: `LunarDate.toSolar()` already does exactly
   /// that normalization on its own (see its own doc) — passing the same
   /// [LunarDate.isLeapMonth] through for every step and letting klc decide,
-  /// year by year, is already correct. Returns `null` if [start] itself, or
-  /// the stepped-forward lunar year, falls outside klc's supported range.
+  /// year by year, is already correct.
+  ///
+  /// [anchor.day] itself *is* clamped, the same way [_sameDayOfMonth] clamps
+  /// a solar day-of-month that overflows a shorter target month — a lunar
+  /// month is 29 or 30 days and which one varies year to year (unlike a
+  /// solar month, whose length only depends on which month it is), so an
+  /// anchor on day 30 routinely lands in a target year whose same month
+  /// only has 29. Without this, [LunarDate.toSolar] returning `null` for
+  /// that one specific year would look identical to genuinely running out
+  /// of klc's supported range, terminating the whole series decades early
+  /// the first time a 30-day anchor hit an ordinary 29-day year — clamping
+  /// keeps that a per-year cosmetic adjustment instead. Returns `null` only
+  /// when [start] itself, or the stepped-forward lunar year, is genuinely
+  /// outside [LunarDate]'s supported table — `LunarDate.daysInMonth` is the
+  /// single source of truth for that boundary (see its own doc on why a
+  /// plain year-range check isn't precise enough right at its edges).
   static DateTime? _advanceLunarYearly(DateTime start, int step) {
     final anchor = LunarDate.fromSolar(start);
     if (anchor == null) return null;
+    final steppedYear = anchor.year + step;
+    // Resolve the leap-month fallback *before* asking daysInMonth, not
+    // after — daysInMonth returns null both for "genuinely out of klc's
+    // table" and for "isLeapMonth true but steppedYear has no such leap
+    // month" (see its own doc), and only the first of those should actually
+    // stop this series. Most years don't share the anchor's own leap month
+    // (see this method's own doc on the fallback), so resolving it here
+    // keeps that ordinary case from being mistaken for hitting the edge of
+    // klc's range.
+    final isLeapThisYear =
+        anchor.isLeapMonth &&
+        LunarDate.leapMonthOf(steppedYear) == anchor.month;
+    final maxDay = LunarDate.daysInMonth(
+      steppedYear,
+      anchor.month,
+      isLeapThisYear,
+    );
+    if (maxDay == null) return null;
     final stepped = LunarDate(
-      year: anchor.year + step,
+      year: steppedYear,
       month: anchor.month,
-      day: anchor.day,
-      isLeapMonth: anchor.isLeapMonth,
+      day: anchor.day > maxDay ? maxDay : anchor.day,
+      isLeapMonth: isLeapThisYear,
     );
     final solar = stepped.toSolar();
     if (solar == null) return null;

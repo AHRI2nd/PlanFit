@@ -74,7 +74,9 @@ class ScheduleScreen extends ConsumerWidget {
     // CalendarBuilders) — a day-level label belongs on the day it's for.
     String? lunarSubtitle;
     if (view == ScheduleView.day &&
-        ref.watch(settingsControllerProvider).showLunarDates) {
+        ref.watch(
+          settingsControllerProvider.select((s) => s.showLunarDates),
+        )) {
       final lunar = LunarDate.fromSolar(selected);
       if (lunar != null) lunarSubtitle = LunarFmt.short(l10n, lunar);
     }

@@ -114,31 +114,68 @@ class LunarDate {
     );
   }
 
+  /// klc's lunar-data table (`KOREAN_LUNAR_DATA`, indexed from year 1391)
+  /// only covers as many years as it has entries for — reading it out of
+  /// bounds throws a `RangeError` rather than failing gracefully the way
+  /// [fromSolar]/[toSolar] do (those go through `checkValidDate` first;
+  /// [leapMonthOf] and [daysInMonth] below call the lower-level table
+  /// lookups directly, so they have to guard the index themselves). Using
+  /// the table's own real length here — rather than a hardcoded "2050" —
+  /// means this stays correct even if a future klc release extends the
+  /// table further, with no matching change needed on this side.
+  static bool _yearInTable(int year) {
+    final index = year - 1391;
+    return index >= 0 && index < klc.KOREAN_LUNAR_DATA.length;
+  }
+
   /// Which month (1-12) is [year]'s 윤달/leap month, or `null` if that year
   /// has none — a leap month lands roughly every 2-3 years, never more than
   /// one per year. For a lunar date *input* UI (see `lunar_date_picker.dart`)
   /// to know whether the leap-month toggle is even meaningful for whatever
-  /// year/month the user has dialed in. `year` outside klc's own
-  /// 1391-2050 table returns `null` too, same as an absent leap month —
-  /// there's nothing this could look up either way.
+  /// year/month the user has dialed in. `year` outside klc's own lunar-data
+  /// table returns `null` too, same as an absent leap month — there's
+  /// nothing this could look up either way.
   static int? leapMonthOf(int year) {
-    if (year < 1391 || year > 2050) return null;
+    if (!_yearInTable(year)) return null;
     final month = klc.getLunarIntercalationMonth(klc.getLunarData(year));
     return month == 0 ? null : month;
   }
 
-  /// How many days [month] has in [year] (always 29 or 30), or `null` if
-  /// [isLeapMonth] is true but [year]'s [month] was never actually a leap
-  /// month (see [leapMonthOf]) — unlike [toSolar]'s own lenient handling of
-  /// that same mismatch (silently resolving the plain month instead), this
-  /// returns `null` instead of a number for a *different* month than asked
-  /// about, since a picker UI needs to know the combination itself was
-  /// invalid so it can keep the leap toggle disabled, not silently show a
-  /// day range that doesn't actually belong to the leap month.
+  /// How many days [month] actually has in [year] — the true last day
+  /// [toSolar] will accept for this (year, month, isLeapMonth), which is
+  /// **not** always what klc's own raw `getLunarDays` table lookup claims:
+  /// right at the very edge of klc's supported range (currently trailing
+  /// off partway through lunar month 2050-11), a month's nominal day count
+  /// can overshoot days that `setLunarDate`/`checkValidDate` actually
+  /// accept — e.g. `getLunarDays` reports 30 days for a month where only
+  /// the first 18 convert successfully. Walking backward from the raw count
+  /// until a day actually validates (never below 1, since day 1 is checked
+  /// first and any month this returns non-null for has to have *a* valid
+  /// first day) keeps every day this returns genuinely round-trippable —
+  /// which matters both for the picker (so it never offers a day that
+  /// silently fails on Done — see `lunar_date_picker.dart`) and for
+  /// [RecurrenceExpansion]'s yearly-lunar clamp (`recurrence.dart`), which
+  /// leans on this to fall back to a real day instead of guessing.
+  ///
+  /// Returns `null` if [isLeapMonth] is true but [year]'s [month] was never
+  /// actually a leap month (see [leapMonthOf]) — unlike [toSolar]'s own
+  /// lenient handling of that same mismatch (silently resolving the plain
+  /// month instead), this returns `null` instead of a number for a
+  /// *different* month than asked about, since a picker UI needs to know
+  /// the combination itself was invalid so it can keep the leap toggle
+  /// disabled, not silently show a day range that doesn't actually belong
+  /// to the leap month. Also `null` for an out-of-range year/month, or a
+  /// year with no valid day 1 at all (the solar side of klc's range starts
+  /// mid-February 1391, so that year's lunar month 1 doesn't fully exist).
   static int? daysInMonth(int year, int month, bool isLeapMonth) {
-    if (year < 1391 || year > 2050 || month < 1 || month > 12) return null;
+    if (!_yearInTable(year) || month < 1 || month > 12) return null;
     if (isLeapMonth && leapMonthOf(year) != month) return null;
-    return klc.getLunarDays(year, month, isLeapMonth);
+    if (!klc.setLunarDate(year, month, 1, isLeapMonth)) return null;
+    var days = klc.getLunarDays(year, month, isLeapMonth);
+    while (days > 1 && !klc.setLunarDate(year, month, days, isLeapMonth)) {
+      days--;
+    }
+    return days;
   }
 
   @override

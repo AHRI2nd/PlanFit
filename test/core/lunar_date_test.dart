@@ -157,6 +157,41 @@ void main() {
       expect(LunarDate.daysInMonth(1000, 1, false), isNull);
       expect(LunarDate.daysInMonth(2026, 13, false), isNull);
     });
+
+    test(
+      'every day it returns for a month actually round-trips through '
+      'toSolar — regression test for klc\'s raw day-count table overshooting '
+      "what's really convertible right at the edge of its own supported "
+      'range (year 2050, where klc\'s table trails off mid-month rather '
+      'than on a clean month boundary): the old implementation trusted that '
+      'raw count directly, so it could claim e.g. 30 days for a month where '
+      'only the first 18 actually convert, silently breaking any UI that '
+      "trusted this to know which days are safe to offer",
+      () {
+        for (final (year, month, isLeap) in [
+          (2026, 7, false),
+          (2023, 2, true),
+          (2050, 11, false),
+          (2050, 12, false),
+        ]) {
+          final days = LunarDate.daysInMonth(year, month, isLeap);
+          if (days == null) continue;
+          for (var d = 1; d <= days; d++) {
+            final solar = LunarDate(
+              year: year,
+              month: month,
+              day: d,
+              isLeapMonth: isLeap,
+            ).toSolar();
+            expect(
+              solar,
+              isNotNull,
+              reason: 'day $d of $year-$month(leap=$isLeap) should convert',
+            );
+          }
+        }
+      },
+    );
   });
 
   group('equality', () {

@@ -47,8 +47,21 @@ const List<String> legacyHolidayLocaleSourceIds = ['holiday:ko', 'holiday:en'];
 /// history on this). The `ja` branch was added alongside full Japanese
 /// localization — before that, a Japanese-locale user's default holiday
 /// calendar would have silently fallen all the way to US public holidays.
-String defaultHolidayCountryCode() {
-  final language = PlatformDispatcher.instance.locale.languageCode;
+///
+/// [languageOverride] is [AppSettings.languageOverride] — the app-language
+/// setting overrides the *device's* OS locale for everything under
+/// `MaterialApp` (see app.dart), but this function has no `BuildContext` to
+/// read that through, so its only caller (`SettingsController
+/// ._readHolidaySources`, which already has the raw prefs value in hand)
+/// passes it straight through instead. Without this, a user whose phone is
+/// set to English but who immediately overrides the in-app language to
+/// Korean would still get US holidays seeded as the "auto" default — the
+/// override would only visibly apply to already-rendered UI text, not to
+/// this one-time decision made from the *device's* locale instead of the
+/// user's actual chosen one.
+String defaultHolidayCountryCode({String? languageOverride}) {
+  final language =
+      languageOverride ?? PlatformDispatcher.instance.locale.languageCode;
   if (language == 'ko') return 'KR';
   if (language == 'ja') return 'JP';
   return 'US';

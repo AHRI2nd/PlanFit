@@ -44,13 +44,44 @@ class Fmt {
   /// exists for).
   static DateFormat _force12h(DateFormat source, String locale) {
     final pattern = source.pattern ?? '';
-    if (pattern.contains('h')) return source;
+    // _hasUnquotedChar, not a plain `pattern.contains(...)` — an ICU
+    // pattern can single-quote literal text that happens to contain the
+    // same letter as a real field. French's own `j` skeleton, for one real
+    // example, is `"HH 'h'"` — a genuine 24-hour `HH` field followed by the
+    // *word* "heures" abbreviated `'h'`, not a second hour field. A plain
+    // substring search there would wrongly conclude the pattern is already
+    // 12-hour and leave it unmodified; ko/en/ja (this app's only shipped
+    // locales today) happen not to trigger it, but nothing here should
+    // depend on that staying true for every locale this might ever run
+    // against.
+    if (_hasUnquotedChar(pattern, 'h')) return source;
     var forced = pattern.replaceAllMapped(
       RegExp('H+'),
       (m) => 'h' * m[0]!.length,
     );
-    if (!forced.contains('a')) forced = 'a $forced';
+    if (!_hasUnquotedChar(forced, 'a')) forced = 'a $forced';
     return DateFormat(forced, locale);
+  }
+
+  /// Whether [pattern] contains [char] outside of any single-quoted ICU
+  /// literal section — see [_force12h]'s own doc for why a plain substring
+  /// search isn't safe here. Honors ICU's own escaping rule for a literal
+  /// quote character (`''` inside a pattern, not a toggle).
+  static bool _hasUnquotedChar(String pattern, String char) {
+    var inQuote = false;
+    for (var i = 0; i < pattern.length; i++) {
+      final c = pattern[i];
+      if (c == "'") {
+        if (i + 1 < pattern.length && pattern[i + 1] == "'") {
+          i++; // an escaped literal quote — not a toggle.
+          continue;
+        }
+        inQuote = !inQuote;
+        continue;
+      }
+      if (!inQuote && c == char) return true;
+    }
+    return false;
   }
 
   static String weekdayShort(DateTime dt, String locale) =>
