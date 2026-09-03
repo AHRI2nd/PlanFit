@@ -44,6 +44,14 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Gradle's own build output — the top-level module and the app module both
+# get one. Unlike the Flutter-tool paths above, `/build/` (root-anchored)
+# doesn't reach into `android/`, so these need listing explicitly; this is
+# also where Gradle drops its own `.last_build_id` marker, distinct from
+# `**/ios/Flutter/.last_build_id` above.
+/android/build/
+/android/app/build/
+
 # Internal working notes — not meant for the public repo. README.md at the
 # project root is the exception (that's the public-facing doc) and Flutter's
 # own generated asset READMEs (e.g. under ios/Runner/Assets.xcassets/) are
