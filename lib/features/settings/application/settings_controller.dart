@@ -38,6 +38,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kHolidayCountries = 'settings.holidayCountryCodes';
   static const _kHolidayCustomUrls = 'settings.customHolidayCalendarUrls';
   static const _kHolidaySourceColors = 'settings.holidaySourceColors';
+  static const _kShowLunarDates = 'settings.showLunarDates';
 
   static TimeFormatPreference _readTimeFormat(
     SharedPreferences prefs,
@@ -133,6 +134,7 @@ class SettingsController extends Notifier<AppSettings> {
       holidayCountryCodes: holidayCountryCodes,
       customHolidayCalendarUrls: customHolidayCalendarUrls,
       holidaySourceColors: _readHolidaySourceColors(prefs),
+      showLunarDates: prefs.getBool(_kShowLunarDates) ?? true,
     );
     _apply(settings);
     return settings;
@@ -203,6 +205,7 @@ class SettingsController extends Notifier<AppSettings> {
         jsonEncode(s.holidaySourceColors),
       );
     }
+    await prefs.setBool(_kShowLunarDates, s.showLunarDates);
   }
 
   Future<void> _update(AppSettings next) async {
@@ -243,6 +246,9 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setWeekStartsMonday(bool monday) =>
       _update(state.copyWith(weekStartsMonday: monday));
+
+  Future<void> setShowLunarDates(bool enabled) =>
+      _update(state.copyWith(showLunarDates: enabled));
 
   Future<void> setDialTimeFormatPreference(TimeFormatPreference preference) =>
       _update(state.copyWith(dialTimeFormatPreference: preference));

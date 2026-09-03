@@ -24,6 +24,7 @@ class AppSettings {
     this.holidayCountryCodes = const {},
     this.customHolidayCalendarUrls = const {},
     this.holidaySourceColors = const {},
+    this.showLunarDates = true,
   });
 
   final ThemeMode themeMode;
@@ -108,6 +109,14 @@ class AppSettings {
   /// every holiday event used before per-source colors existed.
   final Map<String, String> holidaySourceColors;
 
+  /// Whether a small secondary lunar-calendar (음력/旧暦) date shows next to
+  /// solar dates across the Day/Week/Month views and the schedule title —
+  /// on by default (shown in every supported locale, not gated to Korean/
+  /// Japanese, per how this was scoped), independent of whether the user
+  /// ever registers an event by lunar date. Purely a display toggle: turning
+  /// it off never touches any already-saved event's own dates.
+  final bool showLunarDates;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     bool? notificationSound,
@@ -126,6 +135,7 @@ class AppSettings {
     Set<String>? holidayCountryCodes,
     Set<String>? customHolidayCalendarUrls,
     Map<String, String>? holidaySourceColors,
+    bool? showLunarDates,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -153,6 +163,7 @@ class AppSettings {
       customHolidayCalendarUrls:
           customHolidayCalendarUrls ?? this.customHolidayCalendarUrls,
       holidaySourceColors: holidaySourceColors ?? this.holidaySourceColors,
+      showLunarDates: showLunarDates ?? this.showLunarDates,
     );
   }
 }

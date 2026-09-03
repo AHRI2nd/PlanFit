@@ -350,6 +350,13 @@ class SettingsScreen extends ConsumerWidget {
                   onChanged: controller.setWeekStartsMonday,
                 ),
                 const _RowDivider(),
+                _SwitchRow(
+                  title: l10n.settingsShowLunarDates,
+                  subtitle: l10n.settingsShowLunarDatesDesc,
+                  value: settings.showLunarDates,
+                  onChanged: controller.setShowLunarDates,
+                ),
+                const _RowDivider(),
                 _TimeFormatRow(
                   label: l10n.settingsTimeFormatDisplay,
                   current: settings.displayTimeFormatPreference,

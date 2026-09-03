@@ -418,5 +418,7 @@
       "month": { "type": "int" },
       "day": { "type": "int" }
     }
-  }
+  },
+  "settingsShowLunarDates": "음력 표시",
+  "settingsShowLunarDatesDesc": "일/주/월 화면에 음력 날짜를 함께 보여줘요"
 }

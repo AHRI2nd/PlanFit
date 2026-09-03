@@ -985,4 +985,10 @@ class AppL10nJa extends AppL10n {
   String lunarDateLabelLeap(int month, int day) {
     return '旧暦 閏$month月$day日';
   }
+
+  @override
+  String get settingsShowLunarDates => '旧暦を表示';
+
+  @override
+  String get settingsShowLunarDatesDesc => '日・週・月の画面に旧暦の日付も表示します';
 }

@@ -1026,4 +1026,11 @@ class AppL10nEn extends AppL10n {
   String lunarDateLabelLeap(int month, int day) {
     return 'Lunar $month/$day (leap)';
   }
+
+  @override
+  String get settingsShowLunarDates => 'Show lunar dates';
+
+  @override
+  String get settingsShowLunarDatesDesc =>
+      'Shows the lunar-calendar date alongside the day/week/month views';
 }

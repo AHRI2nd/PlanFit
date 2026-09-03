@@ -418,5 +418,7 @@
       "month": { "type": "int" },
       "day": { "type": "int" }
     }
-  }
+  },
+  "settingsShowLunarDates": "旧暦を表示",
+  "settingsShowLunarDatesDesc": "日・週・月の画面に旧暦の日付も表示します"
 }

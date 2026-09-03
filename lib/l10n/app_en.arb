@@ -418,5 +418,7 @@
       "month": { "type": "int" },
       "day": { "type": "int" }
     }
-  }
+  },
+  "settingsShowLunarDates": "Show lunar dates",
+  "settingsShowLunarDatesDesc": "Shows the lunar-calendar date alongside the day/week/month views"
 }
