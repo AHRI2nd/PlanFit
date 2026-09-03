@@ -287,6 +287,57 @@ void main() {
     },
   );
 
+  testWidgets(
+    'the "+N" overflow count stays a legible, stable size even at the '
+    'shortest allowed row height — regression test: the hint used to be '
+    'declared at fontSize 9, which only barely fit the *default* row '
+    'height\'s own budget; at MonthCalendarRowHeight.min specifically '
+    '(7px of real vertical room, measured against the actual '
+    'monthMarkerTop/cellMargin math) that forced FittedBox to shrink it '
+    'to ~78% on every normal phone width, reading as a jarringly '
+    'smaller "+N" than the exact same label shows at any taller row '
+    'height',
+    (tester) async {
+      const rowHeightPrefsKey = 'schedule.monthCalendarRowHeight';
+      SharedPreferences.setMockInitialValues({
+        rowHeightPrefsKey: MonthCalendarRowHeight.min,
+      });
+      final day = DateTime(2026, 3, 15);
+      const eventCount = 6;
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          for (var i = 0; i < eventCount; i++)
+            singleDayEvent(id: 'e$i', day: day),
+        ]),
+      );
+
+      await pumpMonth(tester, DateTime(2026, 3, 1));
+
+      final hintFinder = find.text('+$eventCount');
+      expect(hintFinder, findsOneWidget);
+
+      // The style's own natural (unscaled) height, measured the same way
+      // FittedBox/TextPainter would — the rendered height should be at or
+      // very near this, not shrunk down to a fraction of it the way the
+      // old fontSize-9 style was at this exact row height.
+      final painter = TextPainter(
+        text: const TextSpan(
+          text: '+$eventCount',
+          style: TextStyle(fontSize: 7, height: 1.0, fontWeight: FontWeight.w700),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final renderedSize = tester.getSize(hintFinder);
+      expect(
+        renderedSize.height,
+        closeTo(painter.height, 0.5),
+        reason:
+            'should render at ~its natural size, not meaningfully shrunk',
+      );
+    },
+  );
+
   group('lunar date labels', () {
     testWidgets(
       'a quiet day (no events) shows its compact lunar label at the '
@@ -456,10 +507,14 @@ void main() {
 
         expect(shownTitles, {'e0', 'e1'});
         final lunar = LunarDate.fromSolar(DateTime(2026, 3, 15))!;
-        expect(
-          monthListText(LunarFmt.compact(AppL10nKo(), lunar)),
-          findsOneWidget,
-        );
+        final labelFinder = monthListText(LunarFmt.compact(AppL10nKo(), lunar));
+        expect(labelFinder, findsOneWidget);
+        // The expanded-list branch stretches its Column's children to the
+        // full cell width (matching its event rows) — regression test for
+        // the lunar label rendering flush left inside that stretched box
+        // instead of centered, the one branch where the two don't already
+        // coincide the way they do in the collapsed (unstretched) case.
+        expect(tester.widget<Text>(labelFinder).textAlign, TextAlign.center);
         expect(tester.takeException(), isNull);
       },
     );

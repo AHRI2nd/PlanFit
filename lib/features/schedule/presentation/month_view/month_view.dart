@@ -428,12 +428,21 @@ class MonthView extends ConsumerWidget {
                     // one doesn't at the same row height — the same kind of
                     // graceful degradation monthEventListCapacity itself
                     // already does for the list/dot switch.
-                    Widget lunarLabel({required bool centered}) {
+                    // Always centered — the expanded-list branch's own
+                    // Column stretches every child to the cell's full width
+                    // (crossAxisAlignment.stretch, matching its event rows),
+                    // so this needs textAlign.center to actually land in the
+                    // middle rather than just sitting flush left inside that
+                    // now-full-width box; the collapsed branch's Column
+                    // isn't stretched, so its lunar label is already exactly
+                    // as wide as its own text either way — centering it too
+                    // is a no-op there, not a conflicting need.
+                    Widget lunarLabel() {
                       return Padding(
                         padding: const EdgeInsets.only(top: 1),
                         child: Text(
                           LunarFmt.compact(l10n, lunar!),
-                          textAlign: centered ? TextAlign.center : null,
+                          textAlign: TextAlign.center,
                           style: _monthEventRowTextStyle.copyWith(
                             fontSize: 8,
                             color: palette.inkFaint,
@@ -481,7 +490,7 @@ class MonthView extends ConsumerWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (showLunarHere) lunarLabel(centered: true),
+                            if (showLunarHere) lunarLabel(),
                             if (spanning.isNotEmpty) spanBar(asListRow: false),
                             if (entryColors.isNotEmpty)
                               if (entryColors.length <=
@@ -506,23 +515,35 @@ class MonthView extends ConsumerWidget {
                                   ],
                                 )
                               else
-                                // Flexible+FittedBox, not a bare Text: at
-                                // the shortest allowed row height there's
-                                // only as much vertical room as
-                                // _monthCollapsedDotSize's own tiny dot
-                                // needs (that size is exactly what
-                                // MonthCalendarRowHeight.min budgets for),
-                                // which a 9px-font line doesn't always fit
-                                // without this scaling down to whatever
-                                // room is actually available instead of
-                                // overflowing the cell.
+                                // Flexible+FittedBox, not a bare Text: a
+                                // pure safety net for some unusual device/
+                                // text-scale combination, not the normal
+                                // path — the style below (fontSize 7,
+                                // height: 1.0) was deliberately measured to
+                                // a natural rendered height of exactly 7px
+                                // (verified via TextPainter), matching the
+                                // shortest allowed row height's own real
+                                // budget of 7px here (MonthCalendarRowHeight
+                                // .min minus the day-number circle's margin
+                                // and the marker's own bottom padding —
+                                // see monthMarkerTop's doc). The original
+                                // fontSize 9 needed FittedBox to shrink it
+                                // to ~78% at that floor on every normal
+                                // device, which read as a jarring, much
+                                // smaller "+N" than the same label at any
+                                // taller row height — this keeps it a
+                                // stable, legible size at every height
+                                // instead, only ever asking FittedBox to
+                                // step in for a genuinely narrower-than-
+                                // typical device.
                                 Flexible(
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Text(
                                       '+${entryColors.length}',
                                       style: TextStyle(
-                                        fontSize: 9,
+                                        fontSize: 7,
+                                        height: 1.0,
                                         fontWeight: FontWeight.w700,
                                         color: palette.inkFaint,
                                       ),
@@ -620,7 +641,7 @@ class MonthView extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (showLunarHere) lunarLabel(centered: false),
+                          if (showLunarHere) lunarLabel(),
                           ...visible,
                         ],
                       ),
