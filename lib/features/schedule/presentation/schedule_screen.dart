@@ -343,12 +343,23 @@ class _TitleChevron extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticLabel,
-      child: InkResponse(
-        onTap: onTap,
-        radius: 18,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18, color: color),
+      // The tappable area is forced up to the 44x44 accessibility floor
+      // (Apple HIG / Material both recommend it) via this SizedBox, kept
+      // separate from the 18px icon's own visual size so growing the tap
+      // target doesn't also grow what's drawn — Center then places that
+      // unchanged icon+padding in the middle of the bigger invisible box.
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 18,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(icon, size: 18, color: color),
+            ),
+          ),
         ),
       ),
     );

@@ -338,6 +338,41 @@ void main() {
         handle.dispose();
       },
     );
+
+    testWidgets(
+      'both chevrons have a tappable area of at least 44x44 — regression '
+      'test for a hit box that used to measure only ~30x30 (an 18px icon '
+      'plus 6px of padding), well under the ~44x44 accessibility floor '
+      'Apple HIG / Material both recommend for a comfortable tap target',
+      (tester) async {
+        final selected = DateTime(2026, 3, 10);
+        await pumpSchedule(tester, view: ScheduleView.day, selected: selected);
+
+        for (final icon in [Icons.chevron_left, Icons.chevron_right]) {
+          // The 44x44 SizedBox that pads out _TitleChevron's tap target —
+          // matched specifically (not just any SizedBox) since the icon
+          // sits under plenty of unrelated ones elsewhere in the tree.
+          final hitArea = find.ancestor(
+            of: find.byIcon(icon),
+            matching: find.byWidgetPredicate(
+              (w) => w is SizedBox && w.width == 44 && w.height == 44,
+            ),
+          );
+          expect(hitArea, findsOneWidget, reason: '$icon');
+          final size = tester.getSize(hitArea);
+          expect(
+            size.width,
+            greaterThanOrEqualTo(44),
+            reason: '$icon tap width',
+          );
+          expect(
+            size.height,
+            greaterThanOrEqualTo(44),
+            reason: '$icon tap height',
+          );
+        }
+      },
+    );
   });
 
   group('body-region swipes', () {
