@@ -165,4 +165,153 @@ void main() {
       expect(key.currentState!.picked, isNotNull);
     },
   );
+
+  // Finds the Semantics widget wrapping a given wheel by its label — the
+  // simpler, lower-level alternative to dispatching real SemanticsActions
+  // through the semantics tree: `Semantics.properties` exposes the exact
+  // same onIncrease/onDecrease closures a screen reader's increase/decrease
+  // gesture would end up invoking, so calling them directly here exercises
+  // the identical code path.
+  Semantics wheelSemantics(WidgetTester tester, String label) {
+    return tester
+        .widgetList<Semantics>(find.byType(Semantics))
+        .firstWhere((s) => s.properties.label == label);
+  }
+
+  group('screen-reader semantics', () {
+    testWidgets(
+      'each of the year/month/day wheels carries its own screen-reader '
+      'label — regression test: CupertinoPicker\'s raw drag gesture isn\'t '
+      'itself screen-reader-operable, so without a Semantics wrapper a '
+      'VoiceOver/TalkBack user had no way to even discover these wheels, '
+      'let alone operate them',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await pumpAndOpen(tester, DateTime(2026, 3, 22));
+
+        // Literal Korean strings (matching l10n.lunarDatePickerYear/Month/
+        // Day for the 'ko' locale this harness pumps), same convention as
+        // schedule_screen_test's own chevron-label regression test.
+        expect(find.bySemanticsLabel('연도'), findsOneWidget);
+        expect(find.bySemanticsLabel('월'), findsOneWidget);
+        expect(find.bySemanticsLabel('일'), findsOneWidget);
+
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'the day wheel\'s onIncrease/onDecrease move _day the same way '
+      'dragging the wheel would, keeping the wheel controller in sync',
+      (tester) async {
+        await pumpAndOpen(tester, DateTime(2026, 3, 22));
+
+        final dayController = tester
+            .widget<CupertinoPicker>(find.byType(CupertinoPicker).at(2))
+            .scrollController!;
+        final before = int.parse(wheelSemantics(tester, '일').properties.value!);
+
+        wheelSemantics(tester, '일').properties.onIncrease!();
+        await tester.pump();
+        expect(wheelSemantics(tester, '일').properties.value, '${before + 1}');
+        // onIncrease bypasses the wheel's own onSelectedItemChanged (which
+        // only fires from a real drag), so the controller doesn't move on
+        // its own — the wheel's onIncrease closure has to jumpToItem it
+        // explicitly the same way _clampDay already does, or the visible
+        // wheel would silently fall out of sync with _day.
+        expect(dayController.selectedItem, before + 1 - 1);
+
+        wheelSemantics(tester, '일').properties.onDecrease!();
+        await tester.pump();
+        expect(wheelSemantics(tester, '일').properties.value, '$before');
+        expect(dayController.selectedItem, before - 1);
+      },
+    );
+
+    testWidgets(
+      'the day wheel\'s onDecrease disables itself (no-op, not a crash) '
+      'once driven down to day 1',
+      (tester) async {
+        await pumpAndOpen(tester, DateTime(2026, 3, 22));
+
+        // Repeatedly decrease until the wheel itself reports there's
+        // nothing left to decrease — mirrors what a screen reader does:
+        // a null onDecrease means the swipe-down gesture is simply not
+        // offered any more, rather than the app crashing or going negative.
+        var guard = 0;
+        while (wheelSemantics(tester, '일').properties.onDecrease != null) {
+          wheelSemantics(tester, '일').properties.onDecrease!();
+          await tester.pump();
+          guard++;
+          expect(guard, lessThan(40), reason: 'never reached day 1');
+        }
+
+        expect(wheelSemantics(tester, '일').properties.value, '1');
+      },
+    );
+
+    testWidgets(
+      'the year wheel\'s onIncrease resets a stale leap flag exactly like '
+      'dragging the wheel already does (see the drag-based regression test '
+      'above) — exercised here through the screen-reader semantic action '
+      'instead, including the controller staying in sync',
+      (tester) async {
+        // 2023's real leap month is 2 (윤2월); 2024 has no leap month 2, so
+        // moving only the year forward should silently turn the leap flag
+        // off, same as the equivalent drag does.
+        await pumpAndOpen(tester, DateTime(2023, 3, 22));
+
+        final chipBefore = tester.widget<FilterChip>(find.byType(FilterChip));
+        expect(chipBefore.selected, isTrue);
+
+        final yearController = tester
+            .widget<CupertinoPicker>(find.byType(CupertinoPicker).at(0))
+            .scrollController!;
+
+        wheelSemantics(tester, '연도').properties.onIncrease!();
+        await tester.pump();
+
+        expect(wheelSemantics(tester, '연도').properties.value, '2024');
+        // _effectiveMinYear is 1920 here — well below 2023, so this default
+        // window applies unwidened (see _effectiveMinYear's own doc).
+        expect(yearController.selectedItem, 2024 - 1920);
+
+        final chipAfter = tester.widget<FilterChip>(find.byType(FilterChip));
+        expect(
+          chipAfter.selected,
+          isFalse,
+          reason: 'the leap flag should reset once the year wheel moves to '
+              'a year with no matching leap month',
+        );
+      },
+    );
+
+    testWidgets(
+      'repeatedly triggering the year wheel\'s onIncrease reaches klc\'s '
+      '2050 ceiling and clamps the month wheel in sync, the same as the '
+      'drag-based path above',
+      (tester) async {
+        final key = await pumpAndOpen(tester, DateTime(2026, 3, 22));
+
+        for (var i = 0; i < 2050 - 2026; i++) {
+          wheelSemantics(tester, '연도').properties.onIncrease!();
+          await tester.pump();
+        }
+
+        expect(wheelSemantics(tester, '연도').properties.value, '2050');
+        // Already at the ceiling — one more increase must be a no-op, not
+        // a crash or a year past what the wheel actually offers.
+        expect(wheelSemantics(tester, '연도').properties.onIncrease, isNull);
+
+        final monthWheel = tester.widget<CupertinoPicker>(
+          find.byType(CupertinoPicker).at(1),
+        );
+        expect(monthWheel.childDelegate.estimatedChildCount, lessThan(12));
+
+        await tester.tap(find.text('완료'));
+        await tester.pumpAndSettle();
+        expect(key.currentState!.picked, isNotNull);
+      },
+    );
+  });
 }

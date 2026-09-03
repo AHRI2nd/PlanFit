@@ -153,16 +153,40 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
       required int itemCount,
       required String Function(int index) labelFor,
       required ValueChanged<int> onChanged,
+      required String semanticsLabel,
+      required String semanticsValue,
+      required VoidCallback? onIncrease,
+      required VoidCallback? onDecrease,
+      // Semantics requires these alongside onIncrease/onDecrease whenever
+      // `value` is also set (see Semantics.increasedValue's own doc: "If a
+      // value is set, increasedValue must also be provided and onIncrease
+      // must ensure that value will be set to increasedValue") — null
+      // exactly when the matching action itself is null, since the
+      // assertion only fires while that action is actually registered.
+      required String? increasedValue,
+      required String? decreasedValue,
     }) {
       return Expanded(
-        child: CupertinoPicker(
-          scrollController: controller,
-          itemExtent: 36,
-          onSelectedItemChanged: onChanged,
-          children: [
-            for (var i = 0; i < itemCount; i++)
-              Center(child: Text(labelFor(i))),
-          ],
+        child: Semantics(
+          label: semanticsLabel,
+          value: semanticsValue,
+          increasedValue: increasedValue,
+          decreasedValue: decreasedValue,
+          // Same reasoning as _MonthSplitHandle's own onIncrease/onDecrease:
+          // CupertinoPicker's raw drag gesture isn't itself screen-reader-
+          // operable, so these are what let a screen reader user reach and
+          // operate this wheel at all.
+          onIncrease: onIncrease,
+          onDecrease: onDecrease,
+          child: CupertinoPicker(
+            scrollController: controller,
+            itemExtent: 36,
+            onSelectedItemChanged: onChanged,
+            children: [
+              for (var i = 0; i < itemCount; i++)
+                Center(child: Text(labelFor(i))),
+            ],
+          ),
         ),
       );
     }
@@ -205,6 +229,43 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
                     _clampMonth();
                     _clampDay();
                   }),
+                  semanticsLabel: l10n.lunarDatePickerYear,
+                  semanticsValue: '$_year',
+                  increasedValue: _year >= _effectiveMaxYear
+                      ? null
+                      : '${_year + 1}',
+                  decreasedValue: _year <= _effectiveMinYear
+                      ? null
+                      : '${_year - 1}',
+                  onIncrease: _year >= _effectiveMaxYear
+                      ? null
+                      : () => setState(() {
+                          _year++;
+                          if (_leapMonthThisYear != _month) _isLeap = false;
+                          _clampMonth();
+                          _clampDay();
+                          // onSelectedItemChanged only fires from the
+                          // wheel's own scroll gesture, which this bypasses
+                          // entirely — without an explicit jump the wheel
+                          // would keep showing the old year even though
+                          // _year (and everything derived from it) has
+                          // already moved on. Same reasoning _clampDay/
+                          // _clampMonth already rely on for their own jumps.
+                          _yearController.jumpToItem(
+                            _year - _effectiveMinYear,
+                          );
+                        }),
+                  onDecrease: _year <= _effectiveMinYear
+                      ? null
+                      : () => setState(() {
+                          _year--;
+                          if (_leapMonthThisYear != _month) _isLeap = false;
+                          _clampMonth();
+                          _clampDay();
+                          _yearController.jumpToItem(
+                            _year - _effectiveMinYear,
+                          );
+                        }),
                 ),
                 wheel(
                   controller: _monthController,
@@ -219,12 +280,50 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
                     if (_leapMonthThisYear != _month) _isLeap = false;
                     _clampDay();
                   }),
+                  semanticsLabel: l10n.lunarDatePickerMonth,
+                  semanticsValue: '$_month',
+                  increasedValue: _month >= _monthCount
+                      ? null
+                      : '${_month + 1}',
+                  decreasedValue: _month <= 1 ? null : '${_month - 1}',
+                  onIncrease: _month >= _monthCount
+                      ? null
+                      : () => setState(() {
+                          _month++;
+                          if (_leapMonthThisYear != _month) _isLeap = false;
+                          _clampDay();
+                          _monthController.jumpToItem(_month - 1);
+                        }),
+                  onDecrease: _month <= 1
+                      ? null
+                      : () => setState(() {
+                          _month--;
+                          if (_leapMonthThisYear != _month) _isLeap = false;
+                          _clampDay();
+                          _monthController.jumpToItem(_month - 1);
+                        }),
                 ),
                 wheel(
                   controller: _dayController,
                   itemCount: _dayCount,
                   labelFor: (i) => '${i + 1}',
                   onChanged: (i) => setState(() => _day = i + 1),
+                  semanticsLabel: l10n.lunarDatePickerDay,
+                  semanticsValue: '$_day',
+                  increasedValue: _day >= _dayCount ? null : '${_day + 1}',
+                  decreasedValue: _day <= 1 ? null : '${_day - 1}',
+                  onIncrease: _day >= _dayCount
+                      ? null
+                      : () => setState(() {
+                          _day++;
+                          _dayController.jumpToItem(_day - 1);
+                        }),
+                  onDecrease: _day <= 1
+                      ? null
+                      : () => setState(() {
+                          _day--;
+                          _dayController.jumpToItem(_day - 1);
+                        }),
                 ),
               ],
             ),
