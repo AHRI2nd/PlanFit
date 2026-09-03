@@ -335,6 +335,9 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     final themeMode = ref.watch(
       settingsControllerProvider.select((s) => s.themeMode),
     );
+    final languageOverride = ref.watch(
+      settingsControllerProvider.select((s) => s.languageOverride),
+    );
 
     // Keep the widget fresh while the app is open too — e.g. checking off a
     // to-do or adding an event should reflect on the HomeScreen without
@@ -359,6 +362,14 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: AppL10n.supportedLocales,
+      // null (the default — nothing persisted, or the setting was never
+      // shown at all, i.e. iOS) leaves this exactly as it always was:
+      // MaterialApp resolves the effective locale from the OS's own list
+      // against supportedLocales on its own. Set only by
+      // AppSettings.languageOverride, which settings_screen.dart only ever
+      // exposes on Android — see that field's own doc for why iOS instead
+      // sends the user to iOS's own per-app Language setting.
+      locale: languageOverride == null ? null : Locale(languageOverride),
     );
   }
 }

@@ -429,6 +429,12 @@ class AppL10nJa extends AppL10n {
   String get settingsAppearance => '画面';
 
   @override
+  String get settingsLanguage => '言語';
+
+  @override
+  String get settingsLanguageIosHint => 'iOSの設定 > PlanFit > 言語から変更できます';
+
+  @override
   String get settingsWeekStart => '週の開始曜日';
 
   @override

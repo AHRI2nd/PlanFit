@@ -39,6 +39,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kHolidayCustomUrls = 'settings.customHolidayCalendarUrls';
   static const _kHolidaySourceColors = 'settings.holidaySourceColors';
   static const _kShowLunarDates = 'settings.showLunarDates';
+  static const _kLanguageOverride = 'settings.languageOverride';
 
   static TimeFormatPreference _readTimeFormat(
     SharedPreferences prefs,
@@ -135,6 +136,7 @@ class SettingsController extends Notifier<AppSettings> {
       customHolidayCalendarUrls: customHolidayCalendarUrls,
       holidaySourceColors: _readHolidaySourceColors(prefs),
       showLunarDates: prefs.getBool(_kShowLunarDates) ?? true,
+      languageOverride: prefs.getString(_kLanguageOverride),
     );
     _apply(settings);
     return settings;
@@ -206,6 +208,11 @@ class SettingsController extends Notifier<AppSettings> {
       );
     }
     await prefs.setBool(_kShowLunarDates, s.showLunarDates);
+    if (s.languageOverride == null) {
+      await prefs.remove(_kLanguageOverride);
+    } else {
+      await prefs.setString(_kLanguageOverride, s.languageOverride!);
+    }
   }
 
   Future<void> _update(AppSettings next) async {
@@ -249,6 +256,12 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setShowLunarDates(bool enabled) =>
       _update(state.copyWith(showLunarDates: enabled));
+
+  /// `null` reverts to following the OS locale — see
+  /// [AppSettings.languageOverride]'s own doc.
+  Future<void> setLanguageOverride(String? code) => _update(
+    state.copyWith(languageOverride: code, clearLanguageOverride: code == null),
+  );
 
   Future<void> setDialTimeFormatPreference(TimeFormatPreference preference) =>
       _update(state.copyWith(dialTimeFormatPreference: preference));

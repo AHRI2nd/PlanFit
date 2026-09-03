@@ -181,6 +181,8 @@
   "settingsOpenAppSettings": "설정 열기",
   "settingsGrant": "허용하기",
   "settingsAppearance": "화면",
+  "settingsLanguage": "언어",
+  "settingsLanguageIosHint": "iOS 설정 > PlanFit > 언어에서 변경할 수 있어요",
   "settingsWeekStart": "주 시작 요일",
   "settingsWeekStartMonday": "월요일",
   "settingsWeekStartSunday": "일요일",

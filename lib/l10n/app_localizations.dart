@@ -891,6 +891,18 @@ abstract class AppL10n {
   /// **'화면'**
   String get settingsAppearance;
 
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In ko, this message translates to:
+  /// **'언어'**
+  String get settingsLanguage;
+
+  /// No description provided for @settingsLanguageIosHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'iOS 설정 > PlanFit > 언어에서 변경할 수 있어요'**
+  String get settingsLanguageIosHint;
+
   /// No description provided for @settingsWeekStart.
   ///
   /// In ko, this message translates to:

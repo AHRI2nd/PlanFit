@@ -344,6 +344,12 @@ class SettingsScreen extends ConsumerWidget {
                   onChanged: controller.setThemeMode,
                 ),
                 const _RowDivider(),
+                _LanguageRow(
+                  current: settings.languageOverride,
+                  l10n: l10n,
+                  onChanged: controller.setLanguageOverride,
+                ),
+                const _RowDivider(),
                 _WeekStartRow(
                   weekStartsMonday: settings.weekStartsMonday,
                   l10n: l10n,
@@ -685,6 +691,123 @@ class _ThemeRow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The app's display language — deliberately different behavior per
+/// platform, not just a shared picker everywhere. Android has no
+/// system-level "per-app language" UI most users would think to look for
+/// (only a device-wide language list), so [AppSettings.languageOverride]
+/// gives it one in-app. iOS has had a proper per-app Language setting since
+/// iOS 13 (Settings > an app > Language) that already does this correctly
+/// — including honoring [AppL10n.supportedLocales] the moment the OS reads
+/// them off the app bundle (see ios/Runner.xcodeproj's own `ja.lproj`
+/// addition) — so duplicating that inside the app would just be a second,
+/// easy-to-disagree-with source of truth for the same thing; this row sends
+/// the user there instead of trying to override it out from under the OS.
+class _LanguageRow extends StatelessWidget {
+  const _LanguageRow({
+    required this.current,
+    required this.l10n,
+    required this.onChanged,
+  });
+
+  /// [AppSettings.languageOverride] — null means "follow system".
+  final String? current;
+  final AppL10n l10n;
+  final ValueChanged<String?> onChanged;
+
+  /// Every supported language's own name, in its own script — deliberately
+  /// not run through [AppL10n] the way every other label on this screen is:
+  /// a language picker's own option labels need to stay legible to someone
+  /// who doesn't yet read whatever language the app currently happens to be
+  /// in (that's the whole reason they're looking for this row), so "한국어"
+  /// reads as "한국어" regardless of the app's current locale, not
+  /// translated into whatever that locale's word for "Korean" is.
+  static const Map<String, String> _nativeNames = {
+    'ko': '한국어',
+    'en': 'English',
+    'ja': '日本語',
+  };
+
+  /// Distinguishes the dialog closing with "follow system" actually chosen
+  /// from the dialog being dismissed with nothing chosen at all (back
+  /// button, tapping the scrim) — both would otherwise pop `null`, which is
+  /// also [current]'s own "follow system" value, so a bare `String?` return
+  /// can't tell the two apart.
+  static const _systemSentinel = '_system_';
+
+  Future<void> _pick(BuildContext context) async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(l10n.settingsLanguage),
+        children: [
+          RadioGroup<String>(
+            groupValue: current ?? _systemSentinel,
+            onChanged: (v) => Navigator.of(dialogContext).pop(v),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  value: _systemSentinel,
+                  title: Text(l10n.settingsThemeSystem),
+                ),
+                for (final locale in AppL10n.supportedLocales)
+                  RadioListTile<String>(
+                    value: locale.languageCode,
+                    title: Text(
+                      _nativeNames[locale.languageCode] ??
+                          locale.languageCode,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (selected == null) return;
+    onChanged(selected == _systemSentinel ? null : selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final isIOS = Platform.isIOS;
+    final subtitle = isIOS
+        ? l10n.settingsLanguageIosHint
+        : (current == null
+              ? l10n.settingsThemeSystem
+              : (_nativeNames[current] ?? current!));
+
+    return InkWell(
+      onTap: isIOS ? openAppSettings : () => _pick(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.settingsLanguage, style: theme.textTheme.bodyLarge),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: palette.inkFaint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: palette.inkFaint),
+          ],
+        ),
       ),
     );
   }

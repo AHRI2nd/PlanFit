@@ -181,6 +181,8 @@
   "settingsOpenAppSettings": "Open Settings",
   "settingsGrant": "Grant",
   "settingsAppearance": "Appearance",
+  "settingsLanguage": "Language",
+  "settingsLanguageIosHint": "Change it in iOS Settings > PlanFit > Language",
   "settingsWeekStart": "Week starts on",
   "settingsWeekStartMonday": "Monday",
   "settingsWeekStartSunday": "Sunday",

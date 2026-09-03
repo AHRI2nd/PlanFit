@@ -25,6 +25,7 @@ class AppSettings {
     this.customHolidayCalendarUrls = const {},
     this.holidaySourceColors = const {},
     this.showLunarDates = true,
+    this.languageOverride,
   });
 
   final ThemeMode themeMode;
@@ -117,6 +118,17 @@ class AppSettings {
   /// it off never touches any already-saved event's own dates.
   final bool showLunarDates;
 
+  /// Overrides which of [AppL10n.supportedLocales] the app renders in,
+  /// independent of the device's own OS-level locale — `null` (the default)
+  /// follows the OS locale exactly as before this setting existed. Android
+  /// only: iOS instead sends the user to iOS's own per-app Language setting
+  /// (see `settings_screen.dart`'s platform split), since a Flutter app has
+  /// no reason to duplicate a control the OS already gives every app there —
+  /// this field's value is simply never read into `MaterialApp.locale` on
+  /// iOS. A plain ISO language code ('ko'/'en'/'ja'), never a full BCP-47
+  /// tag — this app has no region-specific locale variants to disambiguate.
+  final String? languageOverride;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     bool? notificationSound,
@@ -136,6 +148,8 @@ class AppSettings {
     Set<String>? customHolidayCalendarUrls,
     Map<String, String>? holidaySourceColors,
     bool? showLunarDates,
+    String? languageOverride,
+    bool clearLanguageOverride = false,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -164,6 +178,9 @@ class AppSettings {
           customHolidayCalendarUrls ?? this.customHolidayCalendarUrls,
       holidaySourceColors: holidaySourceColors ?? this.holidaySourceColors,
       showLunarDates: showLunarDates ?? this.showLunarDates,
+      languageOverride: clearLanguageOverride
+          ? null
+          : (languageOverride ?? this.languageOverride),
     );
   }
 }
