@@ -282,7 +282,7 @@ packages:
     source: hosted
     version: "0.7.0"
   device_calendar_plus_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: device_calendar_plus_platform_interface
       sha256: "474169d6d32654e190c2f1d50c82a0090d475c33c904177f96af831ba46c306e"
@@ -941,7 +941,7 @@ packages:
     source: hosted
     version: "3.1.6"
   plugin_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: plugin_platform_interface
       sha256: "4820fbfdb9478b1ebae27888254d445073732dae3d6ea81f0b7e06d5dedc3f02"
