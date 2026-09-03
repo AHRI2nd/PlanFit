@@ -975,4 +975,14 @@ class AppL10nJa extends AppL10n {
 
   @override
   String get notificationTodoFallbackTitle => 'やること';
+
+  @override
+  String lunarDateLabel(int month, int day) {
+    return '旧暦 $month月$day日';
+  }
+
+  @override
+  String lunarDateLabelLeap(int month, int day) {
+    return '旧暦 閏$month月$day日';
+  }
 }

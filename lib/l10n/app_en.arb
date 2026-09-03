@@ -403,5 +403,20 @@
   "notificationChannelDescription": "Alerts you when an event starts",
   "notificationSnoozeLabel": "Remind me in 5 min",
   "notificationEventFallbackTitle": "Event",
-  "notificationTodoFallbackTitle": "To-do"
+  "notificationTodoFallbackTitle": "To-do",
+
+  "lunarDateLabel": "Lunar {month}/{day}",
+  "@lunarDateLabel": {
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" }
+    }
+  },
+  "lunarDateLabelLeap": "Lunar {month}/{day} (leap)",
+  "@lunarDateLabelLeap": {
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" }
+    }
+  }
 }

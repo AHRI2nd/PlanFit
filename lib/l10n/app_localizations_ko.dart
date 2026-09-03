@@ -975,4 +975,14 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get notificationTodoFallbackTitle => '할 일';
+
+  @override
+  String lunarDateLabel(int month, int day) {
+    return '음력 $month월 $day일';
+  }
+
+  @override
+  String lunarDateLabelLeap(int month, int day) {
+    return '음력 윤$month월 $day일';
+  }
 }

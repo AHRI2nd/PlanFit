@@ -1934,6 +1934,18 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'할 일'**
   String get notificationTodoFallbackTitle;
+
+  /// No description provided for @lunarDateLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'음력 {month}월 {day}일'**
+  String lunarDateLabel(int month, int day);
+
+  /// No description provided for @lunarDateLabelLeap.
+  ///
+  /// In ko, this message translates to:
+  /// **'음력 윤{month}월 {day}일'**
+  String lunarDateLabelLeap(int month, int day);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

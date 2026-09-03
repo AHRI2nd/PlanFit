@@ -1016,4 +1016,14 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get notificationTodoFallbackTitle => 'To-do';
+
+  @override
+  String lunarDateLabel(int month, int day) {
+    return 'Lunar $month/$day';
+  }
+
+  @override
+  String lunarDateLabelLeap(int month, int day) {
+    return 'Lunar $month/$day (leap)';
+  }
 }

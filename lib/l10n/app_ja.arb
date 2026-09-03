@@ -403,5 +403,20 @@
   "notificationChannelDescription": "予定が始まるときにお知らせします",
   "notificationSnoozeLabel": "5分後に再通知",
   "notificationEventFallbackTitle": "予定",
-  "notificationTodoFallbackTitle": "やること"
+  "notificationTodoFallbackTitle": "やること",
+
+  "lunarDateLabel": "旧暦 {month}月{day}日",
+  "@lunarDateLabel": {
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" }
+    }
+  },
+  "lunarDateLabelLeap": "旧暦 閏{month}月{day}日",
+  "@lunarDateLabelLeap": {
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" }
+    }
+  }
 }
