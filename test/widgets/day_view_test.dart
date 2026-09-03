@@ -362,6 +362,44 @@ void main() {
       // starting value, not day±1.
       expect(container.read(selectedDateProvider), day);
     });
+
+    testWidgets(
+      'compact:true renders a small one-line empty state, not the full '
+      "icon+hint block — regression test: the full block's own vertical "
+      "padding alone could exceed the month grid's entire minimum day-panel "
+      'height, pushing the to-dos section below the fold on a day with no '
+      'events',
+      (tester) async {
+        final day = DateTime(2026, 3, 10);
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value(const []));
+
+        await pumpDay(tester, day, compact: true);
+        final l10n = lookupAppL10n(const Locale('ko'));
+
+        expect(find.text(l10n.dayEmpty), findsOneWidget);
+        expect(find.text(l10n.dayAddHint), findsNothing);
+        expect(find.byIcon(Icons.bedtime_outlined), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a full (non-compact) DayView keeps the icon+hint empty state',
+      (tester) async {
+        final day = DateTime(2026, 3, 10);
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value(const []));
+
+        await pumpDay(tester, day);
+        final l10n = lookupAppL10n(const Locale('ko'));
+
+        expect(find.text(l10n.dayEmpty), findsOneWidget);
+        expect(find.text(l10n.dayAddHint), findsOneWidget);
+        expect(find.byIcon(Icons.bedtime_outlined), findsOneWidget);
+      },
+    );
   });
 
   testWidgets(

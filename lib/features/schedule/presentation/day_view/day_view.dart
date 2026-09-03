@@ -308,7 +308,7 @@ class _DayContent extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
             ],
             if (timed.isEmpty && allDay.isEmpty)
-              _EmptyDay(l10n: l10n)
+              _EmptyDay(l10n: l10n, compact: compact)
             else if (layoutMode == DayViewLayoutMode.clock) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -1063,12 +1063,35 @@ class _EventCard extends ConsumerWidget {
 }
 
 class _EmptyDay extends StatelessWidget {
-  const _EmptyDay({required this.l10n});
+  const _EmptyDay({required this.l10n, this.compact = false});
   final AppL10n l10n;
+
+  /// Set by [DayView]'s `compact` instance (MonthView's embedded panel).
+  /// The full icon+title+hint block below is sized for a whole dedicated
+  /// screen — inside the month grid's cramped, draggable day panel it alone
+  /// could exceed the panel's entire minimum height (`_monthMinDayViewHeight`
+  /// in month_view.dart), pushing the to-dos section that follows it below
+  /// the fold on a day with no events. Compact mode swaps it for one small
+  /// line of faint text, matching the "+" hint's own font size — enough to
+  /// explain the empty state without competing with content that actually
+  /// needs the room.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Text(
+          l10n.dayEmpty,
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: palette.inkFaint),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
       child: Column(
