@@ -27,6 +27,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/event_input.dart';
 import '../../domain/recurrence.dart';
+import 'lunar_date_picker.dart';
 import 'mirrored_event_detail_screen.dart';
 
 /// Opens the create/edit screen. When [existing] is null it's a new event
@@ -135,6 +136,16 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   int _recurrenceCount = 10;
   bool _titleError = false;
 
+  /// Whether [_pick] opens [showLunarDatePicker] instead of the native
+  /// [showDatePicker] — a session-only UI mode, not a saved field: the DB
+  /// only ever stores the resolved solar [_start]/[_end] (see
+  /// `LunarDate.toSolar`'s own doc on why that's the right layer for it to
+  /// live at), so there's nothing to restore this from when re-opening an
+  /// existing event. Governs both the start and end date rows at once
+  /// rather than a separate toggle per row — a single event's two dates are
+  /// virtually always picked in the same calendar system.
+  bool _useLunarInput = false;
+
   static const List<int> _leadTimeOptions = [0, 5, 10, 30, 60, 1440];
 
   @override
@@ -213,12 +224,14 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
 
   Future<void> _pick(bool isStart) async {
     final initial = isStart ? _start : _end;
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final date = _useLunarInput
+        ? await showLunarDatePicker(context: context, initialDate: initial)
+        : await showDatePicker(
+            context: context,
+            initialDate: initial,
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2100),
+          );
     if (date == null || !mounted) return;
     var picked = DateTime(
       date.year,
@@ -743,7 +756,42 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              SectionHeader(l10n.eventSectionSchedule),
+              SectionHeader(
+                l10n.eventSectionSchedule,
+                // A small icon, no visible label, next to the section
+                // eyebrow rather than its own row — see this file's own
+                // "keep controls to what's needed" convention (the same
+                // reasoning behind _CompactHeaderIconButton in
+                // schedule_screen.dart). The tooltip carries the label a
+                // sighted tap wouldn't otherwise see; the caption below,
+                // shown only once the mode is actually on, covers it for
+                // everyone else.
+                trailing: IconButton(
+                  tooltip: l10n.eventLunarInputToggle,
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    _useLunarInput
+                        ? Icons.nightlight_round
+                        : Icons.nightlight_outlined,
+                    color: _useLunarInput ? accent : null,
+                  ),
+                  onPressed: () =>
+                      setState(() => _useLunarInput = !_useLunarInput),
+                ),
+              ),
+              if (_useLunarInput)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: AppSpacing.xs,
+                    left: AppSpacing.xxs,
+                  ),
+                  child: Text(
+                    l10n.eventLunarInputToggleOn,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: accent),
+                  ),
+                ),
               SectionCard(
                 children: [
                   _DateRow(

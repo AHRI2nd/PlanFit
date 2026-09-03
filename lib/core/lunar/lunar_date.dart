@@ -114,6 +114,33 @@ class LunarDate {
     );
   }
 
+  /// Which month (1-12) is [year]'s 윤달/leap month, or `null` if that year
+  /// has none — a leap month lands roughly every 2-3 years, never more than
+  /// one per year. For a lunar date *input* UI (see `lunar_date_picker.dart`)
+  /// to know whether the leap-month toggle is even meaningful for whatever
+  /// year/month the user has dialed in. `year` outside klc's own
+  /// 1391-2050 table returns `null` too, same as an absent leap month —
+  /// there's nothing this could look up either way.
+  static int? leapMonthOf(int year) {
+    if (year < 1391 || year > 2050) return null;
+    final month = klc.getLunarIntercalationMonth(klc.getLunarData(year));
+    return month == 0 ? null : month;
+  }
+
+  /// How many days [month] has in [year] (always 29 or 30), or `null` if
+  /// [isLeapMonth] is true but [year]'s [month] was never actually a leap
+  /// month (see [leapMonthOf]) — unlike [toSolar]'s own lenient handling of
+  /// that same mismatch (silently resolving the plain month instead), this
+  /// returns `null` instead of a number for a *different* month than asked
+  /// about, since a picker UI needs to know the combination itself was
+  /// invalid so it can keep the leap toggle disabled, not silently show a
+  /// day range that doesn't actually belong to the leap month.
+  static int? daysInMonth(int year, int month, bool isLeapMonth) {
+    if (year < 1391 || year > 2050 || month < 1 || month > 12) return null;
+    if (isLeapMonth && leapMonthOf(year) != month) return null;
+    return klc.getLunarDays(year, month, isLeapMonth);
+  }
+
   @override
   bool operator ==(Object other) =>
       other is LunarDate &&

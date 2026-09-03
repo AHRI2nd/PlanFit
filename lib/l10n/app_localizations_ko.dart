@@ -999,4 +999,17 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get lunarLeapMarker => '윤';
+
+  @override
+  String get eventLunarInputToggle => '음력으로 입력';
+
+  @override
+  String get eventLunarInputToggleOn =>
+      '음력 날짜를 입력하는 중이에요 — 저장된 날짜는 그에 맞는 양력으로 바뀌어요';
+
+  @override
+  String get lunarDatePickerTitle => '음력 날짜 선택';
+
+  @override
+  String get lunarLeapMonthToggle => '윤달';
 }

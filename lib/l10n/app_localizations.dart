@@ -1970,6 +1970,30 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'윤'**
   String get lunarLeapMarker;
+
+  /// No description provided for @eventLunarInputToggle.
+  ///
+  /// In ko, this message translates to:
+  /// **'음력으로 입력'**
+  String get eventLunarInputToggle;
+
+  /// No description provided for @eventLunarInputToggleOn.
+  ///
+  /// In ko, this message translates to:
+  /// **'음력 날짜를 입력하는 중이에요 — 저장된 날짜는 그에 맞는 양력으로 바뀌어요'**
+  String get eventLunarInputToggleOn;
+
+  /// No description provided for @lunarDatePickerTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'음력 날짜 선택'**
+  String get lunarDatePickerTitle;
+
+  /// No description provided for @lunarLeapMonthToggle.
+  ///
+  /// In ko, this message translates to:
+  /// **'윤달'**
+  String get lunarLeapMonthToggle;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

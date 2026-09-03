@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -354,6 +355,66 @@ void main() {
     // exactly the regression this split guards against.
     expect(find.byType(DatePickerDialog), findsNothing);
     expect(find.byType(TimePickerDialog), findsOneWidget);
+  });
+
+  group('lunar date input', () {
+    testWidgets(
+      'toggling it opens the custom picker instead of the native one — '
+      'unlike showDatePicker, this one is a plain custom widget, so this '
+      'test drives it directly rather than just asserting dialog type',
+      (tester) async {
+        final existing = row(
+          id: 'e6',
+          title: 'Lunar toggle test',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+        );
+        await pumpEditor(tester, existing: existing);
+
+        await tester.tap(find.byIcon(Icons.nightlight_outlined));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('date-start')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DatePickerDialog), findsNothing);
+        expect(find.byType(CupertinoPicker), findsNWidgets(3));
+      },
+    );
+
+    testWidgets(
+      'confirming it with no wheel changes round-trips to the same start '
+      'date',
+      (tester) async {
+        final existing = row(
+          id: 'e7',
+          title: 'Lunar round trip',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+        );
+        await pumpEditor(tester, existing: existing);
+
+        // All-day first, so _pick skips its own time-picker step entirely
+        // (see _pick's own doc) — the lunar date sheet is then the only
+        // step left before save, no native dialog to also drive.
+        await tester.tap(find.byType(Switch).first);
+        await tester.pump();
+
+        await tester.tap(find.byIcon(Icons.nightlight_outlined));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('date-start')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('완료'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('저장'));
+        await tester.pumpAndSettle();
+
+        final input =
+            verify(repo.save(captureAny)).captured.single as EventInput;
+        expect(input.startAt, DateTime(2026, 3, 10));
+      },
+    );
   });
 
   testWidgets(

@@ -999,4 +999,16 @@ class AppL10nJa extends AppL10n {
 
   @override
   String get lunarLeapMarker => '閏';
+
+  @override
+  String get eventLunarInputToggle => '旧暦で入力';
+
+  @override
+  String get eventLunarInputToggleOn => '旧暦の日付を入力しています — 対応する新暦の日付として保存されます';
+
+  @override
+  String get lunarDatePickerTitle => '旧暦の日付を選択';
+
+  @override
+  String get lunarLeapMonthToggle => '閏月';
 }

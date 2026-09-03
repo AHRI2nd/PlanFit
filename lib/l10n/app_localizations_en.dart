@@ -1041,4 +1041,17 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get lunarLeapMarker => 'L';
+
+  @override
+  String get eventLunarInputToggle => 'Enter by lunar date';
+
+  @override
+  String get eventLunarInputToggleOn =>
+      'Entering a lunar date — it\'ll be saved as the matching solar date';
+
+  @override
+  String get lunarDatePickerTitle => 'Pick a lunar date';
+
+  @override
+  String get lunarLeapMonthToggle => 'Leap month';
 }

@@ -122,6 +122,43 @@ void main() {
     });
   });
 
+  group('LunarDate.leapMonthOf', () {
+    test('returns the correct leap month for a year known to have one', () {
+      // Verified against klc directly earlier — 2023's leap month is 2.
+      expect(LunarDate.leapMonthOf(2023), 2);
+    });
+
+    test('returns null for a year with no leap month', () {
+      expect(LunarDate.leapMonthOf(2026), isNull);
+    });
+
+    test('returns null outside klc\'s supported range', () {
+      expect(LunarDate.leapMonthOf(1000), isNull);
+      expect(LunarDate.leapMonthOf(2100), isNull);
+    });
+  });
+
+  group('LunarDate.daysInMonth', () {
+    test('returns 29 or 30 for an ordinary month', () {
+      final days = LunarDate.daysInMonth(2026, 7, false);
+      expect(days, anyOf(29, 30));
+    });
+
+    test('returns the real leap month\'s day count', () {
+      final days = LunarDate.daysInMonth(2023, 2, true);
+      expect(days, anyOf(29, 30));
+    });
+
+    test('returns null when asked for a leap month that year never had', () {
+      expect(LunarDate.daysInMonth(2023, 5, true), isNull);
+    });
+
+    test('returns null for an out-of-range year or month', () {
+      expect(LunarDate.daysInMonth(1000, 1, false), isNull);
+      expect(LunarDate.daysInMonth(2026, 13, false), isNull);
+    });
+  });
+
   group('equality', () {
     test('two LunarDates with the same fields are equal', () {
       const a = LunarDate(year: 2026, month: 7, day: 22, isLeapMonth: false);

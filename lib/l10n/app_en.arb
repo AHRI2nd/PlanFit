@@ -429,5 +429,10 @@
       "day": { "type": "int" }
     }
   },
-  "lunarLeapMarker": "L"
+  "lunarLeapMarker": "L",
+
+  "eventLunarInputToggle": "Enter by lunar date",
+  "eventLunarInputToggleOn": "Entering a lunar date — it'll be saved as the matching solar date",
+  "lunarDatePickerTitle": "Pick a lunar date",
+  "lunarLeapMonthToggle": "Leap month"
 }
