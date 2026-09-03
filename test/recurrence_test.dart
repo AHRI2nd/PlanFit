@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:planfit/core/lunar/lunar_date.dart';
 import 'package:planfit/features/schedule/domain/recurrence.dart';
 
 void main() {
@@ -152,6 +153,93 @@ void main() {
         until: DateTime(2026, 7, 1),
       );
       expect(result, [(start, end)]);
+    });
+
+    group('yearlyLunar', () {
+      test(
+        'a lunar birthday lands on a genuinely different solar date each '
+        'year, unlike plain yearly — verified against LunarDate directly, '
+        'not a memorized table',
+        () {
+          // 음력 2024-3-15 — verified via LunarDate(...).toSolar() directly.
+          final start = DateTime(2024, 4, 23, 9);
+          final end = start.add(const Duration(hours: 1));
+          final result = RecurrenceExpansion.occurrences(
+            start: start,
+            end: end,
+            frequency: RecurrenceFrequency.yearlyLunar,
+            count: 6,
+          );
+          expect(result.map((o) => (o.$1.year, o.$1.month, o.$1.day)), [
+            (2024, 4, 23),
+            (2025, 4, 12),
+            (2026, 5, 1),
+            (2027, 4, 21),
+            (2028, 4, 9),
+            (2029, 4, 28),
+          ]);
+          // Every occurrence still resolves to lunar month 3, day 15 — the
+          // whole point of anchoring on the lunar date instead of the solar
+          // one.
+          for (final o in result) {
+            final lunar = LunarDate.fromSolar(o.$1)!;
+            expect((lunar.month, lunar.day), (3, 15));
+          }
+          // The time-of-day carries across every occurrence, same as every
+          // other frequency.
+          expect(result.every((o) => o.$1.hour == 9), isTrue);
+        },
+      );
+
+      test(
+        'an anchor on a leap month falls back to that month\'s plain '
+        '(non-leap) occurrence starting the very next year — a leap month '
+        "doesn't recur yearly, so there's nothing else \"매년\" on one "
+        'could mean most years',
+        () {
+          // 2023's real leap month is 2 (윤2월), day 1 = solar 2023-03-22 —
+          // verified directly against klc earlier in this session.
+          final start = DateTime(2023, 3, 22, 8);
+          final end = start.add(const Duration(hours: 1));
+          final result = RecurrenceExpansion.occurrences(
+            start: start,
+            end: end,
+            frequency: RecurrenceFrequency.yearlyLunar,
+            count: 4,
+          );
+          expect(result.map((o) => (o.$1.year, o.$1.month, o.$1.day)), [
+            (2023, 3, 22),
+            (2024, 3, 10),
+            (2025, 2, 28),
+            (2026, 3, 19),
+          ]);
+          final firstLunar = LunarDate.fromSolar(result[0].$1)!;
+          expect(firstLunar.isLeapMonth, isTrue);
+          for (final o in result.skip(1)) {
+            final lunar = LunarDate.fromSolar(o.$1)!;
+            expect(lunar.month, 2);
+            expect(lunar.day, 1);
+            expect(lunar.isLeapMonth, isFalse);
+          }
+        },
+      );
+
+      test(
+        'stops (rather than crashing or looping) once stepping past the '
+        "solar year 2050 — klc's own supported range runs out there",
+        () {
+          final start = DateTime(2049, 6, 1, 9);
+          final end = start.add(const Duration(hours: 1));
+          final result = RecurrenceExpansion.occurrences(
+            start: start,
+            end: end,
+            frequency: RecurrenceFrequency.yearlyLunar,
+            count: 10,
+          );
+          expect(result.length, lessThan(10));
+          expect(result.every((o) => o.$1.year <= 2050), isTrue);
+        },
+      );
     });
 
     group('byWeekdays', () {

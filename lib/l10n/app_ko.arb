@@ -431,6 +431,7 @@
   },
   "lunarLeapMarker": "윤",
 
+  "eventRepeatYearlyLunar": "매년 (음력 기준)",
   "eventLunarInputToggle": "음력으로 입력",
   "eventLunarInputToggleOn": "음력 날짜를 입력하는 중이에요 — 저장된 날짜는 그에 맞는 양력으로 바뀌어요",
   "lunarDatePickerTitle": "음력 날짜 선택",

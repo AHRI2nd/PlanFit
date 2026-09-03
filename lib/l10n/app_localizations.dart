@@ -1971,6 +1971,12 @@ abstract class AppL10n {
   /// **'윤'**
   String get lunarLeapMarker;
 
+  /// No description provided for @eventRepeatYearlyLunar.
+  ///
+  /// In ko, this message translates to:
+  /// **'매년 (음력 기준)'**
+  String get eventRepeatYearlyLunar;
+
   /// No description provided for @eventLunarInputToggle.
   ///
   /// In ko, this message translates to:

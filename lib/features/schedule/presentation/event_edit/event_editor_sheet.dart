@@ -191,7 +191,53 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     RecurrenceFrequency.weekly => l10n.eventRepeatWeekly,
     RecurrenceFrequency.monthly => l10n.eventRepeatMonthly,
     RecurrenceFrequency.yearly => l10n.eventRepeatYearly,
+    RecurrenceFrequency.yearlyLunar => l10n.eventRepeatYearlyLunar,
   };
+
+  /// [RecurrenceFrequency.yearlyLunar] never shows up as its own chip —
+  /// [_recurrence] silently becomes it (instead of plain
+  /// [RecurrenceFrequency.yearly]) whenever "매년" is picked while
+  /// [_useLunarInput] is on, and silently reverts the other way when it's
+  /// turned back off. From the chip row's own point of view there's still
+  /// only ever 5 visible choices; which *kind* of yearly gets saved is a
+  /// side effect of the lunar-input toggle a couple of rows above it, not
+  /// its own separate control — one more repeat option to choose from would
+  /// only be meaningful the moment it's picked together with a lunar start
+  /// date anyway, so folding it into the toggle that already governs that
+  /// keeps the chip row exactly as simple as it always was.
+  static const List<RecurrenceFrequency> _visibleRecurrenceOptions = [
+    RecurrenceFrequency.none,
+    RecurrenceFrequency.daily,
+    RecurrenceFrequency.weekly,
+    RecurrenceFrequency.monthly,
+    RecurrenceFrequency.yearly,
+  ];
+
+  RecurrenceFrequency get _displayedRecurrence =>
+      _recurrence == RecurrenceFrequency.yearlyLunar
+      ? RecurrenceFrequency.yearly
+      : _recurrence;
+
+  void _setRecurrence(RecurrenceFrequency picked) {
+    setState(() {
+      _recurrence = picked == RecurrenceFrequency.yearly && _useLunarInput
+          ? RecurrenceFrequency.yearlyLunar
+          : picked;
+    });
+  }
+
+  /// Called when the lunar-input toggle itself flips — promotes/demotes an
+  /// *already-selected* "매년" the same way picking it fresh would, so
+  /// turning lunar input on after already choosing yearly repeat (or
+  /// vice versa) doesn't leave the two silently disagreeing.
+  void _syncRecurrenceToLunarInput() {
+    if (_recurrence == RecurrenceFrequency.yearly && _useLunarInput) {
+      _recurrence = RecurrenceFrequency.yearlyLunar;
+    } else if (_recurrence == RecurrenceFrequency.yearlyLunar &&
+        !_useLunarInput) {
+      _recurrence = RecurrenceFrequency.yearly;
+    }
+  }
 
   /// 2024-01-01 was a Monday, so `DateTime(2024, 1, weekday)` for
   /// weekday in 1..7 lands exactly on that week's Mon..Sun — a cheap way to
@@ -775,8 +821,10 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                         : Icons.nightlight_outlined,
                     color: _useLunarInput ? accent : null,
                   ),
-                  onPressed: () =>
-                      setState(() => _useLunarInput = !_useLunarInput),
+                  onPressed: () => setState(() {
+                    _useLunarInput = !_useLunarInput;
+                    _syncRecurrenceToLunarInput();
+                  }),
                 ),
               ),
               if (_useLunarInput)
@@ -823,11 +871,11 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                     const Divider(height: AppSpacing.lg),
                     _ChipRow<RecurrenceFrequency>(
                       label: l10n.eventRepeat,
-                      options: RecurrenceFrequency.values,
-                      selected: _recurrence,
+                      options: _visibleRecurrenceOptions,
+                      selected: _displayedRecurrence,
                       labelFor: (f) => _recurrenceLabel(l10n, f),
                       accent: accent,
-                      onChanged: (v) => setState(() => _recurrence = v),
+                      onChanged: _setRecurrence,
                     ),
                     if (_recurrence == RecurrenceFrequency.weekly) ...[
                       const SizedBox(height: AppSpacing.sm),

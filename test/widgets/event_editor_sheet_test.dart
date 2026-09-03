@@ -174,6 +174,69 @@ void main() {
   );
 
   testWidgets(
+    'picking "매년" while lunar input is on saves as yearlyLunar, not '
+    'plain yearly — and the chip still just reads "매년", not a 6th '
+    'option of its own',
+    (tester) async {
+      await pumpEditor(tester);
+
+      await tester.enterText(find.byType(TextField).at(0), 'Lunar birthday');
+      await tester.tap(find.byIcon(Icons.nightlight_outlined));
+      await tester.pump();
+
+      await tester.dragUntilVisible(
+        find.text('매년'),
+        find.byType(ListView),
+        const Offset(0, -100),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('음력'), findsNothing);
+      await tester.tap(find.text('매년'), warnIfMissed: false);
+      await tester.pump();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+
+      final input = verify(repo.save(captureAny)).captured.single as EventInput;
+      expect(input.recurrenceFrequency, RecurrenceFrequency.yearlyLunar);
+    },
+  );
+
+  testWidgets(
+    'turning lunar input back off after picking "매년" reverts it to '
+    'plain yearly',
+    (tester) async {
+      await pumpEditor(tester);
+
+      await tester.enterText(find.byType(TextField).at(0), 'Plain yearly');
+      await tester.tap(find.byIcon(Icons.nightlight_outlined));
+      await tester.pump();
+      await tester.dragUntilVisible(
+        find.text('매년'),
+        find.byType(ListView),
+        const Offset(0, -100),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('매년'), warnIfMissed: false);
+      await tester.pump();
+
+      // Toggle lunar input back off — scroll back up to reach the icon.
+      await tester.dragUntilVisible(
+        find.byIcon(Icons.nightlight_round),
+        find.byType(ListView),
+        const Offset(0, 100),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.nightlight_round));
+      await tester.pump();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+
+      final input = verify(repo.save(captureAny)).captured.single as EventInput;
+      expect(input.recurrenceFrequency, RecurrenceFrequency.yearly);
+    },
+  );
+
+  testWidgets(
     'saving an occurrence of a recurring series and choosing "apply to future" '
     'calls saveSeriesFrom instead of save',
     (tester) async {

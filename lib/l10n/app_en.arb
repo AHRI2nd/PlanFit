@@ -431,6 +431,7 @@
   },
   "lunarLeapMarker": "L",
 
+  "eventRepeatYearlyLunar": "Yearly (lunar)",
   "eventLunarInputToggle": "Enter by lunar date",
   "eventLunarInputToggleOn": "Entering a lunar date — it'll be saved as the matching solar date",
   "lunarDatePickerTitle": "Pick a lunar date",

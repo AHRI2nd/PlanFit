@@ -1,8 +1,19 @@
 import '../../../core/date_math.dart';
+import '../../../core/lunar/lunar_date.dart';
 
 /// How often a newly-created event repeats. `none` means a one-off event —
-/// the pre-existing, default behavior.
-enum RecurrenceFrequency { none, daily, weekly, monthly, yearly }
+/// the pre-existing, default behavior. [yearlyLunar] is [yearly]'s
+/// lunar-calendar counterpart — "매년 음력 생일/제사" style events, where
+/// what repeats is the *lunar* month/day, not the solar one, so the actual
+/// solar date moves around from year to year (unlike [yearly], which always
+/// lands on the exact same solar month/day). Deliberately not just a
+/// boolean flag alongside [yearly]: keeping it a distinct enum value means
+/// every existing `switch` over this type is forced (by Dart's own
+/// exhaustiveness check) to make an explicit decision about it rather than
+/// silently falling through [yearly]'s own case and getting the wrong
+/// answer. The event editor never shows this as its own separate chip,
+/// though — see event_editor_sheet.dart's own doc on that.
+enum RecurrenceFrequency { none, daily, weekly, monthly, yearly, yearlyLunar }
 
 /// Expands a recurrence into concrete occurrences and renders its RRULE
 /// string. Recurrence is deliberately **materialized**: each occurrence
@@ -88,6 +99,13 @@ class RecurrenceExpansion {
     var step = 1;
     while (result.length < cap) {
       final occurrenceStart = _advance(start, frequency, step);
+      // Only [RecurrenceFrequency.yearlyLunar] can ever produce this — a
+      // lunar year far enough out that klc's own conversion table (see
+      // LunarDate's own doc, 1391-2050) no longer covers it. Rather than
+      // crash or silently stop advancing at all, this is treated the same
+      // as reaching [until]: the series simply ends here, with whatever
+      // occurrences were already generated kept.
+      if (occurrenceStart == null) break;
       if (untilDate != null && _dateOnly(occurrenceStart).isAfter(untilDate)) {
         break;
       }
@@ -133,6 +151,11 @@ class RecurrenceExpansion {
     }
     final untilDate = _dateOnly(until!);
     final nextStart = _advance(start, frequency, maxOccurrences);
+    // A yearlyLunar series that runs out of klc's supported range before
+    // maxOccurrences is cut short by *that*, not by the cap — occurrences()
+    // itself would stop there regardless of how far out `until` is, so this
+    // doesn't count as "truncated" in the sense this method warns about.
+    if (nextStart == null) return false;
     return !_dateOnly(nextStart).isAfter(untilDate);
   }
 
@@ -163,7 +186,10 @@ class RecurrenceExpansion {
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  static DateTime _advance(
+  /// Returns `null` only for [RecurrenceFrequency.yearlyLunar] stepping past
+  /// what klc's conversion table covers — every other frequency always
+  /// succeeds (plain calendar arithmetic, no external table to run out of).
+  static DateTime? _advance(
     DateTime start,
     RecurrenceFrequency frequency,
     int step,
@@ -182,7 +208,41 @@ class RecurrenceExpansion {
         start.year + step,
         start.month,
       ),
+      RecurrenceFrequency.yearlyLunar => _advanceLunarYearly(start, step),
     };
+  }
+
+  /// [start]'s lunar month/day carried forward [step] lunar years, then
+  /// converted back to the matching solar date — this is what actually
+  /// makes "매년 음력 생일" land on a *different* solar date each year,
+  /// unlike [yearly]'s fixed-solar-date advance. If [start]'s own
+  /// [LunarDate.isLeapMonth] was true, later years silently fall back to
+  /// that month's plain (non-leap) occurrence once they land on a year with
+  /// no matching leap month — a leap month doesn't recur yearly, so "매년"
+  /// on one can only ever mean its regular counterpart in most years. This
+  /// isn't special-cased here: `LunarDate.toSolar()` already does exactly
+  /// that normalization on its own (see its own doc) — passing the same
+  /// [LunarDate.isLeapMonth] through for every step and letting klc decide,
+  /// year by year, is already correct. Returns `null` if [start] itself, or
+  /// the stepped-forward lunar year, falls outside klc's supported range.
+  static DateTime? _advanceLunarYearly(DateTime start, int step) {
+    final anchor = LunarDate.fromSolar(start);
+    if (anchor == null) return null;
+    final stepped = LunarDate(
+      year: anchor.year + step,
+      month: anchor.month,
+      day: anchor.day,
+      isLeapMonth: anchor.isLeapMonth,
+    );
+    final solar = stepped.toSolar();
+    if (solar == null) return null;
+    return DateTime(
+      solar.year,
+      solar.month,
+      solar.day,
+      start.hour,
+      start.minute,
+    );
   }
 
   /// [start]'s day-of-month carried into [year]/[month], clamped to that
@@ -230,6 +290,11 @@ class RecurrenceExpansion {
       RecurrenceFrequency.weekly => 'WEEKLY',
       RecurrenceFrequency.monthly => 'MONTHLY',
       RecurrenceFrequency.yearly => 'YEARLY',
+      // Not a standard RFC 5545 concept (RRULE has no lunar-calendar
+      // notion) — this whole string is already documented as informational
+      // only (see the class doc), so a non-standard X- extension marker is
+      // fine here the same way it would be anywhere else in an RRULE.
+      RecurrenceFrequency.yearlyLunar => 'YEARLY;X-PLANFIT-LUNAR=1',
       RecurrenceFrequency.none => 'NONE',
     };
     final endPart = count != null

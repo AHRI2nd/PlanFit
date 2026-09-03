@@ -189,6 +189,11 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
     RecurrenceFrequency.weekly => l10n.eventRepeatWeekly,
     RecurrenceFrequency.monthly => l10n.eventRepeatMonthly,
     RecurrenceFrequency.yearly => l10n.eventRepeatYearly,
+    // To-dos have no lunar-date input mode (that's an event-editor-only
+    // feature — see event_editor_sheet.dart's own doc), so this value never
+    // actually reaches this switch from this screen; only here for
+    // RecurrenceFrequency's own exhaustiveness.
+    RecurrenceFrequency.yearlyLunar => l10n.eventRepeatYearlyLunar,
   };
 
   Future<void> _add() async {

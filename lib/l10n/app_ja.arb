@@ -431,6 +431,7 @@
   },
   "lunarLeapMarker": "閏",
 
+  "eventRepeatYearlyLunar": "毎年（旧暦基準）",
   "eventLunarInputToggle": "旧暦で入力",
   "eventLunarInputToggleOn": "旧暦の日付を入力しています — 対応する新暦の日付として保存されます",
   "lunarDatePickerTitle": "旧暦の日付を選択",

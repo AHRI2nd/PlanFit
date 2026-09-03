@@ -1001,6 +1001,9 @@ class AppL10nKo extends AppL10n {
   String get lunarLeapMarker => '윤';
 
   @override
+  String get eventRepeatYearlyLunar => '매년 (음력 기준)';
+
+  @override
   String get eventLunarInputToggle => '음력으로 입력';
 
   @override

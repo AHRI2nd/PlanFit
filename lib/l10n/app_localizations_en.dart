@@ -1043,6 +1043,9 @@ class AppL10nEn extends AppL10n {
   String get lunarLeapMarker => 'L';
 
   @override
+  String get eventRepeatYearlyLunar => 'Yearly (lunar)';
+
+  @override
   String get eventLunarInputToggle => 'Enter by lunar date';
 
   @override
