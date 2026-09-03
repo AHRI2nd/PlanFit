@@ -10,6 +10,7 @@ import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
+import 'package:planfit/features/schedule/domain/event_input.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_clock_view.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_view.dart';
@@ -560,6 +561,103 @@ void main() {
       await pumpDay(tester, day, compact: true);
 
       expect(find.byType(DayClockView), findsNothing);
+    },
+  );
+
+  testWidgets(
+    "the inline to-do row's checkbox has a tappable area of at least "
+    '44x44 — regression test, same fix as the home/todo-list checkboxes '
+    'elsewhere in the app',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      final todo = TodoRow(
+        id: 't1',
+        eventId: null,
+        title: 'Buy milk',
+        slotStart: day.add(const Duration(hours: 9)),
+        slotEnd: null,
+        hasTime: true,
+        isDone: false,
+        sortOrder: 0,
+        priority: 0,
+        tags: null,
+        notify: false,
+        isPinned: false,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        reminderSyncStatus: SyncStatus.pendingPush,
+        createdAt: day,
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([todo]));
+      when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([]));
+
+      await pumpDay(tester, day);
+
+      final hitArea = find.ancestor(
+        of: find.byIcon(Icons.radio_button_unchecked),
+        matching: find.byWidgetPredicate(
+          (w) => w is SizedBox && w.width == 44 && w.height == 44,
+        ),
+      );
+      expect(hitArea, findsOneWidget);
+      final size = tester.getSize(hitArea);
+      expect(size.width, greaterThanOrEqualTo(44));
+      expect(size.height, greaterThanOrEqualTo(44));
+    },
+  );
+
+  testWidgets(
+    "an event card's resize grip has a hit region at least 44pt tall — "
+    'regression test for a drag target that used to be a bare 16px '
+    'SizedBox. Also drives an actual long-press-drag through it to prove '
+    "it's still wired to onResizeStart/Update/End after moving the "
+    'gesture off the (now purely visual) 16px bar and onto this larger, '
+    'Stack-positioned overlay.',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      // Kept early (2am, like this file's other drag/swipe tests) so the
+      // card's bottom edge stays within the default test viewport without
+      // needing to scroll it into view first.
+      final e = row(
+        id: 'e1',
+        title: 'Long event',
+        startAt: DateTime(2026, 3, 10, 2),
+        endAt: DateTime(2026, 3, 10, 4),
+      );
+      when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
+      when(events.save(any)).thenAnswer((_) async => e);
+
+      await pumpDay(tester, day);
+
+      final hitArea = find.byWidgetPredicate(
+        (w) =>
+            w is Positioned &&
+            w.height == 44 &&
+            w.bottom == 0 &&
+            w.left == 0 &&
+            w.right == 0,
+      );
+      expect(hitArea, findsOneWidget);
+      final size = tester.getSize(hitArea);
+      expect(size.height, greaterThanOrEqualTo(44));
+
+      // Long-press-then-drag downward on it: a resize pushes endAt later
+      // while leaving startAt untouched — unlike the card's own move-drag,
+      // which shifts both, so this also confirms the grip (not the move
+      // handler) is what actually caught the gesture.
+      final gesture = await tester.startGesture(tester.getCenter(hitArea));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final captured =
+          verify(events.save(captureAny)).captured.single as EventInput;
+      expect(captured.startAt, e.startAt);
+      expect(captured.endAt.isAfter(e.endAt), isTrue);
     },
   );
 }

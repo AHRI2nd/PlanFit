@@ -1027,29 +1027,22 @@ class _EventCard extends ConsumerWidget {
                   // just a loose minimum), so Expanded/Spacer here can never
                   // balloon the card past its intended size.
                   if (height != null) const Spacer(),
-                  // A drag-to-resize grip, kept as a small separate hit region below
-                  // the tappable/movable row rather than nested inside it — two
-                  // drag recognizers stacked on the very same region would leave
-                  // Flutter's gesture arena to guess which one the user meant.
-                  // Long-press-then-drag here too, for the same reason as the move
-                  // handler above: it must not fight the day timeline's own scroll.
+                  // The grip's *visual* bar only — purely decorative now,
+                  // 16px tall same as always, so it costs the Column no
+                  // extra height budget (_minEventCardHeight, tuned per
+                  // pixel for the shortest cards, is untouched). Its actual
+                  // drag gesture lives on the Positioned hit-region below,
+                  // sized to the accessibility floor independently of this.
                   if (!allDay && draggable)
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onLongPressStart: (_) => onResizeStart!(),
-                      onLongPressMoveUpdate: (d) =>
-                          onResizeUpdate!(d.offsetFromOrigin.dy),
-                      onLongPressEnd: (_) => onResizeEnd!(),
-                      child: SizedBox(
-                        height: 16,
-                        child: Center(
-                          child: Container(
-                            width: 28,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: palette.inkFaint,
-                              borderRadius: AppRadius.allPill,
-                            ),
+                    SizedBox(
+                      height: 16,
+                      child: Center(
+                        child: Container(
+                          width: 28,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: palette.inkFaint,
+                            borderRadius: AppRadius.allPill,
                           ),
                         ),
                       ),
@@ -1068,6 +1061,36 @@ class _EventCard extends ConsumerWidget {
               ),
             ),
           ),
+          // The grip's actual hit region — a full-width, ~44px-tall
+          // invisible strip pinned to the card's bottom edge as a Stack
+          // sibling, not sized to the 16px bar it visually sits over. A
+          // Positioned child never grows its Stack (only the non-positioned
+          // GlassSurface child does that), so this reaches the accessibility
+          // floor with zero risk of overflowing a short, already-tuned card
+          // — unlike growing the bar's own SizedBox, which would compete
+          // with _minEventCardHeight's per-pixel budget for the shortest
+          // cards. Sits on top of (and can overlap) the header row for a
+          // card near the 80px minimum; that's fine for a tap (this
+          // detector has no onTap, so a plain tap still falls through to
+          // the outer GestureDetector's "open editor" tap, which is an
+          // ancestor and always stays in the hit path regardless), and for
+          // long-press it's the same outer-move-vs-inner-resize contest the
+          // original 16px region already resolved correctly — just over a
+          // bigger area.
+          if (!allDay && draggable)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 44,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onLongPressStart: (_) => onResizeStart!(),
+                onLongPressMoveUpdate: (d) =>
+                    onResizeUpdate!(d.offsetFromOrigin.dy),
+                onLongPressEnd: (_) => onResizeEnd!(),
+              ),
+            ),
         ],
       ),
     );
