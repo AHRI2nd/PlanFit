@@ -6,6 +6,7 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
+import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/todo/presentation/todo_smart_list_screen.dart';
@@ -97,6 +98,49 @@ void main() {
           as TodoItemsCompanion;
       expect(captured.title.value, 'Buy milk');
       expect(find.text('할 일 추가'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    "a row's to-do checkbox has a tappable area of at least 44x44 — "
+    'regression test for a hit box that used to be a 20px icon plus 4px '
+    'of padding (~28x28), under the accessibility floor',
+    (tester) async {
+      final today = DateTime(2026, 3, 10);
+      final todo = TodoRow(
+        id: 't1',
+        eventId: null,
+        title: 'Buy milk',
+        slotStart: today.add(const Duration(hours: 9)),
+        slotEnd: null,
+        hasTime: true,
+        isDone: false,
+        sortOrder: 0,
+        priority: 0,
+        tags: null,
+        notify: false,
+        isPinned: false,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        reminderSyncStatus: SyncStatus.pendingPush,
+        createdAt: today,
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([todo]));
+
+      await pumpScreen(tester);
+
+      final hitArea = find.ancestor(
+        of: find.byIcon(Icons.radio_button_unchecked),
+        matching: find.byWidgetPredicate(
+          (w) => w is SizedBox && w.width == 44 && w.height == 44,
+        ),
+      );
+      expect(hitArea, findsOneWidget);
+      final size = tester.getSize(hitArea);
+      expect(size.width, greaterThanOrEqualTo(44));
+      expect(size.height, greaterThanOrEqualTo(44));
     },
   );
 }

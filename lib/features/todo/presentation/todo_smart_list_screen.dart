@@ -292,27 +292,33 @@ class _SmartTodoTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         child: Row(
           children: [
+            // Forced up to the 44x44 accessibility floor via SizedBox, kept
+            // separate from the 20px icon's own visual size — same pattern
+            // as _TitleChevron in schedule_screen.dart.
             Semantics(
               button: true,
               checked: todo.isDone,
               label: l10n.todoMarkDone,
-              child: InkWell(
-                onTap: () => ref
-                    .read(todoControllerProvider)
-                    .toggle(todo.id, !todo.isDone),
-                customBorder: const CircleBorder(),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xxs),
-                  child: Icon(
-                    todo.isDone
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    size: 20,
-                    color: todo.isDone
-                        ? palette.accent
-                        : isOverdue
-                        ? palette.danger
-                        : palette.inkFaint,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: InkWell(
+                  onTap: () => ref
+                      .read(todoControllerProvider)
+                      .toggle(todo.id, !todo.isDone),
+                  customBorder: const CircleBorder(),
+                  child: Center(
+                    child: Icon(
+                      todo.isDone
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 20,
+                      color: todo.isDone
+                          ? palette.accent
+                          : isOverdue
+                          ? palette.danger
+                          : palette.inkFaint,
+                    ),
                   ),
                 ),
               ),

@@ -359,26 +359,31 @@ class _FeedTodoTile extends ConsumerWidget {
           children: [
             // Same tap-target/color language as HourlyTodoList's own
             // checkbox — accent when done, danger when overdue, faint
-            // otherwise.
+            // otherwise. Forced up to the 44x44 accessibility floor via
+            // SizedBox, kept separate from the 22px icon's own visual size
+            // — same pattern as _TitleChevron in schedule_screen.dart.
             Semantics(
               button: true,
               checked: todo.isDone,
               label: AppL10n.of(context).todoMarkDone,
-              child: InkWell(
-                onTap: () => ref
-                    .read(todoControllerProvider)
-                    .toggle(todo.id, !todo.isDone),
-                customBorder: const CircleBorder(),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xxs),
-                  child: Icon(
-                    todo.isDone
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    size: 22,
-                    color: todo.isDone
-                        ? palette.accent
-                        : (isOverdue ? palette.danger : palette.inkFaint),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: InkWell(
+                  onTap: () => ref
+                      .read(todoControllerProvider)
+                      .toggle(todo.id, !todo.isDone),
+                  customBorder: const CircleBorder(),
+                  child: Center(
+                    child: Icon(
+                      todo.isDone
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 22,
+                      color: todo.isDone
+                          ? palette.accent
+                          : (isOverdue ? palette.danger : palette.inkFaint),
+                    ),
                   ),
                 ),
               ),

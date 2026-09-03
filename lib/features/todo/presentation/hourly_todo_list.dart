@@ -717,36 +717,45 @@ class _TodoTile extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Forced up to the 44x44 accessibility floor via SizedBox, kept
+              // separate from the 22px icon's own visual size — same
+              // pattern as _TitleChevron in schedule_screen.dart. This row
+              // top-aligns (crossAxisAlignment.start), so the icon now sits
+              // a few px lower within its taller box than before — a minor
+              // shift, traded for a correctly-sized tap/long-press target.
               Semantics(
                 button: true,
                 checked: selectionMode ? selected : todo.isDone,
                 label: selectionMode ? l10n.todoSelectItem : l10n.todoMarkDone,
-                child: InkWell(
-                  onTap: selectionMode
-                      ? onToggleSelected
-                      : () => ref
-                            .read(todoControllerProvider)
-                            .toggle(todo.id, !todo.isDone),
-                  onLongPress: selectionMode ? null : onEnterSelection,
-                  customBorder: const CircleBorder(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxs),
-                    child: Icon(
-                      selectionMode
-                          ? (selected
-                                ? Icons.check_circle
-                                : Icons.radio_button_unchecked)
-                          : (todo.isDone
-                                ? Icons.check_circle
-                                : Icons.radio_button_unchecked),
-                      size: 22,
-                      color: selectionMode
-                          ? (selected ? palette.accent : palette.inkFaint)
-                          : (todo.isDone
-                                ? palette.accent
-                                : isOverdue
-                                ? palette.danger
-                                : palette.inkFaint),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: InkWell(
+                    onTap: selectionMode
+                        ? onToggleSelected
+                        : () => ref
+                              .read(todoControllerProvider)
+                              .toggle(todo.id, !todo.isDone),
+                    onLongPress: selectionMode ? null : onEnterSelection,
+                    customBorder: const CircleBorder(),
+                    child: Center(
+                      child: Icon(
+                        selectionMode
+                            ? (selected
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked)
+                            : (todo.isDone
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked),
+                        size: 22,
+                        color: selectionMode
+                            ? (selected ? palette.accent : palette.inkFaint)
+                            : (todo.isDone
+                                  ? palette.accent
+                                  : isOverdue
+                                  ? palette.danger
+                                  : palette.inkFaint),
+                      ),
                     ),
                   ),
                 ),
