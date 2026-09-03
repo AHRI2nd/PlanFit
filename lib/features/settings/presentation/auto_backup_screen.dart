@@ -60,11 +60,16 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
           .read(backupServiceProvider)
           .importFromFile(file.path);
       if (!mounted) return;
+      final message = summary.legacyFormat
+          ? '${l10n.backupImportSuccess(summary.eventCount, summary.todoCount)}\n'
+                '${l10n.backupImportLegacyWarning}'
+          : l10n.backupImportSuccess(summary.eventCount, summary.todoCount);
       messenger.showAutoDismissSnackBar(
         SnackBar(
-          content: Text(
-            l10n.backupImportSuccess(summary.eventCount, summary.todoCount),
-          ),
+          content: Text(message),
+          duration: summary.legacyFormat
+              ? const Duration(seconds: 8)
+              : const Duration(seconds: 4),
         ),
       );
     } catch (_) {

@@ -1167,6 +1167,12 @@ abstract class AppL10n {
   /// **'가져오기에 실패했어요. 파일 형식을 확인해주세요'**
   String get backupImportFailed;
 
+  /// No description provided for @backupImportLegacyWarning.
+  ///
+  /// In ko, this message translates to:
+  /// **'이전 버전에서 만든 백업이에요. 공휴일이 중복으로 보이면, 설정에서 공휴일 표시를 껐다 다시 켜서 정리해주세요.'**
+  String get backupImportLegacyWarning;
+
   /// No description provided for @eventNew.
   ///
   /// In ko, this message translates to:

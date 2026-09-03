@@ -350,6 +350,135 @@ void main() {
   );
 
   test(
+    'a fresh export round-trips as legacyFormat: false',
+    () async {
+      final sourceDb = newDb();
+      final notifications = MockNotificationPort();
+      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+      final eventRepo = EventRepositoryImpl(
+        dao: sourceDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      final backup = BackupService(
+        eventRepository: eventRepo,
+        todoDao: sourceDb.todoDao,
+        notifications: notifications,
+      );
+      final file = await backup.exportToFile();
+
+      final destDb = newDb();
+      final destBackup = BackupService(
+        eventRepository: EventRepositoryImpl(
+          dao: destDb.eventDao,
+          notifications: notifications,
+          calendar: disabledCalendar(),
+        ),
+        todoDao: destDb.todoDao,
+        notifications: notifications,
+      );
+      final summary = await destBackup.importFromFile(file.path);
+
+      expect(summary.legacyFormat, isFalse);
+
+      await sourceDb.close();
+      await destDb.close();
+    },
+  );
+
+  test(
+    'flags a pre-fix backup file as legacyFormat: true — regression test: '
+    'a file exported before mirrored events were excluded can genuinely '
+    'contain a former mirror row with no marker distinguishing it from one '
+    'PlanFit owns (that marker was never serialized even before that fix), '
+    'so restoring it can silently reintroduce a holiday event getting '
+    'pushed to the device calendar; there is no way to tell after the fact '
+    'which restored rows are affected, so the caller has to be told instead',
+    () async {
+      final sourceDb = newDb();
+      final notifications = MockNotificationPort();
+      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+      final eventRepo = EventRepositoryImpl(
+        dao: sourceDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      final backup = BackupService(
+        eventRepository: eventRepo,
+        todoDao: sourceDb.todoDao,
+        notifications: notifications,
+      );
+      final file = await backup.exportToFile();
+      final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      json['schemaVersion'] = 1;
+      await file.writeAsString(jsonEncode(json));
+
+      final destDb = newDb();
+      final destBackup = BackupService(
+        eventRepository: EventRepositoryImpl(
+          dao: destDb.eventDao,
+          notifications: notifications,
+          calendar: disabledCalendar(),
+        ),
+        todoDao: destDb.todoDao,
+        notifications: notifications,
+      );
+      final summary = await destBackup.importFromFile(file.path);
+
+      expect(summary.legacyFormat, isTrue);
+
+      await sourceDb.close();
+      await destDb.close();
+    },
+  );
+
+  test(
+    'a file with no schemaVersion field at all is also treated as legacy',
+    () async {
+      final sourceDb = newDb();
+      final notifications = MockNotificationPort();
+      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+      final eventRepo = EventRepositoryImpl(
+        dao: sourceDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      final backup = BackupService(
+        eventRepository: eventRepo,
+        todoDao: sourceDb.todoDao,
+        notifications: notifications,
+      );
+      final file = await backup.exportToFile();
+      final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      json.remove('schemaVersion');
+      await file.writeAsString(jsonEncode(json));
+
+      final destDb = newDb();
+      final destBackup = BackupService(
+        eventRepository: EventRepositoryImpl(
+          dao: destDb.eventDao,
+          notifications: notifications,
+          calendar: disabledCalendar(),
+        ),
+        todoDao: destDb.todoDao,
+        notifications: notifications,
+      );
+      final summary = await destBackup.importFromFile(file.path);
+
+      expect(summary.legacyFormat, isTrue);
+
+      await sourceDb.close();
+      await destDb.close();
+    },
+  );
+
+  test(
     'drops the eventId link when the parent event is missing from the backup',
     () async {
       final sourceDb = newDb();

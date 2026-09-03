@@ -577,6 +577,10 @@ class AppL10nJa extends AppL10n {
   String get backupImportFailed => '取り込みに失敗しました。ファイル形式をご確認ください';
 
   @override
+  String get backupImportLegacyWarning =>
+      '古いバージョンで作成されたバックアップです。祝日が重複して表示される場合は、設定で祝日表示をオフにしてから再度オンにしてください。';
+
+  @override
   String get eventNew => '新しい予定';
 
   @override

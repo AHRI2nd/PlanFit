@@ -608,6 +608,10 @@ class AppL10nEn extends AppL10n {
   String get backupImportFailed => 'Import failed — check the file format';
 
   @override
+  String get backupImportLegacyWarning =>
+      'This backup was made with an older version. If holidays show up duplicated, turn holiday display off and back on in Settings to clean them up.';
+
+  @override
   String get eventNew => 'New event';
 
   @override

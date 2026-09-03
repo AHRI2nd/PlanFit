@@ -34,11 +34,21 @@ class AppColors {
   /// territory), close enough that a holiday's dot and an overdue day's dot
   /// read as "the same red" at the 5-6px sizes `calendar_dot.dart`'s
   /// callers actually render them at — a holiday could misread as
-  /// something urgent. This sits at ~30° hue instead, keeping the warm
-  /// "red day" association without the alarm-red connotation, and stays
-  /// clear of [dayAmber]/`EventColorTag.amber` too (darker and less
-  /// saturated than that gradient stop).
-  static const Color holidayRed = Color(0xFFB5651D);
+  /// something urgent.
+  ///
+  /// H28°/S72%/L41° (`0xFFB5651D`, this constant's first cut at the fix
+  /// above) put ~33° between this and `danger` — genuinely solved, verified
+  /// separately — but landed only ~1.6° from [dayAmber]/`EventColorTag
+  /// .amber`'s own 30° hue, close enough to blur into that user-pickable
+  /// preset in the same collapsed dot row. Widening the hue gap from
+  /// *amber* would have narrowed it from `danger` right back toward the
+  /// original 10-15° problem (the two sit on opposite sides of this hue on
+  /// the wheel), so this keeps the hue exactly where it already was and
+  /// pulls lightness down instead (41%→30%): a darker, richer brick reads
+  /// as more clearly its own color next to amber's own bright, light
+  /// stop (ΔL 24→35) without touching either of this constant's two
+  /// existing hue-based separations at all.
+  static const Color holidayRed = Color(0xFF864A13);
 
   /// Fixed color for [AppPalette.todoAccent] — the calendar dot's
   /// "has a to-do" state (see `calendar_dot.dart`). Same reasoning as

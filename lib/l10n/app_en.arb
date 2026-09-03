@@ -243,6 +243,7 @@
     }
   },
   "backupImportFailed": "Import failed — check the file format",
+  "backupImportLegacyWarning": "This backup was made with an older version. If holidays show up duplicated, turn holiday display off and back on in Settings to clean them up.",
 
   "eventNew": "New event",
   "eventEdit": "Edit event",

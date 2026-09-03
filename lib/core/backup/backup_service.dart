@@ -17,9 +17,24 @@ class BackupImportSummary {
   const BackupImportSummary({
     required this.eventCount,
     required this.todoCount,
+    required this.legacyFormat,
   });
   final int eventCount;
   final int todoCount;
+
+  /// The file's own `schemaVersion` predates 2 — i.e. it was exported
+  /// before [BackupService.buildJson] started excluding mirrored
+  /// (holiday/subscribed-calendar) events. Such a file's `events` array
+  /// can genuinely contain former mirror rows with no marker distinguishing
+  /// them from ones PlanFit owns (that marker was never serialized even
+  /// before this fix — see [BackupService]'s own doc), so restoring it can
+  /// reintroduce exactly the bug this fix closed: a holiday event pushed to
+  /// the device calendar as if the user had created it. There's no way to
+  /// tell which specific restored rows are affected after the fact, so the
+  /// caller's only real option is surfacing this rather than silently
+  /// restoring — see the callers in settings_screen.dart/
+  /// auto_backup_screen.dart.
+  final bool legacyFormat;
 }
 
 /// Exports/imports the full local database (events + to-dos) as a single
@@ -50,7 +65,13 @@ class BackupService {
   final TodoDao todoDao;
   final NotificationPort notifications;
 
-  static const int _schemaVersion = 1;
+  // 2 marks the first version whose export excludes mirrored
+  // (holiday/subscribed-calendar) events — see buildJson's own filter and
+  // BackupImportSummary.legacyFormat's doc. Bumped without changing
+  // anything about the JSON shape itself (every field an old reader
+  // expected is still there), purely so importFromFile can tell an
+  // old-format file apart from a new one.
+  static const int _schemaVersion = 2;
 
   /// Serializes the full database to a JSON string — the same content
   /// [exportToFile] writes out, exposed separately so [AutoBackupService]
@@ -96,6 +117,10 @@ class BackupService {
     final eventsJson = (json['events'] as List?) ?? const [];
     final todosJson = (json['todos'] as List?) ?? const [];
     final subtasksJson = (json['todoSubtasks'] as List?) ?? const [];
+    // Absent entirely (older than schemaVersion existing at all) also
+    // counts as legacy, same as any value below 2 — see
+    // BackupImportSummary.legacyFormat's own doc.
+    final legacyFormat = (json['schemaVersion'] as int? ?? 1) < 2;
 
     // Parse every record *before* writing anything. A single malformed
     // field (a hand-edited file, corruption, a future schema version with a
@@ -146,6 +171,7 @@ class BackupService {
     return BackupImportSummary(
       eventCount: events.length,
       todoCount: todoCompanions.length,
+      legacyFormat: legacyFormat,
     );
   }
 

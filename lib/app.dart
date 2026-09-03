@@ -355,6 +355,31 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       routerConfig: appRouter,
+      // Clamps the system text-scale setting app-wide, rather than leaving
+      // every screen to cope with it unclamped. Several views — the month
+      // grid's collapsed dot/"+N" row, its expanded event-list rows, the
+      // week view's per-event text wrapping — are tuned to real *measured*
+      // pixel heights at the default scale (see month_view.dart's own
+      // monthEventRowHeight and week_view.dart's lineHeightOf), not
+      // designed to reflectively re-wrap or grow at a larger one; letting
+      // the raw system multiplier straight through risked silent text
+      // clipping/overlap for any user with a larger accessibility font
+      // size. 1.3x still gives real, useful growth for low-vision users —
+      // a ceiling picked as a reasonable middle ground (other
+      // tightly-designed apps commonly clamp somewhere in this range for
+      // the same reason), not verified pixel-by-pixel against every
+      // affected layout; if a specific screen is still found to clip at
+      // this ceiling, the fix belongs on that screen's own fixed
+      // dimensions, not by raising this number further.
+      builder: (context, child) {
+        final clamped = MediaQuery.textScalerOf(
+          context,
+        ).clamp(minScaleFactor: 1.0, maxScaleFactor: 1.3);
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: clamped),
+          child: child!,
+        );
+      },
       localizationsDelegates: const [
         AppL10n.delegate,
         GlobalMaterialLocalizations.delegate,

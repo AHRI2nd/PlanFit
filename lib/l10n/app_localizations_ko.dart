@@ -577,6 +577,10 @@ class AppL10nKo extends AppL10n {
   String get backupImportFailed => '가져오기에 실패했어요. 파일 형식을 확인해주세요';
 
   @override
+  String get backupImportLegacyWarning =>
+      '이전 버전에서 만든 백업이에요. 공휴일이 중복으로 보이면, 설정에서 공휴일 표시를 껐다 다시 켜서 정리해주세요.';
+
+  @override
   String get eventNew => '새 일정';
 
   @override
