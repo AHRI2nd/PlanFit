@@ -8,6 +8,7 @@ import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../design/widgets/multi_chip_row.dart';
+import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/todo_providers.dart';
 import '../domain/todo_priority.dart';
@@ -44,6 +45,11 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   late TodoPriority _priority;
   late bool _notify;
   late bool _pinned;
+  // Last value of `_tags` actually confirmed persisted — the revert target
+  // if a save throws (see `_saveTags`), since the field's own displayed
+  // text is the optimistic state here (there's no separate bool/enum to
+  // roll back, unlike pin/priority).
+  late String _lastSavedTags;
   Timer? _titleDebounce;
   Timer? _tagsDebounce;
 
@@ -62,6 +68,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     super.initState();
     _title = TextEditingController(text: widget.todo.title);
     _tags = TextEditingController(text: widget.todo.tags ?? '');
+    _lastSavedTags = _tags.text;
     _priority = TodoPriority.fromValue(widget.todo.priority);
     _notify = widget.todo.notify;
     _pinned = widget.todo.isPinned;
@@ -108,11 +115,28 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     _titleDebounce = Timer(_saveDebounce, _saveTitle);
   }
 
-  void _saveTags() {
+  Future<void> _saveTags() async {
     final text = _tags.text.trim();
-    ref
-        .read(todoControllerProvider)
-        .setTags(widget.todo.id, text.isEmpty ? null : text);
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppL10n.of(context);
+    try {
+      await ref
+          .read(todoControllerProvider)
+          .setTags(widget.todo.id, text.isEmpty ? null : text);
+      _lastSavedTags = text;
+    } catch (_) {
+      if (!mounted) return;
+      // Only revert if the field still shows exactly what this failed save
+      // attempt was for — otherwise the user has already typed something
+      // newer, and clobbering that would be worse than leaving the stale
+      // (but at-least-visible) unsaved text in place.
+      if (_tags.text == text) {
+        _tags.text = _lastSavedTags;
+      }
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.todoUpdateFailed)),
+      );
+    }
   }
 
   void _commitTags() {
@@ -134,11 +158,22 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     _commitTags();
   }
 
-  void _addSubtask() {
+  Future<void> _addSubtask() async {
     final text = _subtaskController.text.trim();
     if (text.isEmpty) return;
-    ref.read(todoControllerProvider).addSubtask(widget.todo.id, text);
-    _subtaskController.clear();
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppL10n.of(context);
+    try {
+      await ref.read(todoControllerProvider).addSubtask(widget.todo.id, text);
+      // Only cleared on confirmed success — otherwise a failed add would
+      // silently drop what the user typed.
+      if (mounted) _subtaskController.clear();
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.todoUpdateFailed)),
+      );
+    }
   }
 
   @override
@@ -183,11 +218,21 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                     ),
                     IconButton(
                       tooltip: _pinned ? l10n.todoUnpin : l10n.todoPin,
-                      onPressed: () {
+                      onPressed: () async {
+                        final previous = _pinned;
                         setState(() => _pinned = !_pinned);
-                        ref
-                            .read(todoControllerProvider)
-                            .setPinned(widget.todo.id, _pinned);
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          await ref
+                              .read(todoControllerProvider)
+                              .setPinned(widget.todo.id, _pinned);
+                        } catch (_) {
+                          if (!mounted) return;
+                          setState(() => _pinned = previous);
+                          messenger.showAutoDismissSnackBar(
+                            SnackBar(content: Text(l10n.todoUpdateFailed)),
+                          );
+                        }
                       },
                       icon: Icon(
                         _pinned ? Icons.push_pin : Icons.push_pin_outlined,
@@ -294,11 +339,25 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                             ChoiceChip(
                               label: Text(p.label(l10n)),
                               selected: _priority == p,
-                              onSelected: (_) {
+                              onSelected: (_) async {
+                                final previous = _priority;
                                 setState(() => _priority = p);
-                                ref
-                                    .read(todoControllerProvider)
-                                    .setPriority(widget.todo.id, p.value);
+                                final messenger = ScaffoldMessenger.of(
+                                  context,
+                                );
+                                try {
+                                  await ref
+                                      .read(todoControllerProvider)
+                                      .setPriority(widget.todo.id, p.value);
+                                } catch (_) {
+                                  if (!mounted) return;
+                                  setState(() => _priority = previous);
+                                  messenger.showAutoDismissSnackBar(
+                                    SnackBar(
+                                      content: Text(l10n.todoUpdateFailed),
+                                    ),
+                                  );
+                                }
                               },
                               showCheckmark: false,
                               selectedColor: p.color(palette) ?? palette.accent,
@@ -389,8 +448,22 @@ class _SubtaskRow extends ConsumerWidget {
           semanticLabel: l10n.todoSubtaskDelete,
         ),
       ),
-      onDismissed: (_) =>
-          ref.read(todoControllerProvider).removeSubtask(subtask.id),
+      onDismissed: (_) async {
+        // The Dismissible's own dismiss animation has already run and the
+        // row is gone from view by the time this fires, so there's nothing
+        // to visually revert on failure — just surface it rather than let
+        // the exception vanish silently. Full "un-delete" UX is out of
+        // scope here.
+        final messenger = ScaffoldMessenger.of(context);
+        try {
+          await ref.read(todoControllerProvider).removeSubtask(subtask.id);
+        } catch (_) {
+          if (!context.mounted) return;
+          messenger.showAutoDismissSnackBar(
+            SnackBar(content: Text(l10n.todoUpdateFailed)),
+          );
+        }
+      },
       child: InkWell(
         onTap: () => ref
             .read(todoControllerProvider)

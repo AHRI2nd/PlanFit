@@ -67,7 +67,16 @@ void main() {
     when(todos.findById(any)).thenAnswer((_) async => null);
     when(todos.patch(any, any)).thenAnswer((_) async {});
     when(todos.setTags(any, any)).thenAnswer((_) async {});
+    when(todos.setPinned(any, any)).thenAnswer((_) async {});
+    when(todos.setPriority(any, any)).thenAnswer((_) async {});
+    when(todos.upsertSubtask(any)).thenAnswer((_) async {});
+    when(todos.deleteSubtask(any)).thenAnswer((_) async {});
   });
+
+  // Korean strings pinned via pumpSheetHost's `locale: const Locale('ko')` —
+  // matches app_ko.arb directly rather than routing through AppL10n, since
+  // these tests don't otherwise need a BuildContext of their own.
+  const failureMessage = '저장하지 못했어요. 다시 시도해주세요';
 
   Future<void> pumpSheetHost(WidgetTester tester, TodoRow initial) async {
     final prefs = await SharedPreferences.getInstance();
@@ -142,4 +151,150 @@ void main() {
       verify(todos.setTags(t.id, 'home, urgent')).called(1);
     },
   );
+
+  group('pin toggle', () {
+    testWidgets('persists the flip when the save succeeds', (tester) async {
+      final t = todo();
+      await pumpSheetHost(tester, t);
+      expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.push_pin_outlined));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byIcon(Icons.push_pin), findsOneWidget);
+      expect(find.byIcon(Icons.push_pin_outlined), findsNothing);
+      expect(find.text(failureMessage), findsNothing);
+      verify(todos.setPinned(t.id, true)).called(1);
+    });
+
+    testWidgets(
+      'reverts the icon and shows a SnackBar when the save fails',
+      (tester) async {
+        final t = todo();
+        when(
+          todos.setPinned(any, any),
+        ).thenThrow(Exception('disk full'));
+        await pumpSheetHost(tester, t);
+        expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.push_pin_outlined));
+        // One pump for the optimistic setState, a second for the
+        // catch block's revert setState to land.
+        await tester.pump();
+        await tester.pump();
+
+        // Reverted back to the pre-tap (unpinned) icon, not left showing
+        // the optimistic (pinned) one the DB write never actually made.
+        expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.push_pin), findsNothing);
+        expect(find.text(failureMessage), findsOneWidget);
+        // Flush showAutoDismissSnackBar's own real Timer — flutter_test
+        // fails a test that ends with one still pending (see
+        // holiday_calendar_source_screen_test.dart for the same pattern).
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+  });
+
+  group('priority chip', () {
+    testWidgets('persists the new priority when the save succeeds', (
+      tester,
+    ) async {
+      final t = todo();
+      await pumpSheetHost(tester, t);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, '높음'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text(failureMessage), findsNothing);
+      verify(todos.setPriority(t.id, 3)).called(1);
+    });
+
+    testWidgets(
+      'reverts to the previous chip and shows a SnackBar when the save '
+      'fails',
+      (tester) async {
+        final t = todo();
+        when(
+          todos.setPriority(any, any),
+        ).thenThrow(Exception('disk full'));
+        await pumpSheetHost(tester, t);
+
+        // Fixture starts at priority 0 ("없음") — select "높음" instead.
+        await tester.tap(find.widgetWithText(ChoiceChip, '높음'));
+        await tester.pump();
+        await tester.pump();
+
+        final none = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, '없음'),
+        );
+        final high = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, '높음'),
+        );
+        expect(none.selected, isTrue);
+        expect(high.selected, isFalse);
+        expect(find.text(failureMessage), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+  });
+
+  group('add subtask', () {
+    testWidgets(
+      'leaves the typed text in place and shows a SnackBar when the save '
+      'fails',
+      (tester) async {
+        final t = todo();
+        when(
+          todos.upsertSubtask(any),
+        ).thenThrow(Exception('disk full'));
+        await pumpSheetHost(tester, t);
+
+        final subtaskField = find.byType(TextField).last;
+        await tester.enterText(subtaskField, 'Buy eggs');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
+        await tester.pump();
+
+        // Not cleared — the user's typed text survives a failed add.
+        expect(find.text('Buy eggs'), findsOneWidget);
+        expect(find.text(failureMessage), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+  });
+
+  group('remove subtask', () {
+    testWidgets('shows a SnackBar when the removal fails', (tester) async {
+      final t = todo();
+      final subtask = TodoSubtaskRow(
+        id: 's1',
+        todoId: t.id,
+        title: 'Buy eggs',
+        isDone: false,
+        sortOrder: 0,
+        createdAt: DateTime(2026, 3, 10, 9),
+      );
+      when(
+        todos.watchSubtasks(t.id),
+      ).thenAnswer((_) => Stream.value([subtask]));
+      when(
+        todos.deleteSubtask(any),
+      ).thenThrow(Exception('disk full'));
+      await pumpSheetHost(tester, t);
+      expect(find.text('Buy eggs'), findsOneWidget);
+
+      await tester.drag(find.text('Buy eggs'), const Offset(-500, 0));
+      // Dismissible needs its dismiss + resize animations to actually run
+      // to completion before `onDismissed` fires — a bare pump() or two
+      // isn't enough (unlike the pin/priority cases above, whose
+      // setState-driven UI updates land within a frame or two).
+      await tester.pumpAndSettle();
+
+      expect(find.text(failureMessage), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
 }
