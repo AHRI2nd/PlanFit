@@ -138,6 +138,35 @@ void main() {
     });
   });
 
+  group('LunarDate.monthsInYear', () {
+    test('returns 12 for an ordinary year', () {
+      expect(LunarDate.monthsInYear(2026), 12);
+    });
+
+    test(
+      "stops short of 12 for 2050, klc's own upper boundary — regression "
+      "test: lunar_date_picker.dart's month wheel used to always offer all "
+      "12 months regardless of year, so picking 2050 + month 12 (both "
+      "individually reachable) landed on a month with no valid day 1 at "
+      "all, silently falling back to a fake 29-day range and leaving "
+      '"Done" a no-op once pressed',
+      () {
+        final count = LunarDate.monthsInYear(2050);
+        expect(count, lessThan(12));
+        // The returned month is genuinely usable...
+        expect(LunarDate.daysInMonth(2050, count, false), isNotNull);
+        // ...and one past it genuinely is not, confirming this is the real
+        // boundary and not just an arbitrary smaller number.
+        expect(LunarDate.daysInMonth(2050, count + 1, false), isNull);
+      },
+    );
+
+    test('falls back to 12 outside klc\'s supported range', () {
+      expect(LunarDate.monthsInYear(1000), 12);
+      expect(LunarDate.monthsInYear(2100), 12);
+    });
+  });
+
   group('LunarDate.daysInMonth', () {
     test('returns 29 or 30 for an ordinary month', () {
       final days = LunarDate.daysInMonth(2026, 7, false);

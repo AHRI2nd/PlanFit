@@ -189,4 +189,47 @@ void main() {
       expect(action.title, '5分後に再通知');
     },
   );
+
+  test(
+    "falls back to English instead of crashing for a languageOverride/OS "
+    "locale outside {en, ja, ko} — regression test: lookupAppL10n itself "
+    "throws for an unrecognized language code (it has no built-in "
+    "fallback, despite this file's own doc previously claiming one), so "
+    "any device set to French, German, Chinese, or anything else outside "
+    "the 3 shipped locales used to crash on the very first notification "
+    "call",
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'settings.languageOverride': 'fr',
+      });
+
+      await expectLater(
+        handleNotificationAction(
+          response(
+            actionId: NotificationService.snoozeActionId,
+            payload: jsonEncode({'eventId': 'e44', 'title': 'Standup'}),
+          ),
+          plugin,
+        ),
+        completes,
+      );
+
+      final details =
+          verify(
+                plugin.zonedSchedule(
+                  id: anyNamed('id'),
+                  title: anyNamed('title'),
+                  body: anyNamed('body'),
+                  scheduledDate: anyNamed('scheduledDate'),
+                  notificationDetails: captureAnyNamed('notificationDetails'),
+                  androidScheduleMode: anyNamed('androidScheduleMode'),
+                  payload: anyNamed('payload'),
+                ),
+              ).captured.single
+              as NotificationDetails;
+
+      final action = details.android!.actions!.single;
+      expect(action.title, 'Remind me in 5 min');
+    },
+  );
 }

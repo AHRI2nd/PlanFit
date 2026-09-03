@@ -41,6 +41,7 @@ void main() {
     required DateTime startAt,
     required DateTime endAt,
     String? location,
+    String? importSourceCalendarId,
   }) {
     return EventRow(
       id: id,
@@ -60,8 +61,8 @@ void main() {
       osEventId: null,
       osLastKnownModified: null,
       syncStatus: SyncStatus.pendingPush,
-      importSourceCalendarId: null,
-      importSourceEventId: null,
+      importSourceCalendarId: importSourceCalendarId,
+      importSourceEventId: importSourceCalendarId == null ? null : 'src-1',
       createdAt: DateTime(2020),
       updatedAt: DateTime(2020),
     );
@@ -250,6 +251,40 @@ void main() {
       // The swipe navigates the day instead, same as swiping anywhere else
       // in this all-day/timeline area.
       expect(container.read(selectedDateProvider), DateTime(2026, 3, 11));
+    },
+  );
+
+  testWidgets(
+    'a mirrored event (holiday/subscribed calendar) does not wire up '
+    'long-press-drag at all — regression test: it used to, and dragging it '
+    'called save() straight from the gesture handler, bypassing the '
+    '"mirrored events are read-only" gate that tapping the card already '
+    'goes through, and created a duplicate device-calendar event',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      final mirrored = row(
+        id: 'holiday1',
+        title: 'Chuseok',
+        startAt: DateTime(2026, 3, 10, 9),
+        endAt: DateTime(2026, 3, 10, 10),
+        importSourceCalendarId:
+            'ko.south_korea#holiday@group.v.calendar.google.com',
+      );
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([mirrored]));
+
+      await pumpDay(tester, day);
+
+      final detector = tester.widget<GestureDetector>(
+        find
+            .ancestor(
+              of: find.text('Chuseok'),
+              matching: find.byType(GestureDetector),
+            )
+            .first,
+      );
+      expect(detector.onLongPressStart, isNull);
     },
   );
 

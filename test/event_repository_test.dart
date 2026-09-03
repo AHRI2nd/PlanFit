@@ -33,6 +33,7 @@ void main() {
     String? recurrenceGroupId,
     String? osEventId,
     String? osCalendarId,
+    String? importSourceCalendarId,
     SyncStatus syncStatus = SyncStatus.pendingPush,
   }) {
     final now = DateTime(2020);
@@ -52,6 +53,7 @@ void main() {
       osEventId: osEventId,
       osLastKnownModified: null,
       syncStatus: syncStatus,
+      importSourceCalendarId: importSourceCalendarId,
       createdAt: now,
       updatedAt: now,
     );
@@ -563,6 +565,39 @@ void main() {
   });
 
   group('save — OS calendar push', () {
+    test(
+      'never pushes a row mirrored from a subscribed/holiday calendar, even '
+      'when saved directly (not through the "mirrored events are read-only" '
+      'UI gate) — regression test: Day view\'s drag-to-reschedule calls '
+      'save() straight from a gesture handler, bypassing that gate '
+      'entirely, and used to create a duplicate device-calendar event for '
+      'every dragged holiday/mirrored event',
+      () async {
+        final start = DateTime.now().add(const Duration(hours: 2));
+        final end = start.add(const Duration(hours: 1));
+        final mirrored = row(
+          id: 'e5d',
+          startAt: start,
+          endAt: end,
+          importSourceCalendarId: 'ko.south_korea#holiday@group.v.calendar.google.com',
+          syncStatus: SyncStatus.synced,
+        );
+        when(dao.findById('e5d')).thenAnswer((_) async => mirrored);
+        when(calendar.isEnabled).thenReturn(true);
+
+        await repo.save(
+          EventInput(
+            id: 'e5d',
+            title: 'Dragged',
+            startAt: start.add(const Duration(hours: 1)),
+            endAt: end.add(const Duration(hours: 1)),
+          ),
+        );
+
+        verifyNever(calendar.pushEvent(any));
+      },
+    );
+
     test('pushes and patches osEventId when sync is enabled', () async {
       final start = DateTime.now().add(const Duration(hours: 2));
       final end = start.add(const Duration(hours: 1));

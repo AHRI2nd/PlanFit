@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/schedule/data/event_repository_impl.dart';
@@ -27,6 +28,16 @@ import 'sync_prefs.dart';
 /// Overridden in `main()` once the async load completes.
 final sharedPreferencesProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError('sharedPreferencesProvider not overridden'),
+);
+
+/// The real, currently-running build's version — `pubspec.yaml`'s
+/// `version:` baked in at build time, read via the platform's own bundle
+/// metadata rather than duplicated as a literal anywhere in Dart. The
+/// settings screen's About section used to hard-code this as a plain
+/// string, which silently went stale (still read "1.0.0" after the app was
+/// actually bumped to 1.0.1) since nothing tied it to the real value.
+final appPackageInfoProvider = FutureProvider<PackageInfo>(
+  (ref) => PackageInfo.fromPlatform(),
 );
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {

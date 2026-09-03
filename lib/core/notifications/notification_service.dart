@@ -52,11 +52,31 @@ const String _kLanguageOverridePrefsKey = 'settings.languageOverride';
 /// isolate's snooze re-fire builds its own bare plugin — see that
 /// function's own doc), so it resolves the override itself, straight out of
 /// `SharedPreferences`, before calling in here.
-AppL10n _l10n({String? languageOverride}) => lookupAppL10n(
-  languageOverride != null
+///
+/// [lookupAppL10n] itself does **not** fall back for a language we don't
+/// ship a translation for — it throws. `languageOverride` is always one of
+/// [AppL10n.supportedLocales] (the settings screen only offers those), but
+/// `PlatformDispatcher.instance.locale` is the device's raw OS locale,
+/// unfiltered by Flutter's own `supportedLocales` resolution the way
+/// `Localizations.localeOf(context)` would be — so a device set to French,
+/// German, Chinese, or anything else outside {en, ja, ko} reached
+/// `lookupAppL10n` directly and crashed the very first notification-related
+/// call (`init`, which builds the Darwin snooze-action label synchronously).
+/// Resolving down to a supported locale first, the same way MaterialApp's
+/// own resolution effectively would, is what actually delivers the "falls
+/// back" behavior this doc used to just assert.
+AppL10n _l10n({String? languageOverride}) =>
+    lookupAppL10n(_resolveSupportedLocale(languageOverride));
+
+Locale _resolveSupportedLocale(String? languageOverride) {
+  final locale = languageOverride != null
       ? Locale(languageOverride)
-      : PlatformDispatcher.instance.locale,
-);
+      : PlatformDispatcher.instance.locale;
+  for (final supported in AppL10n.supportedLocales) {
+    if (supported.languageCode == locale.languageCode) return supported;
+  }
+  return const Locale('en');
+}
 
 /// Wraps `flutter_local_notifications` and implements the [NotificationPort]
 /// the event repository drives. An event (or a to-do — see

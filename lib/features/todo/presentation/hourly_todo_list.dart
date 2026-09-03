@@ -440,6 +440,22 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
                                   setState(() => _addRecurrence = v),
                               itemBuilder: (context) =>
                                   RecurrenceFrequency.values
+                                      // To-dos have no lunar-date input mode
+                                      // (event-editor-only — see
+                                      // event_editor_sheet.dart's own doc),
+                                      // so yearlyLunar is excluded here
+                                      // rather than just assumed
+                                      // unreachable: this menu used to build
+                                      // from every enum value unfiltered,
+                                      // which meant it actually *was*
+                                      // reachable and selectable the moment
+                                      // the value was added, contradicting
+                                      // the comment that used to sit here.
+                                      .where(
+                                        (f) =>
+                                            f !=
+                                            RecurrenceFrequency.yearlyLunar,
+                                      )
                                       .map(
                                         (f) => PopupMenuItem(
                                           value: f,

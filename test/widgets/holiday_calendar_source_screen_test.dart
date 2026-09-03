@@ -361,6 +361,60 @@ void main() {
     );
 
     testWidgets(
+      "the custom swatch shows a checkmark (and the current color) when "
+      "the source's color is already set to something outside the 5 quick "
+      "swatches — regression test: reopening the dialog on such a source "
+      'used to show no checkmark anywhere at all, an actively-set color '
+      'reading as "nothing chosen"',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          initial: const AppSettings(
+            holidayCountryCodes: {'KR'},
+            holidaySourceColors: {'holiday:country:KR': '#3388CC'},
+          ),
+        );
+
+        await tester.tap(
+          colorDotFor(find.widgetWithText(CheckboxListTile, '대한민국')),
+        );
+        await tester.pumpAndSettle();
+
+        for (final key in [
+          'colorChoice-default',
+          'colorChoice-indigo',
+          'colorChoice-sky',
+          'colorChoice-amber',
+          'colorChoice-violet',
+        ]) {
+          final choice = tester.widget<Semantics>(
+            find
+                .descendant(
+                  of: find.byKey(Key(key)),
+                  matching: find.byType(Semantics),
+                )
+                .first,
+          );
+          expect(
+            choice.properties.selected,
+            isNot(isTrue),
+            reason: '$key should not read as selected',
+          );
+        }
+
+        final customChoice = tester.widget<Semantics>(
+          find
+              .descendant(
+                of: find.byKey(const Key('colorChoice-custom')),
+                matching: find.byType(Semantics),
+              )
+              .first,
+        );
+        expect(customChoice.properties.selected, isTrue);
+      },
+    );
+
+    testWidgets(
       'choosing a preset swatch calls setHolidayCountryColor with that hex',
       (tester) async {
         (String, String?)? called;

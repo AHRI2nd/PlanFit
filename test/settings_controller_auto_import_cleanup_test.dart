@@ -81,6 +81,28 @@ void main() {
   );
 
   test(
+    'still deletes every row even when cancelling one notification throws '
+    '— regression test: a transient platform-channel error used to abort '
+    'the whole cleanup before the delete ran, since only the OS-calendar '
+    'push side of this codebase\'s best-effort pattern was applied here, '
+    'not the notification side',
+    () async {
+      await db.eventDao.upsert(autoImportedEvent('a1'));
+      await db.eventDao.upsert(autoImportedEvent('a2'));
+      when(
+        notifications.cancelForEvent('a1'),
+      ).thenThrow(Exception('platform channel unavailable'));
+      final container = await makeContainer(autoImportEnabled: true);
+
+      await container
+          .read(settingsControllerProvider.notifier)
+          .setAutoImportCalendarEnabled(false);
+
+      expect(await db.eventDao.all(), isEmpty);
+    },
+  );
+
+  test(
     'leaves a PlanFit-owned event and a subscribed-calendar mirror row '
     'alone — only rows with osCalendarId set (and no import-source id) are '
     'auto-imported',

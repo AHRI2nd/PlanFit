@@ -200,6 +200,22 @@ class _HolidayCalendarSourceScreenState
   /// without a choice.
   Future<String?> _pickColor(String? currentHex) {
     final l10n = AppL10n.of(context);
+    final quickPresetHexes = EventColorTag.values
+        .take(4)
+        .map((tag) => EventColorTag.toHex(tag.color))
+        .toSet();
+    // A source whose color is already set to something outside the 5 quick
+    // swatches above (the default, or one of the 4 presets) — reachable
+    // either from before this dialog was capped to 4 presets, or today via
+    // "custom"'s own full palette, which still lets rose/sage (or anything
+    // else) be picked directly. Without this, reopening the dialog on such
+    // a source showed no checkmark anywhere at all: none of the 5 fixed
+    // swatches match its real hex, and the custom swatch itself never had
+    // a selected state, so an actively-set color visually read as "nothing
+    // chosen".
+    final customColor = currentHex != null && !quickPresetHexes.contains(currentHex)
+        ? EventColorTag.parseHex(currentHex)
+        : null;
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -228,6 +244,7 @@ class _HolidayCalendarSourceScreenState
                 ),
               _CustomColorChoice(
                 key: const Key('colorChoice-custom'),
+                color: customColor,
                 semanticLabel: l10n.eventColorPickerTitle,
                 onTap: () async {
                   final custom = await _pickCustomPaletteColor(
@@ -504,22 +521,30 @@ class _ColorChoice extends StatelessWidget {
 
 /// The "custom color" swatch — opens the full palette picker instead of
 /// picking a color directly, same role as `event_editor_sheet.dart`'s own
-/// `_PaletteSwatch`.
+/// `_PaletteSwatch`, including that one's "already has a value" styling:
+/// [color] non-null (the current hex doesn't match any of the fixed
+/// swatches next to this one) fills the circle with it and shows a
+/// checkmark, instead of leaving an actively-set custom color looking
+/// indistinguishable from nothing being chosen at all.
 class _CustomColorChoice extends StatelessWidget {
   const _CustomColorChoice({
     super.key,
+    required this.color,
     required this.semanticLabel,
     required this.onTap,
   });
 
+  final Color? color;
   final String semanticLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final selected = color != null;
     return Semantics(
       button: true,
+      selected: selected,
       label: semanticLabel,
       child: InkWell(
         onTap: onTap,
@@ -530,9 +555,17 @@ class _CustomColorChoice extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: palette.hairline),
+            color: color,
+            border: Border.all(
+              color: selected ? palette.ink : palette.hairline,
+              width: selected ? 2 : 1,
+            ),
           ),
-          child: Icon(Icons.palette_outlined, size: 18, color: palette.inkSoft),
+          child: Icon(
+            selected ? Icons.check : Icons.palette_outlined,
+            size: 18,
+            color: selected ? Colors.white : palette.inkSoft,
+          ),
         ),
       ),
     );

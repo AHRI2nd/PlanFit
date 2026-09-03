@@ -178,6 +178,39 @@ class LunarDate {
     return days;
   }
 
+  /// How many lunar months [year] actually has that are fully usable (1
+  /// through this count) — almost always 12, but right at the very top of
+  /// klc's supported range a year can be cut off mid-year: month 1 through
+  /// [monthsInYear] all have a genuine, round-trippable day 1;
+  /// [monthsInYear]+1 (if it would otherwise exist) does not, the same
+  /// "table trails off before the nominal end" situation [daysInMonth]'s
+  /// own doc describes for the days *within* a month, one level up. Walks
+  /// backward from 12 rather than hardcoding "2050 stops at 11" so this
+  /// keeps working if a future klc release extends the table.
+  ///
+  /// This exists for `lunar_date_picker.dart`'s month wheel specifically:
+  /// without it, that wheel always offered all 12 months regardless of
+  /// year, so picking year 2050 + month 12 (both individually reachable —
+  /// nothing else in the picker ties them together) landed on a month with
+  /// no valid day 1 at all. [daysInMonth] then returned `null` for every
+  /// day, the picker's own `?? 29` fallback silently showed a fake 29-day
+  /// range, and pressing "Done" called [toSolar] — which correctly
+  /// returned `null` for the nonexistent month — into a handler that just
+  /// no-ops on `null`, leaving the sheet stuck open with no explanation.
+  static int monthsInYear(int year) {
+    if (!_yearInTable(year)) return 12;
+    for (var month = 12; month >= 1; month--) {
+      if (daysInMonth(year, month, false) != null) return month;
+    }
+    // No fully-valid month at all — only plausible right at the very
+    // bottom of klc's range (year 1391, whose lunar month 1 starts before
+    // the table's solar floor). Falling back to 12 rather than 0 keeps the
+    // month wheel itself from ever rendering zero items; daysInMonth's own
+    // `?? 29` fallback (and toSolar's null-safe Done handler) still cover
+    // whichever specific months in that year don't actually validate.
+    return 12;
+  }
+
   @override
   bool operator ==(Object other) =>
       other is LunarDate &&

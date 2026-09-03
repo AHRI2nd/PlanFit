@@ -279,7 +279,19 @@ class SettingsController extends Notifier<AppSettings> {
     final rows = await eventDao.autoImported();
     final notifications = ref.read(notificationPortProvider);
     for (final row in rows) {
-      await notifications.cancelForEvent(row.id);
+      // Best-effort, same reasoning EventRepositoryImpl._applySideEffects's
+      // own doc gives for every notification/calendar side-effect call in
+      // this codebase: a transient platform-channel error here must not
+      // abort the cleanup before the delete below runs — the toggle is
+      // already persisted off at this point, so leaving these rows behind
+      // indefinitely (sync stopped, no UI explanation why) would be worse
+      // than one stale scheduled notification for a row about to be
+      // deleted anyway.
+      try {
+        await notifications.cancelForEvent(row.id);
+      } on Exception {
+        // See comment above.
+      }
     }
     await eventDao.transaction(() async {
       for (final row in rows) {

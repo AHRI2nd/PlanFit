@@ -130,4 +130,39 @@ void main() {
       expect(picked!.year, 1391);
     },
   );
+
+  testWidgets(
+    "the month wheel offers fewer than 12 months once scrolled to klc's "
+    "upper-boundary year (2050) — regression test: it used to always offer "
+    "all 12 regardless of year, so picking year 2050 + month 12 (both "
+    "individually reachable, nothing tied them together) landed on a month "
+    "with no valid day 1 at all — the day wheel then silently fell back to "
+    'a fake 29-day range, and "Done" became a no-op with no feedback since '
+    'the (year, month, day) combination could never actually convert',
+    (tester) async {
+      final key = await pumpAndOpen(tester, DateTime(2026, 3, 22));
+
+      // Drag the year wheel forward to 2050 — the picker's own default
+      // window already runs 1920-2050 (see _effectiveMinYear/MaxYear), so
+      // this doesn't need the out-of-range-clamping path either fixture
+      // above exercises.
+      final yearsForward = 2050 - 2026;
+      await tester.drag(
+        find.byType(CupertinoPicker).at(0),
+        Offset(0, -36.0 * yearsForward),
+      );
+      await tester.pumpAndSettle();
+
+      final monthWheel = tester.widget<CupertinoPicker>(
+        find.byType(CupertinoPicker).at(1),
+      );
+      expect(monthWheel.childDelegate.estimatedChildCount, lessThan(12));
+
+      // Confirms Done is reachable at all from this state — the actual
+      // failure mode this guards against was Done silently doing nothing.
+      await tester.tap(find.text('완료'));
+      await tester.pumpAndSettle();
+      expect(key.currentState!.picked, isNotNull);
+    },
+  );
 }

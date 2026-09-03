@@ -248,7 +248,20 @@ class EventRepositoryImpl implements EventRepository {
       // See doc comment above.
     }
 
-    if (_calendar.isEnabled) {
+    // A row mirrored from a subscribed/holiday calendar
+    // (importSourceCalendarId set) must never be pushed back out — it isn't
+    // this device's data to publish, and CalendarImportService's own doc
+    // already treats mirrored rows as read-only in the UI for exactly this
+    // reason. `EventDao.needingPush()` already guards the reconciler's own
+    // periodic push pass the same way, but that doesn't cover *this* path:
+    // any direct `save()` call (e.g. Day view's drag-to-reschedule, which
+    // calls `EventRepository.save` straight from a gesture handler with no
+    // route through the "mirrored events are read-only" UI gate
+    // `showEventEditor` normally enforces) runs `_applySideEffects`
+    // immediately, bypassing `needingPush()` entirely. Without this check, a
+    // dragged holiday/mirrored event created a brand-new duplicate device
+    // event (no `osEventId` yet to update in place) every time.
+    if (_calendar.isEnabled && row.importSourceCalendarId == null) {
       try {
         final osEventId = await _calendar.pushEvent(row);
         if (osEventId != null) {

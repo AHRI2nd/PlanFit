@@ -454,7 +454,25 @@ class SettingsScreen extends ConsumerWidget {
 
             SectionHeader(l10n.settingsAbout),
             SectionCard(
-              children: [_InfoRow(title: l10n.settingsVersion, value: '1.0.0')],
+              children: [
+                _InfoRow(
+                  title: l10n.settingsVersion,
+                  // Read from the platform's own bundle metadata (baked in
+                  // from pubspec.yaml's version: at build time) rather than
+                  // a literal here — a hard-coded string previously went
+                  // stale the moment the version was bumped without anyone
+                  // remembering to update this too. Blank rather than a
+                  // placeholder number while the platform channel call is
+                  // still in flight (it resolves near-instantly in
+                  // practice) so a stale/wrong number is never shown even
+                  // briefly.
+                  value: ref
+                      .watch(appPackageInfoProvider)
+                      .whenOrNull(
+                        data: (info) => '${info.version}+${info.buildNumber}',
+                      ),
+                ),
+              ],
             ),
           ],
         ),
@@ -616,7 +634,9 @@ class _ActionRow extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   const _InfoRow({required this.title, required this.value});
   final String title;
-  final String value;
+  // Nullable so a still-loading async value (see appPackageInfoProvider's
+  // use above) can render as blank rather than a placeholder/stale string.
+  final String? value;
 
   @override
   Widget build(BuildContext context) {
@@ -628,7 +648,7 @@ class _InfoRow extends StatelessWidget {
         children: [
           Expanded(child: Text(title, style: theme.textTheme.bodyLarge)),
           Text(
-            value,
+            value ?? '',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: palette.inkFaint,
             ),

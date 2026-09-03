@@ -126,6 +126,21 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
     _dayController.jumpToItem(_day - 1);
   }
 
+  int get _monthCount => LunarDate.monthsInYear(_year);
+
+  /// Same reasoning as [_clampDay], one level up: the year wheel can land
+  /// on a year (currently only 2050, klc's upper boundary) that doesn't
+  /// have a full 12 months — without this, a month selection from a prior,
+  /// normal year could persist past the year wheel scrolling into that
+  /// truncated year, leaving _month pointing at a month the year wheel no
+  /// longer even offers.
+  void _clampMonth() {
+    final count = _monthCount;
+    if (_month <= count) return;
+    _month = count;
+    _monthController.jumpToItem(_month - 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
@@ -187,12 +202,13 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
                     // month either, and this wheel can change that just as
                     // easily as the month one can.
                     if (_leapMonthThisYear != _month) _isLeap = false;
+                    _clampMonth();
                     _clampDay();
                   }),
                 ),
                 wheel(
                   controller: _monthController,
-                  itemCount: 12,
+                  itemCount: _monthCount,
                   labelFor: (i) => '${i + 1}',
                   onChanged: (i) => setState(() {
                     _month = i + 1;

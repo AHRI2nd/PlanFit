@@ -769,6 +769,14 @@ class _TimelineState extends ConsumerState<_Timeline>
                     crowded: c.columnCount > 1,
                   );
                   final height = rawHeight < minHeight ? minHeight : rawHeight;
+                  // A mirrored event (holiday or subscribed-calendar) stays
+                  // read-only here the same way tapping it already routes to
+                  // MirroredEventDetailScreen instead of the editor — drag
+                  // and resize are just another way to edit it, and letting
+                  // either through used to silently push a duplicate to the
+                  // device calendar (see EventRepositoryImpl
+                  // ._applySideEffects's own doc on this exact path).
+                  final draggable = e.importSourceCalendarId == null;
                   return Positioned(
                     top: _offsetFor(start),
                     left: widget.railInset + leftInset,
@@ -779,10 +787,14 @@ class _TimelineState extends ConsumerState<_Timeline>
                       allDay: false,
                       height: height,
                       isDragging: isDragging,
-                      onMoveStart: () => _startDrag(e.id, _DragMode.move),
+                      onMoveStart: draggable
+                          ? () => _startDrag(e.id, _DragMode.move)
+                          : null,
                       onMoveUpdate: _updateDrag,
                       onMoveEnd: () => _endDrag(e),
-                      onResizeStart: () => _startDrag(e.id, _DragMode.resize),
+                      onResizeStart: draggable
+                          ? () => _startDrag(e.id, _DragMode.resize)
+                          : null,
                       onResizeUpdate: _updateDrag,
                       onResizeEnd: () => _endDrag(e),
                     ),
