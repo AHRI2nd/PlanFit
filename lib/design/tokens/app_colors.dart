@@ -26,7 +26,19 @@ class AppColors {
   /// it's applied programmatically so a holiday reads as visually distinct
   /// from any user-chosen preset across every view that colors events by
   /// `colorTag`.
-  static const Color holidayRed = Color(0xFFC0392B);
+  ///
+  /// A rust/terracotta, deliberately pulled well clear of [AppPalette]'s
+  /// `danger` (the overdue-to-do calendar dot's color, ~355° hue, magenta-
+  /// leaning) — the two used to sit only ~10-15° apart on the color wheel
+  /// (this was `0xFFC0392B`, a brick red much closer to `danger`'s own
+  /// territory), close enough that a holiday's dot and an overdue day's dot
+  /// read as "the same red" at the 5-6px sizes `calendar_dot.dart`'s
+  /// callers actually render them at — a holiday could misread as
+  /// something urgent. This sits at ~30° hue instead, keeping the warm
+  /// "red day" association without the alarm-red connotation, and stays
+  /// clear of [dayAmber]/`EventColorTag.amber` too (darker and less
+  /// saturated than that gradient stop).
+  static const Color holidayRed = Color(0xFFB5651D);
 
   /// Fixed color for [AppPalette.todoAccent] — the calendar dot's
   /// "has a to-do" state (see `calendar_dot.dart`). Same reasoning as
