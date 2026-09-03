@@ -6,6 +6,8 @@ import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
+import '../../../../core/lunar/lunar_date.dart';
+import '../../../../core/lunar/lunar_format.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
@@ -370,12 +372,12 @@ class _AgendaSelectionToolbar extends StatelessWidget {
   }
 }
 
-class _DayHeader extends StatelessWidget {
+class _DayHeader extends ConsumerWidget {
   const _DayHeader({required this.day});
   final DateTime day;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final today = dateOnly(DateTime.now());
@@ -387,7 +389,22 @@ class _DayHeader extends StatelessWidget {
         ? '${l10n.commonTomorrow} · ${Fmt.monthDay(day, locale)}'
         : '${Fmt.monthDay(day, locale)} ${Fmt.weekdayShort(day, locale)}';
 
-    return SectionHeader(label);
+    final showLunarDates = ref.watch(
+      settingsControllerProvider.select((s) => s.showLunarDates),
+    );
+    final lunar = showLunarDates ? LunarDate.fromSolar(day) : null;
+
+    return SectionHeader(
+      label,
+      trailing: lunar == null
+          ? null
+          : Text(
+              LunarFmt.compact(l10n, lunar),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: context.palette.inkFaint,
+              ),
+            ),
+    );
   }
 }
 

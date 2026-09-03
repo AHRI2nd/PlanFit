@@ -8,12 +8,15 @@ import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
+import 'package:planfit/core/lunar/lunar_date.dart';
+import 'package:planfit/core/lunar/lunar_format.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/schedule_screen.dart';
 import 'package:planfit/features/schedule/presentation/week_view/week_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
+import 'package:planfit/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'schedule_screen_test.mocks.dart';
@@ -428,5 +431,43 @@ void main() {
         expect(container.read(selectedDateProvider), DateTime(2026, 3, 17));
       },
     );
+  });
+
+  group('the title\'s lunar subtitle', () {
+    testWidgets('shows under the title on day view', (tester) async {
+      final selected = DateTime(2026, 3, 10);
+      await pumpSchedule(tester, view: ScheduleView.day, selected: selected);
+
+      final lunar = LunarDate.fromSolar(selected)!;
+      expect(find.text(LunarFmt.short(AppL10nKo(), lunar)), findsOneWidget);
+    });
+
+    testWidgets('is absent on week/month/year/agenda — those titles are a '
+        'period, not a single day', (tester) async {
+      final selected = DateTime(2026, 3, 10);
+      final lunar = LunarDate.fromSolar(selected)!;
+      final label = LunarFmt.short(AppL10nKo(), lunar);
+
+      for (final view in [
+        ScheduleView.week,
+        ScheduleView.month,
+        ScheduleView.year,
+        ScheduleView.agenda,
+      ]) {
+        await pumpSchedule(tester, view: view, selected: selected);
+        expect(find.text(label), findsNothing, reason: '$view');
+      }
+    });
+
+    testWidgets('hidden on day view when the setting is off', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'settings.showLunarDates': false,
+      });
+      final selected = DateTime(2026, 3, 10);
+      await pumpSchedule(tester, view: ScheduleView.day, selected: selected);
+
+      final lunar = LunarDate.fromSolar(selected)!;
+      expect(find.text(LunarFmt.short(AppL10nKo(), lunar)), findsNothing);
+    });
   });
 }

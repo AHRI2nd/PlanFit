@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/format.dart';
+import '../../../../core/lunar/lunar_date.dart';
+import '../../../../core/lunar/lunar_format.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
 import '../../application/schedule_providers.dart';
@@ -332,6 +335,9 @@ class _WeekPageContent extends ConsumerWidget {
       ),
       context,
     );
+    final showLunarDates = ref.watch(
+      settingsControllerProvider.select((s) => s.showLunarDates),
+    );
 
     void openDay(DateTime day) {
       ref.read(selectedDateProvider.notifier).select(day);
@@ -364,6 +370,7 @@ class _WeekPageContent extends ConsumerWidget {
               eventDays: eventDays,
               todoDays: todoDays,
               overdueDays: overdueDays,
+              showLunarDates: showLunarDates,
               onTapDay: openDay,
             ),
             if (allDay.isNotEmpty)
@@ -418,6 +425,7 @@ class _WeekHeader extends StatelessWidget {
     required this.eventDays,
     required this.todoDays,
     required this.overdueDays,
+    required this.showLunarDates,
     required this.onTapDay,
   });
 
@@ -428,6 +436,7 @@ class _WeekHeader extends StatelessWidget {
   final Set<DateTime> eventDays;
   final Set<DateTime> todoDays;
   final Set<DateTime> overdueDays;
+  final bool showLunarDates;
   final ValueChanged<DateTime> onTapDay;
 
   @override
@@ -500,11 +509,47 @@ class _WeekHeader extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (showLunarDates)
+                      _LunarDayLabel(day: day, l10n: AppL10n.of(context)),
                   ],
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The compact lunar-date sublabel under a week/month date cell's solar day
+/// number — a tiny [SizedBox]-wrapped [Text] (rather than just conditionally
+/// omitting the widget) so a day [LunarDate.fromSolar] can't convert (out of
+/// klc's supported range) still reserves the same fixed height every other
+/// day's label takes, keeping every column's day-number circle vertically
+/// aligned instead of the one out-of-range day's circle sitting slightly
+/// higher than its neighbors.
+class _LunarDayLabel extends StatelessWidget {
+  const _LunarDayLabel({required this.day, required this.l10n});
+
+  final DateTime day;
+  final AppL10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final lunar = LunarDate.fromSolar(day);
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: SizedBox(
+        height: 11,
+        child: lunar == null
+            ? null
+            : Text(
+                LunarFmt.compact(l10n, lunar),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontSize: 9,
+                  color: context.palette.inkFaint,
+                ),
+              ),
       ),
     );
   }

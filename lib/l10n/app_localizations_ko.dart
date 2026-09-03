@@ -991,4 +991,12 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get settingsShowLunarDatesDesc => '일/주/월 화면에 음력 날짜를 함께 보여줘요';
+
+  @override
+  String lunarDateCompact(int month, int day) {
+    return '$month.$day';
+  }
+
+  @override
+  String get lunarLeapMarker => '윤';
 }

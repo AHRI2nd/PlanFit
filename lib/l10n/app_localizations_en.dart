@@ -1033,4 +1033,12 @@ class AppL10nEn extends AppL10n {
   @override
   String get settingsShowLunarDatesDesc =>
       'Shows the lunar-calendar date alongside the day/week/month views';
+
+  @override
+  String lunarDateCompact(int month, int day) {
+    return '$month/$day';
+  }
+
+  @override
+  String get lunarLeapMarker => 'L';
 }

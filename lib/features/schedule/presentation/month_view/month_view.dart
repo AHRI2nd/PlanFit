@@ -6,6 +6,8 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
+import '../../../../core/lunar/lunar_date.dart';
+import '../../../../core/lunar/lunar_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
@@ -210,6 +212,9 @@ class MonthView extends ConsumerWidget {
     final weekStartsMonday = ref.watch(
       settingsControllerProvider.select((s) => s.weekStartsMonday),
     );
+    final showLunarDates = ref.watch(
+      settingsControllerProvider.select((s) => s.showLunarDates),
+    );
     final startWeekday = weekStartsMonday ? DateTime.monday : DateTime.sunday;
     final rowCount = monthRowCount(selected, startWeekday);
 
@@ -338,10 +343,14 @@ class MonthView extends ConsumerWidget {
                         .toList();
                     final hasOverdueTodo = overdueDays.contains(d);
                     final hasTodo = todoDays.contains(d);
+                    final lunar = showLunarDates
+                        ? LunarDate.fromSolar(d)
+                        : null;
                     if (spanning.isEmpty &&
                         dots.isEmpty &&
                         !hasOverdueTodo &&
-                        !hasTodo) {
+                        !hasTodo &&
+                        lunar == null) {
                       return null;
                     }
 
@@ -401,6 +410,37 @@ class MonthView extends ConsumerWidget {
                     // agree on exactly where the circle sits) — see its
                     // own doc for why this no longer depends on rowHeight.
                     final markerTop = monthMarkerTop(columnWidth: columnWidth);
+                    final availableForMarker =
+                        effectiveRowHeight - markerTop - _monthMarkerBottomPad;
+                    final lunarRowHeight = monthEventRowHeight() + 1;
+
+                    // A per-day, content-aware decision (not a flat setting
+                    // toggle alone) — a busy day's dots/list already fill
+                    // most of the marker area at the default row height, so
+                    // showing the lunar label there too would either
+                    // overflow the cell or force a whole extra row's worth
+                    // of budget cut from monthEventListCapacity's own,
+                    // already carefully-tuned arithmetic (which every other
+                    // cell in the grid shares, uniformly, regardless of that
+                    // one day's own content). Computed per-branch below,
+                    // against each branch's own real content height, so a
+                    // quiet day still gets its lunar label even while a busy
+                    // one doesn't at the same row height — the same kind of
+                    // graceful degradation monthEventListCapacity itself
+                    // already does for the list/dot switch.
+                    Widget lunarLabel({required bool centered}) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Text(
+                          LunarFmt.compact(l10n, lunar!),
+                          textAlign: centered ? TextAlign.center : null,
+                          style: _monthEventRowTextStyle.copyWith(
+                            fontSize: 8,
+                            color: palette.inkFaint,
+                          ),
+                        ),
+                      );
+                    }
 
                     // Below monthEventListCapacity's own threshold: the
                     // compact dot/bar summary. One dot per single-day
@@ -424,6 +464,15 @@ class MonthView extends ConsumerWidget {
                         )!,
                     ];
                     if (listCapacity <= 0) {
+                      final collapsedContentHeight =
+                          (spanning.isNotEmpty ? 6.0 : 0.0) +
+                          (entryColors.isNotEmpty
+                              ? _monthCollapsedDotSize
+                              : 0.0);
+                      final showLunarHere =
+                          lunar != null &&
+                          availableForMarker - collapsedContentHeight >=
+                              lunarRowHeight;
                       return Positioned(
                         left: 0,
                         right: 0,
@@ -432,6 +481,7 @@ class MonthView extends ConsumerWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (showLunarHere) lunarLabel(centered: true),
                             if (spanning.isNotEmpty) spanBar(asListRow: false),
                             if (entryColors.isNotEmpty)
                               if (entryColors.length <=
@@ -550,6 +600,18 @@ class MonthView extends ConsumerWidget {
                       visible = shown;
                     }
 
+                    // Same content-aware check as the collapsed branch
+                    // above, against this branch's own real content height
+                    // — a day whose events already fill every one of
+                    // listCapacity's rows leaves no slack for the label
+                    // (same as it would for one more real event row), while
+                    // a quieter day under capacity still gets it.
+                    final showLunarHere =
+                        lunar != null &&
+                        availableForMarker -
+                                visible.length * monthEventRowHeight() >=
+                            lunarRowHeight;
+
                     return Positioned(
                       left: 0,
                       right: 0,
@@ -557,7 +619,10 @@ class MonthView extends ConsumerWidget {
                       bottom: _monthMarkerBottomPad,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: visible,
+                        children: [
+                          if (showLunarHere) lunarLabel(centered: false),
+                          ...visible,
+                        ],
                       ),
                     );
                   },

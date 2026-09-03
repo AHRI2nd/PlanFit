@@ -9,12 +9,15 @@ import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
+import 'package:planfit/core/lunar/lunar_date.dart';
+import 'package:planfit/core/lunar/lunar_format.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/event_color_tag.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/month_view/month_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
+import 'package:planfit/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'month_view_test.mocks.dart';
@@ -284,6 +287,70 @@ void main() {
     },
   );
 
+  group('lunar date labels', () {
+    testWidgets(
+      'a quiet day (no events) shows its compact lunar label at the '
+      'default row height — there\'s slack for it once nothing else is '
+      'competing for the same marker space',
+      (tester) async {
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value(const []));
+
+        await pumpMonth(tester, DateTime(2026, 3, 1));
+
+        final lunar = LunarDate.fromSolar(DateTime(2026, 3, 1))!;
+        expect(
+          find.text(LunarFmt.compact(AppL10nKo(), lunar)),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'turning the setting off removes every lunar label from the grid',
+      (tester) async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('settings.showLunarDates', false);
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value(const []));
+
+        await pumpMonth(tester, DateTime(2026, 3, 1));
+
+        final lunar = LunarDate.fromSolar(DateTime(2026, 3, 1))!;
+        expect(
+          find.text(LunarFmt.compact(AppL10nKo(), lunar)),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'a busy day (over the dot cap) at the default row height keeps '
+      'showing its dots/count — the lunar label quietly steps aside '
+      'there rather than overflowing the cell or crowding them out',
+      (tester) async {
+        final day = DateTime(2026, 3, 15);
+        const eventCount = 5;
+        when(events.watchBetween(any, any)).thenAnswer(
+          (_) => Stream.value([
+            for (var i = 0; i < eventCount; i++)
+              singleDayEvent(id: 'e$i', day: day),
+          ]),
+        );
+
+        await pumpMonth(tester, DateTime(2026, 3, 1));
+
+        expect(find.text('+$eventCount'), findsOneWidget);
+        final lunar = LunarDate.fromSolar(day)!;
+        expect(find.text(LunarFmt.compact(AppL10nKo(), lunar)), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   group('expanded list mode (row dragged tall enough for a real list)', () {
     /// Mirrors MonthCalendarRowHeight's own persistence key — pre-seeding
     /// SharedPreferences with it is the simplest way to get the grid into
@@ -380,5 +447,21 @@ void main() {
       },
     );
 
+    testWidgets(
+      'a day well under capacity at the max row height also shows its '
+      'lunar label alongside the real event list — there\'s slack for '
+      'both once the row is dragged this tall',
+      (tester) async {
+        final shownTitles = await pumpWithEvents(tester, 2);
+
+        expect(shownTitles, {'e0', 'e1'});
+        final lunar = LunarDate.fromSolar(DateTime(2026, 3, 15))!;
+        expect(
+          monthListText(LunarFmt.compact(AppL10nKo(), lunar)),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

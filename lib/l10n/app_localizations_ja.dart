@@ -991,4 +991,12 @@ class AppL10nJa extends AppL10n {
 
   @override
   String get settingsShowLunarDatesDesc => '日・週・月の画面に旧暦の日付も表示します';
+
+  @override
+  String lunarDateCompact(int month, int day) {
+    return '$month.$day';
+  }
+
+  @override
+  String get lunarLeapMarker => '閏';
 }

@@ -8,12 +8,15 @@ import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
+import 'package:planfit/core/lunar/lunar_date.dart';
+import 'package:planfit/core/lunar/lunar_format.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/app_colors.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/week_view/week_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
+import 'package:planfit/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'week_view_test.mocks.dart';
@@ -535,4 +538,39 @@ void main() {
       );
     },
   );
+
+  group('lunar date labels', () {
+    testWidgets('shown under each day number by default', (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      final lunar = LunarDate.fromSolar(anchor)!;
+      expect(find.text(LunarFmt.compact(AppL10nKo(), lunar)), findsOneWidget);
+    });
+
+    testWidgets('hidden when the setting is off', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'settings.showLunarDates': false,
+      });
+      final anchor = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      final lunar = LunarDate.fromSolar(anchor)!;
+      expect(find.text(LunarFmt.compact(AppL10nKo(), lunar)), findsNothing);
+    });
+  });
 }

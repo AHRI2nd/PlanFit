@@ -420,5 +420,14 @@
     }
   },
   "settingsShowLunarDates": "Show lunar dates",
-  "settingsShowLunarDatesDesc": "Shows the lunar-calendar date alongside the day/week/month views"
+  "settingsShowLunarDatesDesc": "Shows the lunar-calendar date alongside the day/week/month views",
+
+  "lunarDateCompact": "{month}/{day}",
+  "@lunarDateCompact": {
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" }
+    }
+  },
+  "lunarLeapMarker": "L"
 }

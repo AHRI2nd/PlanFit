@@ -1958,6 +1958,18 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'일/주/월 화면에 음력 날짜를 함께 보여줘요'**
   String get settingsShowLunarDatesDesc;
+
+  /// No description provided for @lunarDateCompact.
+  ///
+  /// In ko, this message translates to:
+  /// **'{month}.{day}'**
+  String lunarDateCompact(int month, int day);
+
+  /// No description provided for @lunarLeapMarker.
+  ///
+  /// In ko, this message translates to:
+  /// **'윤'**
+  String get lunarLeapMarker;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

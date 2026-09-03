@@ -8,10 +8,13 @@ import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
+import 'package:planfit/core/lunar/lunar_date.dart';
+import 'package:planfit/core/lunar/lunar_format.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/agenda_view/agenda_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
+import 'package:planfit/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'agenda_view_test.mocks.dart';
@@ -315,5 +318,46 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(TextField, 'Buy milk'), findsOneWidget);
+  });
+
+  group('lunar date labels', () {
+    testWidgets('shown as a trailing label on each day header', (
+      tester,
+    ) async {
+      final anchor = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(id: 'e1', title: 'Standup', startAt: DateTime(2026, 3, 10, 9)),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpAgenda(tester, anchor);
+
+      final lunar = LunarDate.fromSolar(anchor)!;
+      expect(find.text(LunarFmt.compact(AppL10nKo(), lunar)), findsOneWidget);
+    });
+
+    testWidgets('hidden when the setting is off', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'settings.showLunarDates': false,
+      });
+      final anchor = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(id: 'e1', title: 'Standup', startAt: DateTime(2026, 3, 10, 9)),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpAgenda(tester, anchor);
+
+      final lunar = LunarDate.fromSolar(anchor)!;
+      expect(find.text(LunarFmt.compact(AppL10nKo(), lunar)), findsNothing);
+    });
   });
 }

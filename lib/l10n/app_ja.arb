@@ -420,5 +420,14 @@
     }
   },
   "settingsShowLunarDates": "旧暦を表示",
-  "settingsShowLunarDatesDesc": "日・週・月の画面に旧暦の日付も表示します"
+  "settingsShowLunarDatesDesc": "日・週・月の画面に旧暦の日付も表示します",
+
+  "lunarDateCompact": "{month}.{day}",
+  "@lunarDateCompact": {
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" }
+    }
+  },
+  "lunarLeapMarker": "閏"
 }

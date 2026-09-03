@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/date_math.dart';
 import '../../../core/format.dart';
+import '../../../core/lunar/lunar_date.dart';
+import '../../../core/lunar/lunar_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/swipe_navigation_detector.dart';
 import '../../../design/widgets/time_gradient_background.dart';
+import '../../../features/settings/application/settings_controller.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/schedule_providers.dart';
 import 'agenda_view/agenda_view.dart';
@@ -63,6 +66,19 @@ class ScheduleScreen extends ConsumerWidget {
       ScheduleView.agenda => l10n.viewAgenda,
     };
 
+    // Only Day view — Week/Month's own title is already a *period* ("Aug
+    // 24 – Aug 30", "2026년 9월"), not a single day, so a single lunar date
+    // there would misleadingly read as "the" lunar date for a whole
+    // week/month. Week and Month instead get their own per-day lunar labels
+    // right on each date cell (_WeekHeader, month_view.dart's
+    // CalendarBuilders) — a day-level label belongs on the day it's for.
+    String? lunarSubtitle;
+    if (view == ScheduleView.day &&
+        ref.watch(settingsControllerProvider).showLunarDates) {
+      final lunar = LunarDate.fromSolar(selected);
+      if (lunar != null) lunarSubtitle = LunarFmt.short(l10n, lunar);
+    }
+
     return TimeGradientBackground(
       intensity: 0.7,
       child: Scaffold(
@@ -95,6 +111,7 @@ class ScheduleScreen extends ConsumerWidget {
                         view: view,
                         selected: selected,
                         title: title,
+                        lunarSubtitle: lunarSubtitle,
                         style: Theme.of(context).textTheme.headlineSmall,
                         chevronColor: palette.inkFaint,
                         onNavigate: (target) => ref
@@ -196,6 +213,7 @@ class _SwipeableTitle extends StatelessWidget {
     required this.view,
     required this.selected,
     required this.title,
+    this.lunarSubtitle,
     required this.style,
     required this.chevronColor,
     required this.onNavigate,
@@ -204,6 +222,13 @@ class _SwipeableTitle extends StatelessWidget {
   final ScheduleView view;
   final DateTime selected;
   final String title;
+
+  /// The current day's short lunar-date label ("음력 7월 22일" etc.), or
+  /// null when [AppSettings.showLunarDates] is off, the setting-holder
+  /// couldn't convert this particular day (outside klc's supported range),
+  /// or [view] isn't [ScheduleView.day] — see [ScheduleScreen.build]'s own
+  /// reasoning for why this is day-only.
+  final String? lunarSubtitle;
   final TextStyle? style;
   final Color chevronColor;
   final ValueChanged<DateTime> onNavigate;
@@ -252,11 +277,26 @@ class _SwipeableTitle extends StatelessWidget {
               const SizedBox(width: 2),
             ],
             Flexible(
-              child: Text(
-                title,
-                style: style,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: style,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (lunarSubtitle != null)
+                    Text(
+                      lunarSubtitle!,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelMedium?.copyWith(color: chevronColor),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
               ),
             ),
             if (swipeable) ...[
