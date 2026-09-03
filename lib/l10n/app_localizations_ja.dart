@@ -111,6 +111,12 @@ class AppL10nJa extends AppL10n {
   String get scheduleTitle => 'スケジュール';
 
   @override
+  String get scheduleTitlePrevious => '前へ';
+
+  @override
+  String get scheduleTitleNext => '次へ';
+
+  @override
   String get viewDay => '日';
 
   @override

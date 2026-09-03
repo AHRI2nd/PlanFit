@@ -297,7 +297,12 @@ class _UpcomingTile extends StatelessWidget {
               children: [
                 Text(
                   Fmt.time(event.startAt, locale, use24Hour: use24Hour),
-                  style: AppTypography.clockSmall.copyWith(color: accent),
+                  // A light preset (amber/sky/rose) or a time-gradient
+                  // moment near those same hues measured well under WCAG
+                  // AA's 4.5:1 text floor here — see legibleOn's own doc.
+                  style: AppTypography.clockSmall.copyWith(
+                    color: legibleOn(palette.surface, accent),
+                  ),
                 ),
                 Text(
                   Fmt.relative(event.startAt, now, locale),

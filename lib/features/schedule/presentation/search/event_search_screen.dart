@@ -36,6 +36,16 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   List<EventRow>? _eventResults;
   List<TodoRow>? _todoResults;
   bool _loading = false;
+
+  /// Bumped every time a new debounced search actually starts (not on every
+  /// keystroke — the [Timer] cancel/reset above already coalesces those).
+  /// The debounce alone only stops two *pending* searches from both firing;
+  /// it doesn't stop an *in-flight* one from finishing after a newer one
+  /// was kicked off. A broader query (e.g. "a") can take longer to scan
+  /// than a narrower one typed right after it (e.g. "abc"), so without
+  /// this, the slower/older search's results could land last and overwrite
+  /// the results for a query the user has since moved past.
+  int _searchGeneration = 0;
   TodoPriority? _priorityFilter;
   String? _tagFilter;
   EventColorTag? _colorFilter;
@@ -101,11 +111,12 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     }
     setState(() => _loading = true);
     _debounce = Timer(const Duration(milliseconds: 250), () async {
+      final generation = ++_searchGeneration;
       final results = await Future.wait([
         ref.read(eventRepositoryProvider).search(trimmed),
         ref.read(todoDaoProvider).search(trimmed),
       ]);
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _eventResults = results[0] as List<EventRow>;
         _todoResults = results[1] as List<TodoRow>;

@@ -683,6 +683,16 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final theme = Theme.of(context);
     final accent = AppColors.timeGradient(_start).first;
+    // accent is a continuous blend along the day's time-gradient (dawn
+    // indigo through midday amber to night violet) — its worst points
+    // (near the amber/sky anchors) measured as low as 1.82:1 against this
+    // screen's own card surface, far under WCAG AA's 4.5:1 floor for
+    // normal text, whenever it was used as literal text color rather than
+    // a fill/icon/border (those only need the looser 3:1 non-text floor,
+    // or no floor at all for a purely decorative fill). `accent` itself is
+    // left untouched for those non-text uses — see legibleOn's own doc for
+    // why a single fixed replacement color isn't the fix here.
+    final textAccent = legibleOn(palette.surface, accent);
     final use24 = resolveUse24Hour(
       ref.watch(
         settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
@@ -837,7 +847,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                     l10n.eventLunarInputToggleOn,
                     style: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.copyWith(color: accent),
+                    ).textTheme.bodySmall?.copyWith(color: textAccent),
                   ),
                 ),
               SectionCard(
@@ -938,7 +948,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                                 child: Text(
                                   Fmt.monthDay(_recurrenceUntil, locale),
                                   style: theme.textTheme.labelLarge?.copyWith(
-                                    color: accent,
+                                    color: textAccent,
                                   ),
                                 ),
                               ),
@@ -1428,8 +1438,15 @@ class _ChipRow<T> extends StatelessWidget {
                     showCheckmark: false,
                     backgroundColor: palette.surface,
                     selectedColor: accent,
+                    // White unconditionally read fine against a dark accent
+                    // (indigo/violet) but failed outright against a light
+                    // one (amber/sky) — the same accent this chip's own
+                    // fill can be, since it's the time-of-day gradient, not
+                    // a fixed color.
                     labelStyle: theme.textTheme.labelLarge?.copyWith(
-                      color: selected == value ? Colors.white : palette.inkSoft,
+                      color: selected == value
+                          ? bestTextOn(accent, dark: palette.ink)
+                          : palette.inkSoft,
                     ),
                     side: BorderSide(
                       color: selected == value ? accent : palette.hairline,
@@ -1661,7 +1678,15 @@ class _DateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final theme = Theme.of(context);
-    final valueStyle = theme.textTheme.titleMedium?.copyWith(color: accent);
+    // accent is the time-of-day gradient at whatever moment this event
+    // starts — its low-lightness-contrast points (near the amber/sky
+    // anchors) measured well under WCAG AA's 4.5:1 text floor against this
+    // card's own surface. Adjusted here, at the point of use, rather than
+    // requiring every caller to remember to — this is the only place
+    // `accent` becomes literal text in this widget.
+    final valueStyle = theme.textTheme.titleMedium?.copyWith(
+      color: legibleOn(palette.surface, accent),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(

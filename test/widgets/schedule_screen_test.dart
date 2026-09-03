@@ -316,6 +316,28 @@ void main() {
         expect(find.byIcon(Icons.chevron_right), findsNothing);
       },
     );
+
+    testWidgets(
+      'both chevrons carry a screen-reader label — regression test: '
+      'neither had a tooltip or Semantics at all, so a VoiceOver/TalkBack '
+      'user tapping through the header heard nothing meaningful for the '
+      'only tap-based way to page the calendar',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final selected = DateTime(2026, 3, 10);
+        await pumpSchedule(tester, view: ScheduleView.day, selected: selected);
+
+        // Literal Korean strings, not the l10n getters themselves — this
+        // harness pumps Locale('ko') (see its own MaterialApp setup), so
+        // asserting against the real resolved text is what actually proves
+        // a screen reader would announce something meaningful, not just
+        // that some string was passed through.
+        expect(find.bySemanticsLabel('이전으로'), findsOneWidget);
+        expect(find.bySemanticsLabel('다음으로'), findsOneWidget);
+
+        handle.dispose();
+      },
+    );
   });
 
   group('body-region swipes', () {

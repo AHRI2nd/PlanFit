@@ -51,6 +51,8 @@
   "homeWeekEmpty": "Quiet week so far",
 
   "scheduleTitle": "Schedule",
+  "scheduleTitlePrevious": "Previous",
+  "scheduleTitleNext": "Next",
   "viewDay": "Day",
   "viewWeek": "Week",
   "viewMonth": "Month",

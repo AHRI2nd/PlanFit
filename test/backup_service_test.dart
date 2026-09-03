@@ -292,6 +292,65 @@ void main() {
   });
 
   test(
+    'a restore still succeeds even when scheduling a restored to-do\'s '
+    'notification throws — regression test: syncTodoNotification used to '
+    'have no error handling at all, so a real, known '
+    'flutter_local_notifications failure mode (a platform-channel '
+    'exception on some Android OEMs/versions) would have propagated out of '
+    'importFromFile and shown the user a generic "복원 실패" even though the '
+    'restore itself had already fully committed',
+    () async {
+      final sourceDb = newDb();
+      final notifications = MockNotificationPort();
+      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+      when(
+        notifications.scheduleForTodo(any),
+      ).thenThrow(Exception('platform channel unavailable'));
+
+      await sourceDb.todoDao.upsert(
+        TodoItemsCompanion.insert(
+          id: 'todo-throws',
+          title: const Value('Call dentist'),
+          slotStart: DateTime.now().add(const Duration(hours: 2)),
+        ),
+      );
+
+      final eventRepo = EventRepositoryImpl(
+        dao: sourceDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      final sourceBackup = BackupService(
+        eventRepository: eventRepo,
+        todoDao: sourceDb.todoDao,
+        notifications: notifications,
+      );
+      final file = await sourceBackup.exportToFile();
+
+      final destDb = newDb();
+      final destEventRepo = EventRepositoryImpl(
+        dao: destDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      final destBackup = BackupService(
+        eventRepository: destEventRepo,
+        todoDao: destDb.todoDao,
+        notifications: notifications,
+      );
+
+      final summary = await destBackup.importFromFile(file.path);
+
+      expect(summary.todoCount, 1);
+      expect((await destDb.todoDao.all()).single.title, 'Call dentist');
+
+      await sourceDb.close();
+      await destDb.close();
+    },
+  );
+
+  test(
     'excludes events mirrored from a subscribed calendar (holidays '
     'included) from the export — they are re-derived from their source, '
     'not this device\'s data to carry around, and previously came back '

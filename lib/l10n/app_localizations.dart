@@ -291,6 +291,18 @@ abstract class AppL10n {
   /// **'시간표'**
   String get scheduleTitle;
 
+  /// No description provided for @scheduleTitlePrevious.
+  ///
+  /// In ko, this message translates to:
+  /// **'이전으로'**
+  String get scheduleTitlePrevious;
+
+  /// No description provided for @scheduleTitleNext.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음으로'**
+  String get scheduleTitleNext;
+
   /// No description provided for @viewDay.
   ///
   /// In ko, this message translates to:

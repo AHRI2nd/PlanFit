@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// PlanFit color tokens.
@@ -257,4 +259,75 @@ class AppPalette extends ThemeExtension<AppPalette> {
 /// Ergonomic access: `context.palette` and `context.textThemeX`.
 extension PaletteContext on BuildContext {
   AppPalette get palette => Theme.of(this).extension<AppPalette>()!;
+}
+
+/// WCAG 2.1's relative-luminance formula (§1.4.3), applied to sRGB channels
+/// already normalized to 0.0-1.0 (this app's `Color.r`/`.g`/`.b` are already
+/// in that range, unlike the older deprecated 0-255 `Color.red`/etc.).
+double _relativeLuminance(Color c) {
+  double linear(double channel) => channel <= 0.03928
+      ? channel / 12.92
+      : math.pow((channel + 0.055) / 1.055, 2.4).toDouble();
+  return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+}
+
+/// WCAG contrast ratio between two colors — 1.0 (identical) to 21.0 (pure
+/// black on pure white). 4.5 is AA's floor for normal text, 3.0 for large
+/// text (18pt+, or 14pt+ bold) and for non-text "graphical object" contrast
+/// (icons, focus outlines).
+double contrastRatio(Color a, Color b) {
+  final la = _relativeLuminance(a) + 0.05;
+  final lb = _relativeLuminance(b) + 0.05;
+  return la > lb ? la / lb : lb / la;
+}
+
+/// [preferred], darkened or lightened (hue and saturation held fixed) just
+/// enough to clear [minRatio] against [background] — or [preferred]
+/// unchanged if it already does. For any color actually used as *text*
+/// (not a fill, icon, or border, where WCAG's looser 3:1 non-text floor —
+/// or no floor at all for a purely decorative fill — applies instead):
+/// event-tag/time-gradient hues ([AppColors.dayAmber], [AppColors
+/// .noonSky], [EventColorTag.rose]/`.sage`, …) exist to be picked freely by
+/// the user or to track the time of day, so none of them can be
+/// individually pre-checked against every background the way [AppPalette
+/// .danger] was — this makes whichever one is in play legible wherever
+/// it's read as text, without flattening the whole feature to one fixed
+/// "safe" color and losing the identity those hues are there to carry.
+///
+/// Darkens on a light [background], lightens on a dark one, in fixed
+/// lightness steps — cheap enough to call directly from `build()`, and
+/// deterministic (unlike a binary/gradient search, always converges in the
+/// same number of steps for the same inputs, so two nearby frames never
+/// pick visibly different shades for the same color pair). Falls back to
+/// solid black/white only if the entire lightness range still can't clear
+/// [minRatio] against [background] — not reachable for any of this app's
+/// own hues against its own palette, but a color coming from a user's own
+/// custom-picked event tag isn't bounded the same way.
+Color legibleOn(
+  Color background,
+  Color preferred, {
+  double minRatio = 4.5,
+}) {
+  if (contrastRatio(preferred, background) >= minRatio) return preferred;
+  final hsl = HSLColor.fromColor(preferred);
+  final backgroundIsLight = _relativeLuminance(background) > 0.5;
+  for (var step = 1; step <= 20; step++) {
+    final lightness = (backgroundIsLight
+            ? hsl.lightness - step * 0.05
+            : hsl.lightness + step * 0.05)
+        .clamp(0.0, 1.0);
+    final candidate = hsl.withLightness(lightness).toColor();
+    if (contrastRatio(candidate, background) >= minRatio) return candidate;
+  }
+  return backgroundIsLight ? Colors.black : Colors.white;
+}
+
+/// Which of [light]/[dark] (typically `Colors.white`/[AppPalette.ink]) reads
+/// better as text laid directly over [fill] — for a filled chip/pill whose
+/// own background *is* a freely-chosen event/time-gradient hue, so (unlike
+/// [legibleOn]) there's no single foreground color to adjust: picking white
+/// text unconditionally reads fine on a dark accent (indigo, violet) but
+/// fails outright on a light one (amber, sky, rose).
+Color bestTextOn(Color fill, {Color light = Colors.white, required Color dark}) {
+  return contrastRatio(light, fill) >= contrastRatio(dark, fill) ? light : dark;
 }

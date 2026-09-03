@@ -51,6 +51,8 @@
   "homeWeekEmpty": "이번 주는 아직 조용하네요",
 
   "scheduleTitle": "시간표",
+  "scheduleTitlePrevious": "이전으로",
+  "scheduleTitleNext": "다음으로",
   "viewDay": "일",
   "viewWeek": "주",
   "viewMonth": "월",

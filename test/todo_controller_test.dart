@@ -103,6 +103,46 @@ void main() {
     });
   });
 
+  group('notification sync is best-effort', () {
+    // Regression tests: syncTodoNotification used to have no error handling
+    // at all, unlike every other notification/calendar/reminder side-effect
+    // in this codebase — a thrown PlatformException (a real, known failure
+    // mode of flutter_local_notifications on some Android OEMs/versions)
+    // would have propagated out of these calls uncaught, even though the
+    // to-do's own data write had already committed successfully.
+    test(
+      'toggle still commits the done state even if cancelling the '
+      'notification throws',
+      () async {
+        final slot = DateTime.now().add(const Duration(hours: 2));
+        await controller().add(title: 'Call dentist', slotStart: slot);
+        final row = (await db.todoDao.all()).single;
+        when(
+          notifications.cancelForTodo(row.id),
+        ).thenThrow(Exception('platform channel unavailable'));
+
+        await controller().toggle(row.id, true);
+
+        expect((await db.todoDao.findById(row.id))?.isDone, isTrue);
+      },
+    );
+
+    test(
+      'add still creates the to-do even if scheduling its notification '
+      'throws',
+      () async {
+        when(
+          notifications.scheduleForTodo(any),
+        ).thenThrow(Exception('platform channel unavailable'));
+        final slot = DateTime.now().add(const Duration(hours: 2));
+
+        await controller().add(title: 'Call dentist', slotStart: slot);
+
+        expect((await db.todoDao.all()).single.title, 'Call dentist');
+      },
+    );
+  });
+
   group('setNotify', () {
     test('turning notify off cancels an already-scheduled to-do', () async {
       final slot = DateTime.now().add(const Duration(hours: 2));

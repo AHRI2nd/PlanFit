@@ -111,6 +111,12 @@ class AppL10nKo extends AppL10n {
   String get scheduleTitle => '시간표';
 
   @override
+  String get scheduleTitlePrevious => '이전으로';
+
+  @override
+  String get scheduleTitleNext => '다음으로';
+
+  @override
   String get viewDay => '일';
 
   @override

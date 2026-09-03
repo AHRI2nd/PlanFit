@@ -242,6 +242,7 @@ class _SwipeableTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     // Agenda has no period for _swipeTarget to page through (see its own
     // switch above), so there's nothing real to hint at or tap there.
     final swipeable = view != ScheduleView.agenda;
@@ -274,6 +275,7 @@ class _SwipeableTitle extends StatelessWidget {
               _TitleChevron(
                 icon: Icons.chevron_left,
                 color: chevronColor,
+                semanticLabel: l10n.scheduleTitlePrevious,
                 onTap: () => _navigate(false),
               ),
               const SizedBox(width: 2),
@@ -306,6 +308,7 @@ class _SwipeableTitle extends StatelessWidget {
               _TitleChevron(
                 icon: Icons.chevron_right,
                 color: chevronColor,
+                semanticLabel: l10n.scheduleTitleNext,
                 onTap: () => _navigate(true),
               ),
             ],
@@ -322,21 +325,31 @@ class _TitleChevron extends StatelessWidget {
   const _TitleChevron({
     required this.icon,
     required this.color,
+    required this.semanticLabel,
     required this.onTap,
   });
 
   final IconData icon;
   final Color color;
+  final String semanticLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkResponse(
-      onTap: onTap,
-      radius: 18,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(icon, size: 18, color: color),
+    // No tooltip/Semantics here at all used to mean a VoiceOver/TalkBack
+    // user tapping through the header heard nothing meaningful for these —
+    // the only way to page the calendar by tap, since the swipe gesture
+    // this sits beside has no semantic alternative either.
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 18,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 18, color: color),
+        ),
       ),
     );
   }

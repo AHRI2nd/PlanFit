@@ -51,6 +51,8 @@
   "homeWeekEmpty": "今週はまだ静かですね",
 
   "scheduleTitle": "スケジュール",
+  "scheduleTitlePrevious": "前へ",
+  "scheduleTitleNext": "次へ",
   "viewDay": "日",
   "viewWeek": "週",
   "viewMonth": "月",

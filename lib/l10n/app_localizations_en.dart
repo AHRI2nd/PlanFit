@@ -114,6 +114,12 @@ class AppL10nEn extends AppL10n {
   String get scheduleTitle => 'Schedule';
 
   @override
+  String get scheduleTitlePrevious => 'Previous';
+
+  @override
+  String get scheduleTitleNext => 'Next';
+
+  @override
   String get viewDay => 'Day';
 
   @override

@@ -10,6 +10,7 @@ import 'package:planfit/core/db/daos/event_template_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/tokens/app_colors.dart';
 import 'package:planfit/features/schedule/domain/event_input.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/domain/recurrence.dart';
@@ -399,6 +400,37 @@ void main() {
     expect(find.byType(DatePickerDialog), findsOneWidget);
     expect(find.byType(TimePickerDialog), findsNothing);
   });
+
+  testWidgets(
+    "the start date's own text color clears WCAG AA contrast against the "
+    "card surface it sits on — regression test: it used to be the raw "
+    "time-of-day accent with no adjustment at all, which measured well "
+    "under the 4.5:1 floor for normal text near the gradient's amber/sky "
+    'stops',
+    (tester) async {
+      // Midday — the time-of-day gradient's own amber/sky stretch, exactly
+      // where the raw accent color used to fail contrast worst.
+      final existing = row(
+        id: 'e4b',
+        title: 'Contrast check',
+        startAt: DateTime(2026, 3, 10, 13),
+        endAt: DateTime(2026, 3, 10, 14),
+      );
+      await pumpEditor(tester, existing: existing);
+
+      final dateText = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(const ValueKey('date-start')),
+          matching: find.byType(Text),
+        ),
+      );
+
+      expect(
+        contrastRatio(dateText.style!.color!, AppPalette.light.surface),
+        greaterThanOrEqualTo(4.5),
+      );
+    },
+  );
 
   testWidgets('tapping the start time opens only the time picker', (
     tester,
