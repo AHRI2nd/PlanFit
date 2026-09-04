@@ -439,7 +439,7 @@ class AppL10nKo extends AppL10n {
   String get settingsLanguage => '언어';
 
   @override
-  String get settingsLanguageIosHint => 'iOS 설정 > PlanFit > 언어에서 변경할 수 있어요';
+  String get settingsLanguageIosHint => 'iOS 설정 > 앱 > PlanFit > 언어에서 변경할 수 있어요';
 
   @override
   String get settingsWeekStart => '주 시작 요일';

@@ -184,7 +184,7 @@
   "settingsGrant": "許可する",
   "settingsAppearance": "画面",
   "settingsLanguage": "言語",
-  "settingsLanguageIosHint": "iOSの設定 > PlanFit > 言語から変更できます",
+  "settingsLanguageIosHint": "iOSの設定 > App > PlanFit > 言語から変更できます",
   "settingsWeekStart": "週の開始曜日",
   "settingsWeekStartMonday": "月曜日",
   "settingsWeekStartSunday": "日曜日",

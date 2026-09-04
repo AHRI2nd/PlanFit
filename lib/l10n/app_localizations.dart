@@ -910,7 +910,7 @@ abstract class AppL10n {
   /// No description provided for @settingsLanguageIosHint.
   ///
   /// In ko, this message translates to:
-  /// **'iOS 설정 > PlanFit > 언어에서 변경할 수 있어요'**
+  /// **'iOS 설정 > 앱 > PlanFit > 언어에서 변경할 수 있어요'**
   String get settingsLanguageIosHint;
 
   /// No description provided for @settingsWeekStart.

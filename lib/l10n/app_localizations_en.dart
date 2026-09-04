@@ -458,7 +458,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsLanguageIosHint =>
-      'Change it in iOS Settings > PlanFit > Language';
+      'Change it in iOS Settings > Apps > PlanFit > Language';
 
   @override
   String get settingsWeekStart => 'Week starts on';
