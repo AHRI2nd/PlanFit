@@ -391,6 +391,9 @@ class _WeekPageContent extends ConsumerWidget {
                 // permanently hidden behind it even at max scroll extent.
                 // Same value day_view.dart's and agenda_view.dart's own
                 // bottom-of-list padding already use for the same reason.
+                //
+                // No matching top padding — see _WeekGrid's hour-label doc
+                // for why the 00시 row skips its shift entirely instead.
                 padding: const EdgeInsets.only(bottom: 140),
                 child: SizedBox(
                   height: WeekView._hourHeight * 24,
@@ -809,8 +812,20 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                         // _offsetFor) instead of carrying the margin,
                         // now that events are positioned by that same
                         // _offsetFor with no fudge factor of their own.
+                        // h == 0 skips the shift instead of getting matching
+                        // top padding on the scroll view — a value here
+                        // works everywhere, but padding would add real
+                        // scroll extent (content taller than the viewport
+                        // by exactly that padding) instead of leaving a
+                        // fully "inert" scrollable when content already
+                        // fits, which matters where this pattern is reused
+                        // (day_view.dart's own copy sits inside an *outer*
+                        // scrollable of its own — see that file's doc on
+                        // why an inner scrollable gaining even a few px of
+                        // its own scroll extent can end up swallowing the
+                        // drag that outer one needs).
                         Transform.translate(
-                          offset: const Offset(0, -6),
+                          offset: Offset(0, h == 0 ? 0 : -6),
                           child: SizedBox(
                             width: railInset - AppSpacing.xxs,
                             child: Text(

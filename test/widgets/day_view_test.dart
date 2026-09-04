@@ -9,6 +9,7 @@ import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/widgets/section_header.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_input.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
@@ -561,6 +562,142 @@ void main() {
       await pumpDay(tester, day, compact: true);
 
       expect(find.byType(DayClockView), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the 00시 label skips the upward shift every other hour label gets — '
+    "regression test: shifting it too (like every other hour) moved it "
+    "above this scroll view's own y=0, which SingleChildScrollView clips "
+    'by default, permanently cutting off "오전 12시" at any scroll '
+    'position when there are no all-day cards above the timeline to '
+    'absorb it',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      // A timed event, not an empty list — an empty day renders _EmptyDay
+      // instead of the timeline this test is actually about.
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'e1',
+            title: 'Anchor',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 10),
+          ),
+        ]),
+      );
+
+      await pumpDay(tester, day);
+
+      // PageView.builder keeps the current page plus its neighbors alive
+      // for swiping, so more than one _DayContent(scrollable: true) can
+      // exist at once — every one of them needs to stay padding-free.
+      final scrollViews = find.byType(SingleChildScrollView);
+      expect(scrollViews, findsWidgets);
+      for (final element in scrollViews.evaluate()) {
+        final scrollView = element.widget as SingleChildScrollView;
+        final topPadding =
+            scrollView.padding?.resolve(TextDirection.ltr).top ?? 0;
+        expect(
+          topPadding,
+          0,
+          reason:
+              'this scrollable must stay content-height == viewport-height '
+              '(see its own doc for why — giving it any scroll extent of '
+              "its own breaks the *outer* list it sits inside, covered by "
+              'the next test)',
+        );
+      }
+
+      final midnightShift = tester
+          .widgetList<Transform>(
+            find.ancestor(
+              of: find.text('오전 12시'),
+              matching: find.byType(Transform),
+            ),
+          )
+          .first
+          .transform;
+      expect(
+        midnightShift.getTranslation().y,
+        0,
+        reason: "midnight's own label must not be shifted at all",
+      );
+
+      final oneAmShift = tester
+          .widgetList<Transform>(
+            find.ancestor(
+              of: find.text('오전 1시'),
+              matching: find.byType(Transform),
+            ),
+          )
+          .first
+          .transform;
+      expect(
+        oneAmShift.getTranslation().y,
+        -7,
+        reason: 'every other hour keeps its usual -7 shift',
+      );
+    },
+  );
+
+  testWidgets(
+    "dragging the timeline actually scrolls the day into view — "
+    'regression test: giving the inner (timeline) SingleChildScrollView '
+    'even a few px of its own scroll extent (an earlier, since-reverted '
+    "fix for the 00시-label clip above) made it capture the vertical drag "
+    "for itself instead of the *outer* list this whole day's content "
+    'sits inside, leaving that outer list stuck unscrollable — the '
+    "to-dos section below the timeline became permanently unreachable, "
+    'not just harder to get to',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      // A timed event, not an empty list — an empty day's much shorter
+      // _EmptyDay (280px) fits without the outer list needing to scroll at
+      // all, which wouldn't exercise the regression this guards against.
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'e1',
+            title: 'Anchor',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 10),
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpDay(tester, day);
+
+      // The pager reserves a full 1536px (24 hours) box before the to-dos
+      // section even starts, so SectionHeader sits well outside a test
+      // surface's default viewport + cache extent — genuinely unmounted,
+      // not just scrolled out of view. That's the baseline this test
+      // relies on: if the outer list can really scroll, dragging it far
+      // enough must bring SectionHeader into the cache extent and mount
+      // it; if the outer list is stuck (the regression this guards
+      // against), it never will be, no matter how many times this drags.
+      expect(find.byType(SectionHeader), findsNothing);
+
+      // A fixed screen coordinate, not a text finder — whatever hour label
+      // happens to be there scrolls out (and unmounts) after the first
+      // couple of drags, but the coordinate itself stays valid throughout.
+      for (var i = 0; i < 6; i++) {
+        await tester.dragFrom(const Offset(400, 400), const Offset(0, -600));
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        find.byType(SectionHeader),
+        findsOneWidget,
+        reason:
+            "the to-dos section header never scrolled into view — the "
+            "outer list is stuck exactly like the regression this guards "
+            'against',
+      );
     },
   );
 

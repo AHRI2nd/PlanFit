@@ -404,6 +404,75 @@ void main() {
     },
   );
 
+  testWidgets(
+    'the 00시 label skips the upward shift every other hour label gets — '
+    "regression test: shifting it too (like every other hour) moved it "
+    "above this scroll view's own y=0, which SingleChildScrollView clips "
+    'by default, permanently cutting off "오전 12시" at any scroll '
+    'position. Giving the scroll view matching top padding instead (an '
+    'earlier fix here) is deliberately NOT used — see this test file\'s '
+    "own regression test on that for why: it broke the outer list this "
+    'grid sits inside on the real Day view',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.byType(SingleChildScrollView),
+      );
+      final topPadding =
+          scrollView.padding?.resolve(TextDirection.ltr).top ?? 0;
+      expect(
+        topPadding,
+        0,
+        reason:
+            'this grid must stay a plain SingleChildScrollView with no '
+            "extra content height of its own — see _WeekGrid's hour-label "
+            'doc for the fix actually used instead',
+      );
+
+      // PageView.builder keeps neighboring weeks' pages alive too, each
+      // with their own "오전 12시"/"오전 1시" — .first is this week's own
+      // (built first, so first in the tree).
+      final midnightShift = tester
+          .widgetList<Transform>(
+            find.ancestor(
+              of: find.text('오전 12시'),
+              matching: find.byType(Transform),
+            ),
+          )
+          .first
+          .transform;
+      expect(
+        midnightShift.getTranslation().y,
+        0,
+        reason: "midnight's own label must not be shifted at all",
+      );
+
+      final oneAmShift = tester
+          .widgetList<Transform>(
+            find.ancestor(
+              of: find.text('오전 1시'),
+              matching: find.byType(Transform),
+            ),
+          )
+          .first
+          .transform;
+      expect(
+        oneAmShift.getTranslation().y,
+        -6,
+        reason: 'every other hour keeps its usual -6 shift',
+      );
+    },
+  );
+
   group(
     'swiping the page (header, strip, or grid) navigates by whole weeks',
     () {

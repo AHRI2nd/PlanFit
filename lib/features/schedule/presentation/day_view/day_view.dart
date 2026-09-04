@@ -345,6 +345,20 @@ class _DayContent extends ConsumerWidget {
           ],
         );
 
+        // NOT padded to match the timeline's own 00시-label shift (see
+        // _Timeline's hour-label doc) — this scrollable is nested *inside*
+        // DayView's own outer ListView (the thing that actually scrolls a
+        // full day into view; this one's content normally fits its
+        // reserved height exactly, so it's otherwise inert and just lets
+        // vertical drags fall through to that outer list). Padding it, even
+        // by a few px, gives it real scroll extent of its own — and once a
+        // nested same-axis scrollable has ANY extent, it captures the drag
+        // for itself instead of deferring to the outer one, which killed
+        // the outer list's scrolling entirely (confirmed live: the whole
+        // day got stuck unscrollable, hiding everything past whatever the
+        // initial viewport height happened to show). _Timeline's own fix
+        // (skip the shift for h == 0) avoids needing any padding here at
+        // all.
         return scrollable ? SingleChildScrollView(child: content) : content;
       },
     );
@@ -671,10 +685,26 @@ class _TimelineState extends ConsumerState<_Timeline>
                       // the label instead, which left every card's start/
                       // end a visible 7px off the gridline it's supposed
                       // to represent.
+                      //
+                      // h == 0 skips the shift — see this file's own
+                      // _DayContent doc for why matching top padding on the
+                      // scrollable isn't an option here (it breaks the
+                      // outer list's scrolling instead), leaving 00시's
+                      // label sitting a few px lower than every other
+                      // hour's — barely perceptible, and the only row where
+                      // it's needed at all.
                       Transform.translate(
-                        offset: const Offset(0, -7),
+                        offset: Offset(0, h == 0 ? 0 : -7),
                         child: SizedBox(
-                          width: widget.railInset - AppSpacing.sm,
+                          // AppSpacing.xxs, not .sm — a double-digit hour
+                          // ("오전 12시", "오후 10/11/12시") needs close to
+                          // the full rail width at this 12sp size; .sm's
+                          // wider margin wrapped every one of them onto 2
+                          // lines (they still fit, just uglier, so this was
+                          // never a clipping bug — week_view.dart's own
+                          // copy uses a smaller 11sp label and never
+                          // wrapped, hence no matching change there).
+                          width: widget.railInset - AppSpacing.xxs,
                           child: Text(
                             Fmt.hour(h, widget.locale, use24Hour: use24),
                             style: Theme.of(context).textTheme.labelMedium
