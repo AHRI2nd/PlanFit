@@ -443,8 +443,14 @@ class MonthView extends ConsumerWidget {
                         child: Text(
                           LunarFmt.cell(l10n, lunar!),
                           textAlign: TextAlign.center,
+                          // Left at _monthEventRowTextStyle's own 9px rather
+                          // than shrinking it further — that's also the
+                          // exact size monthEventRowHeight()/lunarRowHeight
+                          // already measure against, and what week_view.dart's
+                          // own lunar label uses, so this reads no smaller
+                          // than either the list rows sharing this same cell
+                          // or the same label anywhere else in the app.
                           style: _monthEventRowTextStyle.copyWith(
-                            fontSize: 8,
                             color: palette.inkFaint,
                           ),
                         ),
