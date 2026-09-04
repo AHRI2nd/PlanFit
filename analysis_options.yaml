@@ -12,6 +12,8 @@ analyzer:
     - build/**
     - android/**
     - ios/**
+    # Parked, not part of the app — see l10n_disabled/README.md.
+    - l10n_disabled/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

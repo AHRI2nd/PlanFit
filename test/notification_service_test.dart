@@ -157,7 +157,7 @@ void main() {
     "re-fired in the background",
     () async {
       SharedPreferences.setMockInitialValues({
-        'settings.languageOverride': 'ja',
+        'settings.languageOverride': 'ko',
       });
       await handleNotificationAction(
         response(
@@ -182,11 +182,13 @@ void main() {
               as NotificationDetails;
 
       final action = details.android!.actions!.single;
-      // Asserted against the literal Japanese string (not just "differs
+      // Asserted against the literal Korean string (not just "differs
       // from whatever the no-override default resolves to") so this can't
       // pass by accident depending on the test environment's own default
-      // locale.
-      expect(action.title, '5分後に再通知');
+      // locale. Was 'ja'/"5分後に再通知" until Japanese app-language
+      // support was paused (see l10n_disabled/README.md) — 'ko' proves
+      // the same "override wins over device locale" point just as well.
+      expect(action.title, '5분 뒤 다시 알림');
     },
   );
 
