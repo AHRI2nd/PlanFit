@@ -441,7 +441,7 @@ class MonthView extends ConsumerWidget {
                       return Padding(
                         padding: const EdgeInsets.only(top: 1),
                         child: Text(
-                          LunarFmt.compact(l10n, lunar!),
+                          LunarFmt.cell(l10n, lunar!),
                           textAlign: TextAlign.center,
                           style: _monthEventRowTextStyle.copyWith(
                             fontSize: 8,

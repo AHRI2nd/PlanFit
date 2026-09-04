@@ -29,4 +29,18 @@ class LunarFmt {
     final digits = l10n.lunarDateCompact(date.month, date.day);
     return date.isLeapMonth ? '${l10n.lunarLeapMarker}$digits' : digits;
   }
+
+  /// [compact], but the month number only appears on the 1st of the lunar
+  /// month ("8.1", leap "윤8.1") — every other day shows just its own day
+  /// number ("24", "2"), still carrying the leap marker alone when [date]
+  /// falls in a leap month ("윤15") so it doesn't read identically to the
+  /// same day number in the regular month that follows. For month_view.dart's
+  /// grid, where [compact] repeated on every single cell (~35-42 per
+  /// screen) read as far more cluttered than a solar month grid needs —
+  /// which month a run of days belongs to is already clear from whichever
+  /// cell nearest above it last spelled it out.
+  static String cell(AppL10n l10n, LunarDate date) {
+    if (date.day == 1) return compact(l10n, date);
+    return date.isLeapMonth ? '${l10n.lunarLeapMarker}${date.day}' : '${date.day}';
+  }
 }

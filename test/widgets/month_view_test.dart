@@ -338,6 +338,26 @@ void main() {
     },
   );
 
+  /// Matches a lunar/event-list `Text` by its own style (fontSize 8 or 9),
+  /// not just its string — two disambiguation needs share this:
+  /// - The events.watchBetween mock answers with the same fixed list for
+  ///   *any* date range (the `any, any` matchers don't check the actual
+  ///   range), so the selected day's own embedded compact DayView ends up
+  ///   "seeing" these same events too, alongside the month grid's own
+  ///   (correctly day-bucketed) cell — rendering each title twice, in two
+  ///   different text styles.
+  /// - Since LunarFmt.cell drops the month number on every day but the
+  ///   1st, a non-first lunar day's own bare number ("13", "27") can
+  ///   collide with a solar day-of-month number elsewhere in the same
+  ///   grid — the lunar label's own 8pt style is what a real screen
+  ///   distinguishes it by too, not the digits alone.
+  Finder monthListText(String data) => find.byWidgetPredicate(
+    (w) =>
+        w is Text &&
+        w.data == data &&
+        (w.style?.fontSize == 9 || w.style?.fontSize == 8),
+  );
+
   group('lunar date labels', () {
     testWidgets(
       'a quiet day (no events) shows its compact lunar label at the '
@@ -350,9 +370,16 @@ void main() {
 
         await pumpMonth(tester, DateTime(2026, 3, 1));
 
-        final lunar = LunarDate.fromSolar(DateTime(2026, 3, 1))!;
+        // March 19, 2026 is lunar 2/1 — the 1st of its lunar month, so
+        // LunarFmt.cell renders the full "month.day" form here rather than
+        // a bare day number. That makes the label's text content unique
+        // across the whole visible grid on its own (a bare day number like
+        // "13" isn't: March 1 is lunar 1/13 and March 31 is lunar 2/13,
+        // both non-first days, both rendering as plain "13" — asserting
+        // on that date would find two matching widgets instead of one).
+        final lunar = LunarDate.fromSolar(DateTime(2026, 3, 19))!;
         expect(
-          find.text(LunarFmt.compact(AppL10nKo(), lunar)),
+          monthListText(LunarFmt.cell(AppL10nKo(), lunar)),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
@@ -372,7 +399,7 @@ void main() {
 
         final lunar = LunarDate.fromSolar(DateTime(2026, 3, 1))!;
         expect(
-          find.text(LunarFmt.compact(AppL10nKo(), lunar)),
+          monthListText(LunarFmt.cell(AppL10nKo(), lunar)),
           findsNothing,
         );
       },
@@ -396,7 +423,7 @@ void main() {
 
         expect(find.text('+$eventCount'), findsOneWidget);
         final lunar = LunarDate.fromSolar(day)!;
-        expect(find.text(LunarFmt.compact(AppL10nKo(), lunar)), findsNothing);
+        expect(monthListText(LunarFmt.cell(AppL10nKo(), lunar)), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -408,21 +435,6 @@ void main() {
     /// expanded-list mode for these tests, without needing a whole
     /// override-the-notifier ceremony.
     const rowHeightPrefsKey = 'schedule.monthCalendarRowHeight';
-
-    /// The events.watchBetween mock below answers with the same fixed list
-    /// for *any* date range (the `any, any` matchers don't check the actual
-    /// range), so the selected day's own embedded compact DayView ends up
-    /// "seeing" these same events too, alongside the month grid's own
-    /// (correctly day-bucketed) cell — rendering each title twice, in two
-    /// different text styles. Matching on the month list row's own style
-    /// (not just the string) disambiguates a cell's real row from that
-    /// unrelated duplicate.
-    Finder monthListText(String data) => find.byWidgetPredicate(
-      (w) =>
-          w is Text &&
-          w.data == data &&
-          (w.style?.fontSize == 9 || w.style?.fontSize == 8),
-    );
 
     /// maxMonthRowHeight clamps the row height down to whatever the
     /// available viewport can fit rowCount rows into — the default test
@@ -507,7 +519,7 @@ void main() {
 
         expect(shownTitles, {'e0', 'e1'});
         final lunar = LunarDate.fromSolar(DateTime(2026, 3, 15))!;
-        final labelFinder = monthListText(LunarFmt.compact(AppL10nKo(), lunar));
+        final labelFinder = monthListText(LunarFmt.cell(AppL10nKo(), lunar));
         expect(labelFinder, findsOneWidget);
         // The expanded-list branch stretches its Column's children to the
         // full cell width (matching its event rows) — regression test for
