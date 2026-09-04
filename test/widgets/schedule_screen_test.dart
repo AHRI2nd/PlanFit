@@ -319,6 +319,28 @@ void main() {
     );
 
     testWidgets(
+      "agenda view: the missing chevrons leave behind a 44x44 invisible "
+      "spacer each, not a gap — regression test: this title row's own "
+      'height is whichever of the title text and the chevrons\' 44x44 '
+      "footprint is taller; agenda's title text is shorter than 44px "
+      '(every non-day title is, not just agenda\'s), so simply omitting '
+      "the chevrons from the Row (rather than replacing them with a "
+      "same-size invisible box) shrank *this tab's* title row alone, "
+      'visibly bumping the view-switcher pills right below it up by '
+      'several px only when agenda was selected — confirmed live on '
+      'an Android emulator before being fixed here',
+      (tester) async {
+        final selected = DateTime(2026, 3, 15);
+        await pumpSchedule(tester, view: ScheduleView.agenda, selected: selected);
+
+        final spacers = find.byWidgetPredicate(
+          (w) => w is SizedBox && w.width == 44 && w.height == 44,
+        );
+        expect(spacers, findsNWidgets(2));
+      },
+    );
+
+    testWidgets(
       'both chevrons carry a screen-reader label — regression test: '
       'neither had a tooltip or Semantics at all, so a VoiceOver/TalkBack '
       'user tapping through the header heard nothing meaningful for the '

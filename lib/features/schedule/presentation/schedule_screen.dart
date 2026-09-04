@@ -271,15 +271,26 @@ class _SwipeableTitle extends StatelessWidget {
             // near-zero-movement tap in the InkWell's favor), the same way
             // day_view.dart's event cards already combine a tap with a
             // separate drag gesture.
-            if (swipeable) ...[
-              _TitleChevron(
-                icon: Icons.chevron_left,
-                color: chevronColor,
-                semanticLabel: l10n.scheduleTitlePrevious,
-                onTap: () => _navigate(false),
-              ),
-              const SizedBox(width: 2),
-            ],
+            //
+            // Always occupies its 44x44 footprint (invisible, not omitted,
+            // on agenda) rather than being conditionally left out of the
+            // Row entirely — omitting it made this Row's own height
+            // agenda-specific (title-text-height alone, instead of the
+            // taller of that and the chevron's 44px), which visibly
+            // shifted the view-switcher row right below it up when agenda
+            // was selected (confirmed live: every other view's title text
+            // is shorter than 44px too, so the chevron was setting this
+            // row's real height everywhere *except* agenda, not just on
+            // day's own taller two-line title).
+            swipeable
+                ? _TitleChevron(
+                    icon: Icons.chevron_left,
+                    color: chevronColor,
+                    semanticLabel: l10n.scheduleTitlePrevious,
+                    onTap: () => _navigate(false),
+                  )
+                : const SizedBox(width: 44, height: 44),
+            const SizedBox(width: 2),
             Flexible(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -303,15 +314,15 @@ class _SwipeableTitle extends StatelessWidget {
                 ],
               ),
             ),
-            if (swipeable) ...[
-              const SizedBox(width: 2),
-              _TitleChevron(
-                icon: Icons.chevron_right,
-                color: chevronColor,
-                semanticLabel: l10n.scheduleTitleNext,
-                onTap: () => _navigate(true),
-              ),
-            ],
+            const SizedBox(width: 2),
+            swipeable
+                ? _TitleChevron(
+                    icon: Icons.chevron_right,
+                    color: chevronColor,
+                    semanticLabel: l10n.scheduleTitleNext,
+                    onTap: () => _navigate(true),
+                  )
+                : const SizedBox(width: 44, height: 44),
           ],
         ),
       ),
