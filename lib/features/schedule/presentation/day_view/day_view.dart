@@ -41,6 +41,12 @@ class DayView extends ConsumerStatefulWidget {
   static const double _hourHeight = 64;
   static const double _railInset = 62;
 
+  /// Extra room reserved below the 24 hour rows for a closing "오전 12시"
+  /// (자정/midnight) boundary line — see week_view.dart's own copy of this
+  /// constant for the full reasoning; kept as a matching, separately-tuned
+  /// value here since this file's own hourHeight/font differ from week's.
+  static const double _endOfDayHeight = 24;
+
   @override
   ConsumerState<DayView> createState() => _DayViewState();
 }
@@ -123,9 +129,9 @@ class _DayViewState extends ConsumerState<DayView> {
     // dependent) height.
     final eventsAsync = ref.watch(eventsForDayProvider(widget.day));
     final pagerHeight = switch (eventsAsync.asData?.value) {
-      null => DayView._hourHeight * 24,
+      null => DayView._hourHeight * 24 + DayView._endOfDayHeight,
       final events when events.isEmpty => _DayContent.emptyContentHeight,
-      _ => DayView._hourHeight * 24,
+      _ => DayView._hourHeight * 24 + DayView._endOfDayHeight,
     };
 
     return ListView(
@@ -330,7 +336,13 @@ class _DayContent extends ConsumerWidget {
                 DayClockLegend(events: timed, locale: locale),
             ] else
               SizedBox(
-                height: DayView._hourHeight * 24,
+                // + _endOfDayHeight matches the outer pagerHeight reserved
+                // for this same branch in DayView.build() exactly — keeping
+                // them equal is what keeps this SingleChildScrollView inert
+                // (content height == viewport height, so it never gains
+                // scroll extent of its own) — see this file's own doc on
+                // why that matters for the *outer* list this sits inside.
+                height: DayView._hourHeight * 24 + DayView._endOfDayHeight,
                 child: _Timeline(
                   day: day,
                   events: timed,
@@ -339,6 +351,7 @@ class _DayContent extends ConsumerWidget {
                   locale: locale,
                   hourHeight: DayView._hourHeight,
                   railInset: DayView._railInset,
+                  endOfDayHeight: DayView._endOfDayHeight,
                   accent: palette.accent,
                 ),
               ),
@@ -376,6 +389,7 @@ class _Timeline extends ConsumerStatefulWidget {
     required this.locale,
     required this.hourHeight,
     required this.railInset,
+    required this.endOfDayHeight,
     required this.accent,
   });
 
@@ -386,6 +400,7 @@ class _Timeline extends ConsumerStatefulWidget {
   final String locale;
   final double hourHeight;
   final double railInset;
+  final double endOfDayHeight;
   final Color accent;
 
   @override
@@ -722,6 +737,40 @@ class _TimelineState extends ConsumerState<_Timeline>
                   ),
                 ),
               ),
+
+            // The closing "오전 12시" boundary — same label as the very
+            // top (00시 and 24시 are the same instant), sitting in the
+            // dedicated endOfDayHeight strip below the last real hour row
+            // rather than borrowing space from it, so it needs none of
+            // 00시's own shift-skipping trick above: this box has real
+            // room of its own to begin with.
+            Positioned(
+              top: widget.hourHeight * 24,
+              left: 0,
+              right: 0,
+              child: SizedBox(
+                height: widget.endOfDayHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: widget.railInset - AppSpacing.xxs,
+                      child: Text(
+                        Fmt.hour(0, widget.locale, use24Hour: use24),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: palette.inkFaint,
+                              fontFeatures: null,
+                            ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(height: 1, color: palette.hairline),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
             // Live preview of the event being drag-created, shown while a
             // create-drag is in progress — the editor doesn't open until the

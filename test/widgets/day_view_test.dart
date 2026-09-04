@@ -642,6 +642,37 @@ void main() {
   );
 
   testWidgets(
+    'a closing "오전 12시" boundary appears below the last hour row — '
+    'regression test for the grid visually just stopping at 오후 11시 with '
+    'nothing marking where the day actually ends',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      // A timed event, not an empty list — an empty day renders _EmptyDay
+      // instead of the timeline this test is actually about.
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'e1',
+            title: 'Anchor',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 10),
+          ),
+        ]),
+      );
+
+      await pumpDay(tester, day);
+
+      // 64 (hourHeight) * 24 — the boundary sits exactly one hour row below
+      // the 23시 row's own top edge, i.e. right at the grid's true bottom.
+      final boundary = find.byWidgetPredicate(
+        (w) => w is Positioned && w.top == 64.0 * 24,
+      );
+      expect(boundary, findsWidgets);
+      expect(find.text('오전 12시'), findsWidgets);
+    },
+  );
+
+  testWidgets(
     "dragging the timeline actually scrolls the day into view — "
     'regression test: giving the inner (timeline) SingleChildScrollView '
     'even a few px of its own scroll extent (an earlier, since-reverted '

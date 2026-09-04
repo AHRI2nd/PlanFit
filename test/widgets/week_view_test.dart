@@ -473,6 +473,35 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a closing "오전 12시" boundary appears below the last hour row — '
+    'regression test for the grid visually just stopping at 오후 11시 with '
+    'nothing marking where the day actually ends',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10);
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      // 48 (hourHeight) * 24 — the boundary sits exactly one hour row below
+      // the 23시 row's own top edge, i.e. right at the grid's true bottom.
+      final boundary = find.byWidgetPredicate(
+        (w) => w is Positioned && w.top == 48.0 * 24,
+      );
+      expect(boundary, findsWidgets);
+
+      // Both "오전 12시" instances (00시's own label and this boundary's)
+      // must be findable in the same page — this is the same string
+      // reused, not a typo of some other label.
+      expect(find.text('오전 12시'), findsWidgets);
+    },
+  );
+
   group(
     'swiping the page (header, strip, or grid) navigates by whole weeks',
     () {

@@ -180,6 +180,13 @@ class WeekView extends ConsumerWidget {
   static const double _hourHeight = 48;
   static const double _railInset = 56;
 
+  /// Extra room reserved below the 24 hour rows for a closing "오전 12시"
+  /// (자정/midnight) boundary line — the grid's own [_hourHeight] rows only
+  /// cover 00시 through 23시; without this there was nothing marking where
+  /// the day actually ends, which read as the grid just stopping mid-air at
+  /// 오후 11시.
+  static const double _endOfDayHeight = 24;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final startWeekday = ref.watch(weekStartWeekdayProvider);
@@ -396,7 +403,7 @@ class _WeekPageContent extends ConsumerWidget {
                 // for why the 00시 row skips its shift entirely instead.
                 padding: const EdgeInsets.only(bottom: 140),
                 child: SizedBox(
-                  height: WeekView._hourHeight * 24,
+                  height: WeekView._hourHeight * 24 + WeekView._endOfDayHeight,
                   child: _WeekGrid(
                     days: days,
                     today: today,
@@ -405,6 +412,7 @@ class _WeekPageContent extends ConsumerWidget {
                     locale: locale,
                     hourHeight: WeekView._hourHeight,
                     railInset: WeekView._railInset,
+                    endOfDayHeight: WeekView._endOfDayHeight,
                     accent: palette.accent,
                     onTapDay: openDay,
                     use24Hour: use24,
@@ -666,6 +674,7 @@ class _WeekGrid extends StatefulWidget {
     required this.locale,
     required this.hourHeight,
     required this.railInset,
+    required this.endOfDayHeight,
     required this.accent,
     required this.onTapDay,
     required this.use24Hour,
@@ -678,6 +687,7 @@ class _WeekGrid extends StatefulWidget {
   final String locale;
   final double hourHeight;
   final double railInset;
+  final double endOfDayHeight;
   final Color accent;
   final ValueChanged<DateTime> onTapDay;
   final bool use24Hour;
@@ -842,6 +852,40 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+
+              // The closing "오전 12시" boundary — same label as the very
+              // top (00시 and 24시 are the same instant), sitting in the
+              // dedicated endOfDayHeight strip below the last real hour row
+              // rather than borrowing space from it, so it needs none of
+              // 00시's own shift-skipping trick above: this box has real
+              // room of its own to begin with.
+              Positioned(
+                top: hourHeight * 24,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: widget.endOfDayHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: railInset - AppSpacing.xxs,
+                        child: Text(
+                          Fmt.hour(0, locale, use24Hour: use24),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.labelSmall?.copyWith(
+                            color: palette.inkFaint,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(height: 1, color: palette.hairline),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
               // One tap target per day column, behind the events. A plain tap
               // jumps into that day (the precise-editing surface); a
