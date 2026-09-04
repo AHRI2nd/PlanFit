@@ -218,7 +218,15 @@ class _MiniMonth extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            Fmt.monthName(first, locale),
+            // Abbreviated, not monthName's full form — this label sits in
+            // one of 12 mini-months packed 3-per-row, and en's full
+            // "September" wrapping here could push the fixed-aspect-ratio
+            // grid cell below it into a real bottom overflow, not just an
+            // ellipsis. maxLines/overflow below as a safety net in case any
+            // future locale's own abbreviation is still too wide.
+            Fmt.monthNameShort(first, locale),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelLarge?.copyWith(color: palette.inkSoft),
           ),
           const SizedBox(height: AppSpacing.xs),

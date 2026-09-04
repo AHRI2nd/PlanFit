@@ -423,7 +423,14 @@ class _LegendRow extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
             SizedBox(
-              width: 88,
+              // 116, not 88 — a fixed column so every row's start time
+              // lines up, but 88 was sized for a 24-hour range like
+              // "09:00 – 10:00" and didn't leave room for a 12-hour one's
+              // own am/pm marker (ko/en's default): "9:00 AM – 10:00 AM"
+              // at this bodySmall size is close to 130px, so it was
+              // ellipsizing mid-string. The maxLines/overflow below is
+              // still the real safety net for anything even this misses.
+              width: 116,
               child: Text(
                 '${Fmt.time(event.startAt, locale, use24Hour: use24)} – '
                 '${Fmt.time(event.endAt, locale, use24Hour: use24)}',

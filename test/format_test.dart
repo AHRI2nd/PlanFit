@@ -139,4 +139,53 @@ void main() {
       },
     );
   });
+
+  group(
+    'Fmt.monthDayShort / Fmt.yearMonth / Fmt.monthNameShort — abbreviated '
+    'month names',
+    () {
+      final aug31 = DateTime(2026, 8, 31);
+
+      test(
+        'monthDayShort uses the abbreviated month in en — regression test: '
+        'schedule_screen.dart concatenates two of these into a week-range '
+        'title ("August 31 – September 6"), and the full month name '
+        'overflowed that header; ko/ja have no long-vs-abbreviated month '
+        'distinction so are unaffected either way',
+        () {
+          final short = Fmt.monthDayShort(aug31, 'en');
+          expect(short, contains('Aug'));
+          expect(short, isNot(contains('August')));
+          expect(Fmt.monthDayShort(aug31, 'ko'), Fmt.monthDay(aug31, 'ko'));
+          expect(Fmt.monthDayShort(aug31, 'ja'), Fmt.monthDay(aug31, 'ja'));
+        },
+      );
+
+      test(
+        'yearMonth uses the abbreviated month in en — regression test: the '
+        'Month view\'s own title ("September 2026") sits in the same '
+        'cramped header the week-range title above overflowed in',
+        () {
+          final sep = DateTime(2026, 9, 4);
+          final label = Fmt.yearMonth(sep, 'en');
+          expect(label, contains('Sep'));
+          expect(label, isNot(contains('September')));
+          expect(label, contains('2026'));
+        },
+      );
+
+      test(
+        'monthNameShort uses the abbreviated month in en — regression '
+        'test: year_view.dart packs 12 of these 3-per-row, where a full '
+        '"September" wrapping could push its own fixed-aspect-ratio grid '
+        'cell into overflow, not just look cramped',
+        () {
+          final sep = DateTime(2026, 9, 1);
+          final label = Fmt.monthNameShort(sep, 'en');
+          expect(label, contains('Sep'));
+          expect(label, isNot(contains('September')));
+        },
+      );
+    },
+  );
 }

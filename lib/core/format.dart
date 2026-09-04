@@ -90,11 +90,36 @@ class Fmt {
   static String monthDay(DateTime dt, String locale) =>
       DateFormat.MMMMd(locale).format(dt);
 
+  /// [monthDay] with the abbreviated month (`MMM`, not `MMMM`) — for a
+  /// context that concatenates two of these into a range, like the week
+  /// view's own title. A single [monthDay] rarely runs out of room, but
+  /// "August 31 – September 6" is nearly double the length of either half
+  /// alone, and did overflow (ellipsized mid-word) in that header; ko/ja
+  /// are effectively unaffected since neither has a long-vs-abbreviated
+  /// month-name distinction the way en does.
+  static String monthDayShort(DateTime dt, String locale) =>
+      DateFormat.MMMd(locale).format(dt);
+
   static String monthName(DateTime dt, String locale) =>
       DateFormat.MMMM(locale).format(dt);
 
+  /// [monthName] abbreviated (`MMM`) — for a context with real width
+  /// pressure, like year_view.dart's own mini-month header (12 of these
+  /// packed 3-per-row): "September" in en doesn't just look cramped there,
+  /// it's tall enough wrapped that it can push the fixed-aspect-ratio grid
+  /// cell below it into an actual bottom overflow, not just an ellipsis.
+  static String monthNameShort(DateTime dt, String locale) =>
+      DateFormat.MMM(locale).format(dt);
+
+  /// schedule_screen.dart's own Month-view title (e.g. "Sep 2026") — uses
+  /// the abbreviated month for the same reason [monthDayShort] does: this
+  /// sits in that same cramped swipeable-title header the week view's range
+  /// overflowed in, and en's full "September 2026" is long enough there to
+  /// risk the same thing (this is that title's *only* call site, so the
+  /// abbreviation lives directly in `yearMonth` rather than a parallel
+  /// `yearMonthShort` nobody else would use).
   static String yearMonth(DateTime dt, String locale) =>
-      DateFormat.yMMMM(locale).format(dt);
+      DateFormat.yMMM(locale).format(dt);
 
   /// Uses the `yMMMEd` ICU skeleton rather than the fully-spelled-out
   /// `yMMMMEEEEd` — the abbreviated weekday keeps this to one line in the

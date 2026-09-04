@@ -59,7 +59,7 @@ class ScheduleScreen extends ConsumerWidget {
       ScheduleView.week => () {
         final start = startOfWeek(selected, startWeekday: weekStartWeekday);
         final end = addCalendarDays(start, 6);
-        return '${Fmt.monthDay(start, locale)} – ${Fmt.monthDay(end, locale)}';
+        return '${Fmt.monthDayShort(start, locale)} – ${Fmt.monthDayShort(end, locale)}';
       }(),
       ScheduleView.month => Fmt.yearMonth(selected, locale),
       ScheduleView.year => '${selected.year}',
@@ -574,11 +574,16 @@ class _ViewSwitcher extends StatelessWidget {
                     borderRadius: AppRadius.allPill,
                   ),
                   alignment: Alignment.center,
+                  // No maxLines/overflow/softWrap:false — this 5-way pill
+                  // is a tighter budget than settings_screen.dart's own
+                  // 3-way rows (same anti-pattern found and fixed there:
+                  // "Month"/"Agenda" are real English words here, not
+                  // single ko/ja characters, and did truncate to "Mont…" /
+                  // "Agend…"). Wrapping instead, like every other row this
+                  // pattern was fixed in, keeps it fully legible.
                   child: Text(
                     label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: v == current ? Colors.white : palette.inkSoft,
                     ),

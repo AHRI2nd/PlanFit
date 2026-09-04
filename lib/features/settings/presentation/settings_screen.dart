@@ -708,6 +708,7 @@ class _ThemeRow extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     label,
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: mode == current ? palette.accent : palette.inkSoft,
                     ),
@@ -899,11 +900,16 @@ class _TimeFormatRow extends StatelessWidget {
                           ),
                         ),
                         alignment: Alignment.center,
+                        // No maxLines/overflow — same as _ThemeRow's own
+                        // identical 3-way pill row just above. This one had
+                        // maxLines: 1 + ellipsis + softWrap: false, which
+                        // truncated "システム設定に従う" to "システム設定
+                        // に…" in ja; letting it wrap instead (like
+                        // _ThemeRow already does, harmlessly, for the same
+                        // label) keeps it fully legible.
                         child: Text(
                           label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: false,
+                          textAlign: TextAlign.center,
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: pref == current
                                 ? palette.accent

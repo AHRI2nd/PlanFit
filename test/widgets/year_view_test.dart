@@ -46,8 +46,9 @@ void main() {
 
   Future<ProviderContainer> pumpYear(
     WidgetTester tester,
-    DateTime selected,
-  ) async {
+    DateTime selected, {
+    Locale locale = const Locale('ko'),
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     late ProviderContainer container;
     await tester.pumpWidget(
@@ -63,7 +64,7 @@ void main() {
             container = ProviderScope.containerOf(context);
             return MaterialApp(
               theme: AppTheme.light(),
-              locale: const Locale('ko'),
+              locale: locale,
               localizationsDelegates: const [
                 AppL10n.delegate,
                 GlobalMaterialLocalizations.delegate,
@@ -146,4 +147,21 @@ void main() {
       expect(container.read(scheduleViewProvider), ScheduleView.month);
     });
   });
+
+  testWidgets(
+    'each mini-month header uses the abbreviated month name in en — '
+    'regression test: 12 of these are packed 3-per-row, and a full name '
+    'wrapping there could push its own fixed-aspect-ratio grid cell into '
+    'a real overflow, not just look cramped',
+    (tester) async {
+      final selected = DateTime(2026, 3, 15);
+      await pumpYear(tester, selected, locale: const Locale('en'));
+
+      // January — GridView.builder only mounts elements within its own
+      // viewport, so a later month (e.g. September, month 9 of 12) isn't
+      // guaranteed built without scrolling; the very first cell always is.
+      expect(find.text('Jan'), findsOneWidget);
+      expect(find.textContaining('January'), findsNothing);
+    },
+  );
 }

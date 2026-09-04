@@ -98,6 +98,7 @@ void main() {
     WidgetTester tester, {
     required ScheduleView view,
     required DateTime selected,
+    Locale locale = const Locale('ko'),
   }) async {
     final prefs = await SharedPreferences.getInstance();
     late ProviderContainer container;
@@ -115,7 +116,7 @@ void main() {
             container = ProviderScope.containerOf(context);
             return MaterialApp(
               theme: AppTheme.light(),
-              locale: const Locale('ko'),
+              locale: locale,
               localizationsDelegates: const [
                 AppL10n.delegate,
                 GlobalMaterialLocalizations.delegate,
@@ -526,5 +527,76 @@ void main() {
       final lunar = LunarDate.fromSolar(selected)!;
       expect(find.text(LunarFmt.short(AppL10nKo(), lunar)), findsNothing);
     });
+  });
+
+  group('the title and view switcher stay legible in every locale', () {
+    testWidgets(
+      "the week view's title uses abbreviated month names in en — "
+      'regression test: the full names ("August 31 – September 6") '
+      'overflowed the swipeable title\'s own tight header, ellipsizing '
+      'mid-word ("August 31 – Septe…")',
+      (tester) async {
+        // A Monday-start week fully inside August/September, so the
+        // expected range is unambiguous regardless of the week-start
+        // setting.
+        final selected = DateTime(2026, 8, 31);
+        await pumpSchedule(
+          tester,
+          view: ScheduleView.week,
+          selected: selected,
+          locale: const Locale('en'),
+        );
+
+        expect(find.text('Aug 31 – Sep 6'), findsOneWidget);
+        expect(find.textContaining('August'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "the month view's title uses the abbreviated month in en — "
+      'regression test: this sits in the same header the week-range '
+      'title above overflowed in, and the full "September 2026" is long '
+      'enough to risk the same thing',
+      (tester) async {
+        final selected = DateTime(2026, 9, 4);
+        await pumpSchedule(
+          tester,
+          view: ScheduleView.month,
+          selected: selected,
+          locale: const Locale('en'),
+        );
+
+        expect(find.text('Sep 2026'), findsOneWidget);
+        expect(find.textContaining('September'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the view-switcher labels (일/주/월/년/목록) are never forced onto a '
+      'single line — regression test: they used to carry maxLines: 1 + '
+      'overflow: ellipsis + softWrap: false, which truncated en\'s '
+      '"Month"/"Agenda" (real words here, not single ko/ja characters) '
+      "to \"Mont…\"/\"Agend…\" in this 5-way pill's own tighter-than-"
+      "settings_screen.dart's-3-way-rows budget",
+      (tester) async {
+        final selected = DateTime(2026, 3, 10);
+        await pumpSchedule(
+          tester,
+          view: ScheduleView.day,
+          selected: selected,
+          locale: const Locale('en'),
+        );
+
+        for (final label in ['Day', 'Week', 'Month', 'Year', 'Agenda']) {
+          final text = tester.widget<Text>(find.text(label));
+          expect(text.maxLines, isNull, reason: label);
+          expect(
+            text.overflow,
+            isNot(TextOverflow.ellipsis),
+            reason: label,
+          );
+        }
+      },
+    );
   });
 }
