@@ -378,8 +378,6 @@ class _DayContent extends ConsumerWidget {
   }
 }
 
-enum _DragMode { move, resize }
-
 class _Timeline extends ConsumerStatefulWidget {
   const _Timeline({
     required this.day,
@@ -410,15 +408,20 @@ class _Timeline extends ConsumerStatefulWidget {
 class _TimelineState extends ConsumerState<_Timeline>
     with WidgetsBindingObserver {
   /// The shortest an event card is ever drawn, regardless of its actual
-  /// duration — below this, its title/time text and resize grip don't fit
-  /// without clipping. Empirically the smallest that comfortably fits both
-  /// text lines plus the grip at this card's padding/type scale.
-  static const double _minEventCardHeight = 80;
+  /// duration — below this, its title/time text don't fit without
+  /// clipping. Empirically the smallest that comfortably fits both text
+  /// lines at this card's padding/type scale. Lower than it was before the
+  /// resize grip was removed entirely (it used to also budget 16px for
+  /// that) — the whole point of retuning this down is that a card no
+  /// longer needs to stretch past its own true duration just to make room
+  /// for a control that isn't there anymore, which used to read as the
+  /// event's end time being wrong.
+  static const double _minEventCardHeight = 64;
 
   /// Extra headroom [_minEventCardHeight] needs when the card also renders
   /// a location row — without this, a short (clamped-to-minimum) event that
   /// has a location set overflows its own card: `_minEventCardHeight` was
-  /// tuned for title+time+grip only, one row short of what a card with a
+  /// tuned for title+time only, one row short of what a card with a
   /// location actually renders. Found by manually creating a 1-hour event
   /// with a location and watching it throw a real (not just debug-banner)
   /// "RenderFlex overflowed by 10.0 pixels" — a location row is genuinely
@@ -443,12 +446,10 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// [_nextStartOnOrAfter]) — e.g. two plain back-to-back 1-hour events,
   /// each too short on its own to clear [_minEventCardHeight] but sharing
   /// no time at all, used to both hit that floor and paint 16px into each
-  /// other. `_EventCard.tight` drops the location row and the resize
-  /// grip entirely (no visual bar, no drag hit-region — there's no room
-  /// left to show it's there, so a card this size just isn't resizable
-  /// by drag) to fit the title and time-range line within this smaller
-  /// budget — found, like [_locationRowExtraHeight], by watching for a
-  /// real "RenderFlex overflowed" exception rather than guessed.
+  /// other. `_EventCard.tight` drops the location row to fit the title and
+  /// time-range line within this smaller budget — found, like
+  /// [_locationRowExtraHeight], by watching for a real "RenderFlex
+  /// overflowed" exception rather than guessed.
   static const double _tightEventCardHeight = 60;
 
   /// The earliest start time among [widget.events] (other than the one
@@ -470,7 +471,6 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// The event currently being dragged, if any — only one card can drag at a
   /// time since drags are single-pointer gestures.
   String? _draggingId;
-  _DragMode? _dragMode;
 
   /// Raw accumulated pointer delta in pixels since the drag began; converted
   /// to a 5-minute-snapped offset for both the live preview and the save.
@@ -496,7 +496,7 @@ class _TimelineState extends ConsumerState<_Timeline>
     super.dispose();
   }
 
-  /// A long-press-drag (move/resize/create) that's already been *accepted*
+  /// A long-press-drag (move/create) that's already been *accepted*
   /// (i.e. `onLongPressStart` already fired) gets no `onLongPressEnd` or
   /// `onLongPressCancel` callback at all if the gesture is then interrupted
   /// by a `PointerCancelEvent` — Flutter's own `LongPressGestureRecognizer`
@@ -514,14 +514,12 @@ class _TimelineState extends ConsumerState<_Timeline>
 
   void _resetDragState() {
     if (_draggingId == null &&
-        _dragMode == null &&
         _createAnchorY == null &&
         _createCurrentY == null) {
       return;
     }
     setState(() {
       _draggingId = null;
-      _dragMode = null;
       _dragPixels = 0;
       _createAnchorY = null;
       _createCurrentY = null;
@@ -531,7 +529,7 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// Pixel offset from the top of the timeline for [t]. Computed as minutes
   /// elapsed since [widget.day]'s midnight rather than `t.hour * 60 +
   /// t.minute` — the latter reads midnight-of-the-*next*-day (exactly what a
-  /// drag/resize clamps an end time to when pushed past the bottom of the
+  /// drag clamps an end time to when pushed past the bottom of the
   /// timeline) as 0, identical to the day's own start, collapsing the live
   /// preview card to zero height instead of showing it pinned to the bottom.
   double _offsetFor(DateTime t) {
@@ -551,9 +549,12 @@ class _TimelineState extends ConsumerState<_Timeline>
 
   /// The start/end a card should render at (and, on drag end, be saved with)
   /// given the current drag — clamped to stay within [day, day+1) so a card
-  /// can never drag itself out of the timeline it's shown in.
+  /// can never drag itself out of the timeline it's shown in. Shifts both
+  /// ends by the same amount, preserving the event's own duration — moving
+  /// is the only drag gesture a card has (see [_EventCard.onMoveStart]'s
+  /// doc for why resizing this way was dropped).
   (DateTime start, DateTime end) _effectiveTimes(EventRow e) {
-    if (_draggingId != e.id || _dragMode == null) {
+    if (_draggingId != e.id) {
       return (e.startAt, e.endAt);
     }
     final dayStart = DateTime(
@@ -564,34 +565,25 @@ class _TimelineState extends ConsumerState<_Timeline>
     final dayEnd = addCalendarDays(dayStart, 1);
     final delta = Duration(minutes: _snappedDeltaMinutes);
 
-    if (_dragMode == _DragMode.move) {
-      var start = e.startAt.add(delta);
-      var end = e.endAt.add(delta);
-      if (start.isBefore(dayStart)) {
-        final shift = dayStart.difference(start);
-        start = start.add(shift);
-        end = end.add(shift);
-      }
-      if (end.isAfter(dayEnd)) {
-        final shift = end.difference(dayEnd);
-        start = start.subtract(shift);
-        end = end.subtract(shift);
-      }
-      return (start, end);
-    } else {
-      final minEnd = e.startAt.add(const Duration(minutes: 15));
-      var end = e.endAt.add(delta);
-      if (end.isBefore(minEnd)) end = minEnd;
-      if (end.isAfter(dayEnd)) end = dayEnd;
-      return (e.startAt, end);
+    var start = e.startAt.add(delta);
+    var end = e.endAt.add(delta);
+    if (start.isBefore(dayStart)) {
+      final shift = dayStart.difference(start);
+      start = start.add(shift);
+      end = end.add(shift);
     }
+    if (end.isAfter(dayEnd)) {
+      final shift = end.difference(dayEnd);
+      start = start.subtract(shift);
+      end = end.subtract(shift);
+    }
+    return (start, end);
   }
 
-  void _startDrag(String eventId, _DragMode mode) {
+  void _startDrag(String eventId) {
     HapticFeedback.mediumImpact();
     setState(() {
       _draggingId = eventId;
-      _dragMode = mode;
       _dragPixels = 0;
     });
   }
@@ -607,7 +599,6 @@ class _TimelineState extends ConsumerState<_Timeline>
     final (start, end) = _effectiveTimes(e);
     setState(() {
       _draggingId = null;
-      _dragMode = null;
       _dragPixels = 0;
     });
     if (start == e.startAt && end == e.endAt) return;
@@ -863,11 +854,11 @@ class _TimelineState extends ConsumerState<_Timeline>
                   final rightInset = availableWidth - leftInset - columnWidth;
                   // A floor under the raw duration-derived height: below
                   // roughly _minEventCardHeight, there just isn't room for
-                  // the title, time and resize grip without clipping —
-                  // short events already visually extend a bit past their
-                  // true span for this reason (the same trade-off Google
-                  // Calendar and friends make), it's just precomputed here
-                  // now instead of left to grow reactively.
+                  // the title and time without clipping — short events
+                  // already visually extend a bit past their true span for
+                  // this reason (the same trade-off Google Calendar and
+                  // friends make), it's just precomputed here now instead
+                  // of left to grow reactively.
                   final rawHeight = (_offsetFor(end) - _offsetFor(start)).clamp(
                     0.0,
                     widget.hourHeight * 24,
@@ -881,7 +872,7 @@ class _TimelineState extends ConsumerState<_Timeline>
                   // minHeight would reach past it, drop to the smaller
                   // _tightEventCardHeight budget instead (see its doc),
                   // which _EventCard.tight then actually renders within by
-                  // dropping the location/grip content minHeight budgeted
+                  // dropping the location row's own minHeight-budgeted
                   // room for. That smaller floor can still overlap the
                   // next card a little when the two are separated by less
                   // than _tightEventCardHeight itself (a pair of very
@@ -906,10 +897,10 @@ class _TimelineState extends ConsumerState<_Timeline>
                   // A mirrored event (holiday or subscribed-calendar) stays
                   // read-only here the same way tapping it already routes to
                   // MirroredEventDetailScreen instead of the editor — drag
-                  // and resize are just another way to edit it, and letting
-                  // either through used to silently push a duplicate to the
-                  // device calendar (see EventRepositoryImpl
-                  // ._applySideEffects's own doc on this exact path).
+                  // is just another way to edit it, and letting it through
+                  // used to silently push a duplicate to the device
+                  // calendar (see EventRepositoryImpl._applySideEffects's
+                  // own doc on this exact path).
                   final draggable = e.importSourceCalendarId == null;
                   return Positioned(
                     top: _offsetFor(start),
@@ -922,16 +913,9 @@ class _TimelineState extends ConsumerState<_Timeline>
                       height: height,
                       tight: tight,
                       isDragging: isDragging,
-                      onMoveStart: draggable
-                          ? () => _startDrag(e.id, _DragMode.move)
-                          : null,
+                      onMoveStart: draggable ? () => _startDrag(e.id) : null,
                       onMoveUpdate: _updateDrag,
                       onMoveEnd: () => _endDrag(e),
-                      onResizeStart: draggable
-                          ? () => _startDrag(e.id, _DragMode.resize)
-                          : null,
-                      onResizeUpdate: _updateDrag,
-                      onResizeEnd: () => _endDrag(e),
                     ),
                   );
                 },
@@ -974,41 +958,35 @@ class _EventCard extends ConsumerWidget {
     this.onMoveStart,
     this.onMoveUpdate,
     this.onMoveEnd,
-    this.onResizeStart,
-    this.onResizeUpdate,
-    this.onResizeEnd,
   });
 
   final EventRow event;
   final bool allDay;
 
   /// The timeline's own computed pixel height for this card — null for the
-  /// all-day strip, which sizes itself to its content instead. Used to pin
-  /// the resize grip to the card's actual bottom edge rather than right
-  /// under the title, so a multi-hour card's grip lands near the boundary
-  /// it actually resizes instead of clustering all its content up top with
-  /// a big empty gap below.
+  /// all-day strip, which sizes itself to its content instead.
   final double? height;
 
   /// Set when [_TimelineState] had to shrink this card's floor to
   /// `_tightEventCardHeight` because the next event's own card would
   /// otherwise have been painted over (see that constant's doc). Drops the
-  /// location row and the resize grip — both its visual bar and its drag
-  /// hit-region, since there's no room to show a card this size can even
-  /// be dragged — keeping title, time-range and notify icon, the content
-  /// set that smaller budget was tuned for.
+  /// location row and caps the title to 1 line instead of 2, keeping
+  /// title, time-range and notify icon — the content set that smaller
+  /// budget was tuned for.
   final bool tight;
   final bool isDragging;
 
-  /// Dragging the card body moves the whole event, preserving its duration.
+  /// Dragging the card body moves the whole event, preserving its
+  /// duration — the only drag gesture a card has. An earlier version also
+  /// let a bottom-edge grip resize just the end time; removed for being
+  /// inconsistently available (only cards with room to spare — i.e. not
+  /// immediately followed by another event, see [tight] — could show it
+  /// at all, so most cards never had it) rather than dropped for every
+  /// card alike. Resizing is still possible through the editor sheet
+  /// (tap the card) — this only removed the drag shortcut.
   final VoidCallback? onMoveStart;
   final ValueChanged<double>? onMoveUpdate;
   final VoidCallback? onMoveEnd;
-
-  /// Dragging the bottom grip resizes the event by moving only its end time.
-  final VoidCallback? onResizeStart;
-  final ValueChanged<double>? onResizeUpdate;
-  final VoidCallback? onResizeEnd;
 
   /// [color] shifted [amount] (0-1) toward black in HSL lightness, fully
   /// opaque — used for the card border so it reads as a solid, slightly
@@ -1027,7 +1005,6 @@ class _EventCard extends ConsumerWidget {
     final palette = context.palette;
     final accent = EventColorTag.resolve(event.colorTag, event.startAt);
     final theme = Theme.of(context);
-    final draggable = onMoveStart != null;
     final use24 = resolveUse24Hour(
       ref.watch(
         settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
@@ -1166,38 +1143,6 @@ class _EventCard extends ConsumerWidget {
                         ),
                     ],
                   ),
-                  // Pushes the resize grip down to the card's actual bottom
-                  // edge for a card taller than its header content — without
-                  // this, a multi-hour card's whole content (header + grip)
-                  // stayed clumped at the very top with a large dead gap below,
-                  // instead of the grip landing near the boundary it actually
-                  // resizes. Safe to use unconditionally when height != null:
-                  // height is this card's own exact, tight constraint (not
-                  // just a loose minimum), so Expanded/Spacer here can never
-                  // balloon the card past its intended size.
-                  if (height != null) const Spacer(),
-                  // The grip's *visual* bar only — purely decorative now,
-                  // 16px tall same as always, so it costs the Column no
-                  // extra height budget (_minEventCardHeight, tuned per
-                  // pixel for the shortest cards, is untouched). Its actual
-                  // drag gesture lives on the Positioned hit-region below.
-                  // Both are dropped in tight mode (see [tight]'s doc) —
-                  // a card this size has no room to show it's draggable,
-                  // so it just isn't.
-                  if (!allDay && draggable && !tight)
-                    SizedBox(
-                      height: 16,
-                      child: Center(
-                        child: Container(
-                          width: 28,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: palette.inkFaint,
-                            borderRadius: AppRadius.allPill,
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1212,37 +1157,6 @@ class _EventCard extends ConsumerWidget {
               ),
             ),
           ),
-          // The grip's actual hit region — a full-width, ~44px-tall
-          // invisible strip pinned to the card's bottom edge as a Stack
-          // sibling, not sized to the 16px bar it visually sits over. A
-          // Positioned child never grows its Stack (only the non-positioned
-          // GlassSurface child does that), so this reaches the accessibility
-          // floor with zero risk of overflowing a short, already-tuned card
-          // — unlike growing the bar's own SizedBox, which would compete
-          // with _minEventCardHeight's per-pixel budget for the shortest
-          // cards. Sits on top of (and can overlap) the header row for a
-          // card near the 80px minimum; that's fine for a tap (this
-          // detector has no onTap, so a plain tap still falls through to
-          // the outer GestureDetector's "open editor" tap, which is an
-          // ancestor and always stays in the hit path regardless), and for
-          // long-press it's the same outer-move-vs-inner-resize contest the
-          // original 16px region already resolved correctly — just over a
-          // bigger area. Also dropped in tight mode, alongside its visual
-          // bar — see [tight]'s doc.
-          if (!allDay && draggable && !tight)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 44,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onLongPressStart: (_) => onResizeStart!(),
-                onLongPressMoveUpdate: (d) =>
-                    onResizeUpdate!(d.offsetFromOrigin.dy),
-                onLongPressEnd: (_) => onResizeEnd!(),
-              ),
-            ),
         ],
       ),
     );

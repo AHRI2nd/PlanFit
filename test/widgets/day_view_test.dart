@@ -11,7 +11,6 @@ import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/widgets/section_header.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
-import 'package:planfit/features/schedule/domain/event_input.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_clock_view.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_view.dart';
@@ -224,21 +223,28 @@ void main() {
           )
           .first,
     );
-    expect(card.height, greaterThanOrEqualTo(100));
+    // _minEventCardHeight(64) + _locationRowExtraHeight(20) — see those
+    // constants' own docs.
+    expect(card.height, greaterThanOrEqualTo(84));
   });
 
   group('back-to-back events (one starting exactly when the previous ends)', () {
     testWidgets(
-      'never visually overlap, even though each is short enough on its '
-      'own to hit the comfortable minimum card height floor',
+      'never visually overlap, and a plain 1-hour one renders at exactly '
+      'its own true height with no artificial stretch at all',
       (tester) async {
         // Regression test — reported live: a screenshot of 6 consecutive
         // plain 1-hour events showed every boundary looking like an
-        // overlap. Each is only 64px tall at this DayView's 64px/hour,
-        // under _minEventCardHeight's 80px floor, so every one of them
-        // used to get stretched to 80px regardless of what followed,
-        // painting 16px into the very next event's card despite the two
-        // sharing no time at all.
+        // overlap. Each is only 64px tall at this DayView's 64px/hour;
+        // back when _minEventCardHeight was 80 (it budgeted room for a
+        // resize grip that's since been removed entirely — see that
+        // constant's own doc), every one of them got stretched past its
+        // own true duration regardless of what followed, painting 16px
+        // into the very next event's card despite the two sharing no
+        // time at all. Now that the floor (64) matches a plain hour
+        // exactly, this case doesn't even need the next-event capping
+        // that shorter/crowded/located events still do — asserting the
+        // exact height (not just "no overlap") pins that down.
         final day = DateTime(2026, 3, 10);
         final first = row(
           id: 'first',
@@ -268,6 +274,7 @@ void main() {
         final firstRect = tester.getRect(cardOf('First'));
         final secondRect = tester.getRect(cardOf('Second'));
         expect(firstRect.bottom, lessThanOrEqualTo(secondRect.top));
+        expect(firstRect.height, 64);
       },
     );
 
@@ -276,11 +283,11 @@ void main() {
       'range, with no overflow even when it also carries a location',
       (tester) async {
         // The tight-mode budget (_tightEventCardHeight) drops the
-        // location row and the resize grip, but keeps the time-range line
-        // — this pins down that a location on the squeezed event doesn't
-        // sneak back in and overflow the smaller budget the same way an
-        // earlier bug let it overflow the comfortable one (see the
-        // "gets enough extra height for its location row" test above).
+        // location row but keeps the time-range line — this pins down
+        // that a location on the squeezed event doesn't sneak back in
+        // and overflow the smaller budget the same way an earlier bug
+        // let it overflow the comfortable one (see the "gets enough
+        // extra height for its location row" test above).
         final day = DateTime(2026, 3, 10);
         final first = row(
           id: 'first',
@@ -314,28 +321,9 @@ void main() {
           ),
           findsAtLeastNWidgets(1),
         );
-        // The location row and the resize grip's hit region are dropped
-        // in tight mode — there's no budget for them once squeezed this
-        // far. Scoped to "first"'s own card, not just anywhere on
-        // screen: "second" is the last event with nothing after it, so
-        // it's rendered at the comfortable size and does keep its own
-        // grip hit-region.
+        // The location row is dropped in tight mode — there's no budget
+        // for it once squeezed this far.
         expect(find.text('1234 Main St'), findsNothing);
-        final firstCardStack = find
-            .ancestor(
-              of: find.text('Coffee with a client'),
-              matching: find.byType(Stack),
-            )
-            .first;
-        expect(
-          find.descendant(
-            of: firstCardStack,
-            matching: find.byWidgetPredicate(
-              (w) => w is Positioned && w.height == 44 && w.bottom == 0,
-            ),
-          ),
-          findsNothing,
-        );
       },
     );
 
@@ -934,17 +922,17 @@ void main() {
   );
 
   testWidgets(
-    "an event card's resize grip has a hit region at least 44pt tall — "
-    'regression test for a drag target that used to be a bare 16px '
-    'SizedBox. Also drives an actual long-press-drag through it to prove '
-    "it's still wired to onResizeStart/Update/End after moving the "
-    'gesture off the (now purely visual) 16px bar and onto this larger, '
-    'Stack-positioned overlay.',
+    'an event card has no resize grip at all, on any card — dragging its '
+    "bottom edge does nothing; resizing only happens through the editor "
+    'sheet now',
     (tester) async {
+      // Regression test: an earlier version gave a card a bottom-edge
+      // drag grip whenever it had room to show one — which in practice
+      // meant only cards *not* immediately followed by another event
+      // (most real days are back-to-back, so most cards never had it)
+      // — inconsistent enough that it read as a bug in its own right.
+      // Removed for every card alike rather than kept conditionally.
       final day = DateTime(2026, 3, 10);
-      // Kept early (2am, like this file's other drag/swipe tests) so the
-      // card's bottom edge stays within the default test viewport without
-      // needing to scroll it into view first.
       final e = row(
         id: 'e1',
         title: 'Long event',
@@ -952,37 +940,20 @@ void main() {
         endAt: DateTime(2026, 3, 10, 4),
       );
       when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
-      when(events.save(any)).thenAnswer((_) async => e);
 
       await pumpDay(tester, day);
 
-      final hitArea = find.byWidgetPredicate(
-        (w) =>
-            w is Positioned &&
-            w.height == 44 &&
-            w.bottom == 0 &&
-            w.left == 0 &&
-            w.right == 0,
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Positioned &&
+              w.height == 44 &&
+              w.bottom == 0 &&
+              w.left == 0 &&
+              w.right == 0,
+        ),
+        findsNothing,
       );
-      expect(hitArea, findsOneWidget);
-      final size = tester.getSize(hitArea);
-      expect(size.height, greaterThanOrEqualTo(44));
-
-      // Long-press-then-drag downward on it: a resize pushes endAt later
-      // while leaving startAt untouched — unlike the card's own move-drag,
-      // which shifts both, so this also confirms the grip (not the move
-      // handler) is what actually caught the gesture.
-      final gesture = await tester.startGesture(tester.getCenter(hitArea));
-      await tester.pump(const Duration(milliseconds: 600));
-      await gesture.moveBy(const Offset(0, 40));
-      await tester.pump();
-      await gesture.up();
-      await tester.pumpAndSettle();
-
-      final captured =
-          verify(events.save(captureAny)).captured.single as EventInput;
-      expect(captured.startAt, e.startAt);
-      expect(captured.endAt.isAfter(e.endAt), isTrue);
     },
   );
 }
