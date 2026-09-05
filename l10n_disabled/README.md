@@ -33,13 +33,20 @@ support is untouched and harmless while unreachable:
   feature — any user, in any app language, can already subscribe to
   Japan's holiday calendar; that was intentionally left alone).
 - `quick_add_parser.dart`'s Japanese date/time phrase recognition.
-- iOS's own per-app Language list still offers "日本語" (`ios/Runner/
-  ja.lproj/InfoPlist.strings` + `ja` in `Runner.xcodeproj`'s
-  `knownRegions`) — picking it there would just make the app fall back to
-  English UI, same as a Japanese *device* locale does now. Left alone
-  rather than hand-edited in `project.pbxproj`, which is easy to corrupt
-  without Xcode itself to verify the result; revisit this alongside
-  re-enabling the rest, ideally from Xcode's own Info panel.
+
+iOS's own per-app Language list used to still offer "日本語" (`ios/Runner/
+ja.lproj/InfoPlist.strings` + `ja` in `Runner.xcodeproj`'s `knownRegions`)
+even with the app itself falling back to English — confusing enough on
+its own (picking 日本語 there did nothing) that this has since been
+removed too: `ja.lproj` deleted, and its `PBXFileReference`/
+`PBXVariantGroup` entry plus the `knownRegions` entry removed from
+`project.pbxproj` by hand (`plutil -lint` used to confirm the edit kept
+the file valid, and a full clean rebuild — `flutter clean` +
+`rm -rf ~/Library/Developer/Xcode/DerivedData/Runner-*` — to confirm
+Xcode actually stopped bundling `ja.lproj`, since an incremental build
+had been seen to keep shipping the old one even after the pbxproj no
+longer listed it). Re-adding `ja` back to the Xcode project is part of
+re-enabling below now, not a separate step to "revisit".
 
 ## To re-enable
 
@@ -53,3 +60,11 @@ support is untouched and harmless while unreachable:
    need restoring in `test/notification_service_test.dart` and
    `test/settings_controller_language_test.dart` (they were adjusted to
    expect the English-fallback behavior while ja was disabled).
+5. Restore iOS's native Japanese localization: recreate
+   `ios/Runner/ja.lproj/InfoPlist.strings` (see en.lproj/ko.lproj for the
+   two keys it needs) and add `ja` back to both `knownRegions` and the
+   `InfoPlist.strings` `PBXVariantGroup` in `Runner.xcodeproj/
+   project.pbxproj` — ideally through Xcode's own Info panel (Project ➝
+   Info ➝ Localizations ➝ +) rather than by hand, so Xcode itself
+   generates and verifies the entries instead of hand-editing the pbxproj
+   again.

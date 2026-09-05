@@ -73,7 +73,6 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FB94C47FF1C14E50A39805FE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C296BC9382838A1F52B19E1E /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		EA44A90D5C4B414DA9B9E42C /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F558772A4C2ED92828C34BF3 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		F8CD7035E62DB2A11C2703BA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		FA79BB7ABDA5E7D8F860AAA8 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
@@ -255,7 +254,6 @@
 			knownRegions = (
 				en,
 				ko,
-				ja,
 				Base,
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
@@ -425,7 +423,6 @@
 			children = (
 				F8CD7035E62DB2A11C2703BA /* en */,
 				C296BC9382838A1F52B19E1E /* ko */,
-				EA44A90D5C4B414DA9B9E42C /* ja */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
