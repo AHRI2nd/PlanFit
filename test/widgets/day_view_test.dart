@@ -227,6 +227,163 @@ void main() {
     expect(card.height, greaterThanOrEqualTo(100));
   });
 
+  group('back-to-back events (one starting exactly when the previous ends)', () {
+    testWidgets(
+      'never visually overlap, even though each is short enough on its '
+      'own to hit the comfortable minimum card height floor',
+      (tester) async {
+        // Regression test — reported live: a screenshot of 6 consecutive
+        // plain 1-hour events showed every boundary looking like an
+        // overlap. Each is only 64px tall at this DayView's 64px/hour,
+        // under _minEventCardHeight's 80px floor, so every one of them
+        // used to get stretched to 80px regardless of what followed,
+        // painting 16px into the very next event's card despite the two
+        // sharing no time at all.
+        final day = DateTime(2026, 3, 10);
+        final first = row(
+          id: 'first',
+          title: 'First',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+        );
+        final second = row(
+          id: 'second',
+          title: 'Second',
+          startAt: DateTime(2026, 3, 10, 10),
+          endAt: DateTime(2026, 3, 10, 11),
+        );
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value([first, second]));
+
+        await pumpDay(tester, day);
+
+        expect(tester.takeException(), isNull);
+        Finder cardOf(String title) => find
+            .ancestor(
+              of: find.text(title),
+              matching: find.byType(RepaintBoundary),
+            )
+            .first;
+        final firstRect = tester.getRect(cardOf('First'));
+        final secondRect = tester.getRect(cardOf('Second'));
+        expect(firstRect.bottom, lessThanOrEqualTo(secondRect.top));
+      },
+    );
+
+    testWidgets(
+      'a card squeezed by the next event still shows its title and time '
+      'range, with no overflow even when it also carries a location',
+      (tester) async {
+        // The tight-mode budget (_tightEventCardHeight) drops the
+        // location row and the resize grip, but keeps the time-range line
+        // — this pins down that a location on the squeezed event doesn't
+        // sneak back in and overflow the smaller budget the same way an
+        // earlier bug let it overflow the comfortable one (see the
+        // "gets enough extra height for its location row" test above).
+        final day = DateTime(2026, 3, 10);
+        final first = row(
+          id: 'first',
+          title: 'Coffee with a client',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+          location: '1234 Main St',
+        );
+        final second = row(
+          id: 'second',
+          title: 'Next thing',
+          startAt: DateTime(2026, 3, 10, 10),
+          endAt: DateTime(2026, 3, 10, 11),
+        );
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value([first, second]));
+
+        await pumpDay(tester, day);
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Coffee with a client'), findsOneWidget);
+        // The time-range line uses an en dash between start and end
+        // regardless of 12h/24h formatting — check for that rather than
+        // a specific "09:00"/"9:00 AM" string tied to one format. Both
+        // cards show their own time range now, so at least one (not
+        // exactly one).
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is Text && (w.data?.contains('–') ?? false),
+          ),
+          findsAtLeastNWidgets(1),
+        );
+        // The location row and the resize grip's hit region are dropped
+        // in tight mode — there's no budget for them once squeezed this
+        // far. Scoped to "first"'s own card, not just anywhere on
+        // screen: "second" is the last event with nothing after it, so
+        // it's rendered at the comfortable size and does keep its own
+        // grip hit-region.
+        expect(find.text('1234 Main St'), findsNothing);
+        final firstCardStack = find
+            .ancestor(
+              of: find.text('Coffee with a client'),
+              matching: find.byType(Stack),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: firstCardStack,
+            matching: find.byWidgetPredicate(
+              (w) => w is Positioned && w.height == 44 && w.bottom == 0,
+            ),
+          ),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'a squeezed card in a crowded (side-by-side) column still shows no '
+      'overflow even with a title long enough to want 2 lines',
+      (tester) async {
+        // Regression test for the fix's first attempt: tight mode kept
+        // the crowded case's own maxLines: 2 (meant for the *comfortable*
+        // budget's extra headroom — _crowdedColumnExtraHeight — which the
+        // smaller _tightEventCardHeight budget was never given), and a
+        // genuinely 2-line-wrapping title overflowed it by exactly the
+        // second line's worth of height. Fixed by pinning tight mode to
+        // maxLines: 1 regardless of crowding, rather than trying to also
+        // budget _tightEventCardHeight for a 2nd title line.
+        final day = DateTime(2026, 3, 10);
+        // "first"/"overlap" genuinely overlap (9:00-9:30 and 9:15-10:00),
+        // forcing a 2-column crowded layout; "first" then also butts
+        // straight up against "next" starting the moment it ends.
+        final first = row(
+          id: 'first',
+          title: 'A genuinely quite long meeting title that wraps twice',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 9, 30),
+        );
+        final overlap = row(
+          id: 'overlap',
+          title: 'Overlap',
+          startAt: DateTime(2026, 3, 10, 9, 15),
+          endAt: DateTime(2026, 3, 10, 10),
+        );
+        final next = row(
+          id: 'next',
+          title: 'Next',
+          startAt: DateTime(2026, 3, 10, 9, 30),
+          endAt: DateTime(2026, 3, 10, 10, 30),
+        );
+        when(
+          events.watchBetween(any, any),
+        ).thenAnswer((_) => Stream.value([first, overlap, next]));
+
+        await pumpDay(tester, day);
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   testWidgets(
     // _EventCard's own swipe-to-delete was removed in favor of freeing the
     // whole all-day/timeline area for swipe-to-navigate instead — deleting

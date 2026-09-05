@@ -438,6 +438,35 @@ class _TimelineState extends ConsumerState<_Timeline>
       (crowded ? _crowdedColumnExtraHeight : 0) +
       ((e.location?.isNotEmpty ?? false) ? _locationRowExtraHeight : 0);
 
+  /// The floor used instead of [_minHeightFor] when a card would otherwise
+  /// have to stretch into the very next event's own card (see
+  /// [_nextStartOnOrAfter]) — e.g. two plain back-to-back 1-hour events,
+  /// each too short on its own to clear [_minEventCardHeight] but sharing
+  /// no time at all, used to both hit that floor and paint 16px into each
+  /// other. `_EventCard.tight` drops the location row and the resize
+  /// grip entirely (no visual bar, no drag hit-region — there's no room
+  /// left to show it's there, so a card this size just isn't resizable
+  /// by drag) to fit the title and time-range line within this smaller
+  /// budget — found, like [_locationRowExtraHeight], by watching for a
+  /// real "RenderFlex overflowed" exception rather than guessed.
+  static const double _tightEventCardHeight = 60;
+
+  /// The earliest start time among [widget.events] (other than the one
+  /// with [excludingId]) that falls at or after [time] — used to stop a
+  /// short card's minimum-height floor from stretching down past where
+  /// the next event's own card actually begins. See [_tightEventCardHeight].
+  DateTime? _nextStartOnOrAfter(DateTime time, String excludingId) {
+    DateTime? best;
+    for (final other in widget.events) {
+      if (other.id == excludingId) continue;
+      if (!other.startAt.isBefore(time) &&
+          (best == null || other.startAt.isBefore(best))) {
+        best = other.startAt;
+      }
+    }
+    return best;
+  }
+
   /// The event currently being dragged, if any — only one card can drag at a
   /// time since drags are single-pointer gestures.
   String? _draggingId;
@@ -847,7 +876,33 @@ class _TimelineState extends ConsumerState<_Timeline>
                     e,
                     crowded: c.columnCount > 1,
                   );
-                  final height = rawHeight < minHeight ? minHeight : rawHeight;
+                  // ...but that floor must never paint over the very next
+                  // event's own card: when stretching all the way to
+                  // minHeight would reach past it, drop to the smaller
+                  // _tightEventCardHeight budget instead (see its doc),
+                  // which _EventCard.tight then actually renders within by
+                  // dropping the location/grip content minHeight budgeted
+                  // room for. That smaller floor can still overlap the
+                  // next card a little when the two are separated by less
+                  // than _tightEventCardHeight itself (a pair of very
+                  // short, e.g. 15-20 minute, back-to-back events) —
+                  // bounded and far smaller than minHeight's own overlap
+                  // would have been, rather than shrinking the
+                  // card below the height its own (already-reduced)
+                  // content needs to avoid overflowing.
+                  final nextStart = _nextStartOnOrAfter(end, e.id);
+                  final availableUntilNext = nextStart == null
+                      ? null
+                      : _offsetFor(nextStart) - _offsetFor(start);
+                  final tight =
+                      availableUntilNext != null &&
+                      availableUntilNext < minHeight;
+                  final cappedMinHeight = tight
+                      ? _tightEventCardHeight
+                      : minHeight;
+                  final height = rawHeight < cappedMinHeight
+                      ? cappedMinHeight
+                      : rawHeight;
                   // A mirrored event (holiday or subscribed-calendar) stays
                   // read-only here the same way tapping it already routes to
                   // MirroredEventDetailScreen instead of the editor — drag
@@ -865,6 +920,7 @@ class _TimelineState extends ConsumerState<_Timeline>
                       event: e,
                       allDay: false,
                       height: height,
+                      tight: tight,
                       isDragging: isDragging,
                       onMoveStart: draggable
                           ? () => _startDrag(e.id, _DragMode.move)
@@ -913,6 +969,7 @@ class _EventCard extends ConsumerWidget {
     required this.event,
     required this.allDay,
     this.height,
+    this.tight = false,
     this.isDragging = false,
     this.onMoveStart,
     this.onMoveUpdate,
@@ -932,6 +989,15 @@ class _EventCard extends ConsumerWidget {
   /// it actually resizes instead of clustering all its content up top with
   /// a big empty gap below.
   final double? height;
+
+  /// Set when [_TimelineState] had to shrink this card's floor to
+  /// `_tightEventCardHeight` because the next event's own card would
+  /// otherwise have been painted over (see that constant's doc). Drops the
+  /// location row and the resize grip — both its visual bar and its drag
+  /// hit-region, since there's no room to show a card this size can even
+  /// be dragged — keeping title, time-range and notify icon, the content
+  /// set that smaller budget was tuned for.
+  final bool tight;
   final bool isDragging;
 
   /// Dragging the card body moves the whole event, preserving its duration.
@@ -1047,10 +1113,13 @@ class _EventCard extends ConsumerWidget {
                               // downward instead of just clipping
                               // sideways uses the card's own height, which
                               // _minHeightFor already budgets extra room for
-                              // in that case (see _crowdedColumnExtraHeight)
-                              // rather than a single word or two surviving
-                              // and the rest disappearing behind an ellipsis.
-                              maxLines: 2,
+                              // in that case (see _crowdedColumnExtraHeight).
+                              // tight has no such extra room to give (it's
+                              // the smaller, next-event-constrained budget —
+                              // see [tight]'s doc), so it stays at 1 there
+                              // even when also crowded, rather than
+                              // overflowing the tighter card.
+                              maxLines: tight ? 1 : 2,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleMedium,
                             ),
@@ -1063,7 +1132,8 @@ class _EventCard extends ConsumerWidget {
                                   color: palette.inkSoft,
                                 ),
                               ),
-                            if (event.location != null &&
+                            if (!tight &&
+                                event.location != null &&
                                 event.location!.isNotEmpty)
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1110,9 +1180,11 @@ class _EventCard extends ConsumerWidget {
                   // 16px tall same as always, so it costs the Column no
                   // extra height budget (_minEventCardHeight, tuned per
                   // pixel for the shortest cards, is untouched). Its actual
-                  // drag gesture lives on the Positioned hit-region below,
-                  // sized to the accessibility floor independently of this.
-                  if (!allDay && draggable)
+                  // drag gesture lives on the Positioned hit-region below.
+                  // Both are dropped in tight mode (see [tight]'s doc) —
+                  // a card this size has no room to show it's draggable,
+                  // so it just isn't.
+                  if (!allDay && draggable && !tight)
                     SizedBox(
                       height: 16,
                       child: Center(
@@ -1155,8 +1227,9 @@ class _EventCard extends ConsumerWidget {
           // ancestor and always stays in the hit path regardless), and for
           // long-press it's the same outer-move-vs-inner-resize contest the
           // original 16px region already resolved correctly — just over a
-          // bigger area.
-          if (!allDay && draggable)
+          // bigger area. Also dropped in tight mode, alongside its visual
+          // bar — see [tight]'s doc.
+          if (!allDay && draggable && !tight)
             Positioned(
               left: 0,
               right: 0,
