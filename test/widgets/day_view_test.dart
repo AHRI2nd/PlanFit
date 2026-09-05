@@ -43,6 +43,7 @@ void main() {
     required DateTime endAt,
     String? location,
     String? importSourceCalendarId,
+    bool isAllDay = false,
   }) {
     return EventRow(
       id: id,
@@ -51,7 +52,7 @@ void main() {
       location: location,
       startAt: startAt,
       endAt: endAt,
-      isAllDay: false,
+      isAllDay: isAllDay,
       colorTag: null,
       notify: true,
       reminderMinutesBefore: 0,
@@ -873,6 +874,61 @@ void main() {
             "the to-dos section header never scrolled into view — the "
             "outer list is stuck exactly like the regression this guards "
             'against',
+      );
+    },
+  );
+
+  testWidgets(
+    'the same outer-scroll invariant holds on a day that also has an '
+    'all-day event — regression test: the pager only ever reserves '
+    'hourHeight*24 + endOfDayHeight (see DayView.build\'s pagerHeight), '
+    "never budgeting extra room for the all-day card(s) _DayContent "
+    'renders *above* that same timeline SizedBox — so on any day with '
+    'an all-day event, the inner scrollable\'s real content height '
+    "exceeds its reserved viewport height by however tall the all-day "
+    'section is, giving it the exact nonzero scroll extent this file\'s '
+    'own doc says captures the drag and strands the outer list',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'holiday',
+            title: 'Public Holiday',
+            startAt: day,
+            endAt: DateTime(2026, 3, 11),
+            isAllDay: true,
+          ),
+          row(
+            id: 'e1',
+            title: 'Anchor',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 10),
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpDay(tester, day);
+
+      expect(find.byType(SectionHeader), findsNothing);
+      for (var i = 0; i < 6; i++) {
+        await tester.dragFrom(const Offset(400, 400), const Offset(0, -600));
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        find.byType(SectionHeader),
+        findsOneWidget,
+        reason:
+            "the to-dos section header never scrolled into view with an "
+            "all-day event present — the inner scrollable's own extra "
+            'content height (the all-day card, on top of the full '
+            "timeline) gave it real scroll extent and it captured the "
+            "drag instead of the outer list",
       );
     },
   );

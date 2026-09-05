@@ -47,6 +47,25 @@ class DayView extends ConsumerStatefulWidget {
   /// value here since this file's own hourHeight/font differ from week's.
   static const double _endOfDayHeight = 24;
 
+  /// A generous per-card budget for the all-day section _DayContent stacks
+  /// *above* its 24-hour timeline (see that file's own `if (allDay.isNotEmpty)`
+  /// branch) — `_DayViewState.build`'s `pagerHeight` has to reserve at least
+  /// this much extra room per all-day event, or the inner SingleChildScrollView
+  /// this same content sits in ends up taller than the box it's given, which
+  /// gives it real scroll extent of its own and — per this file's own
+  /// documented regression (see `_Timeline`'s `_endOfDayHeight`-matching
+  /// comment) — makes it capture drags meant for the *outer* list instead of
+  /// deferring to it, stranding the to-dos section below unreachable by
+  /// swipe. An all-day `_EventCard` has no fixed height of its own (it sizes
+  /// to content: a 1-2 line title plus an optional location row), so this
+  /// can't be measured exactly from here — sized to comfortably cover the
+  /// worst case (2-line title + location) rather than the common case,
+  /// since over-reserving just leaves unused blank space below the timeline
+  /// (already an accepted trade-off for clock-mode days, per the comment on
+  /// `pagerHeight` itself) while under-reserving reintroduces the exact bug
+  /// this constant exists to prevent.
+  static const double _allDayCardMaxHeight = 84;
+
   @override
   ConsumerState<DayView> createState() => _DayViewState();
 }
@@ -128,11 +147,20 @@ class _DayViewState extends ConsumerState<DayView> {
     // the complexity of measuring that mode's own (screen-width-
     // dependent) height.
     final eventsAsync = ref.watch(eventsForDayProvider(widget.day));
-    final pagerHeight = switch (eventsAsync.asData?.value) {
-      null => DayView._hourHeight * 24 + DayView._endOfDayHeight,
-      final events when events.isEmpty => _DayContent.emptyContentHeight,
-      _ => DayView._hourHeight * 24 + DayView._endOfDayHeight,
-    };
+    final events = eventsAsync.asData?.value;
+    // _DayContent stacks any all-day cards *above* the timeline, inside
+    // the same box this reserves — see DayView._allDayCardMaxHeight's own
+    // doc for why under-counting this reopens a real (previously fixed)
+    // bug where that inner scrollable gains scroll extent of its own and
+    // strands the outer list.
+    final allDayCount = events?.where((e) => e.isAllDay).length ?? 0;
+    final allDayReserve = allDayCount == 0
+        ? 0.0
+        : allDayCount * (DayView._allDayCardMaxHeight + AppSpacing.xs) +
+              AppSpacing.sm;
+    final pagerHeight = events != null && events.isEmpty
+        ? _DayContent.emptyContentHeight
+        : DayView._hourHeight * 24 + DayView._endOfDayHeight + allDayReserve;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -455,7 +483,26 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// The earliest start time among [widget.events] (other than the one
   /// with [excludingId]) that falls at or after [time] — used to stop a
   /// short card's minimum-height floor from stretching down past where
-  /// the next event's own card actually begins. See [_tightEventCardHeight].
+  /// the next event's own card actually begins.
+  ///
+  /// Deliberately *not* scoped to the current card's own [CascadedEvent
+  /// .column]: column numbering is cluster-relative (see
+  /// [cascadeEvents]/`_appendCluster`'s own doc) — a column-0 event in a
+  /// solo, columnCount-1 cluster is drawn full-width, so it can still
+  /// horizontally overlap a column-0 event that belongs to an entirely
+  /// different, earlier, 2-wide cluster's *left half*. Column index alone
+  /// (without also comparing columnCount/left-right pixel ranges) can't
+  /// tell those apart, so filtering by it risks excluding a genuinely
+  /// overlapping neighbor rather than just an imprecise one — confirmed
+  /// while attempting exactly that: a card would stretch far enough to
+  /// paint over a later, full-width solo event that its own column-scoped
+  /// neighbor search had wrongly ruled out. Scanning every event
+  /// regardless of column is the safe direction to be imprecise in: it
+  /// can only make `tight` trigger *earlier* than strictly necessary
+  /// (hiding a location row/2nd title line that would, in fact, have
+  /// fit), never later — i.e. it can undersell a card's real space, but
+  /// never let it paint over one that turns out to share its pixels.
+  /// See [_tightEventCardHeight].
   DateTime? _nextStartOnOrAfter(DateTime time, String excludingId) {
     DateTime? best;
     for (final other in widget.events) {

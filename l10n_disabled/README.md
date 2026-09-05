@@ -33,6 +33,13 @@ support is untouched and harmless while unreachable:
   feature — any user, in any app language, can already subscribe to
   Japan's holiday calendar; that was intentionally left alone).
 - `quick_add_parser.dart`'s Japanese date/time phrase recognition.
+- `settings_screen.dart`'s `_LanguageRow._nativeNames` still has a
+  `'ja': '日本語'` entry — that map is only ever looked up for locales in
+  `AppL10n.supportedLocales` (`for (final locale in
+  AppL10n.supportedLocales) ... _nativeNames[locale.languageCode]`), so
+  with `ja` out of that list this entry is unreachable, same as the
+  items above; left in place rather than deleted so the language picker
+  needs no further changes the moment `ja` is restored.
 
 iOS's own per-app Language list used to still offer "日本語" (`ios/Runner/
 ja.lproj/InfoPlist.strings` + `ja` in `Runner.xcodeproj`'s `knownRegions`)
