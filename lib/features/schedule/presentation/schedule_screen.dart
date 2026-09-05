@@ -296,20 +296,38 @@ class _SwipeableTitle extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: style,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  // FittedBox instead of a plain maxLines:1 + ellipsis Text:
+                  // even the already-abbreviated formats (Fmt.fullDate,
+                  // monthDayShort's week range) overflow to "…" on a
+                  // realistic narrow phone width in *every* locale this
+                  // was checked in, not just the specific en/ja cases
+                  // shortened earlier — a real device (and, it turns out,
+                  // a widget test pinned to a real ~360dp width, unlike
+                  // this file's own tests' much wider default surface,
+                  // which is exactly why that went unnoticed) is
+                  // narrower than the abbreviated string at this style's
+                  // point size needs. Scaling the whole line down to fit
+                  // reads correctly regardless of locale, date, or screen
+                  // width instead of chasing ever-shorter formats per
+                  // locale — this can only ever shrink text that would
+                  // otherwise be clipped, never grow it past its natural
+                  // size, so a wide screen where it already fits renders
+                  // identically to before.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(title, style: style, maxLines: 1),
                   ),
                   if (lunarSubtitle != null)
-                    Text(
-                      lunarSubtitle!,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelMedium?.copyWith(color: chevronColor),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        lunarSubtitle!,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: chevronColor),
+                        maxLines: 1,
+                      ),
                     ),
                 ],
               ),

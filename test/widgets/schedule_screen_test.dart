@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -617,6 +618,61 @@ void main() {
             isNot(TextOverflow.ellipsis),
             reason: label,
           );
+        }
+      },
+    );
+
+    testWidgets(
+      "the title (and day view's lunar subtitle) never truncates on a "
+      'realistic narrow phone width, in any locale — regression test: '
+      "every test above pumps at flutter_test's own default surface size "
+      '(much wider than a real phone), which is exactly why none of them '
+      'caught this: Fmt.fullDate/monthDayShort\'s already-abbreviated '
+      'output still overflowed to "…" on an actual ~360dp-wide device in '
+      '*every* locale checked here, not just the specific en/ja cases '
+      'those abbreviations were originally tuned for. Fixed by wrapping '
+      "the title/subtitle in FittedBox(fit: scaleDown) instead of relying "
+      'on ever-shorter formats staying ahead of every device width.',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 780) * 3.0;
+        tester.view.devicePixelRatio = 3.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        for (final locale in [const Locale('ko'), const Locale('en')]) {
+          for (final view in [
+            ScheduleView.day,
+            ScheduleView.week,
+            ScheduleView.month,
+          ]) {
+            await pumpSchedule(
+              tester,
+              view: view,
+              selected: DateTime(2026, 9, 5),
+              locale: locale,
+            );
+
+            final titleTexts = find.descendant(
+              of: find.byKey(const Key('scheduleTitleSwipe')),
+              matching: find.byType(Text),
+            );
+            expect(
+              titleTexts,
+              findsWidgets,
+              reason: '$view/$locale should render at least a title',
+            );
+            for (final element in titleTexts.evaluate()) {
+              final renderParagraph =
+                  element.renderObject! as RenderParagraph;
+              expect(
+                renderParagraph.didExceedMaxLines,
+                isFalse,
+                reason:
+                    '$view/$locale: '
+                    '"${(element.widget as Text).data}" truncated',
+              );
+            }
+          }
         }
       },
     );
