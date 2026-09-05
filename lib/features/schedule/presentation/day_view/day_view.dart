@@ -1059,6 +1059,19 @@ class _EventCard extends ConsumerWidget {
                 horizontal: AppSpacing.sm,
                 vertical: AppSpacing.xs,
               ),
+              // .max when height != null (a real timed event, not the
+              // all-day chip): the Stack this card sits in only gives its
+              // non-Positioned children a *loose* height constraint (up
+              // to the Positioned ancestor's own exact height, but no
+              // minimum), so — with no Spacer/Expanded left in this
+              // Column to force it wide since the resize grip that used
+              // to be here was removed — .min would let a multi-hour
+              // card's own visible box shrink-wrap down to just its
+              // header row's height, regardless of its real duration,
+              // rather than filling the full height the timeline already
+              // computed for it. Confirmed by trying to simplify this to
+              // a bare .min once already removed: a 2-hour event's own
+              // rendered height dropped to ~57px instead of 128.
               child: Column(
                 mainAxisSize: height == null
                     ? MainAxisSize.min
