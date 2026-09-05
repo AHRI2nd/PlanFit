@@ -595,13 +595,20 @@ void main() {
     );
 
     testWidgets(
-      'the view-switcher labels (일/주/월/년/목록) are never forced onto a '
-      'single line — regression test: they used to carry maxLines: 1 + '
-      'overflow: ellipsis + softWrap: false, which truncated en\'s '
-      '"Month"/"Agenda" (real words here, not single ko/ja characters) '
-      "to \"Mont…\"/\"Agend…\" in this 5-way pill's own tighter-than-"
-      "settings_screen.dart's-3-way-rows budget",
+      'the view-switcher labels (일/주/월/년/목록) neither truncate nor wrap '
+      'onto a second line, on a realistic narrow phone width — '
+      'regression test: an earlier fix let them wrap instead of '
+      'truncating (fixing "Month"/"Agenda" showing as "Mont…"/"Agend…"), '
+      'but on a real device width "Agenda" — the longest label, and the '
+      "only one of the 5 without a natural break point — wraps mid-word "
+      'to "Agend" over "a" on its own second line, an equally broken '
+      'look the other 4 (single-line) pills don\'t share',
       (tester) async {
+        tester.view.physicalSize = const Size(360, 780) * 3.0;
+        tester.view.devicePixelRatio = 3.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
         final selected = DateTime(2026, 3, 10);
         await pumpSchedule(
           tester,
@@ -610,13 +617,20 @@ void main() {
           locale: const Locale('en'),
         );
 
-        for (final label in ['Day', 'Week', 'Month', 'Year', 'Agenda']) {
-          final text = tester.widget<Text>(find.text(label));
-          expect(text.maxLines, isNull, reason: label);
+        // 'Day' is short enough to never wrap regardless — its own
+        // rendered height is this test's single-line yardstick. Can't
+        // use RenderParagraph.didExceedMaxLines here (unlike the
+        // header's own equivalent test above): the *old*, wrap-allowing
+        // pill code set no maxLines at all, so nothing could ever
+        // "exceed" it — wrapping to 2 lines and wrapping to 1 both
+        // report false. Comparing actual rendered heights instead
+        // catches wrapping directly, whichever way a label handles it.
+        final singleLineHeight = tester.getSize(find.text('Day')).height;
+        for (final label in ['Week', 'Month', 'Year', 'Agenda']) {
           expect(
-            text.overflow,
-            isNot(TextOverflow.ellipsis),
-            reason: label,
+            tester.getSize(find.text(label)).height,
+            moreOrLessEquals(singleLineHeight, epsilon: 1),
+            reason: '$label wrapped onto a second line',
           );
         }
       },

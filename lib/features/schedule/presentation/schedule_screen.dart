@@ -603,18 +603,29 @@ class _ViewSwitcher extends StatelessWidget {
                     borderRadius: AppRadius.allPill,
                   ),
                   alignment: Alignment.center,
-                  // No maxLines/overflow/softWrap:false — this 5-way pill
-                  // is a tighter budget than settings_screen.dart's own
-                  // 3-way rows (same anti-pattern found and fixed there:
+                  // FittedBox instead of letting a long label either
+                  // truncate or wrap: this 5-way pill is a tighter budget
+                  // than settings_screen.dart's own 3-way rows, and
                   // "Month"/"Agenda" are real English words here, not
-                  // single ko/ja characters, and did truncate to "Mont…" /
-                  // "Agend…"). Wrapping instead, like every other row this
-                  // pattern was fixed in, keeps it fully legible.
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: v == current ? Colors.white : palette.inkSoft,
+                  // single ko/ja characters. An earlier fix removed
+                  // maxLines/overflow/softWrap:false so labels would wrap
+                  // instead of truncating to "Mont…"/"Agend…" — but on a
+                  // real (narrower than flutter_test's own default)
+                  // screen width, "Agenda" wraps mid-word to "Agend"/"a"
+                  // on its own second line, an equally broken-looking
+                  // result the other 4 (single-line) pills don't share.
+                  // Scaling the whole label down to fit on one line reads
+                  // correctly regardless of word length or screen width,
+                  // same fix as the swipeable title's own header uses.
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: v == current ? Colors.white : palette.inkSoft,
+                      ),
                     ),
                   ),
                 ),
