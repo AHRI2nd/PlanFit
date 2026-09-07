@@ -9,6 +9,7 @@ import 'package:mockito/mockito.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:planfit/core/backup/backup_service.dart';
 import 'package:planfit/core/db/app_database.dart';
+import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/features/schedule/data/event_repository_impl.dart';
 import 'package:planfit/features/schedule/domain/event_input.dart';
 import 'package:planfit/features/schedule/domain/ports.dart';
@@ -290,6 +291,88 @@ void main() {
     await sourceDb.close();
     await destDb.close();
   });
+
+  test(
+    "restoring onto an existing to-do that's already linked to a "
+    'Reminders-sync entry resets that link instead of leaving it '
+    'pointing at stale content — regression test: unlike events (whose '
+    'restore always resets osCalendarId/osEventId/syncStatus), the to-do '
+    'restore path used to leave osReminderId/reminderSyncStatus '
+    'completely untouched on an existing row (TodoDao.upsert is '
+    'insertOnConflictUpdate, which leaves absent companion fields alone), '
+    'so restoring a to-do back to an older title left it still marked '
+    "synced under the old reminder id — RemindersReconciler's next run "
+    'would then see the still-live OS reminder disagree with the '
+    "just-restored row and pull the *stale* OS content back over it, "
+    'silently undoing the restore',
+    () async {
+      final sourceDb = newDb();
+      final notifications = MockNotificationPort();
+      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+      await sourceDb.todoDao.upsert(
+        TodoItemsCompanion.insert(
+          id: 'todo1',
+          title: const Value('Buy milk'),
+          slotStart: DateTime(2026, 3, 10, 9),
+        ),
+      );
+
+      final eventRepo = EventRepositoryImpl(
+        dao: sourceDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      final sourceBackup = BackupService(
+        eventRepository: eventRepo,
+        todoDao: sourceDb.todoDao,
+        notifications: notifications,
+      );
+      final file = await sourceBackup.exportToFile();
+
+      // Restore onto a database that already has the SAME to-do id,
+      // already synced to a (still-live, per this scenario) OS reminder —
+      // the in-place "restore from auto-backup" flow, not a fresh install.
+      final destDb = newDb();
+      await destDb.todoDao.upsert(
+        TodoItemsCompanion.insert(
+          id: 'todo1',
+          title: const Value('Buy milk and eggs'),
+          slotStart: DateTime(2026, 3, 10, 9),
+          osReminderId: const Value('os-reminder-1'),
+          osReminderListId: const Value('os-list-1'),
+          reminderSyncStatus: const Value(SyncStatus.synced),
+        ),
+      );
+      final destEventRepo = EventRepositoryImpl(
+        dao: destDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      );
+      final destBackup = BackupService(
+        eventRepository: destEventRepo,
+        todoDao: destDb.todoDao,
+        notifications: notifications,
+      );
+      await destBackup.importFromFile(file.path);
+
+      final restored = await destDb.todoDao.findById('todo1');
+      expect(restored!.title, 'Buy milk');
+      expect(
+        restored.reminderSyncStatus,
+        SyncStatus.pendingPush,
+        reason:
+            'must be re-pushed, not left "synced" against a reminder that '
+            'still holds the pre-restore title',
+      );
+      expect(restored.osReminderId, isNull);
+      expect(restored.osReminderListId, isNull);
+
+      await sourceDb.close();
+      await destDb.close();
+    },
+  );
 
   test(
     'a restore still succeeds even when scheduling a restored to-do\'s '

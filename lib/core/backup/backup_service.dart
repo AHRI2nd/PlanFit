@@ -297,6 +297,26 @@ class BackupService {
       createdAt: Value(
         DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
       ),
+      // Not carried over — same reasoning as _eventFromJson's own
+      // osCalendarId/osEventId/osLastKnownModified reset. Restoring onto an
+      // *existing* to-do (the normal in-place "restore from auto-backup"
+      // flow, not a fresh install) goes through TodoDao.upsert
+      // (insertOnConflictUpdate), which leaves any column absent from this
+      // companion untouched on the old row — so without this, a to-do
+      // already linked to a reminder kept reminderSyncStatus == synced and
+      // its old osReminderId after being restored to different content.
+      // needingReminderPush() only ever looks at pendingPush rows, so the
+      // restored value never got re-pushed; instead, the next reconcile saw
+      // the (correctly still-live) OS reminder disagree with the
+      // just-restored row and pulled the *stale* OS content back over it,
+      // silently undoing the restore. Resetting these forces a fresh push
+      // of the restored content next reconcile, same trade-off events
+      // already make (a restore can produce a duplicate OS reminder rather
+      // than risk relinking to one that no longer matches).
+      osReminderId: const Value(null),
+      osReminderListId: const Value(null),
+      osReminderLastKnownModified: const Value(null),
+      reminderSyncStatus: const Value(SyncStatus.pendingPush),
     );
   }
 }
