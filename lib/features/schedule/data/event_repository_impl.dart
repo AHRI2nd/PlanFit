@@ -56,15 +56,36 @@ class EventRepositoryImpl implements EventRepository {
       // A brand-new one-off event, or an edit of an existing occurrence —
       // preserve whatever series membership/RRULE that occurrence already
       // had rather than letting an edit (which never carries recurrence
-      // fields from the UI) wipe it.
+      // fields from the UI) wipe it. EXCEPT when the edit moves the
+      // occurrence to a different calendar day: `saveSeriesFrom`/
+      // `deleteSeriesFrom` select "this and every future occurrence" with a
+      // plain `recurrenceGroupId == groupId && startAt >= from` query (see
+      // `EventDao.seriesFrom`), which has no notion of where in the
+      // original cadence a row actually falls — so a "this only" edit that
+      // rescheduled this one occurrence to, say, 5 months out would still
+      // keep matching that filter, and a later "this and future"
+      // delete/edit starting from an *earlier* occurrence would silently
+      // sweep up (delete, or overwrite with shifted values) the exact row
+      // the user had specifically pulled out of the series' normal
+      // schedule. Detaching it here — same as every mainstream calendar
+      // app's "move this occurrence" behavior — makes it a fully
+      // standalone event instead, immune to any future series-wide
+      // operation. A same-day edit (time-of-day, title, ...) still keeps
+      // its group membership, since it stays correctly matched by any
+      // "from this day forward" op that should still include it.
+      final movedToADifferentDay =
+          existing?.recurrenceGroupId != null &&
+          !_isSameCalendarDay(input.startAt, existing!.startAt);
       return _saveSingle(
         id: input.id,
         input: input,
         startAt: input.startAt,
         endAt: input.endAt,
         existing: existing,
-        recurrenceGroupId: existing?.recurrenceGroupId,
-        recurrenceRule: existing?.recurrenceRule,
+        recurrenceGroupId: movedToADifferentDay
+            ? null
+            : existing?.recurrenceGroupId,
+        recurrenceRule: movedToADifferentDay ? null : existing?.recurrenceRule,
       );
     }
 
@@ -389,6 +410,9 @@ class EventRepositoryImpl implements EventRepository {
       await _applySideEffects(row, notify: row.notify);
     }
   }
+
+  bool _isSameCalendarDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   EventsCompanion _restoreCompanion(EventRow row) {
     return EventsCompanion(

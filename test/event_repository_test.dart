@@ -225,6 +225,77 @@ void main() {
         );
       },
     );
+
+    test(
+      'detaches the occurrence from its series when the edit moves it to a '
+      'different calendar day — regression test: EventDao.seriesFrom '
+      'matches purely on recurrenceGroupId + startAt >= from, with no '
+      'notion of the series\' actual cadence, so a "this only" edit that '
+      "reschedules one occurrence far out used to stay in the group and "
+      'get silently swept up by a later "this and future" '
+      'delete/save on an earlier occurrence',
+      () async {
+        final originalStart = DateTime(2026, 1, 12, 9);
+        final existing = row(
+          id: 'e4',
+          title: 'Standup',
+          startAt: originalStart,
+          endAt: originalStart.add(const Duration(minutes: 30)),
+          recurrenceGroupId: 'group-1',
+          recurrenceRule: 'FREQ=WEEKLY;UNTIL=20261231T000000Z',
+        );
+        when(dao.findById('e4')).thenAnswer((_) async => existing);
+
+        final newStart = DateTime(2026, 8, 20, 9);
+        await repo.save(
+          EventInput(
+            id: 'e4',
+            title: 'Standup',
+            startAt: newStart,
+            endAt: newStart.add(const Duration(minutes: 30)),
+          ),
+        );
+
+        final companion =
+            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+        expect(companion.recurrenceGroupId.value, isNull);
+        expect(companion.recurrenceRule.value, isNull);
+      },
+    );
+
+    test(
+      'keeps recurrenceGroupId/recurrenceRule when the edit only changes '
+      'the time of day, not the calendar day — same-day edits stay '
+      'correctly matched by a future "from this day forward" op',
+      () async {
+        final existing = row(
+          id: 'e4',
+          title: 'Standup',
+          startAt: DateTime(2026, 1, 12, 9),
+          endAt: DateTime(2026, 1, 12, 9, 30),
+          recurrenceGroupId: 'group-1',
+          recurrenceRule: 'FREQ=WEEKLY;UNTIL=20261231T000000Z',
+        );
+        when(dao.findById('e4')).thenAnswer((_) async => existing);
+
+        await repo.save(
+          EventInput(
+            id: 'e4',
+            title: 'Standup',
+            startAt: DateTime(2026, 1, 12, 14),
+            endAt: DateTime(2026, 1, 12, 14, 30),
+          ),
+        );
+
+        final companion =
+            verify(dao.upsert(captureAny)).captured.single as EventsCompanion;
+        expect(companion.recurrenceGroupId.value, 'group-1');
+        expect(
+          companion.recurrenceRule.value,
+          'FREQ=WEEKLY;UNTIL=20261231T000000Z',
+        );
+      },
+    );
   });
 
   group('save — new recurring event', () {
