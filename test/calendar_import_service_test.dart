@@ -218,6 +218,17 @@ void main() {
 
     test('removes a previously-mirrored row once it disappears from the '
         'source', () async {
+      // The calendar itself must still resolve on the device for a missing
+      // occurrence to be trusted as an actual deletion (see the "keeps
+      // existing mirrored rows" test below) -- unlike most tests in this
+      // file, this one exercises that deletion path, so it needs the
+      // calendar to be a known one rather than relying on setUp's default
+      // empty allCalendars() stub.
+      when(service.allCalendars()).thenAnswer(
+        (_) async => [
+          const dc.Calendar(id: 'work-cal', name: 'Work', readOnly: true),
+        ],
+      );
       when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
         (_) async => [
           osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
@@ -246,6 +257,63 @@ void main() {
       final rows = await db.eventDao.all();
       expect(rows.map((r) => r.importSourceEventId), ['occ-1']);
     });
+
+    test(
+      'keeps existing mirrored rows when the calendar itself no longer '
+      'resolves on the device, instead of deleting them as "gone"',
+      () async {
+        // The calendar is visible and has events: a normal sync seeds two
+        // mirrored rows.
+        when(service.allCalendars()).thenAnswer(
+          (_) async => [
+            const dc.Calendar(
+              id: 'work-cal',
+              name: 'Work',
+              colorHex: '#00A876',
+              readOnly: true,
+            ),
+          ],
+        );
+        when(service.listEvents('work-cal', from: from, to: to)).thenAnswer(
+          (_) async => [
+            osEvent(instanceId: 'occ-1', start: DateTime(2026, 5, 1, 9)),
+            osEvent(instanceId: 'occ-2', start: DateTime(2026, 5, 2, 9)),
+          ],
+        );
+        await importService.syncMirroredCalendars(
+          {'work-cal'},
+          from: from,
+          to: to,
+        );
+        expect(await db.eventDao.all(), hasLength(2));
+
+        // The calendar is deleted/unsubscribed at the OS level: it no
+        // longer shows up in allCalendars(), and listEvents() for its id
+        // comes back as a *successful* empty list -- exactly what the real
+        // OS calendar API returns for an unknown calendar id, indistinguishable
+        // from "this calendar genuinely has zero events right now".
+        when(service.allCalendars()).thenAnswer((_) async => <dc.Calendar>[]);
+        when(
+          service.listEvents('work-cal', from: from, to: to),
+        ).thenAnswer((_) async => <dc.Event>[]);
+
+        await importService.syncMirroredCalendars(
+          {'work-cal'},
+          from: from,
+          to: to,
+        );
+
+        // The previously-mirrored rows must survive -- an unresolvable
+        // calendar id is not trustworthy evidence that its events were
+        // actually deleted.
+        final rows = await db.eventDao.all();
+        expect(rows, hasLength(2));
+        expect(rows.map((r) => r.importSourceEventId), [
+          'occ-1',
+          'occ-2',
+        ]);
+      },
+    );
 
     test(
       'tags mirrored rows with the source calendar\'s own OS color',

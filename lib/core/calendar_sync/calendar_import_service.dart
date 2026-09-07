@@ -88,6 +88,20 @@ class CalendarImportService {
     required DateTime to,
   }) async {
     final colorByCalendar = await _colorHexByCalendar(calendarIds);
+    // A calendar id that no longer resolves on the device — deleted, or
+    // unsubscribed directly in the OS calendar app rather than through
+    // PlanFit's own "unsubscribe" flow (removeMirroredCalendar) — makes
+    // listEvents() below return a *successful* empty list: the OS
+    // calendar API raises no error for an unknown calendar id, which is
+    // indistinguishable from "this calendar genuinely has zero events in
+    // range right now" (the exact same problem RemindersReconciler's own
+    // fix addresses for the Reminders sync path — see its doc). Treating
+    // that as ground truth here used to delete every previously-mirrored
+    // event for the calendar the moment it disappeared at the OS level,
+    // even though nothing about the *events themselves* changed.
+    final availableIds = {
+      for (final c in await calendarService.allCalendars()) c.id,
+    };
     for (final calendarId in calendarIds) {
       final events = await calendarService.listEvents(
         calendarId,
@@ -97,6 +111,7 @@ class CalendarImportService {
       final currentSourceIds = events.map((e) => e.instanceId).toSet();
       final existingMirrors = await eventDao.mirroredFrom(calendarId, from, to);
       final existingBySourceId = _bySourceEventId(existingMirrors);
+      final calendarStillExists = availableIds.contains(calendarId);
 
       await eventDao.transaction(() async {
         for (final e in events) {
@@ -107,9 +122,16 @@ class CalendarImportService {
             existingBySourceId[e.instanceId],
           );
         }
-        for (final row in existingMirrors) {
-          if (!currentSourceIds.contains(row.importSourceEventId)) {
-            await eventDao.deleteById(row.id);
+        // Skipped entirely when the calendar itself can't be confirmed —
+        // an empty/reduced `events` result isn't trustworthy evidence of
+        // deletion in that case (see doc above). Existing mirrors are
+        // simply left as they were until the calendar either reappears
+        // or the user explicitly unsubscribes.
+        if (calendarStillExists) {
+          for (final row in existingMirrors) {
+            if (!currentSourceIds.contains(row.importSourceEventId)) {
+              await eventDao.deleteById(row.id);
+            }
           }
         }
       });
