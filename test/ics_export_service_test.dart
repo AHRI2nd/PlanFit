@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -229,6 +230,59 @@ void main() {
       for (final line in ics.split('\r\n')) {
         expect(line.length, lessThanOrEqualTo(75));
       }
+    },
+  );
+
+  test(
+    "folding never splits a UTF-16 surrogate pair (an emoji) across two "
+    'lines — regression test: cutting between a pair used to emit two '
+    '*unpaired* surrogates, which File.writeAsString\'s UTF-8 encoding '
+    'then independently replaces with U+FFFD (�) on each line — '
+    'permanently corrupting the character in the exported file itself, '
+    'not just on a later re-import. Positioned so the emoji\'s high '
+    'surrogate lands exactly on the 75th character of the SUMMARY line '
+    '(the fold boundary) — the specific position that used to trigger it',
+    () async {
+      final start = DateTime.utc(2026, 6, 1, 9);
+      // 'SUMMARY:' is 8 chars; 66 'A's brings the line to 74 chars, so
+      // the emoji's high surrogate (a 2-code-unit character) falls right
+      // at index 74 — the last character `_fold`'s first 75-char cut
+      // includes, splitting the pair.
+      final title = '${'A' * 66}😀${'B' * 40}';
+      when(repo.allEvents()).thenAnswer(
+        (_) async => [
+          row(
+            id: 'e-emoji',
+            title: title,
+            startAt: start,
+            endAt: start.add(const Duration(hours: 1)),
+          ),
+        ],
+      );
+
+      final file = await service.exportToFile();
+      // Read as raw bytes and decode as UTF-8 ourselves (allowMalformed)
+      // rather than via File.readAsString — this mirrors exactly what
+      // happened when the file was *written* (String.writeAsString also
+      // encodes to UTF-8), so a corrupted surrogate pair shows up as the
+      // replacement character here the same way it would for any real
+      // reader opening this exact file.
+      final bytes = await file.readAsBytes();
+      final ics = const Utf8Decoder(allowMalformed: true).convert(bytes);
+
+      expect(
+        ics,
+        isNot(contains('\u{FFFD}')),
+        reason:
+            'a replacement character here means a surrogate half was '
+            'emitted unpaired on one side of the fold and mangled by the '
+            "UTF-8 encoder — the corruption this fix prevents",
+      );
+      // RFC 5545 unfolding: a CRLF immediately followed by a space is
+      // just a fold seam, not real content — removing it should
+      // reconstruct the exact original title, emoji included.
+      final unfolded = ics.replaceAll('\r\n ', '');
+      expect(unfolded, contains(title));
     },
   );
 

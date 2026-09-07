@@ -168,6 +168,15 @@ class IcsExportService {
   /// with a leading space. A simplified char-based fold (rather than exact
   /// UTF-8 octet counting) — plenty for personal event titles/memos, and
   /// every mainstream calendar app tolerates it.
+  ///
+  /// Never cuts between a UTF-16 surrogate pair — most emoji and other
+  /// astral characters are two UTF-16 code units, and `String.length`/
+  /// `substring` both count/slice by code unit, not by character. Cutting
+  /// between the two used to split a single character into two *unpaired*
+  /// surrogates on either side of the fold; `File.writeAsString`'s UTF-8
+  /// encoding then replaces each unpaired surrogate with U+FFFD (�)
+  /// independently — permanently corrupting that character in the exported
+  /// file itself, not just on a later re-import.
   String _fold(String line) {
     const maxLen = 75;
     if (line.length <= maxLen) return line;
@@ -176,7 +185,14 @@ class IcsExportService {
     var first = true;
     while (start < line.length) {
       final take = first ? maxLen : maxLen - 1;
-      final end = (start + take).clamp(0, line.length);
+      var end = (start + take).clamp(0, line.length);
+      if (end > start + 1 &&
+          end < line.length &&
+          _isHighSurrogate(line.codeUnitAt(end - 1))) {
+        // The pair's low surrogate is at `end` — move the whole pair to
+        // the next line instead of splitting it.
+        end -= 1;
+      }
       if (!first) buffer.write('\r\n ');
       buffer.write(line.substring(start, end));
       start = end;
@@ -184,4 +200,7 @@ class IcsExportService {
     }
     return buffer.toString();
   }
+
+  bool _isHighSurrogate(int codeUnit) =>
+      codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
 }
