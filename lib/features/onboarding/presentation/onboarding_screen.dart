@@ -49,6 +49,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!(prefs.getBool(OnboardingPrefs.notificationPrompted) ?? false)) {
       try {
         await ref.read(notificationServiceProvider).requestPermission();
+      } catch (_) {
+        // Best-effort, like every other platform-channel call in this app —
+        // a real failure mode (a PlatformException from the underlying
+        // flutter_local_notifications call) used to propagate straight out
+        // of _finish() with no catch here, skipping `context.go('/home')`
+        // below entirely. `completed` was already persisted by then, so the
+        // user was left stuck looking at onboarding for the rest of the
+        // session with no error shown and no way forward short of
+        // restarting the app (which sends them straight to /home on the
+        // next launch, since the redirect only checks `completed` —
+        // masking the bug rather than fixing the stuck screen itself).
       } finally {
         await prefs.setBool(OnboardingPrefs.notificationPrompted, true);
       }
