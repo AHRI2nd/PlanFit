@@ -5,10 +5,12 @@ A local-first personal calendar and to-do app for iOS and Android, built with Fl
 ## Features
 
 - Day/week/month/year/agenda views sharing one selected date, with drag-and-drop create/move/resize
-- Recurring events and to-dos (daily/weekly/monthly/yearly), color tags, templates, natural-language quick add
+- Recurring events and to-dos (daily/weekly/monthly/yearly, plus a lunar-calendar yearly recurrence), color tags, templates, natural-language quick add
+- Lunar (음력) date display across every view, with a dedicated lunar date picker for creating events
 - Time-slotted to-dos with priority, tags, subtasks, smart lists (Today/Overdue/High priority/Pinned/by-tag)
 - Local notifications with multiple reminder offsets and snooze
 - Two-way sync with the device calendar, calendar subscriptions, JSON backup, ICS import/export
+- Two-way sync with Apple Reminders (iOS only)
 - Home screen widget (Android) with checkable to-dos
 - Light/dark themes, iOS liquid-glass surfaces, Material 3 Expressive on Android
 
@@ -22,7 +24,7 @@ Flutter/Dart · Riverpod 3 · drift (SQLite) · go_router · device_calendar_plu
 lib/
   core/            # DB, calendar sync, notifications, backup, quick-add parser
   design/          # Tokens, theme, shared widgets
-  features/        # schedule, todo, settings, home, shell, onboarding, social (placeholder)
+  features/        # schedule, todo, settings, home, shell, onboarding
   l10n/            # ko/en ARB source strings
 android/ ios/      # Native projects
 test/ integration_test/
@@ -34,7 +36,7 @@ test/ integration_test/
 
 ```bash
 flutter pub get
-flutter pub run build_runner build --delete-conflicting-outputs  # drift/Riverpod/Freezed codegen
+flutter pub run build_runner build  # drift/Riverpod/Freezed codegen
 flutter gen-l10n   # after any .arb edit
 flutter run
 ```
