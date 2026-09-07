@@ -180,13 +180,22 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
 
   // MARK: - Pull (fetch for the reconciler)
 
+  // `store.calendar(withIdentifier:)` returns nil both when the list was
+  // genuinely deleted from the Reminders app AND when Reminders access is no
+  // longer authorized (permission revoked) — EventKit raises no error for
+  // the latter, it just can't resolve anything. Returning `nil` (not an
+  // empty array) here lets the Dart side tell "couldn't confirm the list's
+  // real contents" apart from "confirmed empty" — RemindersReconciler
+  // used to treat an empty array as ground truth and delete every synced
+  // to-do it couldn't find in it, which fired on a bare permission
+  // revocation with none of the underlying reminders actually gone.
   private func fetchReminders(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
       let listId = args["listId"] as? String,
       let list = store.calendar(withIdentifier: listId)
     else {
-      result([])
+      result(nil)
       return
     }
     let predicate = store.predicateForReminders(in: [list])

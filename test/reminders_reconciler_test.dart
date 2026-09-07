@@ -300,5 +300,34 @@ void main() {
       expect(changes, 0);
       verifyNever(dao.deleteById(any));
     });
+
+    test(
+      "fetchReminders returning null (Reminders access revoked, or the "
+      'PlanFit list itself deleted from the Reminders app) never deletes '
+      'any synced to-do — regression test: fetchReminders used to return '
+      'a plain empty list for this exact case (EventKit raises no error '
+      'for either), indistinguishable from "the list is genuinely empty", '
+      'so every synced to-do got permanently deleted (and its notification '
+      'cancelled) the moment Reminders permission was revoked, with none '
+      'of the underlying reminders actually gone',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        final linked = row(
+          id: 't1',
+          slotStart: DateTime(2026, 1, 1),
+          osReminderId: 'os-1',
+          reminderSyncStatus: SyncStatus.synced,
+        );
+        when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
+        when(service.fetchReminders()).thenAnswer((_) async => null);
+
+        final changes = await reconciler.reconcile();
+
+        expect(changes, 0);
+        verifyNever(dao.deleteById(any));
+        verifyNever(notifications.cancelForTodo(any));
+        verifyNever(dao.patch(any, any));
+      },
+    );
   });
 }

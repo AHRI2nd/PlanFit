@@ -81,15 +81,24 @@ class RemindersService implements RemindersPort {
 
   /// Reads every reminder currently in PlanFit's list back — used by
   /// [RemindersReconciler] to detect edits/deletions made in the Reminders
-  /// app.
-  Future<List<OsReminder>> fetchReminders() async {
-    if (!_supported) return const [];
+  /// app. Returns `null` (distinct from an empty list) whenever the list's
+  /// real contents couldn't be confirmed — not supported on this platform,
+  /// the target list has never been resolved, or the native side couldn't
+  /// resolve the list by id (see `RemindersPlugin.swift`'s own doc on
+  /// `fetchReminders`: that covers both "list deleted" and "Reminders
+  /// access revoked", neither of which EventKit distinguishes with an
+  /// error). The reconciler must never treat a `null` here as "confirmed
+  /// empty" — doing so once caused it to delete every synced to-do the
+  /// moment Reminders permission was revoked, since none of them could be
+  /// found in what looked like a genuinely empty list.
+  Future<List<OsReminder>?> fetchReminders() async {
+    if (!_supported) return null;
     final listId = await resolveTargetListId();
-    if (listId == null) return const [];
+    if (listId == null) return null;
     final raw = await _channel.invokeMethod<List<Object?>>('fetchReminders', {
       'listId': listId,
     });
-    if (raw == null) return const [];
+    if (raw == null) return null;
     return raw.cast<Map<Object?, Object?>>().map(OsReminder._fromMap).toList();
   }
 }

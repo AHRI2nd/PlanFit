@@ -217,14 +217,12 @@ class MockRemindersService extends _i1.Mock implements _i8.RemindersService {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<List<_i8.OsReminder>> fetchReminders() =>
+  _i6.Future<List<_i8.OsReminder>?> fetchReminders() =>
       (super.noSuchMethod(
             Invocation.method(#fetchReminders, []),
-            returnValue: _i6.Future<List<_i8.OsReminder>>.value(
-              <_i8.OsReminder>[],
-            ),
+            returnValue: _i6.Future<List<_i8.OsReminder>?>.value(),
           )
-          as _i6.Future<List<_i8.OsReminder>>);
+          as _i6.Future<List<_i8.OsReminder>?>);
 }
 
 /// A class which mocks [TodoDao].

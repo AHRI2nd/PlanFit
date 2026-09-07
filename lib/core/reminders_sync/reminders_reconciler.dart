@@ -28,6 +28,12 @@ import 'reminders_service.dart';
 /// It also (re)pushes anything still [SyncStatus.pendingPush] (e.g.
 /// created/edited while sync was off).
 ///
+/// The pull/delete step only ever runs against a *confirmed* read of the
+/// Reminders list — [RemindersService.fetchReminders] returning `null`
+/// (Reminders access revoked, or the list itself deleted) skips it entirely
+/// rather than treating an unconfirmed result as "the list is genuinely
+/// empty, delete everything that isn't in it".
+///
 /// Every branch is idempotent, so running it repeatedly is safe.
 class RemindersReconciler {
   RemindersReconciler({
@@ -80,7 +86,20 @@ class RemindersReconciler {
     }
 
     // 2) Pull edits/deletes made in the Reminders app for to-dos we own.
+    //
+    // `null` (as opposed to an empty list) means the list's real contents
+    // couldn't be confirmed — Reminders access revoked, or the list itself
+    // deleted from the Reminders app (see fetchReminders' own doc; EventKit
+    // doesn't distinguish the two). Skipping this whole step in that case is
+    // deliberate: treating an *unconfirmed* empty result as ground truth
+    // used to delete every synced to-do the moment permission was revoked,
+    // even though none of the underlying reminders had actually gone
+    // anywhere. Nothing here is lost by skipping — a genuine deletion made
+    // in the Reminders app while access is (or later becomes) unavailable
+    // simply gets picked up on the next reconcile that can actually see the
+    // list again.
     final remoteReminders = await _service.fetchReminders();
+    if (remoteReminders == null) return changes;
     final remoteById = {for (final r in remoteReminders) r.osReminderId: r};
 
     for (final row in await _todoDao.linkedToReminders()) {
