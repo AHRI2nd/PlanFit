@@ -322,6 +322,71 @@ void main() {
       final byId = {for (final r in requeried) r.id: r};
       expect(byId[b.id]?.sortOrder, lessThan(byId[a.id]!.sortOrder));
     });
+
+    test(
+      'two reorders driven from the same pre-drag snapshot never leave two '
+      'items sharing a sortOrder — regression test: onReorderItem is a '
+      'bare, non-awaited callback, so a second drag firing before the '
+      "first's writes land (and the widget rebuilds with fresh data) "
+      'calls reorder() with the same stale list both times; the old '
+      "implementation only wrote an item's sortOrder when it differed "
+      "from that (possibly stale) snapshot's own value, which could skip "
+      "a write and leave an earlier call's leftover value in place — "
+      'producing a genuine duplicate even with the two calls fully '
+      'sequential (not interleaved)',
+      () async {
+        final slot = DateTime.now().add(const Duration(hours: 2));
+        await controller().add(title: 'A', slotStart: slot, hasTime: false);
+        await controller().add(title: 'B', slotStart: slot, hasTime: false);
+        await controller().add(title: 'C', slotStart: slot, hasTime: false);
+        final rows = await db.todoDao.all();
+        final a = rows.firstWhere((r) => r.title == 'A'); // sortOrder 0
+        final b = rows.firstWhere((r) => r.title == 'B'); // sortOrder 1
+        final c = rows.firstWhere((r) => r.title == 'C'); // sortOrder 2
+        final staleSnapshot = [a, b, c];
+
+        // Both calls see the identical pre-drag snapshot — exactly what
+        // happens when a second drag starts before the first's rebuild.
+        await controller().reorder(staleSnapshot, 1, 2);
+        await controller().reorder(staleSnapshot, 0, 1);
+
+        final finalRows = await db.todoDao.all();
+        final sortOrders = finalRows.map((r) => r.sortOrder).toList();
+        expect(
+          sortOrders.toSet(),
+          hasLength(sortOrders.length),
+          reason:
+              'two to-dos ended up sharing the same sortOrder: '
+              '${finalRows.map((r) => (r.title, r.sortOrder))}',
+        );
+      },
+    );
+
+    test(
+      'two overlapping (unawaited) reorder calls are serialized, never '
+      "interleaving each other's writes",
+      () async {
+        final slot = DateTime.now().add(const Duration(hours: 2));
+        await controller().add(title: 'A', slotStart: slot, hasTime: false);
+        await controller().add(title: 'B', slotStart: slot, hasTime: false);
+        await controller().add(title: 'C', slotStart: slot, hasTime: false);
+        final rows = await db.todoDao.all();
+        final a = rows.firstWhere((r) => r.title == 'A');
+        final b = rows.firstWhere((r) => r.title == 'B');
+        final c = rows.firstWhere((r) => r.title == 'C');
+        final snapshot = [a, b, c];
+
+        // Fire both without awaiting between them — mirrors
+        // ReorderableListView.onReorderItem's own fire-and-forget shape.
+        final first = controller().reorder(snapshot, 1, 2);
+        final second = controller().reorder(snapshot, 0, 1);
+        await Future.wait([first, second]);
+
+        final finalRows = await db.todoDao.all();
+        final sortOrders = finalRows.map((r) => r.sortOrder).toList();
+        expect(sortOrders.toSet(), hasLength(sortOrders.length));
+      },
+    );
   });
 
   group('pruneCompleted', () {

@@ -7,6 +7,7 @@ import '../../../core/db/app_database.dart';
 import '../../../core/db/sync_status.dart';
 import '../../../core/di.dart';
 import '../../../core/notifications/notification_window.dart';
+import '../../../core/serial_queue.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/domain/recurrence.dart';
 import '../domain/todo_notification_sync.dart';
@@ -125,6 +126,10 @@ class TodoController {
   final Ref _ref;
 
   static const _uuid = Uuid();
+
+  /// Serializes [reorder] calls — see that method's own doc for why a bare
+  /// fire-and-forget `onReorderItem` callback needs this.
+  final _reorderQueue = SerialQueue();
 
   /// Adds a to-do. When [frequency] isn't `none`, materializes one row per
   /// occurrence (capped at [RecurrenceExpansion.maxOccurrences]) sharing a
@@ -250,11 +255,36 @@ class TodoController {
 
   /// Persists a manual drag reorder within [current] (the exact list the UI
   /// was showing, in its pre-drag order) by rewriting [TodoItems.sortOrder]
-  /// for every item whose position actually changed. [oldIndex]/[newIndex]
-  /// are `ReorderableListView.onReorderItem`'s callback values — unlike the
+  /// for every item to its new index. [oldIndex]/[newIndex] are
+  /// `ReorderableListView.onReorderItem`'s callback values — unlike the
   /// older, now-deprecated `onReorder`, [newIndex] there is already the
   /// target index in the post-removal list, so a plain removeAt+insert is
   /// all that's needed.
+  ///
+  /// `onReorderItem`'s own signature is a bare, non-awaited
+  /// `void Function(int, int)`, so nothing stops the UI from firing a
+  /// second drag before this call's writes (several sequential `await`s)
+  /// finish and the widget rebuilds with fresh data — each call's own
+  /// [current] can be a snapshot from *before* an in-flight call's writes
+  /// land. Two fixes work together to keep that race from corrupting
+  /// [TodoItems.sortOrder]:
+  ///
+  /// 1. [_reorderQueue] serializes the write loops themselves, so two
+  ///    overlapping calls' `setSortOrder` writes can never interleave
+  ///    step-by-step — whichever call's loop starts second only starts once
+  ///    the first's has *fully* finished, not concurrently with it.
+  /// 2. Every item's `sortOrder` is written unconditionally, not only the
+  ///    ones that differ from [TodoRow.sortOrder] in the (possibly stale)
+  ///    [current] snapshot. Skipping "unchanged" items used to let an
+  ///    already-stale call leave the *previous* call's leftover value in
+  ///    place for an item its own comparison mistakenly thought needed no
+  ///    write — even fully serialized, that stale skip alone was enough to
+  ///    reproduce a genuine duplicate `sortOrder` between two items
+  ///    (confirmed via a targeted test constructing exactly that
+  ///    before/after pair). Writing every position every time means
+  ///    whichever call runs last always leaves the full list in one
+  ///    complete, internally consistent 0..n-1 assignment — never a mix of
+  ///    two different calls' partial views.
   ///
   /// Deliberately scoped to a single [hasTime] bucket by the caller (see
   /// [HourlyTodoList]'s "no time" section): [TodoDao.watchBetween] sorts
@@ -265,18 +295,16 @@ class TodoController {
     List<TodoRow> current,
     int oldIndex,
     int newIndex,
-  ) async {
+  ) => _reorderQueue.run(() async {
     final items = List<TodoRow>.from(current);
     final moved = items.removeAt(oldIndex);
     items.insert(newIndex, moved);
 
     final dao = _ref.read(todoDaoProvider);
     for (var i = 0; i < items.length; i++) {
-      if (items[i].sortOrder != i) {
-        await dao.setSortOrder(items[i].id, i);
-      }
+      await dao.setSortOrder(items[i].id, i);
     }
-  }
+  });
 
   Future<void> setPinned(String id, bool pinned) =>
       _ref.read(todoDaoProvider).setPinned(id, pinned);
