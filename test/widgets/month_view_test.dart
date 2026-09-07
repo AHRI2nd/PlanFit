@@ -531,4 +531,53 @@ void main() {
       },
     );
   });
+
+  group('monthEventRowHeight/monthEventListCapacity text-scale awareness', () {
+    test(
+      'monthEventRowHeight scales with the given textScaler instead of '
+      "always measuring at the default (unscaled) size — regression "
+      'test: this used to construct its TextPainter with no textScaler '
+      "at all, so it always measured at 1.0x regardless of the app's "
+      'own accessibility text-scale clamp (app.dart allows up to 1.3x); '
+      'the row budget this feeds monthEventListCapacity then came out '
+      'too generous once the real (larger) text rendered',
+      () {
+        final unscaled = monthEventRowHeight();
+        final scaled = monthEventRowHeight(
+          textScaler: const TextScaler.linear(1.3),
+        );
+        expect(scaled, greaterThan(unscaled));
+        expect(scaled, closeTo(unscaled * 1.3, 1.0));
+      },
+    );
+
+    test(
+      'monthEventListCapacity reports fewer rows fitting at a larger '
+      'text scale for the same cell height — same regression, the '
+      'capacity-math side',
+      () {
+        // A row height tall enough for several rows at the default scale,
+        // but not so tall either scale hits monthEventListCapacity's own
+        // hard cap of 5 (which would mask the difference this checks for).
+        const rowHeight = 80.0;
+        const columnWidth = 60.0;
+        final unscaled = monthEventListCapacity(
+          rowHeight: rowHeight,
+          columnWidth: columnWidth,
+        );
+        final scaled = monthEventListCapacity(
+          rowHeight: rowHeight,
+          columnWidth: columnWidth,
+          textScaler: const TextScaler.linear(1.3),
+        );
+        expect(
+          scaled,
+          lessThan(unscaled),
+          reason:
+              'each row needs more vertical room at 1.3x scale, so fewer '
+              'of them should fit in the same rowHeight',
+        );
+      },
+    );
+  });
 }

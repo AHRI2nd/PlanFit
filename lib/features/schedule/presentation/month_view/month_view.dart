@@ -84,10 +84,19 @@ const _monthEventRowTextStyle = TextStyle(fontSize: 9, height: 1.1);
 /// undercounted how many events a tall row could actually show before
 /// falling back to a "+N" count. Measuring the real height instead keeps
 /// the capacity math and the rows it counts honest with each other.
-double monthEventRowHeight() {
+/// [textScaler] must match whatever ambient text scale the actual rows
+/// being budgeted for will render at (`MediaQuery.textScalerOf(context)`,
+/// normally) — this used to always measure at the default (unscaled) size
+/// regardless of the app's own accessibility text-scale clamp (app.dart
+/// allows up to 1.3x app-wide), so at a larger system text size the row
+/// budget this feeds [monthEventListCapacity] came out too generous: more
+/// rows got counted as "fitting" than the cell's real height could
+/// actually hold once the real (larger) text rendered.
+double monthEventRowHeight({TextScaler textScaler = TextScaler.noScaling}) {
   final painter = TextPainter(
     text: const TextSpan(text: 'Ag', style: _monthEventRowTextStyle),
     textDirection: TextDirection.ltr,
+    textScaler: textScaler,
   )..layout();
   return painter.height;
 }
@@ -176,12 +185,13 @@ double monthMarkerTop({required double columnWidth}) {
 int monthEventListCapacity({
   required double rowHeight,
   required double columnWidth,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   final available =
       rowHeight -
       monthMarkerTop(columnWidth: columnWidth) -
       _monthMarkerBottomPad;
-  final rowHeightNeeded = monthEventRowHeight();
+  final rowHeightNeeded = monthEventRowHeight(textScaler: textScaler);
   final raw = (available / rowHeightNeeded).floor();
   if (raw < 2) return 0;
   return raw.clamp(0, 5);
@@ -268,14 +278,12 @@ class MonthView extends ConsumerWidget {
         // day-number circle (see monthDayNumberDiameter's doc for why it's
         // a fixed size, not derived from rowHeight) and the expanded event
         // list.
-        final columnWidth =
-            (constraints.maxWidth - AppSpacing.gutter * 2) / 7;
-        final numberDiameter = monthDayNumberDiameter(
-          columnWidth: columnWidth,
-        );
+        final columnWidth = (constraints.maxWidth - AppSpacing.gutter * 2) / 7;
+        final numberDiameter = monthDayNumberDiameter(columnWidth: columnWidth);
         final listCapacity = monthEventListCapacity(
           rowHeight: effectiveRowHeight,
           columnWidth: columnWidth,
+          textScaler: MediaQuery.textScalerOf(context),
         );
 
         return Column(
@@ -390,7 +398,9 @@ class MonthView extends ConsumerWidget {
                       // gets the same fixed height so the list's own
                       // capacity math (monthEventListCapacity) stays exact.
                       return SizedBox(
-                        height: monthEventRowHeight(),
+                        height: monthEventRowHeight(
+                          textScaler: MediaQuery.textScalerOf(context),
+                        ),
                         child: Align(
                           alignment: Alignment.topCenter,
                           child: Padding(
@@ -412,7 +422,11 @@ class MonthView extends ConsumerWidget {
                     final markerTop = monthMarkerTop(columnWidth: columnWidth);
                     final availableForMarker =
                         effectiveRowHeight - markerTop - _monthMarkerBottomPad;
-                    final lunarRowHeight = monthEventRowHeight() + 1;
+                    final lunarRowHeight =
+                        monthEventRowHeight(
+                          textScaler: MediaQuery.textScalerOf(context),
+                        ) +
+                        1;
 
                     // A per-day, content-aware decision (not a flat setting
                     // toggle alone) — a busy day's dots/list already fill
@@ -499,8 +513,7 @@ class MonthView extends ConsumerWidget {
                             if (showLunarHere) lunarLabel(),
                             if (spanning.isNotEmpty) spanBar(asListRow: false),
                             if (entryColors.isNotEmpty)
-                              if (entryColors.length <=
-                                  _monthCollapsedMaxDots)
+                              if (entryColors.length <= _monthCollapsedMaxDots)
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -636,7 +649,12 @@ class MonthView extends ConsumerWidget {
                     final showLunarHere =
                         lunar != null &&
                         availableForMarker -
-                                visible.length * monthEventRowHeight() >=
+                                visible.length *
+                                    monthEventRowHeight(
+                                      textScaler: MediaQuery.textScalerOf(
+                                        context,
+                                      ),
+                                    ) >=
                             lunarRowHeight;
 
                     return Positioned(
@@ -646,10 +664,7 @@ class MonthView extends ConsumerWidget {
                       bottom: _monthMarkerBottomPad,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (showLunarHere) lunarLabel(),
-                          ...visible,
-                        ],
+                        children: [if (showLunarHere) lunarLabel(), ...visible],
                       ),
                     );
                   },
@@ -742,7 +757,7 @@ class _MonthEventListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return SizedBox(
-      height: monthEventRowHeight(),
+      height: monthEventRowHeight(textScaler: MediaQuery.textScalerOf(context)),
       child: Row(
         children: [
           Container(
@@ -800,7 +815,7 @@ class _MonthMoreRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return SizedBox(
-      height: monthEventRowHeight(),
+      height: monthEventRowHeight(textScaler: MediaQuery.textScalerOf(context)),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
