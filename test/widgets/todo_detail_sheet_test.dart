@@ -152,6 +152,38 @@ void main() {
     },
   );
 
+  testWidgets(
+    'editing the title, letting it autosave, then reverting it back to the '
+    "original still saves the revert — regression test: _saveTitle's "
+    "no-op guard used to compare against widget.todo.title (the sheet's "
+    'fixed opening snapshot) instead of the last value actually saved, so '
+    'typing past a save and back down to the original title matched that '
+    'stale snapshot and silently skipped saving the reverted title',
+    (tester) async {
+      final t = todo(); // title: 'Buy milk'
+      await pumpSheetHost(tester, t);
+
+      await tester.enterText(find.byType(TextField).first, 'Buy milk and eggs');
+      // Let the 400ms debounce fire the first autosave.
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await tester.enterText(find.byType(TextField).first, 'Buy milk');
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final captured = verify(
+        todos.patch(t.id, captureAny),
+      ).captured.cast<TodoItemsCompanion>();
+      expect(
+        captured,
+        hasLength(2),
+        reason:
+            'the revert-back-to-original edit never reached patch() at all',
+      );
+      expect(captured[0].title.value, 'Buy milk and eggs');
+      expect(captured[1].title.value, 'Buy milk');
+    },
+  );
+
   group('pin toggle', () {
     testWidgets('persists the flip when the save succeeds', (tester) async {
       final t = todo();

@@ -40,6 +40,17 @@ class _TodoDetailSheet extends ConsumerStatefulWidget {
 
 class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   late final TextEditingController _title;
+  // Last value of `_title` actually confirmed persisted — see
+  // `_lastSavedTags`'s own doc for why this can't just be
+  // `widget.todo.title` (that field is a fixed snapshot from when the sheet
+  // opened, never refreshed as saves land): without tracking this
+  // separately, `_saveTitle`'s no-op guard compared every debounce firing
+  // against that same stale snapshot, so typing past a save and then back
+  // down to the *original* title (e.g. "Buy milk" -> "Buy milk and eggs"
+  // -> "Buy milk" again, all in one sheet session) matched the snapshot and
+  // silently skipped saving the reverted title, leaving the DB stuck on the
+  // intermediate value.
+  late String _lastSavedTitle;
   late final TextEditingController _tags;
   final _subtaskController = TextEditingController();
   late TodoPriority _priority;
@@ -67,6 +78,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   void initState() {
     super.initState();
     _title = TextEditingController(text: widget.todo.title);
+    _lastSavedTitle = _title.text;
     _tags = TextEditingController(text: widget.todo.tags ?? '');
     _lastSavedTags = _tags.text;
     _priority = TodoPriority.fromValue(widget.todo.priority);
@@ -98,8 +110,9 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
 
   void _saveTitle() {
     final text = _title.text.trim();
-    if (text.isEmpty || text == widget.todo.title) return;
+    if (text.isEmpty || text == _lastSavedTitle) return;
     ref.read(todoControllerProvider).updateTitle(widget.todo.id, text);
+    _lastSavedTitle = text;
   }
 
   /// Cancels any pending debounce and saves the title immediately — used
