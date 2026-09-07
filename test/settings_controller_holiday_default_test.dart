@@ -49,4 +49,77 @@ void main() {
       );
     },
   );
+
+  test(
+    "switching the in-app language, as the user's very first settings "
+    "change, still updates the still-unconfirmed holiday-country seed to "
+    'match — regression test: build() seeds holidayCountryCodes once from '
+    "whichever language was active *then*, but _persistNow writes the "
+    'full state on every change, so the very first settings write of any '
+    'kind (here: the language switch itself) used to permanently lock in '
+    "the seed computed from the *old* language before this change ever "
+    'took effect',
+    () async {
+      // Fresh install, no languageOverride yet — build() seeds 'US' from
+      // the test environment's own default locale.
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+      expect(
+        container.read(settingsControllerProvider).holidayCountryCodes,
+        {'US'},
+      );
+
+      await container
+          .read(settingsControllerProvider.notifier)
+          .setLanguageOverride('ko');
+
+      expect(
+        container.read(settingsControllerProvider).holidayCountryCodes,
+        {'KR'},
+        reason:
+            'the seed should follow the language the user just switched '
+            'to, not stay locked on the stale pre-switch default',
+      );
+      // And it's genuinely persisted, not just the in-memory state —
+      // a fresh controller reading the same prefs afterward should agree.
+      final reloaded = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(reloaded.dispose);
+      expect(
+        reloaded.read(settingsControllerProvider).holidayCountryCodes,
+        {'KR'},
+      );
+    },
+  );
+
+  test(
+    'an already-explicit holiday-country choice is never silently '
+    'overwritten by a later language change',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'settings.holidayCountryCodes': ['US'],
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(settingsControllerProvider.notifier)
+          .setLanguageOverride('ko');
+
+      expect(
+        container.read(settingsControllerProvider).holidayCountryCodes,
+        {'US'},
+        reason:
+            'an explicit prior choice must survive a later language change',
+      );
+    },
+  );
 }

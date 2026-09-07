@@ -314,9 +314,38 @@ class SettingsController extends Notifier<AppSettings> {
 
   /// `null` reverts to following the OS locale — see
   /// [AppSettings.languageOverride]'s own doc.
-  Future<void> setLanguageOverride(String? code) => _update(
-    state.copyWith(languageOverride: code, clearLanguageOverride: code == null),
-  );
+  Future<void> setLanguageOverride(String? code) async {
+    var next = state.copyWith(
+      languageOverride: code,
+      clearLanguageOverride: code == null,
+    );
+    // holidayCountryCodes' one-time seed (see its own doc) is computed in
+    // build() from whatever language happened to be active *then* — if the
+    // very first settings change the user ever makes is a language switch,
+    // before touching holiday settings at all, that seed still reflects the
+    // *old* language. _persistNow writes the full state on every change
+    // (including this one), so without this, the stale seed would get
+    // permanently locked in under _kHolidayCountries the moment this write
+    // lands — silently leaving e.g. a Korean-language switch with the
+    // holiday calendar still defaulted to the device's original locale.
+    // Recomputing it here, but only while it's genuinely still just the
+    // unconfirmed seed (never yet explicitly persisted), keeps it following
+    // the language right up to the point the user makes their own choice —
+    // after that, this check is false and an explicit choice is never
+    // silently overwritten by a later language change.
+    final prefs = ref.read(sharedPreferencesProvider);
+    final holidaySourcesNeverConfigured =
+        prefs.getStringList(_kHolidayCountries) == null &&
+        prefs.getStringList(_kHolidayCustomUrls) == null;
+    if (holidaySourcesNeverConfigured) {
+      next = next.copyWith(
+        holidayCountryCodes: {
+          defaultHolidayCountryCode(languageOverride: code),
+        },
+      );
+    }
+    await _update(next);
+  }
 
   Future<void> setDialTimeFormatPreference(TimeFormatPreference preference) =>
       _update(state.copyWith(dialTimeFormatPreference: preference));
