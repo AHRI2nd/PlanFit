@@ -379,6 +379,145 @@ void main() {
     );
   });
 
+  group('notify switch', () {
+    testWidgets('persists the flip when the save succeeds', (tester) async {
+      final t = todo(); // notify: false
+      when(todos.setNotify(any, any)).thenAnswer((_) async {});
+      await pumpSheetHost(tester, t);
+
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      expect(find.text(failureMessage), findsNothing);
+      verify(todos.setNotify(t.id, true)).called(1);
+    });
+
+    testWidgets(
+      'reverts and shows a SnackBar when the save fails — regression '
+      'test: this switch used to fire setNotify with no try/catch or '
+      'await at all, so a failed write left the switch stuck showing the '
+      'toggled value forever (until the sheet was closed and reopened), '
+      'with no error surfaced and no revert, unlike every other control '
+      'in this sheet',
+      (tester) async {
+        final t = todo();
+        when(todos.setNotify(any, any)).thenThrow(Exception('disk full'));
+        await pumpSheetHost(tester, t);
+
+        await tester.tap(find.byType(Switch));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          tester.widget<Switch>(find.byType(Switch)).value,
+          isFalse,
+          reason: 'a failed save must revert the optimistic flip',
+        );
+        expect(find.text(failureMessage), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+
+    testWidgets(
+      "a later, successful toggle isn't clobbered by an earlier toggle's "
+      'delayed failure — same request-id race guard as pin/priority',
+      (tester) async {
+        final t = todo();
+        final firstToggleFailed = Completer<void>();
+        var call = 0;
+        when(todos.setNotify(t.id, any)).thenAnswer((_) {
+          call++;
+          return call == 1 ? firstToggleFailed.future : Future<void>.value();
+        });
+        await pumpSheetHost(tester, t);
+
+        await tester.tap(find.byType(Switch)); // false -> true, call 1
+        await tester.pump();
+        await tester.tap(find.byType(Switch)); // true -> false, call 2
+        await tester.pump();
+        await tester.tap(find.byType(Switch)); // false -> true, call 3
+        await tester.pump();
+        await tester.pump();
+
+        firstToggleFailed.completeError(Exception('disk full'));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          tester.widget<Switch>(find.byType(Switch)).value,
+          isTrue,
+          reason:
+              "the first toggle's failure must not revert past the "
+              "user's own later (already-successful) toggles",
+        );
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+  });
+
+  group('additional reminders chip', () {
+    Future<void> enableNotify(WidgetTester tester) async {
+      when(todos.setNotify(any, any)).thenAnswer((_) async {});
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('persists the toggled offset when the save succeeds', (
+      tester,
+    ) async {
+      final t = todo();
+      when(todos.setAdditionalReminders(any, any)).thenAnswer((_) async {});
+      await pumpSheetHost(tester, t);
+      await enableNotify(tester);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, '5분 전'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, '5분 전'),
+        ).selected,
+        isTrue,
+      );
+      expect(find.text(failureMessage), findsNothing);
+      verify(todos.setAdditionalReminders(t.id, '5')).called(1);
+    });
+
+    testWidgets(
+      'reverts and shows a SnackBar when the save fails — regression '
+      'test: this chip used to fire setAdditionalReminders with no '
+      'try/catch or await at all, leaving the chip stuck showing the '
+      'toggled selection forever on a failed write, with no error '
+      'surfaced and no revert',
+      (tester) async {
+        final t = todo();
+        when(
+          todos.setAdditionalReminders(any, any),
+        ).thenThrow(Exception('disk full'));
+        await pumpSheetHost(tester, t);
+        await enableNotify(tester);
+
+        await tester.tap(find.widgetWithText(ChoiceChip, '5분 전'));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          tester.widget<ChoiceChip>(
+            find.widgetWithText(ChoiceChip, '5분 전'),
+          ).selected,
+          isFalse,
+          reason: 'a failed save must revert the optimistic toggle',
+        );
+        expect(find.text(failureMessage), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+  });
+
   group('add subtask', () {
     testWidgets(
       'leaves the typed text in place and shows a SnackBar when the save '

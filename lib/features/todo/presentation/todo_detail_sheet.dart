@@ -75,6 +75,8 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   // responses" pattern.
   var _pinRequestId = 0;
   var _priorityRequestId = 0;
+  var _notifyRequestId = 0;
+  var _additionalRemindersRequestId = 0;
 
   static const _saveDebounce = Duration(milliseconds: 400);
 
@@ -310,11 +312,28 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                           Switch(
                             value: _notify && widget.todo.hasTime,
                             onChanged: widget.todo.hasTime
-                                ? (v) {
+                                ? (v) async {
+                                    final myRequestId = ++_notifyRequestId;
+                                    final previous = _notify;
                                     setState(() => _notify = v);
-                                    ref
-                                        .read(todoControllerProvider)
-                                        .setNotify(widget.todo.id, v);
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
+                                    );
+                                    try {
+                                      await ref
+                                          .read(todoControllerProvider)
+                                          .setNotify(widget.todo.id, v);
+                                    } catch (_) {
+                                      if (!mounted) return;
+                                      if (myRequestId == _notifyRequestId) {
+                                        setState(() => _notify = previous);
+                                      }
+                                      messenger.showAutoDismissSnackBar(
+                                        SnackBar(
+                                          content: Text(l10n.todoUpdateFailed),
+                                        ),
+                                      );
+                                    }
                                   }
                                 : null,
                           ),
@@ -339,7 +358,9 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                           selected: _additionalReminders,
                           labelFor: (m) => _leadTimeLabel(l10n, m),
                           accent: palette.accent,
-                          onChanged: (v) {
+                          onChanged: (v) async {
+                            final myRequestId = ++_additionalRemindersRequestId;
+                            final previous = Set<int>.of(_additionalReminders);
                             setState(() {
                               if (_additionalReminders.contains(v)) {
                                 _additionalReminders.remove(v);
@@ -347,12 +368,24 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                                 _additionalReminders.add(v);
                               }
                             });
-                            ref
-                                .read(todoControllerProvider)
-                                .setAdditionalReminders(
-                                  widget.todo.id,
-                                  _additionalReminders,
-                                );
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              await ref
+                                  .read(todoControllerProvider)
+                                  .setAdditionalReminders(
+                                    widget.todo.id,
+                                    _additionalReminders,
+                                  );
+                            } catch (_) {
+                              if (!mounted) return;
+                              if (myRequestId ==
+                                  _additionalRemindersRequestId) {
+                                setState(() => _additionalReminders = previous);
+                              }
+                              messenger.showAutoDismissSnackBar(
+                                SnackBar(content: Text(l10n.todoUpdateFailed)),
+                              );
+                            }
                           },
                         ),
                       ],
