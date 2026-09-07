@@ -173,6 +173,7 @@ class TodoController {
       );
       if (effectiveNotify) await _syncNotification(id);
       await _syncReminder(id);
+      if (tags != null && tags.isNotEmpty) _ref.invalidate(todoTagsProvider);
       return;
     }
 
@@ -222,6 +223,7 @@ class TodoController {
     for (final id in ids) {
       await _syncReminder(id);
     }
+    if (tags != null && tags.isNotEmpty) _ref.invalidate(todoTagsProvider);
   }
 
   Future<void> toggle(String id, bool done) async {
@@ -245,8 +247,17 @@ class TodoController {
   Future<void> setPriority(String id, int priority) =>
       _ref.read(todoDaoProvider).setPriority(id, priority);
 
-  Future<void> setTags(String id, String? tags) =>
-      _ref.read(todoDaoProvider).setTags(id, tags);
+  Future<void> setTags(String id, String? tags) async {
+    await _ref.read(todoDaoProvider).setTags(id, tags);
+    // todoTagsProvider is a plain FutureProvider (see its own doc: tags
+    // don't change often enough to warrant a live stream) — meaning it
+    // otherwise computes once and never refreshes for the rest of the
+    // session. Without this, a brand-new tag typed here never appeared in
+    // the tag picker until the app was restarted, and a tag whose only
+    // to-do stopped using it kept showing a chip that now always resolves
+    // to an empty list.
+    _ref.invalidate(todoTagsProvider);
+  }
 
   Future<void> setNotify(String id, bool notify) async {
     await _ref.read(todoDaoProvider).setNotify(id, notify);
@@ -417,6 +428,7 @@ class TodoController {
     final stale = await dao.completedBefore(cutoff);
     final notifications = _ref.read(notificationPortProvider);
     final reminders = _ref.read(remindersPortProvider);
+    var anyTagged = false;
     for (final row in stale) {
       await dao.deleteById(row.id);
       await notifications.cancelForTodo(row.id);
@@ -425,7 +437,10 @@ class TodoController {
       } on Exception {
         // Best-effort, same reasoning as _removeWithSubtasks.
       }
+      if ((row.tags ?? '').isNotEmpty) anyTagged = true;
     }
+    // See setTags' own doc on todoTagsProvider.
+    if (anyTagged) _ref.invalidate(todoTagsProvider);
     return stale.length;
   }
 
@@ -458,6 +473,10 @@ class TodoController {
     } on Exception {
       // Nothing to reconcile after this — the row is gone either way.
     }
+    // See setTags' own doc on todoTagsProvider — a deleted to-do can have
+    // been the last one using a given tag, which should stop showing up
+    // as a (now permanently empty) chip in the picker.
+    if ((row.tags ?? '').isNotEmpty) _ref.invalidate(todoTagsProvider);
     return (todo: row, subtasks: subtasks);
   }
 
@@ -539,6 +558,9 @@ class TodoController {
     // `osReminderId`/`reminderSyncStatus`, so the fresh row lands with the
     // table defaults (null / pendingPush) exactly as if newly created.
     await _syncReminder(todo.id);
+    // See setTags' own doc on todoTagsProvider — undoing a delete can bring
+    // a tag's only remaining to-do back.
+    if ((todo.tags ?? '').isNotEmpty) _ref.invalidate(todoTagsProvider);
   }
 }
 

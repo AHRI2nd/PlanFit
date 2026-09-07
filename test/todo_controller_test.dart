@@ -389,6 +389,62 @@ void main() {
     );
   });
 
+  group('todoTagsProvider invalidation', () {
+    test(
+      'setTags makes a brand-new tag show up in the picker without a '
+      'restart — regression test: todoTagsProvider is a plain '
+      'FutureProvider that computes once and never refreshes; nothing '
+      'invalidated it, so a newly-typed tag never appeared in the tag '
+      'picker for the rest of the session',
+      () async {
+        final slot = DateTime.now().add(const Duration(hours: 2));
+        await controller().add(title: 'A', slotStart: slot, hasTime: false);
+        final a = (await db.todoDao.all()).single;
+
+        // Read once to seed the FutureProvider's cache, the same way the
+        // real tag-picker UI's first build would.
+        expect(await container.read(todoTagsProvider.future), isEmpty);
+
+        await controller().setTags(a.id, 'urgent');
+
+        expect(await container.read(todoTagsProvider.future), ['urgent']);
+      },
+    );
+
+    test(
+      "a tag whose only to-do is deleted stops showing up — same "
+      'invalidation, the removal side',
+      () async {
+        final slot = DateTime.now().add(const Duration(hours: 2));
+        await controller().add(
+          title: 'A',
+          slotStart: slot,
+          hasTime: false,
+        );
+        final a = (await db.todoDao.all()).single;
+        await controller().setTags(a.id, 'urgent');
+        expect(await container.read(todoTagsProvider.future), ['urgent']);
+
+        await controller().remove(a.id);
+
+        expect(await container.read(todoTagsProvider.future), isEmpty);
+      },
+    );
+
+    test('a tag set at creation time is picked up immediately too', () async {
+      expect(await container.read(todoTagsProvider.future), isEmpty);
+
+      await controller().add(
+        title: 'A',
+        slotStart: DateTime.now().add(const Duration(hours: 2)),
+        hasTime: false,
+        tags: 'work',
+      );
+
+      expect(await container.read(todoTagsProvider.future), ['work']);
+    });
+  });
+
   group('pruneCompleted', () {
     test(
       'deletes a completed to-do older than retention, cancels its notification',
