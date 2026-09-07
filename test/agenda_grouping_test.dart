@@ -104,5 +104,35 @@ void main() {
         DateTime(2026, 5, 1),
       ]);
     });
+
+    test(
+      'many same-sortKey entries keep their original (insertion) order '
+      'instead of being reshuffled — regression test: a plain List.sort is '
+      'only stable below a small size threshold, above which Dart switches '
+      'to an unstable dual-pivot quicksort, so a day with enough identical-'
+      'time entries (e.g. several no-time to-dos, all pinned to midnight) '
+      'could have their relative order silently shuffled on every rebuild '
+      'even though nothing about the data changed. 40 was verified by '
+      'direct experiment to actually reorder pre-fix; smaller counts '
+      "(<=32) happen not to, which is exactly why this needs to be big "
+      'enough to catch it rather than assumed from a handful of entries',
+      () {
+        final noTimeTodos = [
+          for (var i = 0; i < 40; i++)
+            todo(
+              id: 't${i.toString().padLeft(2, '0')}',
+              slotStart: DateTime(2026, 3, 10),
+              hasTime: false,
+            ),
+        ];
+
+        final groups = groupAgendaEntriesByDay(const [], noTimeTodos);
+
+        final ids = groups.single.$2
+            .map((e) => (e as AgendaTodoEntry).todo.id)
+            .toList();
+        expect(ids, noTimeTodos.map((t) => t.id).toList());
+      },
+    );
   });
 }

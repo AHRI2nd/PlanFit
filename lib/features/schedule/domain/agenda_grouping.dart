@@ -49,8 +49,25 @@ List<(DateTime day, List<AgendaEntry> entries)> groupAgendaEntriesByDay(
     (byDay[day] ??= []).add(AgendaTodoEntry(t));
   }
   final days = byDay.keys.toList()..sort();
-  return [
-    for (final day in days)
-      (day, byDay[day]!..sort((a, b) => a.sortKey.compareTo(b.sortKey))),
-  ];
+  return [for (final day in days) (day, _sortStableByKey(byDay[day]!))];
+}
+
+/// Sorts [entries] by [AgendaEntry.sortKey], preserving each day's original
+/// event-then-todo insertion order among entries that share the exact same
+/// sort key (e.g. two no-time to-dos, both pinned to midnight — see this
+/// file's own doc comment) — a plain `List.sort` doesn't guarantee that:
+/// Dart's `List.sort` is only stable below a small size threshold, above
+/// which it switches to an unstable dual-pivot quicksort, so a day with
+/// enough same-key entries could have their relative order silently
+/// shuffled on every rebuild even though nothing about the data changed.
+/// Decorating each entry with its original index and folding that into the
+/// comparator as a tiebreaker makes the result stable no matter which
+/// underlying algorithm `List.sort` picks.
+List<AgendaEntry> _sortStableByKey(List<AgendaEntry> entries) {
+  final indexed = [for (var i = 0; i < entries.length; i++) (i, entries[i])];
+  indexed.sort((a, b) {
+    final byKey = a.$2.sortKey.compareTo(b.$2.sortKey);
+    return byKey != 0 ? byKey : a.$1.compareTo(b.$1);
+  });
+  return [for (final (_, entry) in indexed) entry];
 }
