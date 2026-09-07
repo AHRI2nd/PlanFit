@@ -102,6 +102,14 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     _debounce?.cancel();
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
+      // Invalidate any search still in flight from before the box was
+      // cleared — cancelling the debounce Timer above only stops a
+      // *pending* search from starting, not one that already started and
+      // is still awaiting its Future.wait. Without bumping the generation
+      // here too, that older search's captured generation still matches
+      // _searchGeneration when it finally resolves, so its results
+      // silently overwrite the empty state this clear just set.
+      _searchGeneration++;
       setState(() {
         _eventResults = null;
         _todoResults = null;
