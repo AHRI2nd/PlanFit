@@ -600,6 +600,17 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// ends by the same amount, preserving the event's own duration — moving
   /// is the only drag gesture a card has (see [_EventCard.onMoveStart]'s
   /// doc for why resizing this way was dropped).
+  ///
+  /// Each side's clamp only fires when the *drag* is what pushed that side
+  /// out of [dayStart, dayEnd) — not when it was already there before any
+  /// delta was applied. An event that spans midnight (e.g. 23:30–00:30)
+  /// naturally has `e.startAt` or `e.endAt` outside this day's own window
+  /// even at rest; without this guard, a zero-movement long-press (press
+  /// and release, no drag at all — `_snappedDeltaMinutes == 0`) still
+  /// computed a "clamped" start/end that differed from the original, so
+  /// `_endDrag`'s `start == e.startAt && end == e.endAt` no-op check never
+  /// caught it and the event's time was silently rewritten on every long
+  /// press, drag or not. See the regression test for the exact scenario.
   (DateTime start, DateTime end) _effectiveTimes(EventRow e) {
     if (_draggingId != e.id) {
       return (e.startAt, e.endAt);
@@ -614,12 +625,12 @@ class _TimelineState extends ConsumerState<_Timeline>
 
     var start = e.startAt.add(delta);
     var end = e.endAt.add(delta);
-    if (start.isBefore(dayStart)) {
+    if (start.isBefore(dayStart) && !e.startAt.isBefore(dayStart)) {
       final shift = dayStart.difference(start);
       start = start.add(shift);
       end = end.add(shift);
     }
-    if (end.isAfter(dayEnd)) {
+    if (end.isAfter(dayEnd) && !e.endAt.isAfter(dayEnd)) {
       final shift = end.difference(dayEnd);
       start = start.subtract(shift);
       end = end.subtract(shift);

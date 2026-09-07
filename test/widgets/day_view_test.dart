@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kLongPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/widgets/section_header.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
+import 'package:planfit/features/schedule/domain/event_input.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_clock_view.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_view.dart';
@@ -433,6 +435,83 @@ void main() {
             .first,
       );
       expect(detector.onLongPressStart, isNull);
+    },
+  );
+
+  testWidgets(
+    'long-pressing a midnight-spanning event and releasing without any '
+    'drag does not rewrite its saved time — regression test for '
+    "_effectiveTimes' boundary clamp firing even at zero delta",
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      // Spans this day's midnight: starts 23:30 on the 10th, ends 00:30 on
+      // the 11th — so it's also rendered (and long-press-draggable) when
+      // viewing the 10th, even though `e.endAt` itself lies outside that
+      // day's own [dayStart, dayEnd) window at rest.
+      final e = row(
+        id: 'overnight',
+        title: 'Overnight shift',
+        startAt: DateTime(2026, 3, 10, 23, 30),
+        endAt: DateTime(2026, 3, 11, 0, 30),
+      );
+      when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
+
+      await pumpDay(tester, day);
+      // 23:30 sits near the bottom of the 24h timeline, well below the
+      // default test viewport — scroll whatever Scrollable ancestor(s) it
+      // needs to actually bring it into a hit-testable position, rather
+      // than assuming a fixed pixel offset.
+      await tester.ensureVisible(find.text('Overnight shift'));
+      await tester.pumpAndSettle();
+
+      // A plain long-press-and-release (no movement in between) — exactly
+      // what `WidgetTester.longPress` does: press down, wait past the
+      // long-press timeout, then release with no drag.
+      await tester.longPress(find.text('Overnight shift'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      verifyNever(events.save(any));
+    },
+  );
+
+  testWidgets(
+    'a real long-press-drag on a midnight-spanning event still moves it '
+    'normally — the zero-delta fix above must not disable clamping when '
+    'the drag itself pushes the event further out',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      final e = row(
+        id: 'overnight',
+        title: 'Overnight shift',
+        startAt: DateTime(2026, 3, 10, 23, 30),
+        endAt: DateTime(2026, 3, 11, 0, 30),
+      );
+      when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
+      when(events.save(any)).thenAnswer((_) async => e);
+
+      await pumpDay(tester, day);
+      await tester.ensureVisible(find.text('Overnight shift'));
+      await tester.pumpAndSettle();
+
+      // Drag the card 1 hour earlier (up by one hourHeight — compact day
+      // view's hourHeight; using a generous pixel delta and relying on the
+      // 5-minute snap plus the still-active "before dayStart" clamp is
+      // brittle across hourHeight tuning, so just assert the *direction* and
+      // that a save still happens with the duration preserved).
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Overnight shift')),
+      );
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await gesture.moveBy(const Offset(0, -60));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final input = verify(events.save(captureAny)).captured.single as EventInput;
+      expect(input.endAt.difference(input.startAt), const Duration(hours: 1));
+      expect(input.startAt.isBefore(e.startAt), isTrue);
     },
   );
 
