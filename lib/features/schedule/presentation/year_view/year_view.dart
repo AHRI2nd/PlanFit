@@ -9,6 +9,7 @@ import '../../../../design/tokens/app_spacing.dart';
 import '../../../todo/application/todo_providers.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/calendar_dot.dart';
+import '../../domain/event_span.dart';
 
 /// A year at a glance: twelve compact month grids whose days glow where events
 /// live. Tapping a month jumps to it in the month view. The whole grid is
@@ -131,10 +132,15 @@ class _YearPageContent extends ConsumerWidget {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final startWeekday = ref.watch(weekStartWeekdayProvider);
 
+    final yearStart = DateTime(year);
+    final yearEnd = DateTime(year + 1);
     final counts = <DateTime, int>{};
     for (final e in eventsAsync.asData?.value ?? const <EventRow>[]) {
-      final key = dateOnly(e.startAt);
-      counts[key] = (counts[key] ?? 0) + 1;
+      // Every day a multi-day event spans (via eventDaysInRange), not only
+      // its start day — see week_view.dart's matching fix for why.
+      for (final key in eventDaysInRange(e, yearStart, yearEnd)) {
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
     }
     // Per calendar_dot.dart's shared rule.
     final overdueDays = <DateTime>{

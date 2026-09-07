@@ -4,12 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:planfit/core/clock.dart';
+import 'package:planfit/core/date_math.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/tokens/app_colors.dart';
 import 'package:planfit/features/home/presentation/home_screen.dart';
+import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,7 +45,11 @@ void main() {
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
   });
 
-  Future<void> pumpHome(WidgetTester tester, {TextScaler? textScaler}) async {
+  Future<void> pumpHome(
+    WidgetTester tester, {
+    TextScaler? textScaler,
+    DateTime? now,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
@@ -49,6 +57,8 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(prefs),
           eventRepositoryProvider.overrideWithValue(events),
           todoDaoProvider.overrideWithValue(todos),
+          if (now != null)
+            nowTickerProvider.overrideWith((_) => Stream.value(now)),
         ],
         child: MaterialApp(
           theme: AppTheme.light(),
@@ -300,6 +310,56 @@ void main() {
             '(${naturalHeight}px), or it paints outside the box and '
             'overlaps the weekday label below',
       );
+    },
+  );
+
+  testWidgets(
+    "the week bar gets an accent dot on every day a multi-day event spans, "
+    "not just its start day — regression test: it used to be keyed by a "
+    "bare dateOnly(e.startAt), so a 3-day trip only lit up the bar's first "
+    "day even though the event genuinely covered all 3",
+    (tester) async {
+      // A fixed Wednesday — weekStartsMonday defaults to true, so this
+      // week's Monday is 2026-03-09.
+      final now = DateTime(2026, 3, 11);
+      final weekStart = startOfWeek(now, startWeekday: DateTime.monday);
+      final palette = AppTheme.light().extension<AppPalette>()!;
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          EventRow(
+            id: 'trip',
+            title: 'Trip',
+            memo: null,
+            startAt: addCalendarDays(weekStart, 1), // Tuesday
+            endAt: addCalendarDays(weekStart, 4), // exclusive -> Fri
+            isAllDay: true,
+            notify: false,
+            reminderMinutesBefore: 0,
+            colorTag: null,
+            recurrenceRule: null,
+            recurrenceGroupId: null,
+            osCalendarId: null,
+            osEventId: null,
+            osLastKnownModified: null,
+            syncStatus: SyncStatus.pendingPush,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        ]),
+      );
+
+      await pumpHome(tester, now: now);
+
+      final dots = tester.widgetList<Container>(find.byType(Container)).where((
+        c,
+      ) {
+        final decoration = c.decoration;
+        return decoration is BoxDecoration &&
+            decoration.shape == BoxShape.circle &&
+            decoration.color == palette.accent;
+      });
+      // Tue, Wed, Thu — endAt (Fri) is exclusive.
+      expect(dots, hasLength(3));
     },
   );
 }

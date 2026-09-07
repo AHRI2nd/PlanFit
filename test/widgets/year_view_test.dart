@@ -6,8 +6,10 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
+import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/tokens/app_colors.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/year_view/year_view.dart';
@@ -162,6 +164,62 @@ void main() {
       // guaranteed built without scrolling; the very first cell always is.
       expect(find.text('Jan'), findsOneWidget);
       expect(find.textContaining('January'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a multi-day event marks every day it spans, not just its start day — '
+    'regression test: counts (feeding each day cell\'s marker) used to be '
+    'incremented only at dateOnly(e.startAt), so a 3-day event lit up just '
+    'one day of the month grid instead of all 3',
+    (tester) async {
+      final selected = DateTime(2026, 1, 15);
+      final palette = AppTheme.light().extension<AppPalette>()!;
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          EventRow(
+            id: 'trip',
+            title: 'Trip',
+            memo: null,
+            location: null,
+            startAt: DateTime(2026, 1, 5),
+            endAt: DateTime(2026, 1, 8), // exclusive -> Jan 5, 6, 7
+            isAllDay: true,
+            colorTag: null,
+            notify: false,
+            reminderMinutesBefore: 0,
+            additionalReminderMinutes: null,
+            recurrenceRule: null,
+            recurrenceGroupId: null,
+            osCalendarId: null,
+            osEventId: null,
+            osLastKnownModified: null,
+            syncStatus: SyncStatus.localOnly,
+            importSourceCalendarId: null,
+            importSourceEventId: null,
+            createdAt: DateTime(2026, 1, 1),
+            updatedAt: DateTime(2026, 1, 1),
+          ),
+        ]),
+      );
+
+      // January (the grid's first mini-month) is the only one guaranteed
+      // mounted without scrolling — see the abbreviated-month-name test
+      // above for why.
+      await pumpYear(tester, selected);
+
+      // A single event on a day (count == 1) marks it with this exact
+      // alpha — see year_view.dart's own (0.30 + count * 0.18) formula.
+      final expectedColor = palette.accent.withValues(alpha: 0.48);
+      final dots = tester.widgetList<Container>(find.byType(Container)).where(
+        (c) {
+          final decoration = c.decoration;
+          return decoration is BoxDecoration &&
+              decoration.shape == BoxShape.circle &&
+              decoration.color == expectedColor;
+        },
+      );
+      expect(dots, hasLength(3));
     },
   );
 }

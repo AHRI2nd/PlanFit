@@ -16,6 +16,7 @@ import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/domain/calendar_dot.dart';
+import '../../schedule/domain/event_span.dart';
 import '../../schedule/presentation/event_edit/event_editor_sheet.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
@@ -468,7 +469,12 @@ class _WeeklyStats extends ConsumerWidget {
       totalByDay[d] = (totalByDay[d] ?? 0) + 1;
       if (t.isDone) doneByDay[d] = (doneByDay[d] ?? 0) + 1;
     }
-    final eventDays = {for (final e in events) dateOnly(e.startAt)};
+    // Every day a multi-day event spans (via eventDaysInRange), not only its
+    // start day — see week_view.dart's matching fix for why.
+    final weekEnd = addCalendarDays(weekStart, 7);
+    final eventDays = {
+      for (final e in events) ...eventDaysInRange(e, weekStart, weekEnd),
+    };
     // Per calendar_dot.dart's shared rule.
     final overdueDays = {
       for (final t in todos)

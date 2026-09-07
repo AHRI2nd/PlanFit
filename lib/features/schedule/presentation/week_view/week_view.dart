@@ -393,8 +393,15 @@ class _WeekPageContent extends ConsumerWidget {
         }
         // Both all-day and timed events count toward "this day has an
         // event" — the header dot doesn't distinguish the two the way the
-        // all-day strip below it does.
-        final eventDays = {for (final e in events) dateOnly(e.startAt)};
+        // all-day strip below it does. Every day a multi-day event spans
+        // (via eventDaysInRange, same rule the all-day bar itself uses just
+        // below), not only its start day — otherwise a 3-day trip showed the
+        // colored bar across all 3 days but the dot only on the first,
+        // visibly disagreeing about which days actually have something on
+        // them.
+        final eventDays = {
+          for (final e in events) ...eventDaysInRange(e, weekStart, weekEnd),
+        };
 
         return Column(
           children: [

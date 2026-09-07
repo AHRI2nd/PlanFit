@@ -194,6 +194,44 @@ void main() {
   });
 
   testWidgets(
+    'a multi-day event gets a header dot on every day it spans, not just '
+    'its start day — regression test: the header dot used to be keyed by a '
+    'bare dateOnly(e.startAt), disagreeing with the all-day bar right below '
+    'it (which already spans every day via eventDaysInRange)',
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10); // a Tuesday
+      final palette = AppTheme.light().extension<AppPalette>()!;
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(
+            id: 'trip',
+            startAt: DateTime(2026, 3, 11),
+            endAt: DateTime(2026, 3, 14),
+            isAllDay: true,
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      final dots = tester.widgetList<Container>(find.byType(Container)).where((
+        c,
+      ) {
+        final decoration = c.decoration;
+        return decoration is BoxDecoration &&
+            decoration.shape == BoxShape.circle &&
+            decoration.color == palette.accent;
+      });
+      // Mar 11, 12, 13 — endAt (Mar 14) is exclusive, matching the all-day
+      // bar's own convention.
+      expect(dots, hasLength(3));
+    },
+  );
+
+  testWidgets(
     'tapping an all-day bar in the strip opens it for editing — regression '
     'test for the strip having no tap target at all, which made a holiday '
     'or all-day event visible but unopenable',
