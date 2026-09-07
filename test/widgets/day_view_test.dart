@@ -85,6 +85,7 @@ void main() {
     WidgetTester tester,
     DateTime day, {
     bool compact = false,
+    TextScaler? textScaler,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     late ProviderContainer container;
@@ -109,6 +110,20 @@ void main() {
                 GlobalCupertinoLocalizations.delegate,
               ],
               supportedLocales: AppL10n.supportedLocales,
+              // Matches app.dart's own 1.0-1.3x accessibility clamp when a
+              // test asks for it, instead of the tester's default 1.0 —
+              // app.dart's own doc on that clamp already says a screen
+              // found to still clip at its 1.3x ceiling needs its own
+              // fixed-dimension fix, not a smaller app-wide ceiling; this
+              // is how a test checks for exactly that.
+              builder: textScaler == null
+                  ? null
+                  : (context, child) => MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(textScaler: textScaler),
+                      child: child!,
+                    ),
               home: Scaffold(
                 body: DayView(day: day, compact: compact),
               ),
@@ -1009,6 +1024,96 @@ void main() {
             "timeline) gave it real scroll extent and it captured the "
             "drag instead of the outer list",
       );
+    },
+  );
+
+  testWidgets(
+    'an all-day card with a 2-line title and a location renders without '
+    "overflowing at the app's 1.3x accessibility text-scale ceiling, and "
+    "the outer-scroll invariant still holds — regression test: every "
+    'content height budget in this file (_minEventCardHeight, '
+    '_locationRowExtraHeight, _crowdedColumnExtraHeight, '
+    '_tightEventCardHeight, DayView._allDayCardMaxHeight) used to be a '
+    'flat pixel constant with no notion of text scale at all, so a '
+    "RenderFlex overflow reappeared here (and, more broadly, on an "
+    "ordinary 1-hour timed event too — see the sibling test below) the "
+    "moment text was scaled up anywhere near the app's own 1.0-1.3x "
+    'accessibility clamp',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      final dayEvents = [
+        row(
+          id: 'holiday',
+          title: 'Annual Company-Wide All-Hands Kickoff Celebration Day',
+          startAt: day,
+          endAt: DateTime(2026, 3, 11),
+          isAllDay: true,
+          location: 'Grand Convention Center, Downtown Conference Hall',
+        ),
+        row(
+          id: 'e1',
+          title: 'Anchor',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+        ),
+      ];
+      // Day-specific, not `any, any` — an adjacent day the PageView
+      // pre-builds for swipe-peeking must see its own (empty) events, not
+      // March 10's, or the peeked page's mismatched-width rendering of an
+      // all-day card it was never actually going to have becomes a
+      // confound in what this test is checking.
+      when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([]));
+      when(
+        events.watchBetween(DateTime(2026, 3, 10), DateTime(2026, 3, 11)),
+      ).thenAnswer((_) => Stream.value(dayEvents));
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpDay(tester, day, textScaler: const TextScaler.linear(1.3));
+
+      expect(find.byType(SectionHeader), findsNothing);
+      for (var i = 0; i < 6; i++) {
+        await tester.dragFrom(const Offset(400, 400), const Offset(0, -600));
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(SectionHeader), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an ordinary, uncrowded 1-hour timed event with no location renders '
+    "without overflowing at the app's 1.3x accessibility text-scale "
+    'ceiling — regression test: _minEventCardHeight was a flat 64px '
+    'constant, exactly matching a plain 1-hour slot at the default text '
+    'scale with nothing to spare, so scaling the title/time text up to '
+    "1.3x (nothing else about the card changes) alone was enough to "
+    'overflow it, with no location row, crowding, or long title involved '
+    'at all',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'e1',
+            title: 'Anchor',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 10),
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      // Rendering at all without a FlutterError being thrown is the
+      // assertion here — flutter_test fails a test on any uncaught
+      // rendering-library exception (a RenderFlex overflow included) even
+      // without an explicit expect() for it.
+      await pumpDay(tester, day, textScaler: const TextScaler.linear(1.3));
+      await tester.ensureVisible(find.text('Anchor'));
     },
   );
 

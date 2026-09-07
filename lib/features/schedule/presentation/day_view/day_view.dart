@@ -152,11 +152,18 @@ class _DayViewState extends ConsumerState<DayView> {
     // the same box this reserves — see DayView._allDayCardMaxHeight's own
     // doc for why under-counting this reopens a real (previously fixed)
     // bug where that inner scrollable gains scroll extent of its own and
-    // strands the outer list.
+    // strands the outer list. Scaled by the effective text-scale factor —
+    // an all-day card's own content (up to a 2-line title plus a location
+    // row) grows right along with a larger accessibility text size, and a
+    // fixed-at-1.0x budget reopens exactly that same regression at the
+    // app's 1.3x accessibility ceiling (confirmed via a real RenderFlex
+    // overflow, not just this box being a little tight).
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final allDayCount = events?.where((e) => e.isAllDay).length ?? 0;
     final allDayReserve = allDayCount == 0
         ? 0.0
-        : allDayCount * (DayView._allDayCardMaxHeight + AppSpacing.xs) +
+        : allDayCount *
+                  (DayView._allDayCardMaxHeight * textScale + AppSpacing.xs) +
               AppSpacing.sm;
     final pagerHeight = events != null && events.isEmpty
         ? _DayContent.emptyContentHeight
@@ -435,16 +442,29 @@ class _Timeline extends ConsumerStatefulWidget {
 
 class _TimelineState extends ConsumerState<_Timeline>
     with WidgetsBindingObserver {
+  /// The effective linear text-scale factor in force right now (app.dart
+  /// clamps this to [1.0, 1.3] app-wide for exactly this kind of
+  /// fixed-pixel layout, but reads it back rather than re-deriving its own
+  /// copy of that ceiling). `TextScaler.scale(1.0)` is the documented way
+  /// to recover a plain multiplier from a [TextScaler] that might not be
+  /// purely linear. Every *content* height budget below scales by this —
+  /// unlike [DayView._hourHeight], which is the timeline's fixed
+  /// pixels-per-hour grid geometry, not a text budget, and must stay put
+  /// regardless of text size.
+  double get _textScale => MediaQuery.textScalerOf(context).scale(1.0);
+
   /// The shortest an event card is ever drawn, regardless of its actual
   /// duration — below this, its title/time text don't fit without
   /// clipping. Empirically the smallest that comfortably fits both text
-  /// lines at this card's padding/type scale. Lower than it was before the
-  /// resize grip was removed entirely (it used to also budget 16px for
-  /// that) — the whole point of retuning this down is that a card no
-  /// longer needs to stretch past its own true duration just to make room
-  /// for a control that isn't there anymore, which used to read as the
-  /// event's end time being wrong.
-  static const double _minEventCardHeight = 64;
+  /// lines at this card's padding/type scale, at the default (1.0x) text
+  /// scale — scaled by [_textScale] so it keeps fitting at a larger
+  /// accessibility text size instead of clipping there. Lower than it was
+  /// before the resize grip was removed entirely (it used to also budget
+  /// 16px for that) — the whole point of retuning this down is that a card
+  /// no longer needs to stretch past its own true duration just to make
+  /// room for a control that isn't there anymore, which used to read as
+  /// the event's end time being wrong.
+  double get _minEventCardHeight => 64 * _textScale;
 
   /// Extra headroom [_minEventCardHeight] needs when the card also renders
   /// a location row — without this, a short (clamped-to-minimum) event that
@@ -453,16 +473,20 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// location actually renders. Found by manually creating a 1-hour event
   /// with a location and watching it throw a real (not just debug-banner)
   /// "RenderFlex overflowed by 10.0 pixels" — a location row is genuinely
-  /// missing from the space budget, not a cosmetic sliver.
-  static const double _locationRowExtraHeight = 20;
+  /// missing from the space budget, not a cosmetic sliver. Scales with
+  /// [_textScale] for the same reason [_minEventCardHeight] does — a
+  /// RenderFlex overflow reappeared here too at the app's 1.3x
+  /// accessibility text-scale ceiling before this was scaled.
+  double get _locationRowExtraHeight => 20 * _textScale;
 
   /// Extra headroom for a card sharing its time slot with others (see
   /// [cascadeEvents]) — its column is only a fraction of the full timeline
   /// width, so a title that would fit on one line at full width often
   /// doesn't at that narrower width. `_EventCard`'s title allows a 2nd line
   /// for exactly this case; this is the height that 2nd line needs, so it
-  /// wraps into real space instead of overflowing the card.
-  static const double _crowdedColumnExtraHeight = 22;
+  /// wraps into real space instead of overflowing the card. Scales with
+  /// [_textScale], same reasoning as [_minEventCardHeight].
+  double get _crowdedColumnExtraHeight => 22 * _textScale;
 
   double _minHeightFor(EventRow e, {bool crowded = false}) =>
       _minEventCardHeight +
@@ -477,8 +501,9 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// other. `_EventCard.tight` drops the location row to fit the title and
   /// time-range line within this smaller budget — found, like
   /// [_locationRowExtraHeight], by watching for a real "RenderFlex
-  /// overflowed" exception rather than guessed.
-  static const double _tightEventCardHeight = 60;
+  /// overflowed" exception rather than guessed. Scales with [_textScale],
+  /// same reasoning as [_minEventCardHeight].
+  double get _tightEventCardHeight => 60 * _textScale;
 
   /// The earliest start time among [widget.events] (other than the one
   /// with [excludingId]) that falls at or after [time] — used to stop a
