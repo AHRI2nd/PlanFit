@@ -13,10 +13,18 @@ import es.antonborri.home_widget.HomeWidgetBackgroundWorker
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetPlugin
 import es.antonborri.home_widget.HomeWidgetProvider
+import org.json.JSONObject
 
 // Renders the values PlanFit pushes via `HomeWidgetSync` (see
 // lib/core/home_widget/home_widget_sync.dart) into the HomeScreen widget
 // registered in res/xml/home_widget_info.xml.
+//
+// HomeWidgetSync.push writes the whole snapshot as one JSON string under
+// the single "widget_snapshot" SharedPreferences key instead of one key per
+// field — see its doc comment for why (torn/inconsistent reads if the
+// background-callback process died partway through ~20 separate writes).
+// Every field this file reads below comes from that one parsed JSONObject
+// rather than a direct SharedPreferences lookup.
 //
 // Android has no iOS-style widget size "family" — instead a single widget
 // provider is resized freely by the user and reports its current size via
@@ -34,6 +42,9 @@ class PlanFitWidgetProvider : HomeWidgetProvider() {
         private const val MAX_TODOS = 3
 
         private const val LAST_BG_REFRESH_KEY = "widget_last_bg_refresh"
+
+        // Must match HomeWidgetSync._snapshotKey on the Dart side.
+        private const val SNAPSHOT_KEY = "widget_snapshot"
 
         // Just under home_widget_info.xml's own updatePeriodMillis (30 min) —
         // see maybeRefreshWidgetData's doc for why this exists at all.
@@ -113,15 +124,26 @@ class PlanFitWidgetProvider : HomeWidgetProvider() {
             if (expanded) R.layout.home_widget_layout_large else R.layout.home_widget_layout,
         )
 
-        if (expanded) {
-            bindExpanded(context, views, widgetData)
-        } else {
-            bindCompact(context, views, widgetData)
+        // Parsed once per render from the single JSON blob HomeWidgetSync.push
+        // writes — see this file's top doc comment. An empty/missing/corrupt
+        // blob (nothing pushed yet, or a future push failed entirely) falls
+        // back to an empty object, which every optString/optBoolean/optInt
+        // read below already treats the same as "field absent".
+        val snapshot = try {
+            JSONObject(widgetData.getString(SNAPSHOT_KEY, null) ?: "{}")
+        } catch (e: org.json.JSONException) {
+            JSONObject()
         }
-        bindTodos(context, views, widgetData, rowCount = if (expanded) MAX_TODOS else 2)
 
-        val progress = widgetData.getString("todos_progress", "") ?: ""
-        val todosUri = widgetData.getString("todos_uri", "") ?: ""
+        if (expanded) {
+            bindExpanded(context, views, snapshot)
+        } else {
+            bindCompact(context, views, snapshot)
+        }
+        bindTodos(context, views, snapshot, rowCount = if (expanded) MAX_TODOS else 2)
+
+        val progress = snapshot.optString("todos_progress", "")
+        val todosUri = snapshot.optString("todos_uri", "")
         views.setTextViewText(R.id.widget_todos_progress, progress)
         views.setOnClickPendingIntent(
             R.id.widget_todos_tap_target,
@@ -134,10 +156,10 @@ class PlanFitWidgetProvider : HomeWidgetProvider() {
         appWidgetManager.updateAppWidget(widgetId, views)
     }
 
-    private fun bindCompact(context: Context, views: RemoteViews, widgetData: SharedPreferences) {
-        val title = widgetData.getString("event0_title", "") ?: ""
-        val time = widgetData.getString("event0_time", "") ?: ""
-        val uri = widgetData.getString("event0_uri", "") ?: ""
+    private fun bindCompact(context: Context, views: RemoteViews, snapshot: JSONObject) {
+        val title = snapshot.optString("event0_title", "")
+        val time = snapshot.optString("event0_time", "")
+        val uri = snapshot.optString("event0_uri", "")
 
         if (title.isEmpty()) {
             views.setTextViewText(
@@ -155,21 +177,21 @@ class PlanFitWidgetProvider : HomeWidgetProvider() {
         )
     }
 
-    private fun bindExpanded(context: Context, views: RemoteViews, widgetData: SharedPreferences) {
+    private fun bindExpanded(context: Context, views: RemoteViews, snapshot: JSONObject) {
         val rowIds = arrayOf(R.id.widget_event0_row, R.id.widget_event1_row, R.id.widget_event2_row)
         val titleIds = arrayOf(R.id.widget_event0_title, R.id.widget_event1_title, R.id.widget_event2_title)
         val timeIds = arrayOf(R.id.widget_event0_time, R.id.widget_event1_time, R.id.widget_event2_time)
 
         var anyEvent = false
         for (i in 0 until MAX_EVENTS) {
-            val title = widgetData.getString("event${i}_title", "") ?: ""
+            val title = snapshot.optString("event${i}_title", "")
             if (title.isEmpty()) {
                 views.setViewVisibility(rowIds[i], View.GONE)
                 continue
             }
             anyEvent = true
-            val time = widgetData.getString("event${i}_time", "") ?: ""
-            val uri = widgetData.getString("event${i}_uri", "") ?: ""
+            val time = snapshot.optString("event${i}_time", "")
+            val uri = snapshot.optString("event${i}_uri", "")
             views.setViewVisibility(rowIds[i], View.VISIBLE)
             views.setTextViewText(titleIds[i], title)
             views.setTextViewText(timeIds[i], time)
@@ -184,7 +206,7 @@ class PlanFitWidgetProvider : HomeWidgetProvider() {
     private fun bindTodos(
         context: Context,
         views: RemoteViews,
-        widgetData: SharedPreferences,
+        snapshot: JSONObject,
         rowCount: Int,
     ) {
         val rowIds = arrayOf(R.id.widget_todo0_row, R.id.widget_todo1_row, R.id.widget_todo2_row)
@@ -194,14 +216,14 @@ class PlanFitWidgetProvider : HomeWidgetProvider() {
 
         var anyTodo = false
         for (i in 0 until rowCount) {
-            val id = widgetData.getString("todo${i}_id", "") ?: ""
-            val title = widgetData.getString("todo${i}_title", "") ?: ""
+            val id = snapshot.optString("todo${i}_id", "")
+            val title = snapshot.optString("todo${i}_title", "")
             if (id.isEmpty() || title.isEmpty()) {
                 views.setViewVisibility(rowIds[i], View.GONE)
                 continue
             }
             anyTodo = true
-            val done = widgetData.getBoolean("todo${i}_done", false)
+            val done = snapshot.optBoolean("todo${i}_done", false)
             views.setViewVisibility(rowIds[i], View.VISIBLE)
             views.setTextViewText(titleIds[i], title)
             views.setImageViewResource(
@@ -209,7 +231,7 @@ class PlanFitWidgetProvider : HomeWidgetProvider() {
                 if (done) R.drawable.ic_widget_todo_checked else R.drawable.ic_widget_todo_unchecked,
             )
 
-            val priority = widgetData.getInt("todo${i}_priority", 0)
+            val priority = snapshot.optInt("todo${i}_priority", 0)
             val priorityDrawable = when (priority) {
                 1 -> R.drawable.ic_widget_priority_low
                 2 -> R.drawable.ic_widget_priority_medium

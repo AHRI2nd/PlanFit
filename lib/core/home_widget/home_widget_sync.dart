@@ -1,9 +1,59 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:home_widget/home_widget.dart';
 
 import '../db/app_database.dart';
+
+/// Builds the field map [HomeWidgetSync.push] JSON-encodes and writes in one
+/// shot — pulled out as its own pure, top-level function (no platform
+/// channel, no `Platform.isAndroid`/`isIOS` gate) purely so it's directly
+/// unit-testable: `push` itself can't be driven from `flutter test` on a
+/// non-Android/iOS host, since that gate short-circuits before doing
+/// anything. [now] defaults to [DateTime.now] and only exists so a test can
+/// pin `todos_uri`'s date deterministically.
+Map<String, Object> buildWidgetSnapshot({
+  required List<EventRow> upcomingEvents,
+  required List<TodoRow> todayTodos,
+  DateTime? now,
+}) {
+  final snapshot = <String, Object>{};
+
+  for (var i = 0; i < HomeWidgetSync.maxEvents; i++) {
+    final event = i < upcomingEvents.length ? upcomingEvents[i] : null;
+    snapshot['event${i}_title'] = event?.title ?? '';
+    snapshot['event${i}_time'] = event == null
+        ? ''
+        : HomeWidgetSync._time(event.startAt);
+    // Deep-link read by PlanFitWidgetProvider.kt (and, once the iOS
+    // extension exists, PlanFitWidget.swift) so tapping an event opens its
+    // day in the schedule tab instead of just launching the app.
+    snapshot['event${i}_uri'] = event == null
+        ? ''
+        : HomeWidgetSync.scheduleUri(event.startAt).toString();
+  }
+
+  final ordered = [
+    ...todayTodos.where((t) => !t.isDone),
+    ...todayTodos.where((t) => t.isDone),
+  ];
+  for (var i = 0; i < HomeWidgetSync.maxWidgetTodos; i++) {
+    final todo = i < ordered.length ? ordered[i] : null;
+    snapshot['todo${i}_id'] = todo?.id ?? '';
+    snapshot['todo${i}_title'] = todo?.title ?? '';
+    snapshot['todo${i}_done'] = todo?.isDone ?? false;
+    snapshot['todo${i}_priority'] = todo?.priority ?? 0;
+  }
+
+  snapshot['todos_progress'] =
+      '${todayTodos.where((t) => t.isDone).length}/${todayTodos.length}';
+  snapshot['todos_uri'] = HomeWidgetSync.scheduleUri(
+    now ?? DateTime.now(),
+  ).toString();
+
+  return snapshot;
+}
 
 /// Pushes a compact "next event + today's to-do progress" snapshot to the
 /// native HomeScreen widget.
@@ -14,6 +64,24 @@ import '../db/app_database.dart';
 /// file edits) — see docs/PROGRESS.md for the exact steps and the ready-made
 /// Swift source. Until that target exists, calls here are harmless no-ops on
 /// iOS: `HomeWidget` methods fail quietly and are swallowed by the caller.
+///
+/// [push] writes the entire snapshot as a single JSON blob under
+/// [_snapshotKey], rather than one `saveWidgetData` call per field. Each
+/// `saveWidgetData` call is its own platform-channel round trip, and the
+/// Android side commits it as its own independent SharedPreferences write —
+/// with ~20 separate calls for 3 events + 3 to-dos + the progress line,
+/// there was no atomicity across them at all. [push] can run from the
+/// to-do-checkbox-tap background callback (see home_widget_background.dart),
+/// where Android's background execution budget can kill the process at any
+/// point — a kill partway through used to leave the widget's storage with a
+/// mix of some already-updated fields and some still-stale ones (e.g.
+/// event0 updated but event1/event2 not yet, or a to-do's `_done` flag
+/// updated but not its `_priority`), rendered as a visibly inconsistent
+/// widget until the next successful full push. Writing one JSON string is
+/// one platform-channel call and one underlying write, so a kill either
+/// happens before it (old snapshot, self-consistent) or after it (new
+/// snapshot, self-consistent) — never a torn mix of both. See
+/// PlanFitWidgetProvider.kt's matching read-side change.
 class HomeWidgetSync {
   const HomeWidgetSync._();
 
@@ -38,6 +106,10 @@ class HomeWidgetSync {
   /// happened to be marked done already.
   static const int maxWidgetTodos = 3;
 
+  /// The single key the whole snapshot is written under — see [push]'s doc
+  /// for why this replaced one key per field.
+  static const String _snapshotKey = 'widget_snapshot';
+
   static bool _appGroupSet = false;
 
   static Future<void> push({
@@ -51,53 +123,15 @@ class HomeWidgetSync {
       _appGroupSet = true;
     }
 
-    for (var i = 0; i < maxEvents; i++) {
-      final event = i < upcomingEvents.length ? upcomingEvents[i] : null;
-      await HomeWidget.saveWidgetData<String>(
-        'event${i}_title',
-        event?.title ?? '',
-      );
-      await HomeWidget.saveWidgetData<String>(
-        'event${i}_time',
-        event == null ? '' : _time(event.startAt),
-      );
-      // Deep-link read by PlanFitWidgetProvider.kt (and, once the iOS
-      // extension exists, PlanFitWidget.swift) so tapping an event opens
-      // its day in the schedule tab instead of just launching the app.
-      await HomeWidget.saveWidgetData<String>(
-        'event${i}_uri',
-        event == null ? '' : scheduleUri(event.startAt).toString(),
-      );
-    }
-
-    final ordered = [
-      ...todayTodos.where((t) => !t.isDone),
-      ...todayTodos.where((t) => t.isDone),
-    ];
-    for (var i = 0; i < maxWidgetTodos; i++) {
-      final todo = i < ordered.length ? ordered[i] : null;
-      await HomeWidget.saveWidgetData<String>('todo${i}_id', todo?.id ?? '');
-      await HomeWidget.saveWidgetData<String>(
-        'todo${i}_title',
-        todo?.title ?? '',
-      );
-      await HomeWidget.saveWidgetData<bool>(
-        'todo${i}_done',
-        todo?.isDone ?? false,
-      );
-      await HomeWidget.saveWidgetData<int>(
-        'todo${i}_priority',
-        todo?.priority ?? 0,
-      );
-    }
-
-    await HomeWidget.saveWidgetData<String>(
-      'todos_progress',
-      '${todayTodos.where((t) => t.isDone).length}/${todayTodos.length}',
+    final snapshot = buildWidgetSnapshot(
+      upcomingEvents: upcomingEvents,
+      todayTodos: todayTodos,
     );
+
+    // One platform-channel call, one underlying write — see [push]'s doc.
     await HomeWidget.saveWidgetData<String>(
-      'todos_uri',
-      scheduleUri(DateTime.now()).toString(),
+      _snapshotKey,
+      jsonEncode(snapshot),
     );
 
     await HomeWidget.updateWidget(
