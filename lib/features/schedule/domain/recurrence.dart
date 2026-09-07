@@ -101,7 +101,12 @@ class RecurrenceExpansion {
       'exactly one of until or count is required when frequency is not none',
     );
 
-    final duration = end.difference(start);
+    // The DST-safe wall-clock span (see calendarDuration's own doc) — not
+    // `end.difference(start)`, which measures elapsed real time and would
+    // carry a DST transition's hour of drift from this *one* start/end pair
+    // into every future occurrence, even ones nowhere near a transition of
+    // their own.
+    final duration = calendarDuration(start, end);
     // A count-mode cap has no date boundary at all; a date-mode cap is
     // simply the usual maxOccurrences (occurrences() below still stops the
     // moment it passes `until`, whichever comes first).
@@ -121,13 +126,10 @@ class RecurrenceExpansion {
         for (final d in dates)
           (
             DateTime(d.year, d.month, d.day, start.hour, start.minute),
-            DateTime(
-              d.year,
-              d.month,
-              d.day,
-              start.hour,
-              start.minute,
-            ).add(duration),
+            shiftTimeOfDay(
+              DateTime(d.year, d.month, d.day, start.hour, start.minute),
+              duration,
+            ),
           ),
       ];
     }
@@ -147,7 +149,7 @@ class RecurrenceExpansion {
       if (untilDate != null && _dateOnly(occurrenceStart).isAfter(untilDate)) {
         break;
       }
-      result.add((occurrenceStart, occurrenceStart.add(duration)));
+      result.add((occurrenceStart, shiftTimeOfDay(occurrenceStart, duration)));
       step++;
     }
     return result;

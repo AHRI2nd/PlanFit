@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planfit/core/date_math.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 void main() {
   group('addCalendarDays', () {
@@ -178,5 +180,92 @@ void main() {
       final dt = DateTime(2026, 3, 15, 9, 30, 15);
       expect(addCalendarYears(dt, 0), dt);
     });
+  });
+
+  group('calendarDuration', () {
+    test('a same-day span is just the plain hour difference', () {
+      final result = calendarDuration(
+        DateTime(2026, 3, 5, 9, 0),
+        DateTime(2026, 3, 5, 17, 30),
+      );
+      expect(result, const Duration(hours: 8, minutes: 30));
+    });
+
+    test('an overnight (day-crossing) span totals correctly', () {
+      final result = calendarDuration(
+        DateTime(2026, 3, 7, 21, 0),
+        DateTime(2026, 3, 8, 5, 0),
+      );
+      expect(result, const Duration(hours: 8));
+    });
+
+    // The whole point of calendarDuration: unlike `end.difference(start)`,
+    // which measures elapsed real UTC time, this is computed purely from
+    // calendar/wall-clock fields — so replaying it (via shiftTimeOfDay, not
+    // DateTime.add) onto a *different* date reconstructs the same
+    // wall-clock time-of-day span regardless of any DST transition in
+    // between, on either the original pair or the date it's replayed onto.
+    // Verified deterministically (independent of whatever timezone this
+    // test happens to run in) using `timezone`'s TZDateTime pinned to a
+    // real DST-observing zone, rather than relying on the host's own
+    // timezone happening to observe one.
+    //
+    // recurrence.dart's own RecurrenceExpansion.occurrences() uses this same
+    // pair (calendarDuration + shiftTimeOfDay) for exactly this reason, but
+    // isn't separately regression-tested with TZDateTime the way this is:
+    // _advance/addCalendarDays reconstructs each occurrence's start via a
+    // plain `DateTime(year, month, day, ...)` call, which always resolves
+    // against the *current process's actual local timezone* rather than an
+    // arbitrary TZDateTime's own simulated Location — so on a test host
+    // whose real local timezone doesn't happen to be the DST zone being
+    // simulated, a TZDateTime start/end passed into occurrences() gets
+    // silently "re-localized" partway through, defeating the simulation
+    // before duration is ever replayed. That's specific to testing the
+    // full pipeline from a host timezone that doesn't match; the
+    // calendarDuration/shiftTimeOfDay computation itself, checked directly
+    // here, is genuinely host-independent and is what recurrence.dart
+    // actually relies on for real devices (whose own local DateTime, on an
+    // actual DST-observing device, is DST-aware by construction).
+    test(
+      'replaying it via shiftTimeOfDay reconstructs the correct wall-clock '
+      "end time across a real DST spring-forward — regression test: the "
+      'elapsed-time equivalent (end.difference(start), replayed via '
+      'DateTime.add) drifts the reconstructed hour forward by the '
+      "transition's skipped hour",
+      () {
+        tzdata.initializeTimeZones();
+        final ny = tz.getLocation('America/New_York');
+        // The original span, computed from an ordinary day nowhere near the
+        // transition (Mar 1 -> Mar 2, an 8h overnight span).
+        final origStart = tz.TZDateTime(ny, 2026, 3, 1, 21, 0);
+        final origEnd = tz.TZDateTime(ny, 2026, 3, 2, 5, 0);
+
+        // Replayed onto the night of the actual spring-forward transition
+        // (2026-03-08: 02:00 -> 03:00 EDT, US Eastern's 2026 date).
+        final occurrenceStart = tz.TZDateTime(ny, 2026, 3, 7, 21, 0);
+
+        final fixedEnd = shiftTimeOfDay(
+          occurrenceStart,
+          calendarDuration(origStart, origEnd),
+        );
+        expect(fixedEnd.hour, 5);
+        expect(fixedEnd.minute, 0);
+        expect(fixedEnd.day, 8);
+
+        // Confirm this scenario actually exercises the transition — the
+        // old, buggy approach really does drift here, so this isn't a
+        // vacuously-true assertion.
+        final buggyDuration = origEnd.difference(origStart);
+        final buggyEnd = occurrenceStart.add(buggyDuration);
+        expect(
+          buggyEnd.hour,
+          6,
+          reason:
+              "the elapsed-time approach lands an hour later than intended "
+              "here — confirming this scenario genuinely crosses the "
+              'transition, not a false negative',
+        );
+      },
+    );
   });
 }

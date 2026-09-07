@@ -167,7 +167,12 @@ class EventRepositoryImpl implements EventRepository {
           hours: existing.startAt.hour,
           minutes: existing.startAt.minute,
         );
-    final duration = input.endAt.difference(input.startAt);
+    // The DST-safe wall-clock span — see calendarDuration's own doc — not
+    // `input.endAt.difference(input.startAt)`, which measures elapsed real
+    // time and would carry a DST transition's hour of drift from just this
+    // one edited occurrence into every future one it gets replayed onto
+    // below, even ones nowhere near a transition of their own.
+    final duration = calendarDuration(input.startAt, input.endAt);
 
     final occurrences = await _dao.seriesFrom(groupId, existing.startAt);
 
@@ -184,7 +189,7 @@ class EventRepositoryImpl implements EventRepository {
           newEnd = input.endAt;
         } else {
           newStart = shiftTimeOfDay(occurrence.startAt, timeOfDayDelta);
-          newEnd = newStart.add(duration);
+          newEnd = shiftTimeOfDay(newStart, duration);
         }
         final row = await _upsertRow(
           id: occurrence.id,

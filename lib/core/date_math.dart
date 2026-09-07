@@ -88,3 +88,39 @@ DateTime addCalendarMonths(DateTime dt, int months) {
 /// [addCalendarMonths] so both share one day-clamping rule.
 DateTime addCalendarYears(DateTime dt, int years) =>
     addCalendarMonths(dt, years * 12);
+
+/// [end]'s wall-clock offset from [start] — same calendar-days-plus-
+/// time-of-day shape [shiftTimeOfDay] takes, computed the DST-safe way
+/// instead of via [DateTime.difference] (which measures **elapsed real
+/// time** between the two instants, not the wall-clock span between them).
+///
+/// This matters wherever one event's own start/end span is captured once,
+/// then *replayed* onto a different date — recurrence expansion's own
+/// duration, most notably: a daily "21:00–05:00 (8h)" overnight event whose
+/// span happens to be computed from a pair that straddles a DST transition
+/// would otherwise carry that transition's hour of drift into every future
+/// occurrence, even ones nowhere near a transition themselves. Pass the
+/// result to [shiftTimeOfDay] (not [DateTime.add]) to apply it — that's what
+/// actually reconstructs the target wall-clock time DST-safely; this only
+/// computes the shift, mirroring [addCalendarDays]/[shiftTimeOfDay]'s own
+/// split between "how far" and "apply it."
+///
+/// The calendar-day count itself is computed via [DateTime.utc] on each
+/// side's date-only fields — sidestepping local-time DST distortion in the
+/// subtraction entirely, since a UTC-to-UTC day boundary is always exactly
+/// 24 real hours regardless of what the *local* clock does that day.
+Duration calendarDuration(DateTime start, DateTime end) {
+  final days = DateTime.utc(
+    end.year,
+    end.month,
+    end.day,
+  ).difference(DateTime.utc(start.year, start.month, start.day)).inDays;
+  return Duration(
+    days: days,
+    hours: end.hour - start.hour,
+    minutes: end.minute - start.minute,
+    seconds: end.second - start.second,
+    milliseconds: end.millisecond - start.millisecond,
+    microseconds: end.microsecond - start.microsecond,
+  );
+}
