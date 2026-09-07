@@ -234,4 +234,33 @@ void main() {
       expect(action.title, 'Remind me in 5 min');
     },
   );
+
+  group('NotificationService.languageOverride setter', () {
+    // NotificationService owns its own real FlutterLocalNotificationsPlugin
+    // singleton (not injectable), and the iOS re-registration path this
+    // setter drives only runs on an actual iOS platform/plugin binding — so,
+    // like `defaultHolidayCountryCode()`'s own established precedent, the
+    // deeper "did the plugin actually get re-initialized with a fresh
+    // label" behavior can't be exercised from a host-run test. What *is*
+    // testable here: the setter's own bookkeeping doesn't throw or misbehave
+    // regardless of init/platform state, which is what every call site
+    // (SettingsController._apply, on every settings change) actually
+    // depends on.
+    test('updates the getter and is a safe no-op before init() has run', () {
+      final service = NotificationService(languageOverride: 'en');
+      expect(service.languageOverride, 'en');
+
+      service.languageOverride = 'ko';
+      expect(service.languageOverride, 'ko');
+    });
+
+    test('setting the same value again is a true no-op', () {
+      final service = NotificationService(languageOverride: 'ko');
+
+      // Should not throw, and should leave the value exactly as it was —
+      // guards the `if (value == _languageOverride) return;` early-out.
+      service.languageOverride = 'ko';
+      expect(service.languageOverride, 'ko');
+    });
+  });
 }

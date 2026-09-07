@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:ui' show Locale;
@@ -86,7 +87,11 @@ Locale _resolveSupportedLocale(String? languageOverride) {
 /// previous alert for that same offset) and any offset the user removes
 /// gets its own notification canceled without disturbing the others.
 class NotificationService implements NotificationPort {
-  NotificationService({this.soundEnabled = true, this.languageOverride});
+  // Not `this._languageOverride`: the named parameter has to stay
+  // `languageOverride` — the public name every call site already uses.
+  NotificationService({this.soundEnabled = true, String? languageOverride})
+    // ignore: prefer_initializing_formals
+    : _languageOverride = languageOverride;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -100,7 +105,22 @@ class NotificationService implements NotificationPort {
   /// notification's channel name/snooze label/fallback title agree with
   /// whatever language the user actually sees on screen, not the device's
   /// own OS locale, the moment the two diverge — see [_l10n]'s own doc.
-  String? languageOverride;
+  ///
+  /// A plain field until the setter below: Android's snooze-action label is
+  /// rebuilt fresh on every notification (see [_details]), but iOS bakes its
+  /// snooze label into a [DarwinNotificationCategory] registered once, in
+  /// [init]. Without re-registering that category on every actual change,
+  /// the iOS snooze button stayed stuck in whichever language was active the
+  /// very first time [init] happened to run for this process — permanently,
+  /// even after an in-app language switch updated everything else.
+  String? get languageOverride => _languageOverride;
+  set languageOverride(String? value) {
+    if (value == _languageOverride) return;
+    _languageOverride = value;
+    unawaited(_registerIosSnoozeCategory());
+  }
+
+  String? _languageOverride;
   bool _initialized = false;
 
   /// Fired on every response `init()`'s `onDidReceiveNotificationResponse`
@@ -115,9 +135,8 @@ class NotificationService implements NotificationPort {
   static const String _channelId = 'planfit_events';
   static String _channelName({String? languageOverride}) =>
       _l10n(languageOverride: languageOverride).notificationChannelName;
-  static String _channelDescription({String? languageOverride}) => _l10n(
-    languageOverride: languageOverride,
-  ).notificationChannelDescription;
+  static String _channelDescription({String? languageOverride}) =>
+      _l10n(languageOverride: languageOverride).notificationChannelDescription;
 
   /// Action/category ids shared with the top-level background handler below
   /// — a "5 minutes from now" snooze that re-fires the same notification
@@ -129,10 +148,11 @@ class NotificationService implements NotificationPort {
       _l10n(languageOverride: languageOverride).notificationSnoozeLabel;
   static const Duration snoozeDuration = Duration(minutes: 5);
 
-  Future<void> init() async {
-    if (_initialized) return;
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    final darwin = DarwinInitializationSettings(
+  /// [DarwinInitializationSettings], including its notification categories —
+  /// shared by [init] and [_registerIosSnoozeCategory] so both build the
+  /// category from the exact same [languageOverride]-aware label.
+  DarwinInitializationSettings _darwinSettings() {
+    return DarwinInitializationSettings(
       // We request explicitly later so the prompt lands at a sensible moment.
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -149,16 +169,54 @@ class NotificationService implements NotificationPort {
         ),
       ],
     );
+  }
+
+  void _onDidReceiveNotificationResponse(NotificationResponse response) {
+    handleNotificationAction(response, _plugin);
+    onTap?.call(response);
+  }
+
+  Future<void> init() async {
+    if (_initialized) return;
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _plugin.initialize(
-      settings: InitializationSettings(android: android, iOS: darwin),
-      onDidReceiveNotificationResponse: (response) {
-        handleNotificationAction(response, _plugin);
-        onTap?.call(response);
-      },
+      settings: InitializationSettings(
+        android: android,
+        iOS: _darwinSettings(),
+      ),
+      onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
       onDidReceiveBackgroundNotificationResponse:
           _onBackgroundNotificationResponse,
     );
     _initialized = true;
+  }
+
+  /// Re-registers the iOS [DarwinNotificationCategory] with a freshly
+  /// relabeled snooze action — called whenever [languageOverride] actually
+  /// changes after [init] has already run (see that setter's own doc).
+  /// [IOSFlutterLocalNotificationsPlugin] has no narrower "just update the
+  /// categories" call; re-running `initialize` is the plugin's own
+  /// documented way to change them, and since `requestAlertPermission`/
+  /// `Badge`/`Sound` stay false here, it doesn't re-prompt for permission.
+  /// Passing [_onDidReceiveNotificationResponse] again (rather than
+  /// omitting it) matters: the plugin unconditionally overwrites its stored
+  /// callback with whatever this call passes, so leaving it out would
+  /// silently break notification-tap handling from this point on. Best
+  /// effort, like every other platform-channel call in this file — a
+  /// failure here just leaves the label stale for a bit longer, not
+  /// something worth surfacing to the user.
+  Future<void> _registerIosSnoozeCategory() async {
+    if (!_initialized || kIsWeb || !Platform.isIOS) return;
+    try {
+      await _ios?.initialize(
+        settings: _darwinSettings(),
+        onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
+        onDidReceiveBackgroundNotificationResponse:
+            _onBackgroundNotificationResponse,
+      );
+    } on Exception {
+      // See doc comment above.
+    }
   }
 
   AndroidFlutterLocalNotificationsPlugin? get _android => _plugin
@@ -582,7 +640,9 @@ Future<void> handleNotificationAction(
     id: notificationId,
     title:
         data['title'] as String? ??
-        _l10n(languageOverride: languageOverride).notificationEventFallbackTitle,
+        _l10n(
+          languageOverride: languageOverride,
+        ).notificationEventFallbackTitle,
     body: data['body'] as String?,
     scheduledDate: TimezoneSetup.toLocal(
       DateTime.now().add(NotificationService.snoozeDuration),
