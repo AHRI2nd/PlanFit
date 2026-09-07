@@ -208,5 +208,81 @@ void main() {
       expect(placementOf(result, 'early-a').columnCount, 2);
       expect(placementOf(result, 'early-b').columnCount, 2);
     });
+
+    test(
+      'a zero-duration event sitting inside a real event\'s span shares its '
+      'column instead of forcing it into an unnecessary extra one — '
+      'regression test: the free-column check (startAt >= columnEnds[c]) '
+      'read literally never lets a point-in-time event reuse a still-in-'
+      'progress column, so it used to open a brand new one just for a '
+      'marker and needlessly halve the real event\'s width',
+      () {
+        final result = cascadeEvents([
+          event(
+            id: 'meeting',
+            startAt: DateTime(2026, 1, 1, 9),
+            endAt: DateTime(2026, 1, 1, 10),
+          ),
+          event(
+            id: 'reminder',
+            startAt: DateTime(2026, 1, 1, 9, 30),
+            endAt: DateTime(2026, 1, 1, 9, 30),
+          ),
+        ]);
+
+        expect(placementOf(result, 'meeting').columnCount, 1);
+        expect(placementOf(result, 'meeting').column, 0);
+        expect(placementOf(result, 'reminder').columnCount, 1);
+        expect(placementOf(result, 'reminder').column, 0);
+      },
+    );
+
+    test(
+      'several zero-duration events inside the same real event\'s span all '
+      'share its one column, not one new column each',
+      () {
+        final result = cascadeEvents([
+          event(
+            id: 'meeting',
+            startAt: DateTime(2026, 1, 1, 9),
+            endAt: DateTime(2026, 1, 1, 12),
+          ),
+          event(
+            id: 'ping-1',
+            startAt: DateTime(2026, 1, 1, 9, 30),
+            endAt: DateTime(2026, 1, 1, 9, 30),
+          ),
+          event(
+            id: 'ping-2',
+            startAt: DateTime(2026, 1, 1, 10, 30),
+            endAt: DateTime(2026, 1, 1, 10, 30),
+          ),
+        ]);
+
+        for (final id in ['meeting', 'ping-1', 'ping-2']) {
+          expect(placementOf(result, id).columnCount, 1);
+          expect(placementOf(result, id).column, 0);
+        }
+      },
+    );
+
+    test(
+      'a lone zero-duration event with nothing else around it still just '
+      'gets column 0 of 1 — the column-sharing fix only kicks in once a '
+      'real (already-open) column actually exists to share',
+      () {
+        final result = cascadeEvents([
+          event(
+            id: 'ping',
+            startAt: DateTime(2026, 1, 1, 9),
+            endAt: DateTime(2026, 1, 1, 9),
+          ),
+        ]);
+
+        expect(result, hasLength(1));
+        expect(result.single.column, 0);
+        expect(result.single.columnCount, 1);
+      },
+    );
   });
 }

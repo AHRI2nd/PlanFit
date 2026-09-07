@@ -95,6 +95,15 @@ void _appendCluster(
   final columns = <int>[];
   for (var i = start; i < end; i++) {
     final e = sorted[i];
+    // A zero-duration event (startAt == endAt) has no actual time extent to
+    // conflict with anything — it's a point-in-time marker, not a card
+    // needing its own reserved width. The free-column check below is exact
+    // interval-graph coloring for real-duration events, but taken literally
+    // for one of these it can reject every already-open column (its start
+    // never reaches a still-in-progress occupant's end) and open a brand
+    // new one just to hold a marker, needlessly narrowing every *real*
+    // event in the cluster to make room for it.
+    final isInstant = !e.endAt.isAfter(e.startAt);
     var placed = -1;
     for (var c = 0; c < columnEnds.length; c++) {
       if (!e.startAt.isBefore(columnEnds[c])) {
@@ -103,8 +112,16 @@ void _appendCluster(
       }
     }
     if (placed == -1) {
-      placed = columnEnds.length;
-      columnEnds.add(e.endAt);
+      if (isInstant && columnEnds.isNotEmpty) {
+        // Share whichever column is already open instead of forcing a new
+        // one — and leave that column's own end time untouched, since this
+        // marker doesn't extend (or need protecting from) real occupied
+        // time the way a genuine duration would.
+        placed = 0;
+      } else {
+        placed = columnEnds.length;
+        columnEnds.add(e.endAt);
+      }
     } else {
       columnEnds[placed] = e.endAt;
     }
