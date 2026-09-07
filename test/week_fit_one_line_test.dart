@@ -246,5 +246,88 @@ void main() {
     test('returns a positive height for a normal style', () {
       expect(lineHeightOf(_style), greaterThan(0));
     });
+
+    test(
+      'scales with the given textScaler instead of always measuring at '
+      "the default (unscaled) size — regression test: this used to "
+      "construct its TextPainter with no textScaler at all, so it always "
+      'measured at 1.0x regardless of the app\'s own accessibility '
+      'text-scale clamp (app.dart allows up to 1.3x); the maxLines '
+      "budget this feeds into then came out too generous once the "
+      "actual Text widgets rendered at the real (larger) scale, needing "
+      "more room than was budgeted for",
+      () {
+        final unscaled = lineHeightOf(_style);
+        final scaled = lineHeightOf(
+          _style,
+          textScaler: const TextScaler.linear(1.3),
+        );
+        // Not an exact *1.3 check — TextPainter/font-metric rounding at
+        // different scales isn't perfectly linear to the sub-pixel — just
+        // that scaling actually happened, by roughly the expected amount.
+        expect(scaled, greaterThan(unscaled));
+        expect(scaled, closeTo(unscaled * 1.3, 1.0));
+      },
+    );
+  });
+
+  group('fitOneLine/fitLines respect textScaler for width fitting too', () {
+    test(
+      'fitOneLine truncates more aggressively at a larger scale, since '
+      'each character is genuinely wider then',
+      () {
+        const text = 'A moderately long event title';
+        const maxWidth = 80.0;
+        final unscaled = fitOneLine(
+          text: text,
+          style: _style,
+          maxWidth: maxWidth,
+        );
+        final scaled = fitOneLine(
+          text: text,
+          style: _style,
+          maxWidth: maxWidth,
+          textScaler: const TextScaler.linear(1.3),
+        );
+        expect(
+          scaled.length,
+          lessThan(unscaled.length),
+          reason:
+              'at 1.3x scale, fewer characters should fit in the same '
+              'maxWidth — using the same unscaled measurement regardless '
+              'of scale would return a string that renders too wide once '
+              'the real (scaled) Text widget paints it',
+        );
+      },
+    );
+
+    test(
+      'fitLines wraps onto more lines at a larger scale for the same text',
+      () {
+        const text = 'A moderately long event title that wraps';
+        const maxWidth = 80.0;
+        const maxLines = 20;
+        final unscaled = fitLines(
+          text: text,
+          style: _style,
+          maxWidth: maxWidth,
+          maxLines: maxLines,
+        );
+        final scaled = fitLines(
+          text: text,
+          style: _style,
+          maxWidth: maxWidth,
+          maxLines: maxLines,
+          textScaler: const TextScaler.linear(1.3),
+        );
+        expect(
+          scaled.length,
+          greaterThan(unscaled.length),
+          reason:
+              'wider (scaled) characters need more lines to fit the same '
+              'text in the same maxWidth',
+        );
+      },
+    );
   });
 }

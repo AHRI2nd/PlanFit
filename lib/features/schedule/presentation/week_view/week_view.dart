@@ -38,9 +38,13 @@ String fitOneLine({
   required String text,
   required TextStyle? style,
   required double maxWidth,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   if (text.isEmpty || maxWidth <= 0) return text;
-  final painter = TextPainter(textDirection: TextDirection.ltr);
+  final painter = TextPainter(
+    textDirection: TextDirection.ltr,
+    textScaler: textScaler,
+  );
   double widthOf(String s) {
     painter.text = TextSpan(text: s, style: style);
     painter.layout();
@@ -81,11 +85,18 @@ String fitOneLine({
 
 /// Returns the height one line of [style] text actually occupies — used to
 /// convert a card's own pixel height into how many lines of title
-/// [fitLines] should fill it with.
-double lineHeightOf(TextStyle? style) {
+/// [fitLines] should fill it with. [textScaler] must match whatever
+/// ambient text scale the actual `Text` widgets being budgeted for will
+/// render at (`MediaQuery.textScalerOf(context)`, normally) — this used to
+/// always measure at the default (unscaled) size regardless of the app's
+/// own accessibility text-scale clamp, so at a larger system text size the
+/// budgeted line count came out too generous and the card's real content
+/// needed more room than [fitLines]' resulting `maxLines` accounted for.
+double lineHeightOf(TextStyle? style, {TextScaler textScaler = TextScaler.noScaling}) {
   final painter = TextPainter(
     text: TextSpan(text: 'A', style: style),
     textDirection: TextDirection.ltr,
+    textScaler: textScaler,
   )..layout();
   return painter.height;
 }
@@ -114,10 +125,14 @@ List<String> fitLines({
   required TextStyle? style,
   required double maxWidth,
   required int maxLines,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   if (maxLines <= 0) return const [];
   if (text.isEmpty || maxWidth <= 0) return [text];
-  final painter = TextPainter(textDirection: TextDirection.ltr);
+  final painter = TextPainter(
+    textDirection: TextDirection.ltr,
+    textScaler: textScaler,
+  );
   double widthOf(String s) {
     painter.text = TextSpan(text: s, style: style);
     painter.layout();
@@ -151,7 +166,14 @@ List<String> fitLines({
       // Not even one character fits on a line — fall back to fitOneLine's
       // own single-line ladder and stop; there's no narrower prefix to
       // wrap further.
-      lines.add(fitOneLine(text: remaining, style: style, maxWidth: maxWidth));
+      lines.add(
+        fitOneLine(
+          text: remaining,
+          style: style,
+          maxWidth: maxWidth,
+          textScaler: textScaler,
+        ),
+      );
       remaining = '';
       break;
     }
@@ -159,7 +181,14 @@ List<String> fitLines({
     remaining = remaining.substring(lo);
   }
   if (remaining.isNotEmpty) {
-    lines.add(fitOneLine(text: remaining, style: style, maxWidth: maxWidth));
+    lines.add(
+      fitOneLine(
+        text: remaining,
+        style: style,
+        maxWidth: maxWidth,
+        textScaler: textScaler,
+      ),
+    );
   }
   return lines;
 }
@@ -976,9 +1005,10 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                       // own wrap already worked, but goes through the same
                       // path for consistency and so it, too, isn't capped
                       // at a fixed line count.
+                      final textScaler = MediaQuery.textScalerOf(context);
                       final maxLines =
                           ((cardHeight - verticalPadding) /
-                                  lineHeightOf(style))
+                                  lineHeightOf(style, textScaler: textScaler))
                               .floor()
                               .clamp(1, 1000);
                       final lines = fitLines(
@@ -986,6 +1016,7 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                         style: style,
                         maxWidth: eventWidth - horizontalPadding * 2,
                         maxLines: maxLines,
+                        textScaler: textScaler,
                       );
                       return Positioned(
                         top: _offsetFor(days[i], e.startAt),
