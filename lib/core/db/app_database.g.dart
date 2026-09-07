@@ -3885,6 +3885,234 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
   }
 }
 
+class $PendingCalendarDeletionsTable extends PendingCalendarDeletions
+    with TableInfo<$PendingCalendarDeletionsTable, PendingCalendarDeletionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingCalendarDeletionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _osEventIdMeta = const VerificationMeta(
+    'osEventId',
+  );
+  @override
+  late final GeneratedColumn<String> osEventId = GeneratedColumn<String>(
+    'os_event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [osEventId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_calendar_deletions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingCalendarDeletionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('os_event_id')) {
+      context.handle(
+        _osEventIdMeta,
+        osEventId.isAcceptableOrUnknown(data['os_event_id']!, _osEventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_osEventIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {osEventId};
+  @override
+  PendingCalendarDeletionRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingCalendarDeletionRow(
+      osEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}os_event_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingCalendarDeletionsTable createAlias(String alias) {
+    return $PendingCalendarDeletionsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingCalendarDeletionRow extends DataClass
+    implements Insertable<PendingCalendarDeletionRow> {
+  final String osEventId;
+  final DateTime createdAt;
+  const PendingCalendarDeletionRow({
+    required this.osEventId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['os_event_id'] = Variable<String>(osEventId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PendingCalendarDeletionsCompanion toCompanion(bool nullToAbsent) {
+    return PendingCalendarDeletionsCompanion(
+      osEventId: Value(osEventId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingCalendarDeletionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingCalendarDeletionRow(
+      osEventId: serializer.fromJson<String>(json['osEventId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'osEventId': serializer.toJson<String>(osEventId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PendingCalendarDeletionRow copyWith({
+    String? osEventId,
+    DateTime? createdAt,
+  }) => PendingCalendarDeletionRow(
+    osEventId: osEventId ?? this.osEventId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PendingCalendarDeletionRow copyWithCompanion(
+    PendingCalendarDeletionsCompanion data,
+  ) {
+    return PendingCalendarDeletionRow(
+      osEventId: data.osEventId.present ? data.osEventId.value : this.osEventId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingCalendarDeletionRow(')
+          ..write('osEventId: $osEventId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(osEventId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingCalendarDeletionRow &&
+          other.osEventId == this.osEventId &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingCalendarDeletionsCompanion
+    extends UpdateCompanion<PendingCalendarDeletionRow> {
+  final Value<String> osEventId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PendingCalendarDeletionsCompanion({
+    this.osEventId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingCalendarDeletionsCompanion.insert({
+    required String osEventId,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : osEventId = Value(osEventId);
+  static Insertable<PendingCalendarDeletionRow> custom({
+    Expression<String>? osEventId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (osEventId != null) 'os_event_id': osEventId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingCalendarDeletionsCompanion copyWith({
+    Value<String>? osEventId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PendingCalendarDeletionsCompanion(
+      osEventId: osEventId ?? this.osEventId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (osEventId.present) {
+      map['os_event_id'] = Variable<String>(osEventId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingCalendarDeletionsCompanion(')
+          ..write('osEventId: $osEventId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3893,6 +4121,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TodoSubtasksTable todoSubtasks = $TodoSubtasksTable(this);
   late final $SyncLogsTable syncLogs = $SyncLogsTable(this);
   late final $EventTemplatesTable eventTemplates = $EventTemplatesTable(this);
+  late final $PendingCalendarDeletionsTable pendingCalendarDeletions =
+      $PendingCalendarDeletionsTable(this);
   late final EventDao eventDao = EventDao(this as AppDatabase);
   late final TodoDao todoDao = TodoDao(this as AppDatabase);
   late final SyncLogDao syncLogDao = SyncLogDao(this as AppDatabase);
@@ -3909,6 +4139,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     todoSubtasks,
     syncLogs,
     eventTemplates,
+    pendingCalendarDeletions,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6113,6 +6344,168 @@ typedef $$EventTemplatesTableProcessedTableManager =
       EventTemplateRow,
       PrefetchHooks Function()
     >;
+typedef $$PendingCalendarDeletionsTableCreateCompanionBuilder =
+    PendingCalendarDeletionsCompanion Function({
+      required String osEventId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$PendingCalendarDeletionsTableUpdateCompanionBuilder =
+    PendingCalendarDeletionsCompanion Function({
+      Value<String> osEventId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PendingCalendarDeletionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingCalendarDeletionsTable> {
+  $$PendingCalendarDeletionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get osEventId => $composableBuilder(
+    column: $table.osEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingCalendarDeletionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingCalendarDeletionsTable> {
+  $$PendingCalendarDeletionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get osEventId => $composableBuilder(
+    column: $table.osEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingCalendarDeletionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingCalendarDeletionsTable> {
+  $$PendingCalendarDeletionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get osEventId =>
+      $composableBuilder(column: $table.osEventId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PendingCalendarDeletionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingCalendarDeletionsTable,
+          PendingCalendarDeletionRow,
+          $$PendingCalendarDeletionsTableFilterComposer,
+          $$PendingCalendarDeletionsTableOrderingComposer,
+          $$PendingCalendarDeletionsTableAnnotationComposer,
+          $$PendingCalendarDeletionsTableCreateCompanionBuilder,
+          $$PendingCalendarDeletionsTableUpdateCompanionBuilder,
+          (
+            PendingCalendarDeletionRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingCalendarDeletionsTable,
+              PendingCalendarDeletionRow
+            >,
+          ),
+          PendingCalendarDeletionRow,
+          PrefetchHooks Function()
+        > {
+  $$PendingCalendarDeletionsTableTableManager(
+    _$AppDatabase db,
+    $PendingCalendarDeletionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingCalendarDeletionsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PendingCalendarDeletionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingCalendarDeletionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> osEventId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingCalendarDeletionsCompanion(
+                osEventId: osEventId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String osEventId,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingCalendarDeletionsCompanion.insert(
+                osEventId: osEventId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingCalendarDeletionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingCalendarDeletionsTable,
+      PendingCalendarDeletionRow,
+      $$PendingCalendarDeletionsTableFilterComposer,
+      $$PendingCalendarDeletionsTableOrderingComposer,
+      $$PendingCalendarDeletionsTableAnnotationComposer,
+      $$PendingCalendarDeletionsTableCreateCompanionBuilder,
+      $$PendingCalendarDeletionsTableUpdateCompanionBuilder,
+      (
+        PendingCalendarDeletionRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingCalendarDeletionsTable,
+          PendingCalendarDeletionRow
+        >,
+      ),
+      PendingCalendarDeletionRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6127,4 +6520,9 @@ class $AppDatabaseManager {
       $$SyncLogsTableTableManager(_db, _db.syncLogs);
   $$EventTemplatesTableTableManager get eventTemplates =>
       $$EventTemplatesTableTableManager(_db, _db.eventTemplates);
+  $$PendingCalendarDeletionsTableTableManager get pendingCalendarDeletions =>
+      $$PendingCalendarDeletionsTableTableManager(
+        _db,
+        _db.pendingCalendarDeletions,
+      );
 }

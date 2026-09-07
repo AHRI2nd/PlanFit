@@ -166,6 +166,15 @@ class MockCalendarService extends _i1.Mock implements _i2.CalendarService {
           as _i3.Future<void>);
 
   @override
+  _i3.Future<void> deleteEventById(String? osId) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteEventById, [osId]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
   _i3.Future<_i4.Event?> fetchEvent(String? osEventId) =>
       (super.noSuchMethod(
             Invocation.method(#fetchEvent, [osEventId]),

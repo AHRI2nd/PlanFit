@@ -829,6 +829,49 @@ void main() {
       verify(notifications.cancelForEvent('e6b')).called(1);
       verify(dao.deleteById('e6b')).called(1);
     });
+
+    test(
+      'records a pending-deletion tombstone for the orphaned OS event when '
+      'the calendar-side delete fails — regression test: the local row was '
+      'the only place its osEventId linkage lived, so without this, the '
+      'next reconcile\'s auto-import step would see the still-present OS '
+      'event as unlinked and resurrect it as a "new" local event',
+      () async {
+        final existing = row(
+          id: 'e6c',
+          startAt: DateTime.now(),
+          endAt: DateTime.now().add(const Duration(hours: 1)),
+          osEventId: 'os-stuck',
+        );
+        when(dao.findById('e6c')).thenAnswer((_) async => existing);
+        when(calendar.isEnabled).thenReturn(true);
+        when(calendar.deleteEvent(any)).thenThrow(Exception('plugin error'));
+
+        await repo.delete('e6c');
+
+        verify(dao.markCalendarDeletionPending('os-stuck')).called(1);
+        verify(dao.deleteById('e6c')).called(1);
+      },
+    );
+
+    test(
+      'does not record a tombstone when the calendar-side delete succeeds',
+      () async {
+        final existing = row(
+          id: 'e6d',
+          startAt: DateTime.now(),
+          endAt: DateTime.now().add(const Duration(hours: 1)),
+          osEventId: 'os-ok',
+        );
+        when(dao.findById('e6d')).thenAnswer((_) async => existing);
+        when(calendar.isEnabled).thenReturn(true);
+        when(calendar.deleteEvent(any)).thenAnswer((_) async {});
+
+        await repo.delete('e6d');
+
+        verifyNever(dao.markCalendarDeletionPending(any));
+      },
+    );
   });
 
   group('deleteSeriesFrom', () {

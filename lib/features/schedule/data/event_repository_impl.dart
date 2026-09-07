@@ -342,11 +342,18 @@ class EventRepositoryImpl implements EventRepository {
     if (_calendar.isEnabled && row.osEventId != null) {
       // Best-effort, same reasoning as the push above: the user's delete
       // must go through locally even if the OS-calendar side fails for some
-      // reason CalendarService itself doesn't already treat as a no-op.
+      // reason CalendarService itself doesn't already treat as a no-op
+      // (CalendarService.deleteEvent already swallows "already gone"
+      // itself — anything that still throws here is a genuine failure, the
+      // OS event is presumably still there).
       try {
         await _calendar.deleteEvent(row);
       } on Exception {
-        // Nothing to reconcile after this — the row is gone either way.
+        // The local row below was the only place this id's linkage lived —
+        // record it so CalendarReconciler's auto-import step doesn't treat
+        // the still-present OS event as newly created and resurrect it.
+        // See PendingCalendarDeletions' doc.
+        await _dao.markCalendarDeletionPending(row.osEventId!);
       }
     }
     await _dao.deleteById(id);

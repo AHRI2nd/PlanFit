@@ -6,7 +6,7 @@ import '../tables.dart';
 
 part 'event_dao.g.dart';
 
-@DriftAccessor(tables: [Events])
+@DriftAccessor(tables: [Events, PendingCalendarDeletions])
 class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   EventDao(super.db);
 
@@ -129,8 +129,7 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   /// that column instead and never touch `osCalendarId`.
   Future<List<EventRow>> autoImported() {
     return (select(events)..where(
-          (t) =>
-              t.osCalendarId.isNotNull() & t.importSourceCalendarId.isNull(),
+          (t) => t.osCalendarId.isNotNull() & t.importSourceCalendarId.isNull(),
         ))
         .get();
   }
@@ -149,4 +148,27 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
         ))
         .get();
   }
+
+  /// Records that [osEventId] couldn't be confirmed deleted from the device
+  /// calendar — see [PendingCalendarDeletions]'s doc. Called from
+  /// [EventRepositoryImpl.delete] right before it removes the local row that
+  /// was the only place this id was linked.
+  Future<void> markCalendarDeletionPending(String osEventId) =>
+      into(pendingCalendarDeletions).insertOnConflictUpdate(
+        PendingCalendarDeletionsCompanion.insert(osEventId: osEventId),
+      );
+
+  /// Every OS event id [CalendarReconciler]'s auto-import step must treat as
+  /// "not actually new" even though no local row links to it — see
+  /// [PendingCalendarDeletions]'s doc.
+  Future<Set<String>> pendingCalendarDeletionIds() async {
+    final rows = await select(pendingCalendarDeletions).get();
+    return rows.map((r) => r.osEventId).toSet();
+  }
+
+  /// Clears [osEventId]'s tombstone once its deletion is confirmed (e.g. a
+  /// later reconcile pass finds it genuinely gone from the device calendar).
+  Future<void> clearPendingCalendarDeletion(String osEventId) => (delete(
+    pendingCalendarDeletions,
+  )..where((t) => t.osEventId.equals(osEventId))).go();
 }

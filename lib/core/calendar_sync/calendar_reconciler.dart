@@ -65,7 +65,11 @@ class CalendarReconciler {
     if (_reconciling) return 0;
     _reconciling = true;
     try {
-      return await _reconcile(now: now, lookBack: lookBack, lookAhead: lookAhead);
+      return await _reconcile(
+        now: now,
+        lookBack: lookBack,
+        lookAhead: lookAhead,
+      );
     } finally {
       _reconciling = false;
     }
@@ -117,6 +121,25 @@ class CalendarReconciler {
           ),
         );
         changes++;
+      }
+    }
+
+    // 1.5) Retry OS-calendar deletions that couldn't be confirmed when the
+    //    user originally deleted the event locally (see
+    //    PendingCalendarDeletions' doc) — most such failures are transient
+    //    (a brief plugin/IO error), so a later reconcile pass usually
+    //    finishes what the original delete couldn't. Whatever's still
+    //    pending after this is filtered out of step 3's auto-import below,
+    //    so a genuinely stuck one is never resurrected either.
+    final pendingDeletions = await _eventDao.pendingCalendarDeletionIds();
+    for (final osId in pendingDeletions.toList()) {
+      try {
+        await _service.deleteEventById(osId);
+        await _eventDao.clearPendingCalendarDeletion(osId);
+        pendingDeletions.remove(osId);
+      } on Exception {
+        // Still stuck — leave the tombstone in place and try again next
+        // reconcile.
       }
     }
 
@@ -195,6 +218,7 @@ class CalendarReconciler {
         );
         for (final osEvent in osEvents) {
           if (linkedOsIds.contains(osEvent.eventId)) continue;
+          if (pendingDeletions.contains(osEvent.eventId)) continue;
           await _importNewEvent(osEvent, at, entry.value);
           changes++;
         }

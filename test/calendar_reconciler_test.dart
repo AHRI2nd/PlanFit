@@ -78,6 +78,9 @@ void main() {
     when(service.subscribedCalendarIds).thenReturn(<String>{});
     // Off by default — most tests aren't about auto-import.
     when(service.autoImportEnabled).thenReturn(false);
+    // No stuck calendar-deletion tombstones by default — most tests aren't
+    // about that retry/exclusion path.
+    when(dao.pendingCalendarDeletionIds()).thenAnswer((_) async => <String>{});
   });
 
   group('concurrency guard', () {
@@ -594,5 +597,66 @@ void main() {
         ),
       );
     });
+
+    test(
+      'on — an OS event still pending confirmation of an earlier delete is '
+      'not resurrected, even though nothing links to it locally — '
+      'regression test: the local row that used to carry this osEventId is '
+      'already gone by the time this scan runs, so without the pending-'
+      'deletion tombstone this looked exactly like a brand-new event',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        when(service.autoImportEnabled).thenReturn(true);
+        when(service.targetCalendarId).thenReturn('cal-1');
+        when(
+          service.writableCalendars(),
+        ).thenAnswer((_) async => <dc.Calendar>[]);
+        when(
+          dao.pendingCalendarDeletionIds(),
+        ).thenAnswer((_) async => {'os-stuck'});
+        when(
+          service.deleteEventById('os-stuck'),
+        ).thenThrow(Exception('still unreachable'));
+        final now = DateTime(2026, 1, 1);
+        final start = now.add(const Duration(days: 2));
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => []);
+        when(
+          service.listEvents(
+            'cal-1',
+            from: anyNamed('from'),
+            to: anyNamed('to'),
+          ),
+        ).thenAnswer((_) async => [osEvent(eventId: 'os-stuck', start: start)]);
+
+        final changes = await reconciler.reconcile(now: now);
+
+        expect(changes, 0);
+        verifyNever(dao.upsert(any));
+        verifyNever(dao.clearPendingCalendarDeletion(any));
+      },
+    );
+
+    test(
+      'retries a pending calendar deletion every reconcile pass and clears '
+      'its tombstone once the OS event is confirmed actually gone',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        when(dao.needingPush()).thenAnswer((_) async => []);
+        when(dao.between(any, any)).thenAnswer((_) async => []);
+        when(
+          dao.pendingCalendarDeletionIds(),
+        ).thenAnswer((_) async => {'os-retry'});
+        when(service.deleteEventById('os-retry')).thenAnswer((_) async {});
+        when(dao.clearPendingCalendarDeletion('os-retry')).thenAnswer(
+          (_) async {},
+        );
+
+        await reconciler.reconcile(now: DateTime(2026, 1, 1));
+
+        verify(service.deleteEventById('os-retry')).called(1);
+        verify(dao.clearPendingCalendarDeletion('os-retry')).called(1);
+      },
+    );
   });
 }

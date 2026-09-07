@@ -5,6 +5,8 @@ part of 'event_dao.dart';
 // ignore_for_file: type=lint
 mixin _$EventDaoMixin on DatabaseAccessor<AppDatabase> {
   $EventsTable get events => attachedDatabase.events;
+  $PendingCalendarDeletionsTable get pendingCalendarDeletions =>
+      attachedDatabase.pendingCalendarDeletions;
   EventDaoManager get managers => EventDaoManager(this);
 }
 
@@ -13,4 +15,9 @@ class EventDaoManager {
   EventDaoManager(this._db);
   $$EventsTableTableManager get events =>
       $$EventsTableTableManager(_db.attachedDatabase, _db.events);
+  $$PendingCalendarDeletionsTableTableManager get pendingCalendarDeletions =>
+      $$PendingCalendarDeletionsTableTableManager(
+        _db.attachedDatabase,
+        _db.pendingCalendarDeletions,
+      );
 }

@@ -212,3 +212,24 @@ class SyncLogs extends Table {
   TextColumn get resolution => textEnum<SyncResolution>()();
   TextColumn get detail => text().nullable()();
 }
+
+/// A tombstone for a device-calendar event whose deletion couldn't be
+/// confirmed: [EventRepositoryImpl.delete] always removes the local row
+/// immediately (a user's delete must go through even if the OS-calendar
+/// side is unreachable), but that local row was the only place its
+/// `osEventId` linkage lived. Without recording it here, the still-present
+/// OS event would look unlinked on the very next reconcile pass, and
+/// [CalendarReconciler]'s auto-import step (if enabled) would re-materialize
+/// it as a brand-new local event — resurrecting something the user
+/// explicitly deleted.
+///
+/// Rows are keyed by the orphaned `osEventId` alone; no local event id is
+/// stored because none exists anymore by the time a row is written here.
+@DataClassName('PendingCalendarDeletionRow')
+class PendingCalendarDeletions extends Table {
+  TextColumn get osEventId => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {osEventId};
+}

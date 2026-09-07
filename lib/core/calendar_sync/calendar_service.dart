@@ -207,6 +207,14 @@ class CalendarService implements CalendarPort {
   Future<void> deleteEvent(EventRow event) async {
     final osId = event.osEventId;
     if (osId == null) return;
+    await deleteEventById(osId);
+  }
+
+  /// Same as [deleteEvent], for a caller that only has the raw OS event id
+  /// and no [EventRow] to go with it — [CalendarReconciler]'s retry of a
+  /// [PendingCalendarDeletions] tombstone, where the local row is already
+  /// gone by definition.
+  Future<void> deleteEventById(String osId) async {
     try {
       await _plugin.deleteEvent(eventId: osId);
     } on DeviceCalendarException catch (e) {

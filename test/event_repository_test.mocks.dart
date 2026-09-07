@@ -67,63 +67,71 @@ class _Fake$EventsTable_6 extends _i1.SmartFake implements _i2.$EventsTable {
     : super(parent, parentInvocation);
 }
 
-class _FakeEventDaoManager_7 extends _i1.SmartFake
+class _Fake$PendingCalendarDeletionsTable_7 extends _i1.SmartFake
+    implements _i2.$PendingCalendarDeletionsTable {
+  _Fake$PendingCalendarDeletionsTable_7(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(parent, parentInvocation);
+}
+
+class _FakeEventDaoManager_8 extends _i1.SmartFake
     implements _i5.EventDaoManager {
-  _FakeEventDaoManager_7(Object parent, Invocation parentInvocation)
+  _FakeEventDaoManager_8(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeFuture_8<T1> extends _i1.SmartFake implements _i6.Future<T1> {
-  _FakeFuture_8(Object parent, Invocation parentInvocation)
+class _FakeFuture_9<T1> extends _i1.SmartFake implements _i6.Future<T1> {
+  _FakeFuture_9(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeInsertStatement_9<T1 extends _i3.Table, D1> extends _i1.SmartFake
+class _FakeInsertStatement_10<T1 extends _i3.Table, D1> extends _i1.SmartFake
     implements _i3.InsertStatement<T1, D1> {
-  _FakeInsertStatement_9(Object parent, Invocation parentInvocation)
+  _FakeInsertStatement_10(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeUpdateStatement_10<T extends _i3.Table, D> extends _i1.SmartFake
+class _FakeUpdateStatement_11<T extends _i3.Table, D> extends _i1.SmartFake
     implements _i3.UpdateStatement<T, D> {
-  _FakeUpdateStatement_10(Object parent, Invocation parentInvocation)
+  _FakeUpdateStatement_11(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeSimpleSelectStatement_11<T1 extends _i3.HasResultSet, D>
+class _FakeSimpleSelectStatement_12<T1 extends _i3.HasResultSet, D>
     extends _i1.SmartFake
     implements _i3.SimpleSelectStatement<T1, D> {
-  _FakeSimpleSelectStatement_11(Object parent, Invocation parentInvocation)
+  _FakeSimpleSelectStatement_12(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeJoinedSelectStatement_12<FirstT extends _i3.HasResultSet, FirstD>
+class _FakeJoinedSelectStatement_13<FirstT extends _i3.HasResultSet, FirstD>
     extends _i1.SmartFake
     implements _i3.JoinedSelectStatement<FirstT, FirstD> {
-  _FakeJoinedSelectStatement_12(Object parent, Invocation parentInvocation)
+  _FakeJoinedSelectStatement_13(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeBaseSelectStatement_13<Row> extends _i1.SmartFake
+class _FakeBaseSelectStatement_14<Row> extends _i1.SmartFake
     implements _i3.BaseSelectStatement<Row> {
-  _FakeBaseSelectStatement_13(Object parent, Invocation parentInvocation)
+  _FakeBaseSelectStatement_14(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeDeleteStatement_14<T1 extends _i3.Table, D1> extends _i1.SmartFake
+class _FakeDeleteStatement_15<T1 extends _i3.Table, D1> extends _i1.SmartFake
     implements _i3.DeleteStatement<T1, D1> {
-  _FakeDeleteStatement_14(Object parent, Invocation parentInvocation)
+  _FakeDeleteStatement_15(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeSelectable_15<T> extends _i1.SmartFake implements _i3.Selectable<T> {
-  _FakeSelectable_15(Object parent, Invocation parentInvocation)
+class _FakeSelectable_16<T> extends _i1.SmartFake implements _i3.Selectable<T> {
+  _FakeSelectable_16(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeGenerationContext_16 extends _i1.SmartFake
+class _FakeGenerationContext_17 extends _i1.SmartFake
     implements _i3.GenerationContext {
-  _FakeGenerationContext_16(Object parent, Invocation parentInvocation)
+  _FakeGenerationContext_17(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -221,10 +229,21 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
           as _i2.$EventsTable);
 
   @override
+  _i2.$PendingCalendarDeletionsTable get pendingCalendarDeletions =>
+      (super.noSuchMethod(
+            Invocation.getter(#pendingCalendarDeletions),
+            returnValue: _Fake$PendingCalendarDeletionsTable_7(
+              this,
+              Invocation.getter(#pendingCalendarDeletions),
+            ),
+          )
+          as _i2.$PendingCalendarDeletionsTable);
+
+  @override
   _i5.EventDaoManager get managers =>
       (super.noSuchMethod(
             Invocation.getter(#managers),
-            returnValue: _FakeEventDaoManager_7(
+            returnValue: _FakeEventDaoManager_8(
               this,
               Invocation.getter(#managers),
             ),
@@ -354,6 +373,32 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
           as _i6.Future<List<_i2.EventRow>>);
 
   @override
+  _i6.Future<void> markCalendarDeletionPending(String? osEventId) =>
+      (super.noSuchMethod(
+            Invocation.method(#markCalendarDeletionPending, [osEventId]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  _i6.Future<Set<String>> pendingCalendarDeletionIds() =>
+      (super.noSuchMethod(
+            Invocation.method(#pendingCalendarDeletionIds, []),
+            returnValue: _i6.Future<Set<String>>.value(<String>{}),
+          )
+          as _i6.Future<Set<String>>);
+
+  @override
+  _i6.Future<void> clearPendingCalendarDeletion(String? osEventId) =>
+      (super.noSuchMethod(
+            Invocation.method(#clearPendingCalendarDeletion, [osEventId]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
   _i6.Stream<T> createStream<T extends Object>(
     _i4.QueryStreamFetcher<T>? stmt,
   ) =>
@@ -411,7 +456,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
                   ),
                   (T v) => _i6.Future<T>.value(v),
                 ) ??
-                _FakeFuture_8<T>(this, Invocation.method(#doWhenOpened, [fn])),
+                _FakeFuture_9<T>(this, Invocation.method(#doWhenOpened, [fn])),
           )
           as _i6.Future<T>);
 
@@ -421,7 +466,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
   ) =>
       (super.noSuchMethod(
             Invocation.method(#into, [table]),
-            returnValue: _FakeInsertStatement_9<T, D>(
+            returnValue: _FakeInsertStatement_10<T, D>(
               this,
               Invocation.method(#into, [table]),
             ),
@@ -434,7 +479,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
   ) =>
       (super.noSuchMethod(
             Invocation.method(#update, [table]),
-            returnValue: _FakeUpdateStatement_10<Tbl, R>(
+            returnValue: _FakeUpdateStatement_11<Tbl, R>(
               this,
               Invocation.method(#update, [table]),
             ),
@@ -448,7 +493,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
   }) =>
       (super.noSuchMethod(
             Invocation.method(#select, [table], {#distinct: distinct}),
-            returnValue: _FakeSimpleSelectStatement_11<T, R>(
+            returnValue: _FakeSimpleSelectStatement_12<T, R>(
               this,
               Invocation.method(#select, [table], {#distinct: distinct}),
             ),
@@ -462,7 +507,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
   }) =>
       (super.noSuchMethod(
             Invocation.method(#selectOnly, [table], {#distinct: distinct}),
-            returnValue: _FakeJoinedSelectStatement_12<T, R>(
+            returnValue: _FakeJoinedSelectStatement_13<T, R>(
               this,
               Invocation.method(#selectOnly, [table], {#distinct: distinct}),
             ),
@@ -475,7 +520,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
   ) =>
       (super.noSuchMethod(
             Invocation.method(#selectExpressions, [columns]),
-            returnValue: _FakeBaseSelectStatement_13<_i3.TypedResult>(
+            returnValue: _FakeBaseSelectStatement_14<_i3.TypedResult>(
               this,
               Invocation.method(#selectExpressions, [columns]),
             ),
@@ -488,7 +533,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [table]),
-            returnValue: _FakeDeleteStatement_14<T, D>(
+            returnValue: _FakeDeleteStatement_15<T, D>(
               this,
               Invocation.method(#delete, [table]),
             ),
@@ -565,7 +610,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
               [query],
               {#variables: variables, #readsFrom: readsFrom},
             ),
-            returnValue: _FakeSelectable_15<_i3.QueryRow>(
+            returnValue: _FakeSelectable_16<_i3.QueryRow>(
               this,
               Invocation.method(
                 #customSelect,
@@ -588,7 +633,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
               [query],
               {#variables: variables, #readsFrom: readsFrom},
             ),
-            returnValue: _FakeSelectable_15<_i3.QueryRow>(
+            returnValue: _FakeSelectable_16<_i3.QueryRow>(
               this,
               Invocation.method(
                 #customSelectQuery,
@@ -631,7 +676,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
                   ),
                   (T v) => _i6.Future<T>.value(v),
                 ) ??
-                _FakeFuture_8<T>(
+                _FakeFuture_9<T>(
                   this,
                   Invocation.method(
                     #transaction,
@@ -654,7 +699,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
                   ),
                   (T v) => _i6.Future<T>.value(v),
                 ) ??
-                _FakeFuture_8<T>(
+                _FakeFuture_9<T>(
                   this,
                   Invocation.method(#exclusively, [action]),
                 ),
@@ -693,7 +738,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
                   ),
                   (T v) => _i6.Future<T>.value(v),
                 ) ??
-                _FakeFuture_8<T>(
+                _FakeFuture_9<T>(
                   this,
                   Invocation.method(
                     #runWithInterceptor,
@@ -716,7 +761,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
               [component],
               {#hasMultipleTables: hasMultipleTables, #startIndex: startIndex},
             ),
-            returnValue: _FakeGenerationContext_16(
+            returnValue: _FakeGenerationContext_17(
               this,
               Invocation.method(
                 #$write,
@@ -742,7 +787,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
               [table, insertable],
               {#startIndex: startIndex},
             ),
-            returnValue: _FakeGenerationContext_16(
+            returnValue: _FakeGenerationContext_17(
               this,
               Invocation.method(
                 #$writeInsertable,
@@ -765,7 +810,7 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
               [table, insertable],
               {#startIndex: startIndex},
             ),
-            returnValue: _FakeGenerationContext_16(
+            returnValue: _FakeGenerationContext_17(
               this,
               Invocation.method(
                 #$writeUpdateInsertable,

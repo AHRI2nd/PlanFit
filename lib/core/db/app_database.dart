@@ -14,14 +14,21 @@ part 'app_database.g.dart';
 /// day/month/year views and the home screen refresh live whenever anything
 /// writes — a user edit or the background calendar reconciler alike.
 @DriftDatabase(
-  tables: [Events, TodoItems, TodoSubtasks, SyncLogs, EventTemplates],
+  tables: [
+    Events,
+    TodoItems,
+    TodoSubtasks,
+    SyncLogs,
+    EventTemplates,
+    PendingCalendarDeletions,
+  ],
   daos: [EventDao, TodoDao, SyncLogDao, EventTemplateDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -81,6 +88,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 16) {
         await _createIndexes();
+      }
+      if (from < 17) {
+        await m.createTable(pendingCalendarDeletions);
       }
     },
     // sqlite ships FK enforcement off by default, per-connection — every
