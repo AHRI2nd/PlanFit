@@ -224,6 +224,55 @@ void main() {
     );
   });
 
+  group('EventDao.search', () {
+    EventsCompanion eventWithTitle({required String id, required String title}) {
+      return EventsCompanion.insert(
+        id: id,
+        title: Value(title),
+        startAt: DateTime(2026, 3, 10, 9),
+        endAt: DateTime(2026, 3, 10, 10),
+      );
+    }
+
+    test('matches a case-insensitive substring of the title', () async {
+      await db.eventDao.upsert(eventWithTitle(id: 'e1', title: 'Team standup'));
+      await db.eventDao.upsert(eventWithTitle(id: 'e2', title: 'Dentist'));
+
+      final results = await db.eventDao.search('stand');
+
+      expect(results.map((e) => e.id), ['e1']);
+    });
+
+    test(
+      'treats a literal "%" in the query as a literal character, not a '
+      'wildcard matching any run of characters — regression test: the '
+      'pattern used to be built as a bare \'%\$query%\' with no escaping, '
+      'so searching "50%" matched every title merely starting with "50" '
+      'followed by anything at all',
+      () async {
+        await db.eventDao.upsert(eventWithTitle(id: 'e3', title: '50% off sale'));
+        await db.eventDao.upsert(eventWithTitle(id: 'e4', title: '50000 club'));
+
+        final results = await db.eventDao.search('50%');
+
+        expect(results.map((e) => e.id), ['e3']);
+      },
+    );
+
+    test(
+      'treats a literal "_" in the query as a literal character, not a '
+      'wildcard matching any single character',
+      () async {
+        await db.eventDao.upsert(eventWithTitle(id: 'e5', title: 'under_score'));
+        await db.eventDao.upsert(eventWithTitle(id: 'e6', title: 'underXscore'));
+
+        final results = await db.eventDao.search('under_score');
+
+        expect(results.map((e) => e.id), ['e5']);
+      },
+    );
+  });
+
   group('TodoDao.search', () {
     TodoItemsCompanion todo({required String id, required String title}) {
       return TodoItemsCompanion.insert(
@@ -249,6 +298,32 @@ void main() {
 
       expect(results, isEmpty);
     });
+
+    test(
+      'treats a literal "%" in the query as a literal character, not a '
+      'wildcard — same fix and reasoning as EventDao.search',
+      () async {
+        await db.todoDao.upsert(todo(id: 't4', title: '50% off sale'));
+        await db.todoDao.upsert(todo(id: 't5', title: '50000 club'));
+
+        final results = await db.todoDao.search('50%');
+
+        expect(results.map((t) => t.id), ['t4']);
+      },
+    );
+
+    test(
+      'treats a literal "_" in the query as a literal character, not a '
+      'wildcard — same fix and reasoning as EventDao.search',
+      () async {
+        await db.todoDao.upsert(todo(id: 't6', title: 'under_score'));
+        await db.todoDao.upsert(todo(id: 't7', title: 'underXscore'));
+
+        final results = await db.todoDao.search('under_score');
+
+        expect(results.map((t) => t.id), ['t6']);
+      },
+    );
   });
 
   group('TodoDao.findById', () {

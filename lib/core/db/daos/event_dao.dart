@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../app_database.dart';
+import '../sql_like.dart';
 import '../sync_status.dart';
 import '../tables.dart';
 
@@ -53,15 +54,16 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   Future<List<EventRow>> all() => select(events).get();
 
   /// Case-insensitive substring search over title, memo, and location, most
-  /// recent start time first.
+  /// recent start time first. See [buildLikeSubstringPattern]'s doc for why
+  /// the query can't be dropped straight into a `%...%` pattern as-is.
   Future<List<EventRow>> search(String query) {
-    final pattern = '%$query%';
+    final pattern = buildLikeSubstringPattern(query);
     return (select(events)
           ..where(
             (t) =>
-                t.title.like(pattern) |
-                t.memo.like(pattern) |
-                t.location.like(pattern),
+                t.title.like(pattern, escapeChar: likeEscapeChar) |
+                t.memo.like(pattern, escapeChar: likeEscapeChar) |
+                t.location.like(pattern, escapeChar: likeEscapeChar),
           )
           ..orderBy([
             (t) => OrderingTerm(expression: t.startAt, mode: OrderingMode.desc),

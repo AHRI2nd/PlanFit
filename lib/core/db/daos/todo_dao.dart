@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../../features/todo/domain/todo_tag_match.dart';
 import '../app_database.dart';
+import '../sql_like.dart';
 import '../sync_status.dart';
 import '../tables.dart';
 
@@ -144,10 +145,12 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
 
   /// Case-insensitive substring search over title, most recent slot first —
   /// the to-do equivalent of `EventDao.search` (to-dos have no memo field).
+  /// See [buildLikeSubstringPattern]'s doc for why the query can't be
+  /// dropped straight into a `%...%` pattern as-is.
   Future<List<TodoRow>> search(String query) {
-    final pattern = '%$query%';
+    final pattern = buildLikeSubstringPattern(query);
     return (select(todoItems)
-          ..where((t) => t.title.like(pattern))
+          ..where((t) => t.title.like(pattern, escapeChar: likeEscapeChar))
           ..orderBy([
             (t) =>
                 OrderingTerm(expression: t.slotStart, mode: OrderingMode.desc),
