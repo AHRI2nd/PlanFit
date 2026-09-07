@@ -606,4 +606,113 @@ void main() {
       expect(rrule, 'FREQ=WEEKLY;COUNT=12;BYDAY=TU,TH');
     });
   });
+
+  group('RecurrenceExpansion.defaultUntil', () {
+    test(
+      'yearly: reaches the next anniversary even across a leap day — '
+      'regression test: a flat +365-day boundary lands exactly one day '
+      'short of the 2028-06-15 anniversary, since Feb 29 2028 (a leap '
+      'year) falls in between, making the real gap 366 days — silently '
+      'producing zero repeats',
+      () {
+        final start = DateTime(2027, 6, 15, 9);
+        final until = RecurrenceExpansion.defaultUntil(
+          start,
+          RecurrenceFrequency.yearly,
+        );
+
+        final occurrences = RecurrenceExpansion.occurrences(
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+          frequency: RecurrenceFrequency.yearly,
+          until: until,
+        );
+
+        expect(occurrences, hasLength(2));
+        expect(occurrences[1].$1, DateTime(2028, 6, 15, 9));
+
+        // The old flat +365-day boundary this replaces would have missed
+        // it entirely — confirming this is a genuine regression, not just
+        // an already-passing case.
+        final oldFlatUntil = start.add(const Duration(days: 365));
+        final oldOccurrences = RecurrenceExpansion.occurrences(
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+          frequency: RecurrenceFrequency.yearly,
+          until: oldFlatUntil,
+        );
+        expect(oldOccurrences, hasLength(1));
+      },
+    );
+
+    test('yearly: a Feb 29 anchor still reaches its (clamped) anniversary', () {
+      final start = DateTime(2028, 2, 29, 9);
+      final until = RecurrenceExpansion.defaultUntil(
+        start,
+        RecurrenceFrequency.yearly,
+      );
+
+      final occurrences = RecurrenceExpansion.occurrences(
+        start: start,
+        end: start.add(const Duration(hours: 1)),
+        frequency: RecurrenceFrequency.yearly,
+        until: until,
+      );
+
+      expect(occurrences, hasLength(2));
+      expect(occurrences[1].$1, DateTime(2029, 2, 28, 9));
+    });
+
+    test(
+      'yearlyLunar: reaches the next lunar anniversary even in a leap-month '
+      'lunar year — regression test: lunar year 2028 (leap month 5, per '
+      'LunarDate.leapMonthOf) runs 383 days to its own next new year '
+      '(2028-01-27 solar to 2029-02-13 solar), well past a flat '
+      '+365-day boundary, which used to produce zero repeats',
+      () {
+        final start = DateTime(2028, 1, 27, 9); // lunar 2028-01-01
+        final until = RecurrenceExpansion.defaultUntil(
+          start,
+          RecurrenceFrequency.yearlyLunar,
+        );
+
+        final occurrences = RecurrenceExpansion.occurrences(
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+          frequency: RecurrenceFrequency.yearlyLunar,
+          until: until,
+        );
+
+        expect(occurrences, hasLength(2));
+        expect(occurrences[1].$1, DateTime(2029, 2, 13, 9));
+
+        // The old flat +365-day boundary this replaces would have missed
+        // it entirely — confirming this is a genuine regression, not just
+        // an already-passing case.
+        final oldFlatUntil = start.add(const Duration(days: 365));
+        final oldOccurrences = RecurrenceExpansion.occurrences(
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+          frequency: RecurrenceFrequency.yearlyLunar,
+          until: oldFlatUntil,
+        );
+        expect(oldOccurrences, hasLength(1));
+      },
+    );
+
+    test('daily/weekly/monthly keep the flat 365-day boundary', () {
+      final start = DateTime(2027, 1, 1, 9);
+      for (final frequency in [
+        RecurrenceFrequency.daily,
+        RecurrenceFrequency.weekly,
+        RecurrenceFrequency.monthly,
+      ]) {
+        expect(
+          RecurrenceExpansion.defaultUntil(start, frequency),
+          DateTime(2028, 1, 1, 9),
+          reason: 'frequency: $frequency',
+        );
+      }
+    });
+  });
 }

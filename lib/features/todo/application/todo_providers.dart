@@ -172,7 +172,9 @@ class TodoController {
     }
 
     final groupId = _uuid.v4();
-    final until = recurrenceUntil ?? addCalendarDays(effectiveSlotStart, 365);
+    final until =
+        recurrenceUntil ??
+        RecurrenceExpansion.defaultUntil(effectiveSlotStart, frequency);
     final occurrences = RecurrenceExpansion.occurrences(
       start: effectiveSlotStart,
       end: effectiveSlotStart,

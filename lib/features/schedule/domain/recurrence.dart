@@ -30,6 +30,44 @@ class RecurrenceExpansion {
   /// (or count) generating thousands of rows.
   static const int maxOccurrences = 200;
 
+  /// A default `until` for a caller that offers recurrence with no explicit
+  /// end-date picker (see `TodoController.add`) — roughly "one cycle of
+  /// [frequency] from [start]".
+  ///
+  /// [yearly] and [yearlyLunar] deliberately do **not** use a fixed
+  /// `start + 365 days` here, unlike the other three: a calendar year is
+  /// 365 or 366 days depending on whether a Feb 29 falls in between, and a
+  /// lunar year is 353-385 days depending on whether it has a leap month —
+  /// either can land the *actual* next anniversary (computed by [_advance])
+  /// past a fixed 365-day boundary. Since [occurrences]'s `until` check is
+  /// exclusive of anything strictly after it, a boundary that's even a
+  /// single day short of the true next occurrence produces a "yearly
+  /// repeat" that silently never repeats at all — the first (and only) row
+  /// generated is [start] itself.
+  ///
+  /// [yearly] steps forward with the exact same [_sameDayOfMonth]-based
+  /// arithmetic [_advance] itself uses, rather than approximating with a
+  /// day count — always exactly right, not just "usually enough". [yearlyLunar]
+  /// can't do the same (its actual next solar date depends on the lunar
+  /// calendar, and can fall up to ~19 days later than the solar anniversary
+  /// in a year with a leap lunar month), so it uses a flat +400-day
+  /// boundary instead — comfortably past even the longest possible lunar
+  /// year (~384 days, a 13-lunar-month leap year), without needing a real
+  /// lunar conversion just to compute a boundary.
+  static DateTime defaultUntil(DateTime start, RecurrenceFrequency frequency) {
+    switch (frequency) {
+      case RecurrenceFrequency.yearly:
+        return _sameDayOfMonth(start, start.year + 1, start.month);
+      case RecurrenceFrequency.yearlyLunar:
+        return addCalendarDays(start, 400);
+      case RecurrenceFrequency.none:
+      case RecurrenceFrequency.daily:
+      case RecurrenceFrequency.weekly:
+      case RecurrenceFrequency.monthly:
+        return addCalendarDays(start, 365);
+    }
+  }
+
   /// Start/end pairs for every occurrence, preserving the [start]-to-[end]
   /// duration and capped at [maxOccurrences]. Ends either on a date
   /// ([until], inclusive) or after a fixed number of occurrences ([count]) —

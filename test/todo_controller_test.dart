@@ -7,6 +7,7 @@ import 'package:mockito/mockito.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/features/schedule/domain/ports.dart';
+import 'package:planfit/features/schedule/domain/recurrence.dart';
 import 'package:planfit/features/todo/application/todo_providers.dart';
 
 import 'todo_controller_test.mocks.dart';
@@ -73,6 +74,34 @@ void main() {
         final row = (await db.todoDao.all()).single;
         expect(row.notify, isFalse);
         verifyNever(notifications.scheduleForTodo(any));
+      },
+    );
+
+    test(
+      'a yearly-repeating to-do with no explicit end date still repeats '
+      'when its default window crosses a leap day — regression test: the '
+      'old flat "start + 365 days" default landed exactly one day short '
+      'of a leap-year anniversary, materializing only the original row '
+      "and silently never repeating at all",
+      () async {
+        // 2028 is a leap year (Feb 29 falls between this start and its
+        // 2028-06-15 anniversary), making the true gap 366 days.
+        final slot = DateTime(2027, 6, 15, 9);
+        await controller().add(
+          title: 'Anniversary',
+          slotStart: slot,
+          frequency: RecurrenceFrequency.yearly,
+        );
+
+        final rows = await db.todoDao.all();
+        expect(rows, hasLength(2));
+        expect(
+          rows.map((r) => r.slotStart).toSet(),
+          {DateTime(2027, 6, 15, 9), DateTime(2028, 6, 15, 9)},
+        );
+        // Both rows share one recurrenceGroupId — same materialized-series
+        // convention as recurring events.
+        expect(rows.map((r) => r.recurrenceGroupId).toSet(), hasLength(1));
       },
     );
   });
