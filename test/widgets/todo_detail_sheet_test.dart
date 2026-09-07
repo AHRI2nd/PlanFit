@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/features/todo/domain/todo_priority.dart';
 import 'package:planfit/features/todo/presentation/todo_detail_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -227,6 +230,56 @@ void main() {
         await tester.pump(const Duration(seconds: 5));
       },
     );
+
+    testWidgets(
+      "a later tap that already succeeded isn't clobbered by an earlier "
+      "tap's delayed failure — a *third* tap, specifically: pin is a bare "
+      "bool, so a first-tap failure reverting to its own 'previous' would "
+      "coincidentally still land on the right value after only a second "
+      "tap (two toggles cancel out) — it takes a third tap cycling back to "
+      "the first tap's own optimistic value to actually expose a value-"
+      'based (rather than request-order-based) guard as insufficient',
+      (tester) async {
+        final t = todo();
+        final firstTapFailed = Completer<void>();
+        var call = 0;
+        when(todos.setPinned(t.id, any)).thenAnswer((_) {
+          call++;
+          // Tap 1 (pin on): stays pending until completed below.
+          // Taps 2 and 3 (pin off, then on again): both succeed
+          // immediately.
+          return call == 1 ? firstTapFailed.future : Future<void>.value();
+        });
+        await pumpSheetHost(tester, t);
+
+        await tester.tap(find.byIcon(Icons.push_pin_outlined)); // -> true
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.push_pin)); // -> false
+        await tester.pump();
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.push_pin_outlined)); // -> true
+        await tester.pump();
+        await tester.pump();
+
+        // Only now does the first tap's failure land — its own optimistic
+        // value (true) happens to match the current (correct, from tap 3)
+        // state too, which is exactly what makes this scenario
+        // discriminating.
+        firstTapFailed.completeError(Exception('disk full'));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          find.byIcon(Icons.push_pin),
+          findsOneWidget,
+          reason:
+              "the first tap's failure reverted past the user's own "
+              'later (already-successful) taps',
+        );
+        expect(find.byIcon(Icons.push_pin_outlined), findsNothing);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
   });
 
   group('priority chip', () {
@@ -268,6 +321,59 @@ void main() {
         expect(none.selected, isTrue);
         expect(high.selected, isFalse);
         expect(find.text(failureMessage), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+
+    testWidgets(
+      "a later, successful tap isn't clobbered by an earlier tap's delayed "
+      'failure — regression test: the revert-on-failure handler used to '
+      "unconditionally reset to its own attempt's `previous` value, so a "
+      'slow failing call for one priority landing after a fast successful '
+      'call for a different priority reverted the UI (and left it out of '
+      "sync with the DB) even though the user's actual last choice had "
+      'already saved fine',
+      (tester) async {
+        final t = todo();
+        final highCallFailed = Completer<void>();
+        when(
+          todos.setPriority(t.id, TodoPriority.high.value),
+        ).thenAnswer((_) => highCallFailed.future);
+        when(
+          todos.setPriority(t.id, TodoPriority.medium.value),
+        ).thenAnswer((_) async {});
+        await pumpSheetHost(tester, t);
+
+        // Tap "높음" (high) first — its own setPriority call is left
+        // pending on highCallFailed.
+        await tester.tap(find.widgetWithText(ChoiceChip, '높음'));
+        await tester.pump();
+
+        // Before that resolves, tap "보통" (medium) — its own call
+        // succeeds immediately.
+        await tester.tap(find.widgetWithText(ChoiceChip, '보통'));
+        await tester.pump();
+        await tester.pump();
+
+        // Only now does the first (high) call's failure land.
+        highCallFailed.completeError(Exception('disk full'));
+        await tester.pump();
+        await tester.pump();
+
+        final medium = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, '보통'),
+        );
+        final high = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, '높음'),
+        );
+        expect(
+          medium.selected,
+          isTrue,
+          reason:
+              "the high call's failure reverted past the user's later, "
+              'already-successful medium selection',
+        );
+        expect(high.selected, isFalse);
         await tester.pump(const Duration(seconds: 5));
       },
     );

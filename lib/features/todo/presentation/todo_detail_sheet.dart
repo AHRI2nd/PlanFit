@@ -64,6 +64,18 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   Timer? _titleDebounce;
   Timer? _tagsDebounce;
 
+  // Bumped on every pin/priority tap, respectively — a failed save only
+  // reverts its own optimistic setState if its own request is still the
+  // most recent one. A plain "does the field still show what I optimistically
+  // set it to" check (like `_saveTags`'s own guard) isn't enough here: pin
+  // is a bare bool, so a *third* tap can cycle back to the exact same
+  // optimistic value a still-in-flight first attempt set, and a value
+  // comparison alone can't tell that apart from "nothing happened since".
+  // Comparing request ids can — this is the standard "ignore stale async
+  // responses" pattern.
+  var _pinRequestId = 0;
+  var _priorityRequestId = 0;
+
   static const _saveDebounce = Duration(milliseconds: 400);
 
   /// Extra reminder offsets on top of the implicit "at due time" alert —
@@ -232,8 +244,9 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                     IconButton(
                       tooltip: _pinned ? l10n.todoUnpin : l10n.todoPin,
                       onPressed: () async {
+                        final myRequestId = ++_pinRequestId;
                         final previous = _pinned;
-                        setState(() => _pinned = !_pinned);
+                        setState(() => _pinned = !previous);
                         final messenger = ScaffoldMessenger.of(context);
                         try {
                           await ref
@@ -241,7 +254,11 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                               .setPinned(widget.todo.id, _pinned);
                         } catch (_) {
                           if (!mounted) return;
-                          setState(() => _pinned = previous);
+                          // Only revert if no newer pin attempt has started
+                          // since this one — see `_pinRequestId`'s own doc.
+                          if (myRequestId == _pinRequestId) {
+                            setState(() => _pinned = previous);
+                          }
                           messenger.showAutoDismissSnackBar(
                             SnackBar(content: Text(l10n.todoUpdateFailed)),
                           );
@@ -353,6 +370,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                               label: Text(p.label(l10n)),
                               selected: _priority == p,
                               onSelected: (_) async {
+                                final myRequestId = ++_priorityRequestId;
                                 final previous = _priority;
                                 setState(() => _priority = p);
                                 final messenger = ScaffoldMessenger.of(
@@ -364,7 +382,12 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                                       .setPriority(widget.todo.id, p.value);
                                 } catch (_) {
                                   if (!mounted) return;
-                                  setState(() => _priority = previous);
+                                  // Only revert if no newer priority attempt
+                                  // has started since this one — see
+                                  // `_priorityRequestId`'s own doc.
+                                  if (myRequestId == _priorityRequestId) {
+                                    setState(() => _priority = previous);
+                                  }
                                   messenger.showAutoDismissSnackBar(
                                     SnackBar(
                                       content: Text(l10n.todoUpdateFailed),
