@@ -41,7 +41,7 @@ void main() {
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
   });
 
-  Future<void> pumpHome(WidgetTester tester) async {
+  Future<void> pumpHome(WidgetTester tester, {TextScaler? textScaler}) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
@@ -61,6 +61,14 @@ void main() {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppL10n.supportedLocales,
+          // Matches app.dart's own 1.0-1.3x accessibility clamp when a test
+          // asks for it, instead of the tester's default 1.0.
+          builder: textScaler == null
+              ? null
+              : (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                  child: child!,
+                ),
           home: const HomeScreen(),
         ),
       ),
@@ -229,6 +237,69 @@ void main() {
       final size = tester.getSize(hitArea);
       expect(size.width, greaterThanOrEqualTo(44));
       expect(size.height, greaterThanOrEqualTo(44));
+    },
+  );
+
+  testWidgets(
+    "the weekly stats bar's done/total label fits its own box at the "
+    "app's 1.3x accessibility text-scale ceiling — regression test: that "
+    'box was a fixed 12px SizedBox around labelSmall/fontSize:9 text, '
+    'which needs only ~10.8px at the default 1.0x scale but ~14px at '
+    "1.3x — 2px taller than the box. Being a plain SizedBox (not a Flex) "
+    "meant this never threw a catchable overflow error; the label's true "
+    'layout just silently painted outside its box and overlapped the '
+    'weekday abbreviation directly below it',
+    (tester) async {
+      final today = DateTime.now();
+      final todo = TodoRow(
+        id: 't1',
+        eventId: null,
+        title: 'Buy milk',
+        slotStart: today,
+        slotEnd: null,
+        hasTime: true,
+        isDone: false,
+        sortOrder: 0,
+        priority: 0,
+        tags: null,
+        notify: false,
+        isPinned: false,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        reminderSyncStatus: SyncStatus.pendingPush,
+        createdAt: today,
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([todo]));
+
+      await pumpHome(tester, textScaler: const TextScaler.linear(1.3));
+
+      final labelFinder = find.text('0/1');
+      expect(labelFinder, findsOneWidget);
+      final boxFinder = find
+          .ancestor(of: labelFinder, matching: find.byType(SizedBox))
+          .first;
+      final boxHeight = tester.getSize(boxFinder).height;
+
+      final labelWidget = tester.widget<Text>(labelFinder);
+      final naturalHeight =
+          (TextPainter(
+                text: TextSpan(text: '0/1', style: labelWidget.style),
+                textDirection: TextDirection.ltr,
+                textScaler: const TextScaler.linear(1.3),
+              )..layout())
+              .height;
+
+      expect(
+        boxHeight,
+        greaterThanOrEqualTo(naturalHeight),
+        reason:
+            "the label's own box (${boxHeight}px) must be at least as "
+            'tall as the text actually needs at this scale '
+            '(${naturalHeight}px), or it paints outside the box and '
+            'overlaps the weekday label below',
+      );
     },
   );
 }

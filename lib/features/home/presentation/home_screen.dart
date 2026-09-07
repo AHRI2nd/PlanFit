@@ -600,8 +600,23 @@ class _WeekDayBar extends StatelessWidget {
         // actual number for anyone who can't (or would rather not) read
         // that at a glance. Reserves its line even at total == 0 so the
         // weekday labels below stay aligned across all seven columns.
+        //
+        // 12px fits this text's own natural line height (9 * labelSmall's
+        // 1.2 line-height multiplier = 10.8px) at the default 1.0x text
+        // scale, but app.dart clamps the system accessibility text scale up
+        // to 1.3x app-wide — at that ceiling the same text needs ~14px, 2px
+        // taller than this fixed box. The box being a plain SizedBox (not a
+        // Flex) means that never threw a catchable overflow error; it just
+        // silently let the label's true layout paint outside its box and
+        // overlap the weekday abbreviation directly below — confirmed via a
+        // widget test pinning MediaQuery's textScaler to 1.3x and comparing
+        // this box's measured size against an unclamped TextPainter layout
+        // of the same style/scaler. Scaling by the same effective factor
+        // keeps this box exactly 12px at the default scale (this app's
+        // vast majority of users, and every existing test, which run at
+        // 1.0x) while giving larger accessibility text the room it needs.
         SizedBox(
-          height: 12,
+          height: 12 * MediaQuery.textScalerOf(context).scale(1.0),
           child: total == 0
               ? null
               : Text(
