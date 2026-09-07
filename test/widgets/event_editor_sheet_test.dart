@@ -17,6 +17,8 @@ import 'package:planfit/features/schedule/domain/recurrence.dart';
 import 'package:planfit/features/schedule/presentation/event_edit/event_editor_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 import 'event_editor_sheet_test.mocks.dart';
 
@@ -538,6 +540,116 @@ void main() {
       expect(mapsButton().onPressed, isNotNull);
     },
   );
+
+  group('recomputeForNewStart', () {
+    test(
+      "pushing the start date past the old end recomputes the end "
+      "using the event's wall-clock length, not elapsed real time — "
+      'regression test: a real DST spring-forward, verified with '
+      "timezone's TZDateTime pinned to America/New_York (its actual "
+      '2026 transition) rather than relying on the host running this '
+      'test to observe one',
+      () {
+        tzdata.initializeTimeZones();
+        final ny = tz.getLocation('America/New_York');
+        // An ordinary 2h30m event, nowhere near any transition.
+        final oldStart = tz.TZDateTime(ny, 2026, 1, 5, 1, 0);
+        final oldEnd = tz.TZDateTime(ny, 2026, 1, 5, 3, 30);
+        // Pushed out to the very night of the 2026 US spring-forward
+        // (2AM -> 3AM) — old end (Jan 5) is now before this, so the end
+        // gets recomputed from it.
+        final newStart = tz.TZDateTime(ny, 2026, 3, 8, 1, 0);
+
+        final result = recomputeForNewStart(
+          oldStart: oldStart,
+          oldEnd: oldEnd,
+          oldRecurrenceUntil: newStart, // not exercised by this case
+          newStart: newStart,
+          recurrence: RecurrenceFrequency.none,
+        );
+
+        expect(result.end.hour, 3);
+        expect(result.end.minute, 30);
+        expect(result.end.day, 8);
+
+        // Confirm this scenario actually exercises the transition — the
+        // old elapsed-time approach really does drift an hour later here.
+        final buggyEnd = newStart.add(oldEnd.difference(oldStart));
+        expect(
+          buggyEnd.hour,
+          4,
+          reason:
+              'the elapsed-time approach lands an hour later than '
+              'intended here — confirming this scenario genuinely '
+              'crosses the transition, not a false negative',
+        );
+      },
+    );
+
+    test('leaves the end alone when it is still after the new start', () {
+      final oldStart = DateTime(2026, 3, 10, 9);
+      final oldEnd = DateTime(2026, 3, 10, 10);
+      final newStart = DateTime(2026, 3, 10, 8);
+
+      final result = recomputeForNewStart(
+        oldStart: oldStart,
+        oldEnd: oldEnd,
+        oldRecurrenceUntil: DateTime(2026, 4, 1),
+        newStart: newStart,
+        recurrence: RecurrenceFrequency.none,
+      );
+
+      expect(result.end, oldEnd);
+    });
+
+    test(
+      'pushing the start past a still-active recurrence carries "until" '
+      'forward by the same number of calendar days — the DST-safety of '
+      'this calculation rests entirely on calendarDuration, already '
+      "verified directly (with a real DST transition) in "
+      'date_math_test.dart; this covers the wiring with ordinary dates',
+      () {
+        final result = recomputeForNewStart(
+          oldStart: DateTime(2026, 1, 5, 9),
+          oldEnd: DateTime(2026, 1, 5, 10),
+          oldRecurrenceUntil: DateTime(2026, 5, 15), // 130 days after Jan 5
+          newStart: DateTime(2026, 6, 1, 9), // past the old until
+          recurrence: RecurrenceFrequency.daily,
+        );
+
+        expect(result.recurrenceUntil, DateTime(2026, 10, 9));
+      },
+    );
+
+    test(
+      'leaves "until" alone when it is still after the new start',
+      () {
+        final until = DateTime(2026, 5, 15);
+        final result = recomputeForNewStart(
+          oldStart: DateTime(2026, 1, 5, 9),
+          oldEnd: DateTime(2026, 1, 5, 10),
+          oldRecurrenceUntil: until,
+          newStart: DateTime(2026, 2, 1, 9),
+          recurrence: RecurrenceFrequency.daily,
+        );
+
+        expect(result.recurrenceUntil, until);
+      },
+    );
+
+    test('leaves "until" alone when the event has no recurrence at all', () {
+      final until = DateTime(2020); // a bare default, never meant to be used
+      final result = recomputeForNewStart(
+        oldStart: DateTime(2026, 1, 5, 9),
+        oldEnd: DateTime(2026, 1, 5, 10),
+        oldRecurrenceUntil: until,
+        newStart: DateTime(2026, 6, 1, 9),
+        recurrence: RecurrenceFrequency.none,
+      );
+
+      expect(result.recurrenceUntil, until);
+    });
+  });
 }
 
 EventRow row({

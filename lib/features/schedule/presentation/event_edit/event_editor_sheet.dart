@@ -78,6 +78,56 @@ Future<void> showEventEditor(
   );
 }
 
+/// The pure recomputation `_applyPicked` needs when the *start* date/time
+/// changes: how the event's end and the recurrence's `until` should shift to
+/// stay consistent with it. Pulled out of `_EventEditorSheetState` as a
+/// public top-level function (the same pattern `week_view.dart`'s
+/// `fitOneLine`/`fitLines`/`lineHeightOf` already use) specifically so it's
+/// directly unit-testable — `event_editor_sheet_test.dart` deliberately
+/// never drives the real `showDatePicker`/`showAppTimePicker` dialogs (see
+/// that file's own doc comment: real native/plugin dialogs are fragile to
+/// drive under `flutter test`), so this logic would otherwise be
+/// unreachable from a test at all.
+///
+/// Two DST-safety fixes live here (both regression-tested — see this
+/// function's own test file):
+///  * [oldEnd] pushed before [newStart] recomputes the end using
+///    [calendarDuration]/[shiftTimeOfDay] (the event's own wall-clock
+///    length replayed onto the new start) rather than `.difference()`/
+///    `.add()`, which measure/apply elapsed real time and would silently
+///    shift the recomputed end by an hour whenever [newStart] lands on the
+///    far side of a DST transition from [oldStart]/[oldEnd].
+///  * [oldRecurrenceUntil] on/before [newStart] (which would otherwise
+///    collapse the whole series to a single occurrence — see
+///    [RecurrenceExpansion.occurrences]' own doc) gets carried forward by
+///    the same number of *calendar* days, computed via [calendarDuration]
+///    rather than a plain `.difference()` on the two `dateOnly()` results —
+///    a local midnight-to-midnight difference isn't always an exact
+///    multiple of 24h when a DST transition falls in between, which would
+///    otherwise land the recomputed until on the wrong calendar day by one.
+({DateTime start, DateTime end, DateTime recurrenceUntil}) recomputeForNewStart({
+  required DateTime oldStart,
+  required DateTime oldEnd,
+  required DateTime oldRecurrenceUntil,
+  required DateTime newStart,
+  required RecurrenceFrequency recurrence,
+}) {
+  final delta = calendarDuration(oldStart, oldEnd);
+  final spanDays = calendarDuration(
+    dateOnly(oldStart),
+    dateOnly(oldRecurrenceUntil),
+  ).inDays;
+  final newEnd = oldEnd.isBefore(newStart)
+      ? shiftTimeOfDay(newStart, delta)
+      : oldEnd;
+  final newUntil =
+      recurrence != RecurrenceFrequency.none &&
+          !dateOnly(oldRecurrenceUntil).isAfter(dateOnly(newStart))
+      ? addCalendarDays(dateOnly(newStart), spanDays)
+      : oldRecurrenceUntil;
+  return (start: newStart, end: newEnd, recurrenceUntil: newUntil);
+}
+
 class EventEditorSheet extends ConsumerStatefulWidget {
   const EventEditorSheet({
     super.key,
@@ -335,20 +385,16 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   void _applyPicked(bool isStart, DateTime picked) {
     setState(() {
       if (isStart) {
-        final delta = _end.difference(_start);
-        // Preserve the recurrence window's length in days so pushing the
-        // start date out doesn't leave a stale "until" behind it — an
-        // "until" on/before the new start collapses the whole series to a
-        // single occurrence (see RecurrenceExpansion.occurrences' doc), so
-        // when that would happen, carry the until forward by the same shift
-        // instead of silently truncating the recurrence.
-        final span = dateOnly(_recurrenceUntil).difference(dateOnly(_start));
-        _start = picked;
-        if (_end.isBefore(_start)) _end = _start.add(delta.abs());
-        if (_recurrence != RecurrenceFrequency.none &&
-            !dateOnly(_recurrenceUntil).isAfter(dateOnly(_start))) {
-          _recurrenceUntil = dateOnly(_start).add(span);
-        }
+        final result = recomputeForNewStart(
+          oldStart: _start,
+          oldEnd: _end,
+          oldRecurrenceUntil: _recurrenceUntil,
+          newStart: picked,
+          recurrence: _recurrence,
+        );
+        _start = result.start;
+        _end = result.end;
+        _recurrenceUntil = result.recurrenceUntil;
       } else {
         _end = picked.isBefore(_start)
             ? _start.add(const Duration(hours: 1))
