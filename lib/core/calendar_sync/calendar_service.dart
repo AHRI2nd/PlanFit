@@ -1,12 +1,30 @@
 import 'package:device_calendar_plus/device_calendar_plus.dart';
 
 import '../db/app_database.dart';
+import '../serial_queue.dart';
 import '../../features/schedule/domain/ports.dart';
 
 /// Thin wrapper over `device_calendar_plus` that also implements the
 /// [CalendarPort] the event repository drives. It owns the "is sync on and
 /// which calendar do we write to" configuration; the settings screen flips
 /// [enabled] and picks [targetCalendarId].
+///
+/// This service is a singleton (`di.dart`) reached from two independent
+/// paths that can run concurrently: [EventRepositoryImpl] pushes/deletes
+/// directly off a user edit, and [CalendarReconciler] does its own
+/// `needingPush`-driven push pass on every app-foreground resume. A local
+/// row stays [SyncStatus.pendingPush] in the database for the whole
+/// platform-channel round trip [pushEvent] takes — right up until the
+/// caller patches its `osEventId`/`syncStatus` back afterward — so a
+/// reconcile landing in that exact window used to see the same row as
+/// "still needing a push" and push it again independently, racing the
+/// original call and creating a second, duplicate OS event for one local
+/// row (whichever push resolved last "won" the `osEventId` link; the other
+/// was silently orphaned). [_writeQueue] serializes every [pushEvent]/
+/// [deleteEvent]/[deleteEventById] call through this instance, so two
+/// concurrent callers' writes can never interleave — same pattern (and
+/// same underlying [SerialQueue]) already used by
+/// `SettingsController._writeQueue` and `TodoController._reorderQueue`.
 class CalendarService implements CalendarPort {
   CalendarService({
     this.enabled = false,
@@ -16,6 +34,10 @@ class CalendarService implements CalendarPort {
   });
 
   final DeviceCalendar _plugin = DeviceCalendar.instance;
+
+  /// See this class's own doc comment for why every write below is
+  /// serialized through this.
+  final _writeQueue = SerialQueue();
 
   /// Whether device-calendar sync is on. Flipped from settings.
   bool enabled;
@@ -163,7 +185,7 @@ class CalendarService implements CalendarPort {
   // --- CalendarPort ---
 
   @override
-  Future<String?> pushEvent(EventRow event) async {
+  Future<String?> pushEvent(EventRow event) => _writeQueue.run(() async {
     final calendarId = await resolveTargetCalendarId();
     if (calendarId == null) return null;
 
@@ -201,7 +223,7 @@ class CalendarService implements CalendarPort {
       description: event.memo,
       location: event.location,
     );
-  }
+  });
 
   @override
   Future<void> deleteEvent(EventRow event) async {
@@ -214,7 +236,7 @@ class CalendarService implements CalendarPort {
   /// and no [EventRow] to go with it — [CalendarReconciler]'s retry of a
   /// [PendingCalendarDeletions] tombstone, where the local row is already
   /// gone by definition.
-  Future<void> deleteEventById(String osId) async {
+  Future<void> deleteEventById(String osId) => _writeQueue.run(() async {
     try {
       await _plugin.deleteEvent(eventId: osId);
     } on DeviceCalendarException catch (e) {
@@ -222,7 +244,7 @@ class CalendarService implements CalendarPort {
       // Already gone from the OS calendar — deleting it is already the
       // desired end state, so this isn't actually a failure.
     }
-  }
+  });
 
   /// Reads a single OS event back (used by the reconciler to detect edits or
   /// deletions made in the calendar app). Returns null if it no longer exists.

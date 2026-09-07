@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:device_calendar_plus_platform_interface/device_calendar_plus_platform_interface.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -243,6 +245,62 @@ void main() {
       );
 
       expect(result, 'os-replacement');
+    },
+  );
+
+  test(
+    'two concurrent pushEvent calls for the same row never interleave — '
+    'regression test: EventRepositoryImpl.save pushes an edit directly '
+    'while CalendarReconciler independently pushes anything still '
+    'pendingPush on every app-resume, and a local row stays pendingPush '
+    'for the whole platform-channel round trip a push takes — a reconcile '
+    'landing in that window used to race the original push, each call '
+    'independently creating its own OS event and leaving one silently '
+    'orphaned',
+    () async {
+      final firstCallStarted = Completer<void>();
+      final releaseFirstCall = Completer<void>();
+      var createCallCount = 0;
+      when(
+        fakePlatform.createEvent(
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+        ),
+      ).thenAnswer((_) async {
+        createCallCount++;
+        if (createCallCount == 1) {
+          firstCallStarted.complete();
+          await releaseFirstCall.future;
+        }
+        return 'os-$createCallCount';
+      });
+
+      final first = service.pushEvent(row(id: 'e4'));
+      await firstCallStarted.future;
+      // The first call is now blocked mid-flight inside createEvent. A
+      // second push for the same row must wait for it, not start its own
+      // createEvent call concurrently.
+      final second = service.pushEvent(row(id: 'e4'));
+      // Give the second call every chance to (incorrectly) run concurrently
+      // before asserting it didn't.
+      await Future<void>.delayed(Duration.zero);
+      expect(createCallCount, 1);
+
+      releaseFirstCall.complete();
+      final results = await Future.wait([first, second]);
+
+      expect(createCallCount, 2);
+      expect(results, ['os-1', 'os-2']);
     },
   );
 }
