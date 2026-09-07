@@ -338,7 +338,21 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
             label: Text(l10n.lunarLeapMonthToggle),
             selected: _isLeap,
             onSelected: leapAvailable
-                ? (v) => setState(() => _isLeap = v)
+                ? (v) => setState(() {
+                    _isLeap = v;
+                    // Every other place that changes _isLeap (the year/
+                    // month wheels' drag/onIncrease/onDecrease) already
+                    // calls this — missing it just here let a day that was
+                    // valid for the plain month silently become invalid
+                    // for its leap version (or vice versa; a leap month is
+                    // 29 or 30 days same as any lunar month, independently
+                    // of its plain counterpart's own length), with nothing
+                    // correcting _day back into range. LunarDate.toSolar()
+                    // then returned null for that (year, month, day,
+                    // isLeap) combination, and Done's own null-check
+                    // silently no-opped instead of closing the sheet.
+                    _clampDay();
+                  })
                 : null,
             selectedColor: palette.accent.withValues(alpha: 0.24),
           ),

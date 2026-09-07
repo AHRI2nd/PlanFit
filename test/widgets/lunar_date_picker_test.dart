@@ -166,6 +166,36 @@ void main() {
     },
   );
 
+  testWidgets(
+    "toggling the leap-month chip clamps a now-invalid day the same way "
+    "every other control that changes _isLeap already does — regression "
+    "test: solar 2025-07-24 is lunar 2025-06-30 (day 30, non-leap; that "
+    "month's plain form has 30 days). 2025's real leap month is 6, but "
+    "its *leap* form only has 29 days — turning the leap chip on left "
+    "_day at 30 with nothing to clamp it, so LunarDate(2025, 6, 30, "
+    "isLeap: true).toSolar() returned null and Done's own null-check "
+    "silently no-opped instead of closing the sheet",
+    (tester) async {
+      final key = await pumpAndOpen(tester, DateTime(2025, 7, 24));
+
+      final chip = find.byType(FilterChip);
+      expect(tester.widget<FilterChip>(chip).selected, isFalse);
+      await tester.tap(chip);
+      await tester.pump();
+      expect(tester.widget<FilterChip>(chip).selected, isTrue);
+
+      await tester.tap(find.text('완료'));
+      await tester.pumpAndSettle();
+
+      expect(
+        key.currentState!.picked,
+        isNotNull,
+        reason: 'Done must actually close the sheet once toggled to a '
+            'valid leap-month day, not silently no-op',
+      );
+    },
+  );
+
   // Finds the Semantics widget wrapping a given wheel by its label — the
   // simpler, lower-level alternative to dispatching real SemanticsActions
   // through the semantics tree: `Semantics.properties` exposes the exact
