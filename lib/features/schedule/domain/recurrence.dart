@@ -172,9 +172,25 @@ class RecurrenceExpansion {
       'exactly one of until or count is required when frequency is not none',
     );
 
-    // Count-mode has no date boundary to walk toward — truncation is just
-    // "did the user ask for more than the cap allows".
-    if (count != null) return count > maxOccurrences;
+    if (count != null) {
+      // The usual count-mode cut: more occurrences were requested than the
+      // cap allows.
+      if (count > maxOccurrences) return true;
+      // [yearlyLunar] can *also* stop short of `count` even when `count`
+      // itself is well within the cap — occurrences() breaks the moment
+      // _advance returns null (klc's own supported range, 1391-2050, run
+      // out), the same early-stop [isTruncated]'s until-mode branch below
+      // already accounts for. Checking only the *last* required step
+      // (`cap - 1`) is enough: the stepped-forward year only ever
+      // increases with step, so once it's out of range it stays out of
+      // range for every later step too — if that last step still resolves,
+      // every earlier one already did.
+      if (frequency == RecurrenceFrequency.yearlyLunar) {
+        final cap = count.clamp(1, maxOccurrences);
+        return _advance(start, frequency, cap - 1) == null;
+      }
+      return false;
+    }
 
     if (frequency == RecurrenceFrequency.weekly &&
         byWeekdays != null &&

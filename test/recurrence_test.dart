@@ -550,6 +550,46 @@ void main() {
           isFalse,
         );
       });
+
+      test(
+        "true for a yearlyLunar series whose requested count runs past "
+        "klc's supported range, even though count itself is nowhere near "
+        'maxOccurrences — regression test: isTruncated used to only check '
+        '"count > maxOccurrences" in count-mode, so a yearlyLunar series '
+        "that occurrences() itself already cuts short (stepping past "
+        "klc's 2050 boundary) reported false, silently skipping the "
+        '"your recurrence was cut short" warning the caller shows on '
+        'until-mode truncation',
+        () {
+          final start = DateTime(2049, 6, 1, 9);
+          // Same scenario as occurrences()'s own "stops ... past 2050"
+          // test above — confirmed there to actually produce fewer than
+          // 10 rows.
+          expect(
+            RecurrenceExpansion.isTruncated(
+              start: start,
+              frequency: RecurrenceFrequency.yearlyLunar,
+              count: 10,
+            ),
+            isTrue,
+          );
+        },
+      );
+
+      test(
+        'false for a yearlyLunar series whose count comfortably fits '
+        "within klc's supported range",
+        () {
+          expect(
+            RecurrenceExpansion.isTruncated(
+              start: DateTime(2026, 6, 1, 9),
+              frequency: RecurrenceFrequency.yearlyLunar,
+              count: 10,
+            ),
+            isFalse,
+          );
+        },
+      );
     });
   });
 
