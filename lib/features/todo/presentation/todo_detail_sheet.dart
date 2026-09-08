@@ -276,16 +276,25 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
               ),
               Flexible(
                 child: SingleChildScrollView(
-                  // See kFloatingNavBarClearance's own doc for why the
-                  // bottom inset is much larger than AppSpacing.lg alone —
-                  // without it, the add-subtask field (this column's last
-                  // element) sat behind AppShell's floating tab bar, same
-                  // as the quick-add sheet's Save button before that fix.
-                  padding: const EdgeInsets.fromLTRB(
+                  // The keyboard inset (when it's up, dwarfing the tab bar
+                  // clearance below) plus enough to clear the floating tab
+                  // bar when it isn't — see kFloatingNavBarClearance's own
+                  // doc, and quick_add_sheet.dart's identical padding for
+                  // the same reason (showAdaptiveBottomSheet's
+                  // isScrollControlled: true bypasses Flutter's automatic
+                  // viewInsets padding, so every caller with a text field
+                  // needs to add it back itself). Without the viewInsets
+                  // term, the tags/subtask fields could sit behind the
+                  // keyboard; without kFloatingNavBarClearance, the
+                  // add-subtask field (this column's last element) sat
+                  // behind AppShell's floating tab bar instead.
+                  padding: EdgeInsets.fromLTRB(
                     AppSpacing.gutter,
                     0,
                     AppSpacing.gutter,
-                    AppSpacing.lg + kFloatingNavBarClearance,
+                    MediaQuery.of(context).viewInsets.bottom +
+                        AppSpacing.lg +
+                        kFloatingNavBarClearance,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

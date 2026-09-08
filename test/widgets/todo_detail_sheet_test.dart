@@ -597,4 +597,34 @@ void main() {
       expect(padding.bottom, AppSpacing.lg + kFloatingNavBarClearance);
     },
   );
+
+  testWidgets(
+    "the scrollable content also clears the keyboard — regression test: "
+    "showAdaptiveBottomSheet's isScrollControlled: true bypasses Flutter's "
+    'own automatic viewInsets padding (confirmed against the Flutter SDK '
+    'source — bottom_sheet.dart never references viewInsets at all), so '
+    'every caller with a text field needs to add MediaQuery.viewInsets.'
+    "bottom back itself. quick_add_sheet.dart and lunar_date_picker.dart "
+    'already did; this sheet — which has 3 TextFields, the add-subtask '
+    'one dead last — did not, so the keyboard could cover whichever field '
+    'was focused',
+    (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final t = todo();
+      await pumpSheetHost(tester, t);
+
+      // Simulate the keyboard coming up after the sheet is already open —
+      // same as what actually happens when the user taps a field.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pump();
+
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.byType(SingleChildScrollView),
+      );
+      final padding = scrollView.padding! as EdgeInsets;
+      expect(padding.bottom, 300 + AppSpacing.lg + kFloatingNavBarClearance);
+    },
+  );
 }
