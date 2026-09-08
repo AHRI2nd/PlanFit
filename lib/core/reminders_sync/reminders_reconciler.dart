@@ -72,6 +72,18 @@ class RemindersReconciler {
     for (final row in await _todoDao.needingReminderPush()) {
       final osId = await _service.pushTodo(row);
       if (osId != null) {
+        // `pushTodo` is a real platform-channel round trip, so the to-do
+        // could have been deleted locally (TodoController.remove) while it
+        // was in flight. That delete's own `reminders.deleteTodo` call ran
+        // too early to know about `osId` — it didn't exist yet — so without
+        // this check, `patch` below would silently affect zero rows (the id
+        // is gone) and the OS reminder just created would be left orphaned
+        // in the Reminders app forever, with no local link ever pointing at
+        // it to clean it up later.
+        if (await _todoDao.findById(row.id) == null) {
+          await _service.deleteTodo(row.copyWith(osReminderId: Value(osId)));
+          continue;
+        }
         await _todoDao.patch(
           row.id,
           TodoItemsCompanion(

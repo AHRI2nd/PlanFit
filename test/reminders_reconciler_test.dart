@@ -120,6 +120,7 @@ void main() {
       when(dao.needingReminderPush()).thenAnswer((_) async => [pending]);
       when(service.pushTodo(pending)).thenAnswer((_) async => 'os-1');
       when(service.targetListId).thenReturn('list-1');
+      when(dao.findById('t1')).thenAnswer((_) async => pending);
       when(dao.patch(any, any)).thenAnswer((_) async {});
 
       final changes = await reconciler.reconcile(now: now);
@@ -144,6 +145,36 @@ void main() {
 
         expect(changes, 0);
         verifyNever(dao.patch(any, any));
+      },
+    );
+
+    test(
+      'a push that succeeds after the to-do was deleted locally cleans up '
+      'the now-orphaned OS reminder instead of leaving it dangling forever '
+      '— regression test: pushTodo is a real platform-channel round trip, '
+      "so TodoController.remove's own reminders.deleteTodo call (which ran "
+      'while osReminderId was still null, since this push had not resolved '
+      'yet) could not have known to delete the reminder this push was '
+      'about to create; without this check, patch below would silently '
+      'affect zero rows and the new OS reminder would never be linked to '
+      'anything that could clean it up later',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        final pending = row(id: 't1', slotStart: DateTime(2026, 1, 1));
+        when(dao.needingReminderPush()).thenAnswer((_) async => [pending]);
+        when(service.pushTodo(pending)).thenAnswer((_) async => 'os-1');
+        when(service.targetListId).thenReturn('list-1');
+        // The row is gone by the time pushTodo resolves.
+        when(dao.findById('t1')).thenAnswer((_) async => null);
+        when(service.deleteTodo(any)).thenAnswer((_) async {});
+
+        final changes = await reconciler.reconcile();
+
+        expect(changes, 0);
+        verifyNever(dao.patch(any, any));
+        final deleted =
+            verify(service.deleteTodo(captureAny)).captured.single as TodoRow;
+        expect(deleted.osReminderId, 'os-1');
       },
     );
   });
