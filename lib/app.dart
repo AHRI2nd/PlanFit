@@ -11,6 +11,7 @@ import 'core/calendar_sync/holiday_calendar_service.dart'
     show holidayCountrySourceId, holidayCustomSourceId;
 import 'core/di.dart';
 import 'core/home_widget/home_widget_sync.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/notifications/notification_tap_target.dart';
 import 'core/onboarding_prefs.dart';
 import 'core/routing/app_router.dart';
@@ -49,6 +50,14 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   /// Fires once at the next local midnight — see [_scheduleMidnightRefresh].
   Timer? _midnightTimer;
 
+  /// Captured in [initState] rather than re-read via `ref.read(...)` in
+  /// [dispose] — `Ref` is unsafe to use once a widget is unmounting
+  /// (`ConsumerStatefulElement` asserts this), which a bare `PlanFitApp`
+  /// never hits in real app usage (it's the process's root widget, alive
+  /// for the whole session) but a widget/integration test's teardown does,
+  /// throwing a StateError right as the test tree gets torn down.
+  late final NotificationService _notificationService;
+
   @override
   void initState() {
     super.initState();
@@ -83,13 +92,14 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     // Same idea for notification taps while the app is already alive
     // (foreground or backgrounded-but-not-killed) — a cold-start tap is
     // handled separately by _handleColdStartFromNotification above.
-    ref.read(notificationServiceProvider).onTap = _handleNotificationTap;
+    _notificationService = ref.read(notificationServiceProvider);
+    _notificationService.onTap = _handleNotificationTap;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    ref.read(notificationServiceProvider).onTap = null;
+    _notificationService.onTap = null;
     _widgetClickSub?.cancel();
     _midnightTimer?.cancel();
     super.dispose();
