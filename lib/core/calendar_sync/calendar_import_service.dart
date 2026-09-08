@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../db/app_database.dart';
 import '../db/daos/event_dao.dart';
 import '../db/sync_status.dart';
+import '../serial_queue.dart';
 import 'calendar_service.dart';
 
 /// Copies another device calendar's events into PlanFit's own local data —
@@ -33,6 +34,18 @@ import 'calendar_service.dart';
 /// Re-running an import, or a mirror sync, updates existing rows rather
 /// than duplicating them — matched via [Events.importSourceCalendarId] +
 /// [Events.importSourceEventId], not by a derived id.
+///
+/// [_writeQueue] serializes [importFrom]/[syncMirroredCalendars]/
+/// [removeMirroredCalendar] against each other: [CalendarReconciler] drives
+/// [syncMirroredCalendars] on every app-foreground resume, a genuinely slow
+/// platform-channel round trip, while [removeMirroredCalendar] runs the
+/// moment the user unsubscribes from Settings — with no serialization, an
+/// in-flight sync (already committed to events it fetched *before* the
+/// unsubscribe) could finish its upsert step *after* the unsubscribe's
+/// delete and silently resurrect the very rows the user just removed, with
+/// no later reconcile pass able to clean it up (the calendar is no longer
+/// subscribed, so nothing revisits it). Same pattern as
+/// `CalendarService._writeQueue`'s fix for the analogous push/delete race.
 class CalendarImportService {
   CalendarImportService({
     required this.calendarService,
@@ -41,6 +54,7 @@ class CalendarImportService {
 
   final CalendarService calendarService;
   final EventDao eventDao;
+  final _writeQueue = SerialQueue();
 
   static const _uuid = Uuid();
 
@@ -54,7 +68,7 @@ class CalendarImportService {
     String calendarId, {
     required DateTime from,
     required DateTime to,
-  }) async {
+  }) => _writeQueue.run(() async {
     final events = await calendarService.listEvents(
       calendarId,
       from: from,
@@ -75,7 +89,7 @@ class CalendarImportService {
       }
     });
     return events.length;
-  }
+  });
 
   /// Continuously-mirrored counterpart to [importFrom], run on every
   /// [CalendarReconciler] pass for each of the user's subscribed calendars:
@@ -86,7 +100,7 @@ class CalendarImportService {
     Set<String> calendarIds, {
     required DateTime from,
     required DateTime to,
-  }) async {
+  }) => _writeQueue.run(() async {
     final colorByCalendar = await _colorHexByCalendar(calendarIds);
     // A calendar id that no longer resolves on the device — deleted, or
     // unsubscribed directly in the OS calendar app rather than through
@@ -136,25 +150,26 @@ class CalendarImportService {
         }
       });
     }
-  }
+  });
 
   /// Deletes every local mirror row for [calendarId] — used when the user
   /// unsubscribes, so stale copies don't linger after they stop wanting them
   /// kept in sync.
-  Future<void> removeMirroredCalendar(String calendarId) async {
-    // A far-reaching window: mirrored rows can exist anywhere a prior sync
-    // pass's [from, to) covered.
-    final rows = await eventDao.mirroredFrom(
-      calendarId,
-      DateTime(2000),
-      DateTime(2100),
-    );
-    await eventDao.transaction(() async {
-      for (final row in rows) {
-        await eventDao.deleteById(row.id);
-      }
-    });
-  }
+  Future<void> removeMirroredCalendar(String calendarId) =>
+      _writeQueue.run(() async {
+        // A far-reaching window: mirrored rows can exist anywhere a prior
+        // sync pass's [from, to) covered.
+        final rows = await eventDao.mirroredFrom(
+          calendarId,
+          DateTime(2000),
+          DateTime(2100),
+        );
+        await eventDao.transaction(() async {
+          for (final row in rows) {
+            await eventDao.deleteById(row.id);
+          }
+        });
+      });
 
   /// [calendarId]'s own OS color, if it has one — looked up once per
   /// [importFrom] call rather than per event.
