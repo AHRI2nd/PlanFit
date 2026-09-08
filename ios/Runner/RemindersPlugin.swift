@@ -192,27 +192,39 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
   private func fetchReminders(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
-      let listId = args["listId"] as? String,
-      let list = store.calendar(withIdentifier: listId)
+      let listId = args["listId"] as? String
     else {
       result(nil)
       return
     }
-    let predicate = store.predicateForReminders(in: [list])
-    store.fetchReminders(matching: predicate) { reminders in
-      let items = (reminders ?? []).map { r -> [String: Any?] in
-        let dueDate = r.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
-        return [
-          "osReminderId": r.calendarItemIdentifier,
-          "title": r.title ?? "",
-          "isCompleted": r.isCompleted,
-          "dueDateMillis": dueDate.map { Int64($0.timeIntervalSince1970 * 1000) },
-          "lastModifiedMillis": r.lastModifiedDate.map {
-            Int64($0.timeIntervalSince1970 * 1000)
-          },
-        ]
+    // store.calendar(withIdentifier:) is a synchronous EventKit call that
+    // hits disk/IPC, same as pushTodo/deleteTodo/resolveTargetListId above —
+    // but unlike those, this one used to run inline on whatever thread
+    // `handle(_:result:)` was called on (the main thread, since Flutter
+    // dispatches every MethodChannel call there), blocking the UI on every
+    // foreground-resume RemindersReconciler.reconcile() pass. Off the main
+    // thread now, matching the rest of this file.
+    DispatchQueue.global(qos: .userInitiated).async { [self] in
+      guard let list = store.calendar(withIdentifier: listId) else {
+        DispatchQueue.main.async { result(nil) }
+        return
       }
-      DispatchQueue.main.async { result(items) }
+      let predicate = store.predicateForReminders(in: [list])
+      store.fetchReminders(matching: predicate) { reminders in
+        let items = (reminders ?? []).map { r -> [String: Any?] in
+          let dueDate = r.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
+          return [
+            "osReminderId": r.calendarItemIdentifier,
+            "title": r.title ?? "",
+            "isCompleted": r.isCompleted,
+            "dueDateMillis": dueDate.map { Int64($0.timeIntervalSince1970 * 1000) },
+            "lastModifiedMillis": r.lastModifiedDate.map {
+              Int64($0.timeIntervalSince1970 * 1000)
+            },
+          ]
+        }
+        DispatchQueue.main.async { result(items) }
+      }
     }
   }
 }
