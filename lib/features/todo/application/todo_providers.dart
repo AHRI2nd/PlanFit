@@ -400,6 +400,19 @@ class TodoController {
   /// its own, so this just needs to give it a chance to run again for
   /// anything nearby. Safe to call on every foreground resume: scheduling an
   /// already-scheduled id is a harmless no-op.
+  ///
+  /// [candidates] is a single DB snapshot taken once, up front — but this
+  /// loop then `await`s one real platform-channel call per candidate, and a
+  /// concurrent edit (marking one done, turning its `notify` off, deleting
+  /// it) landing while an *earlier* candidate's own call is still in flight
+  /// used to be invisible to the rest of this loop: it kept using its
+  /// stale, pre-edit copy of that row for the rest of the pass, silently
+  /// re-arming/resurrecting a reminder the concurrent edit had just
+  /// cancelled. Re-fetching each row's live state immediately before
+  /// actually scheduling it — as late as possible before the call that
+  /// matters — closes that window; unlike `NotificationService.refillEvents`
+  /// (which has no DAO of its own to re-check against), this controller
+  /// already sits right next to one.
   Future<void> refillNotifications() async {
     final dao = _ref.read(todoDaoProvider);
     final notifications = _ref.read(notificationPortProvider);
@@ -408,7 +421,11 @@ class TodoController {
     final candidates = await dao.between(now, windowEnd.add(_maxLeadTime));
     for (final row in candidates) {
       if (!row.notify || !row.hasTime || row.isDone) continue;
-      await notifications.scheduleForTodo(row);
+      final live = await dao.findById(row.id);
+      if (live == null || !live.notify || !live.hasTime || live.isDone) {
+        continue;
+      }
+      await notifications.scheduleForTodo(live);
     }
   }
 

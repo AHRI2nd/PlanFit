@@ -89,12 +89,21 @@ Locale _resolveSupportedLocale(String? languageOverride) {
 class NotificationService implements NotificationPort {
   // Not `this._languageOverride`: the named parameter has to stay
   // `languageOverride` — the public name every call site already uses.
-  NotificationService({this.soundEnabled = true, String? languageOverride})
+  // [plugin] is injectable (real usage never passes it — see the default
+  // below) purely so tests can drive this class's own scheduling logic
+  // against a mock, the same way `HolidayCalendarService`/`CalendarService`
+  // already accept an injectable `http.Client`/rely on their own singleton
+  // for the same reason.
+  NotificationService({
+    this.soundEnabled = true,
+    String? languageOverride,
+    FlutterLocalNotificationsPlugin? plugin,
+  })
     // ignore: prefer_initializing_formals
-    : _languageOverride = languageOverride;
+    : _languageOverride = languageOverride,
+       _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin;
 
   /// Whether notifications play a sound. Flipped from settings.
   bool soundEnabled;
@@ -438,6 +447,29 @@ class NotificationService implements NotificationPort {
   /// falls through to being rescheduled, same as if nothing were pending.
   /// Never wrong, just occasionally not the optimization, and only for one
   /// release's worth of already-scheduled notifications.
+  ///
+  /// [events] is a single DB snapshot the caller (`CalendarReconciler
+  /// ._refillNotifications`) already fetched before calling in here — this
+  /// method has no DB access of its own to re-verify a row's live state
+  /// mid-pass. A user editing/deleting/toggling notify off on one of these
+  /// events while this call is still in flight for an *earlier* one used to
+  /// be genuinely possible: with a plain sequential loop of `await
+  /// _applyEvent(...)` calls (one real platform-channel round trip each),
+  /// a user with ~30 events could see 200+ of them, spanning enough real
+  /// wall-clock time for a concurrent edit to land and then be silently
+  /// re-armed anyway by this call's now-stale copy of that event (the exact
+  /// TOCTOU race `TodoController.refillNotifications` closes for to-dos by
+  /// re-fetching each row's live state immediately before scheduling it —
+  /// not available here since this class has no DAO). Dispatching every
+  /// still-needed `_applyEvent` call together via [Future.wait] instead of
+  /// one at a time shrinks that whole pass to roughly the time of a single
+  /// round trip rather than their sum, cutting the exposure window by
+  /// roughly a factor of how many calls there are. This doesn't fully close
+  /// the race the way the to-do side's re-fetch does — a concurrent edit
+  /// could still land in that one shorter window — but it's a large,
+  /// self-contained reduction that doesn't require giving this plugin
+  /// wrapper its own DB dependency just to re-verify state it was never
+  /// meant to own.
   @override
   Future<void> refillEvents(List<EventRow> events) async {
     await init();
@@ -464,6 +496,7 @@ class NotificationService implements NotificationPort {
       }
     }
 
+    final toApply = <Future<void>>[];
     for (final event in events) {
       for (final offset in reminderOffsetOptions) {
         final (:id, :alertAt) = _decideEvent(event, offset, now);
@@ -471,9 +504,12 @@ class NotificationService implements NotificationPort {
             ? !pendingAlertById.containsKey(id)
             : pendingAlertById[id] == alertAt;
         if (alreadyCorrect) continue;
-        await _applyEvent(id: id, alertAt: alertAt, event: event, mode: mode);
+        toApply.add(
+          _applyEvent(id: id, alertAt: alertAt, event: event, mode: mode),
+        );
       }
     }
+    await Future.wait(toApply);
   }
 
   @override
