@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/date_math.dart';
@@ -9,6 +11,42 @@ import '../../settings/application/settings_controller.dart';
 enum ScheduleView { day, week, month, year, agenda }
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// "Today", re-evaluated at local midnight independently of any widget
+/// rebuild. Anything that `ref.watch`es this rebuilds itself directly
+/// through Riverpod's own dependency tracking the moment [state] changes —
+/// unlike a plain ancestor `setState()` (see `PlanFitApp`'s own midnight
+/// timer in `app.dart`), which go_router's `RouteBuilder` can leave with no
+/// effect at all on a `StatefulShellRoute` branch: it only rebuilds a
+/// branch's cached page when the route *match list* itself changes, not on
+/// every ancestor rebuild. `AppShell` computing `dateOnly(DateTime.now())`
+/// directly in its own `build()` silently relied on being rebuilt to pick up
+/// a new day, which — inside a shell branch — a bare `setState()` above it
+/// never guarantees. Watching this provider instead sidesteps that
+/// entirely, since Riverpod rebuilds a watching widget itself regardless of
+/// its position in (or its ancestors' relationship to) the route tree.
+class TodayDate extends Notifier<DateTime> {
+  Timer? _midnightTimer;
+
+  @override
+  DateTime build() {
+    ref.onDispose(() => _midnightTimer?.cancel());
+    _scheduleMidnightRefresh();
+    return dateOnly(DateTime.now());
+  }
+
+  void _scheduleMidnightRefresh() {
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    final delay = nextMidnight.difference(now) + const Duration(seconds: 2);
+    _midnightTimer = Timer(delay, () {
+      state = dateOnly(DateTime.now());
+      _scheduleMidnightRefresh();
+    });
+  }
+}
+
+final todayProvider = NotifierProvider<TodayDate, DateTime>(TodayDate.new);
 
 /// The first day of the week containing [day], per [startWeekday]
 /// (`DateTime.monday`..`DateTime.sunday`) — used by the week-stats card and

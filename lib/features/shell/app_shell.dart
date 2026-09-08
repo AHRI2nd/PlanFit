@@ -35,13 +35,14 @@ class AppShell extends ConsumerWidget {
     final accent = AppColors.timeGradient(DateTime.now()).first;
 
     // Today's undone to-dos, surfaced as a badge on the schedule tab so a
-    // pending day is visible without opening it.
+    // pending day is visible without opening it. Watches `todayProvider`
+    // rather than computing `dateOnly(DateTime.now())` directly — see that
+    // provider's own doc for why that distinction matters specifically for
+    // this widget (a StatefulShellRoute branch's cached page doesn't
+    // rebuild on every ancestor rebuild the way an ordinary widget does).
+    final today = ref.watch(todayProvider);
     final todayTodos =
-        ref
-            .watch(todosForDayProvider(dateOnly(DateTime.now())))
-            .asData
-            ?.value ??
-        const [];
+        ref.watch(todosForDayProvider(today)).asData?.value ?? const [];
     final undoneToday = todayTodos.where((t) => !t.isDone).length;
 
     final items = <GlassNavItem>[
