@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +12,24 @@ import '../../design/tokens/app_colors.dart';
 import '../../l10n/app_localizations.dart';
 import '../schedule/application/schedule_providers.dart';
 import '../todo/application/todo_providers.dart';
+
+/// The screen-reader label for [item] on the iOS Liquid Glass tab bar —
+/// pulled out as its own pure, top-level function purely so it's directly
+/// unit-testable without needing `Platform.isIOS` to actually be true (see
+/// [AppShell.build]'s own `_useNativeLiquidGlass` gate, which this label is
+/// only ever used behind).
+///
+/// `liquid_glass_widgets`' own [GlassTab] wraps a tab's icon in
+/// `ExcludeSemantics` and otherwise falls back to plain `label` — so a
+/// badge count is invisible to VoiceOver on this tab bar unless spelled out
+/// here explicitly. [GlassNavBar] (the non-iOS fallback) has no such
+/// exclusion and picks its own badge `Text` up for free via ordinary
+/// semantics merging, which is why only this path needs it.
+@visibleForTesting
+String iosTabSemanticLabel(AppL10n l10n, GlassNavItem item) =>
+    item.badgeCount > 0
+    ? l10n.tabBadgeSemanticLabel(item.label, item.badgeCount)
+    : item.label;
 
 /// The persistent chrome around the four tabs: content fills the screen and a
 /// floating Liquid-Glass nav bar hovers over it, so the time-of-day gradient
@@ -106,6 +124,7 @@ class _IosGlassTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return GlassTabBar.bottom(
       tabs: [
         for (final item in items)
@@ -116,6 +135,7 @@ class _IosGlassTabBar extends StatelessWidget {
               icon: Icon(item.activeIcon),
             ),
             label: item.label,
+            semanticLabel: iosTabSemanticLabel(l10n, item),
             glowColor: accent,
           ),
       ],

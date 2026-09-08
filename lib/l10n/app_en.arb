@@ -14,6 +14,14 @@
   "tabHome": "Home",
   "tabSchedule": "Schedule",
   "tabSettings": "Settings",
+  "tabBadgeSemanticLabel": "{label}, {count} incomplete",
+  "@tabBadgeSemanticLabel": {
+    "description": "Screen-reader label for a tab that carries a count badge — e.g. 'Schedule, 3 incomplete'.",
+    "placeholders": {
+      "label": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
 
   "homeGreetingDawn": "A quiet dawn",
   "homeGreetingMorning": "Good morning",

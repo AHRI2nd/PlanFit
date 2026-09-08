@@ -12,7 +12,9 @@ import 'package:planfit/core/routing/app_router.dart';
 import 'package:planfit/design/glass/glass_nav_bar.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
+import 'package:planfit/features/shell/app_shell.dart';
 import 'package:planfit/l10n/app_localizations.dart';
+import 'package:planfit/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'home_screen_test.mocks.dart';
@@ -150,4 +152,36 @@ void main() {
       );
     },
   );
+
+  group('iosTabSemanticLabel', () {
+    // liquid_glass_widgets' GlassTab wraps its icon (which carries the
+    // visible badge Text) in ExcludeSemantics and otherwise announces just
+    // `label` — so a VoiceOver user on the iOS Liquid Glass tab bar hears
+    // nothing about how many undone to-dos there are unless this function
+    // spells it out. Plain test() (no widget needed): this is a pure
+    // function specifically so Platform.isIOS not being true on the test
+    // host is no obstacle to covering it.
+    final l10n = AppL10nKo();
+
+    test('includes the count when the badge is showing', () {
+      const item = GlassNavItem(
+        icon: Icons.calendar_today_outlined,
+        activeIcon: Icons.calendar_today,
+        label: '시간표',
+        badgeCount: 3,
+      );
+
+      expect(iosTabSemanticLabel(l10n, item), '시간표, 미완료 3개');
+    });
+
+    test('is just the plain label when there is no badge', () {
+      const item = GlassNavItem(
+        icon: Icons.wb_twilight_outlined,
+        activeIcon: Icons.wb_twilight,
+        label: '홈',
+      );
+
+      expect(iosTabSemanticLabel(l10n, item), '홈');
+    });
+  });
 }

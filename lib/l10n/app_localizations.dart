@@ -175,6 +175,12 @@ abstract class AppL10n {
   /// **'설정'**
   String get tabSettings;
 
+  /// Screen-reader label for a tab that carries a count badge — e.g. '시간표, 미완료 3개'.
+  ///
+  /// In ko, this message translates to:
+  /// **'{label}, 미완료 {count}개'**
+  String tabBadgeSemanticLabel(String label, int count);
+
   /// No description provided for @homeGreetingDawn.
   ///
   /// In ko, this message translates to:

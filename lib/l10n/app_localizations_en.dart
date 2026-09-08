@@ -51,6 +51,11 @@ class AppL10nEn extends AppL10n {
   String get tabSettings => 'Settings';
 
   @override
+  String tabBadgeSemanticLabel(String label, int count) {
+    return '$label, $count incomplete';
+  }
+
+  @override
   String get homeGreetingDawn => 'A quiet dawn';
 
   @override

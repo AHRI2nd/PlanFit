@@ -48,6 +48,11 @@ class AppL10nKo extends AppL10n {
   String get tabSettings => '설정';
 
   @override
+  String tabBadgeSemanticLabel(String label, int count) {
+    return '$label, 미완료 $count개';
+  }
+
+  @override
   String get homeGreetingDawn => '고요한 새벽이에요';
 
   @override
