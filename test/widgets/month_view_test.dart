@@ -580,4 +580,78 @@ void main() {
       },
     );
   });
+
+  testWidgets(
+    'selecting a different day within the same month reuses the same '
+    'eventsForMonthProvider/todosForMonthProvider subscription instead of '
+    'opening a new one — regression test: passing the raw, day-granularity '
+    'selectedDateProvider value straight through as the family key (rather '
+    'than normalized to (year, month) first) minted a brand-new, never-'
+    'disposed live DB subscription for every distinct day ever tapped '
+    'within a month, even though the query window is identical for all of '
+    'them',
+    (tester) async {
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+      final prefs = await SharedPreferences.getInstance();
+      late ProviderContainer container;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            eventRepositoryProvider.overrideWithValue(events),
+            todoDaoProvider.overrideWithValue(todos),
+          ],
+          child: Builder(
+            builder: (context) {
+              container = ProviderScope.containerOf(context);
+              return MaterialApp(
+                theme: AppTheme.light(),
+                locale: const Locale('ko'),
+                localizationsDelegates: const [
+                  AppL10n.delegate,
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                supportedLocales: AppL10n.supportedLocales,
+                home: const Scaffold(body: MonthView()),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Verified by the exact month window (not a blanket `any, any`
+      // count): MonthView also embeds a compact DayView for whichever day
+      // is selected (see _FixedSelectedDate's own doc above), which calls
+      // this same mocked events.watchBetween through its own, differently-
+      // windowed eventsForDayProvider — a plain call-count check would be
+      // confounded by those unrelated calls.
+      final marchWindow = (DateTime(2026, 3, 1), DateTime(2026, 4, 1));
+
+      container.read(selectedDateProvider.notifier).select(DateTime(2026, 3, 5));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // A different day, same month.
+      container.read(selectedDateProvider.notifier).select(DateTime(2026, 3, 20));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Exactly one call for the whole test, across both selections — a
+      // second one here would mean the March 20 selection opened a brand-
+      // new (year, month)-scoped subscription instead of reusing the one
+      // the March 5 selection already opened. (mockito's verify() consumes
+      // matched invocations, so this has to be one single check covering
+      // the whole test rather than a verify after each selection.)
+      verify(
+        events.watchBetween(marchWindow.$1, marchWindow.$2),
+      ).called(1);
+    },
+  );
 }

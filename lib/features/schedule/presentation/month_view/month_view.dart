@@ -215,9 +215,21 @@ class MonthView extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = AppL10n.of(context);
     final selected = ref.watch(selectedDateProvider);
-    final eventsAsync = ref.watch(eventsForMonthProvider(selected));
+    // Normalized to (year, month) before keying the family providers below
+    // — see their own doc for why. Riverpod's family cache keys on the
+    // exact value passed in (`DateTime.==` compares down to the
+    // microsecond), so passing the day-granularity `selected` directly
+    // used to mint a brand-new, separately-cached provider instance (and a
+    // brand-new live Drift `.watch()` subscription, never disposed) for
+    // every distinct day the user has ever tapped within a month — even
+    // though the query window, and so the result, is identical for every
+    // day inside the same month. `eventsForWeekProvider`/
+    // `todosForWeekProvider` already avoid this the same way, via
+    // `startOfWeek(...)` at their own call site in week_view.dart.
+    final monthAnchor = DateTime(selected.year, selected.month);
+    final eventsAsync = ref.watch(eventsForMonthProvider(monthAnchor));
     final overdueAsync = ref.watch(overdueTodosProvider);
-    final todosAsync = ref.watch(todosForMonthProvider(selected));
+    final todosAsync = ref.watch(todosForMonthProvider(monthAnchor));
     final locale = Localizations.localeOf(context).toLanguageTag();
     final weekStartsMonday = ref.watch(
       settingsControllerProvider.select((s) => s.weekStartsMonday),

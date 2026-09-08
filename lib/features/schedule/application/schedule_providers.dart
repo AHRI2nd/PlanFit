@@ -163,6 +163,16 @@ final eventsForDayProvider = StreamProvider.family<List<EventRow>, DateTime>((
 
 /// Events overlapping the month that contains [monthAnchor] — used for the
 /// month grid's day markers.
+///
+/// [monthAnchor] must already be normalized to (year, month) by the caller
+/// (e.g. `DateTime(selected.year, selected.month)`) — Riverpod's `family`
+/// caches by the exact parameter value (`DateTime.==` compares down to the
+/// microsecond), so passing a day-granularity value straight through would
+/// mint a brand-new, separately-cached provider instance — and a brand-new
+/// live Drift `.watch()` subscription, never disposed — for every distinct
+/// day ever selected within the same month, even though the query window
+/// (and so the result) is identical for all of them. `eventsForWeekProvider`
+/// normalizes the same way via `startOfWeek(...)` at its own call site.
 final eventsForMonthProvider = StreamProvider.family<List<EventRow>, DateTime>((
   ref,
   monthAnchor,

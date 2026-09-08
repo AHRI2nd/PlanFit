@@ -40,7 +40,8 @@ final todosForWeekProvider = StreamProvider.family<List<TodoRow>, DateTime>((
 
 /// To-dos in the month containing [monthAnchor] — used for the month grid's
 /// day markers (see `calendar_dot.dart`). Mirrors `eventsForMonthProvider`'s
-/// own window exactly.
+/// own window exactly, [monthAnchor] already normalized to (year, month)
+/// by the caller included — see that provider's own doc for why.
 final todosForMonthProvider = StreamProvider.family<List<TodoRow>, DateTime>((
   ref,
   monthAnchor,
