@@ -276,11 +276,16 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
               ),
               Flexible(
                 child: SingleChildScrollView(
+                  // See kFloatingNavBarClearance's own doc for why the
+                  // bottom inset is much larger than AppSpacing.lg alone —
+                  // without it, the add-subtask field (this column's last
+                  // element) sat behind AppShell's floating tab bar, same
+                  // as the quick-add sheet's Save button before that fix.
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.gutter,
                     0,
                     AppSpacing.gutter,
-                    AppSpacing.lg,
+                    AppSpacing.lg + kFloatingNavBarClearance,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

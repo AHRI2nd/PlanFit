@@ -11,6 +11,8 @@ import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/tokens/app_spacing.dart';
+import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart';
 import 'package:planfit/features/todo/domain/todo_priority.dart';
 import 'package:planfit/features/todo/presentation/todo_detail_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
@@ -574,4 +576,25 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
   });
+
+  testWidgets(
+    "the scrollable content clears AppShell's floating tab bar at the "
+    'bottom — regression test: unlike the quick-add sheet and the calendar '
+    "legend sheet (this sheet's siblings under the same "
+    'showAdaptiveBottomSheet helper), this one never added '
+    "kFloatingNavBarClearance to its bottom padding, so the add-subtask "
+    "field — this column's last element — sat directly behind the tab bar, "
+    'not just visually hidden but literally untappable since the tab bar '
+    'itself still consumed the touch',
+    (tester) async {
+      final t = todo();
+      await pumpSheetHost(tester, t);
+
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.byType(SingleChildScrollView),
+      );
+      final padding = scrollView.padding! as EdgeInsets;
+      expect(padding.bottom, AppSpacing.lg + kFloatingNavBarClearance);
+    },
+  );
 }
