@@ -10,6 +10,7 @@ import '../backup/ics_parser.dart';
 import '../db/app_database.dart';
 import '../db/daos/event_dao.dart';
 import '../db/sync_status.dart';
+import '../serial_queue.dart';
 
 /// Source-id prefix for a country-based holiday mirror — see
 /// [holidayCustomSourceId] for the other kind. Both start with `'holiday:'`,
@@ -99,12 +100,26 @@ class HolidayCalendarSyncException implements Exception {
 /// session's own cost research before this was scoped this way rather than
 /// as a full Places/Maps-style integration). A custom URL is just whatever
 /// `.ics` feed the user points at.
+///
+/// [_writeQueue] serializes every write ([_syncFrom]/[_unsubscribe], reached
+/// via [syncCountry]/[syncCustomUrl]/[unsubscribeCountry]/[unsubscribeCustom]/
+/// [migrateLegacySources]) against each other. `app.dart`'s background
+/// resume-sync calls [syncCountry]/[syncCustomUrl] on every foreground
+/// resume — each one a real network fetch, genuinely slow — while the
+/// settings screen can call [unsubscribeCountry]/[unsubscribeCustom] at any
+/// moment the user deselects a country or feed. Without serialization, an
+/// in-flight sync (already committed to a feed it fetched *before* the
+/// user's unsubscribe) could reach its own upsert step after the
+/// unsubscribe's delete and silently resurrect the very rows the user just
+/// removed — the same race [CalendarImportService._writeQueue] fixes for
+/// mirrored device calendars.
 class HolidayCalendarService {
   HolidayCalendarService({required this.eventDao, http.Client? httpClient})
     : _http = httpClient ?? http.Client();
 
   final EventDao eventDao;
   final http.Client _http;
+  final _writeQueue = SerialQueue();
 
   static const _uuid = Uuid();
 
@@ -251,7 +266,7 @@ class HolidayCalendarService {
     required String sourceId,
     required Uri feedUrl,
     String? colorHex,
-  }) async {
+  }) => _writeQueue.run(() async {
     final http.Response response;
     try {
       response = await _http.get(feedUrl);
@@ -307,9 +322,9 @@ class HolidayCalendarService {
     });
 
     return result.vevents.length;
-  }
+  });
 
-  Future<void> _unsubscribe(String sourceId) async {
+  Future<void> _unsubscribe(String sourceId) => _writeQueue.run(() async {
     final rows = await eventDao.mirroredFrom(
       sourceId,
       DateTime(2000),
@@ -320,5 +335,5 @@ class HolidayCalendarService {
         await eventDao.deleteById(row.id);
       }
     });
-  }
+  });
 }
