@@ -6,6 +6,7 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/sync_status.dart';
+import 'package:planfit/core/notifications/notification_id_allocator.dart';
 import 'package:planfit/core/notifications/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart';
@@ -275,9 +276,10 @@ void main() {
     // every still-needed call through Future.wait instead. These tests
     // confirm that change didn't alter *which* calls get made or their
     // net effect, only that they now fire together rather than one by one.
+    late NotificationIdAllocator allocator;
     late NotificationService service;
 
-    setUp(() {
+    setUp(() async {
       when(
         plugin.initialize(
           settings: anyNamed('settings'),
@@ -304,8 +306,18 @@ void main() {
         ),
       ).thenAnswer((_) async {});
       when(plugin.cancel(id: anyNamed('id'))).thenAnswer((_) async {});
-      service = NotificationService(plugin: plugin);
+      // refillEvents now resolves each (event, offset) pair's id through
+      // NotificationIdAllocator's persistent allocation instead of hashing
+      // it — see that class's own doc. SharedPreferences.setMockInitialValues
+      // above (this file's own top-level setUp) already gives it somewhere
+      // to persist into.
+      allocator = NotificationIdAllocator(await SharedPreferences.getInstance());
+      service = NotificationService(
+        plugin: plugin,
+        notificationIdAllocator: allocator,
+      );
     });
+
 
     EventRow event({
       required String id,
@@ -388,7 +400,10 @@ void main() {
         );
         final start = now.add(const Duration(hours: 2));
         final e = event(id: 'e1', startAt: start, reminderMinutesBefore: 30);
-        final alreadyPendingId = NotificationService.notificationId('e1', 30);
+        // The real id refillEvents will resolve for this (event, offset)
+        // pair — no longer a hash, so it has to come from the same
+        // allocator refillEvents itself will call into.
+        final alreadyPendingId = allocator.allocate('e1#30');
         final alertAt = start.subtract(const Duration(minutes: 30));
 
         when(plugin.pendingNotificationRequests()).thenAnswer(

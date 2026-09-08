@@ -17,6 +17,7 @@ import 'db/daos/event_dao.dart';
 import 'db/daos/event_template_dao.dart';
 import 'db/daos/sync_log_dao.dart';
 import 'db/daos/todo_dao.dart';
+import 'notifications/notification_id_allocator.dart';
 import 'notifications/notification_service.dart';
 import 'reminders_sync/reminders_reconciler.dart';
 import 'reminders_sync/reminders_service.dart';
@@ -60,7 +61,11 @@ final eventTemplateDaoProvider = Provider<EventTemplateDao>(
 );
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
-  return NotificationService();
+  return NotificationService(
+    notificationIdAllocator: NotificationIdAllocator(
+      ref.watch(sharedPreferencesProvider),
+    ),
+  );
 });
 
 final calendarServiceProvider = Provider<CalendarService>((ref) {

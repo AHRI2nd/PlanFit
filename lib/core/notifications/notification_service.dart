@@ -13,6 +13,7 @@ import '../db/todo_row_x.dart';
 import '../time/timezone_setup.dart';
 import '../../features/schedule/domain/ports.dart';
 import '../../l10n/app_localizations.dart';
+import 'notification_id_allocator.dart';
 import 'notification_window.dart';
 
 /// The exact `SharedPreferences` key `SettingsController` persists
@@ -93,15 +94,24 @@ class NotificationService implements NotificationPort {
   // below) purely so tests can drive this class's own scheduling logic
   // against a mock, the same way `HolidayCalendarService`/`CalendarService`
   // already accept an injectable `http.Client`/rely on their own singleton
-  // for the same reason.
+  // for the same reason. [notificationIdAllocator] is nullable rather than
+  // required so the handful of tests that only exercise
+  // [languageOverride]'s own getter/setter bookkeeping (never any actual
+  // scheduling) don't need one just to construct this — every real call
+  // site (`di.dart`'s `notificationServiceProvider`) always supplies one;
+  // see [_allocateEventId]'s own doc for what happens if a scheduling
+  // method is somehow reached without it.
   NotificationService({
     this.soundEnabled = true,
     String? languageOverride,
     FlutterLocalNotificationsPlugin? plugin,
+    this.notificationIdAllocator,
   })
     // ignore: prefer_initializing_formals
     : _languageOverride = languageOverride,
        _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+
+  final NotificationIdAllocator? notificationIdAllocator;
 
   final FlutterLocalNotificationsPlugin _plugin;
 
@@ -340,11 +350,47 @@ class NotificationService implements NotificationPort {
   /// in the row's own `reminderOffsets`.
   static const List<int> reminderOffsetOptions = [0, 5, 10, 30, 60, 1440];
 
-  /// Stable positive 31-bit id derived from the event's uuid and which
-  /// reminder offset this is — so one event's several reminders each get
-  /// their own independent notification.
+  /// A ~2.1 billion-value hash of the event's uuid and which reminder
+  /// offset this is. Used to be the *only* id scheme (see git history) —
+  /// with enough distinct ids in play (every event a long-lived install has
+  /// ever held, since ids are never reused) the ordinary birthday bound
+  /// made an actual collision a real risk, not just a theoretical one: two
+  /// different events sharing a numeric id means whichever schedules
+  /// second silently overwrites the other's pending alert, and
+  /// cancelling/rescheduling one affects both. No hash-quality improvement
+  /// fixes this — the birthday bound applies to any hash of a fixed bit
+  /// width — so real scheduling now goes through [_allocateEventId]'s
+  /// persistent, collision-free mapping instead (see
+  /// [NotificationIdAllocator]'s own doc for the full reasoning).
+  ///
+  /// Kept only as [handleNotificationAction]'s last-resort fallback for a
+  /// payload written before `alertAtMillis`'s `notificationId` field
+  /// existed (an app update landing between scheduling and a snooze tap) —
+  /// a background isolate has no [SharedPreferences] instance of its own
+  /// standing by to resolve the real allocated id from (it reads settings
+  /// straight out of a fresh one instead, see [handleNotificationAction]'s
+  /// own doc — reusing that here would still need this to become async
+  /// throughout, for a fallback already this degraded), and this one
+  /// narrow, already-degraded case doesn't need to be collision-proof the
+  /// way live scheduling does.
   static int notificationId(String eventId, int offsetMinutes) =>
       '$eventId#$offsetMinutes'.hashCode & 0x7fffffff;
+
+  /// The real, collision-free id [eventId]/[offsetMinutes] resolves to —
+  /// see [NotificationIdAllocator]'s doc. [notificationIdAllocator] is only
+  /// ever null in tests that construct this service without exercising any
+  /// scheduling method (see the constructor's own doc); every real path
+  /// reaching here always has one.
+  int _allocateEventId(String eventId, int offsetMinutes) {
+    final allocator = notificationIdAllocator;
+    if (allocator == null) {
+      throw StateError(
+        'NotificationService.scheduleForEvent/refillEvents/cancelForEvent '
+        'called without a notificationIdAllocator',
+      );
+    }
+    return allocator.allocate('$eventId#$offsetMinutes');
+  }
 
   /// What should happen for one (event, offset) pair — schedule at
   /// [alertAt], or cancel if [alertAt] is null — without touching the
@@ -356,7 +402,7 @@ class NotificationService implements NotificationPort {
     int offset,
     DateTime now,
   ) {
-    final id = notificationId(event.id, offset);
+    final id = _allocateEventId(event.id, offset);
     final alertAt = event.startAt.subtract(Duration(minutes: offset));
     // In the fixed menu but not selected for this event, already past, or
     // beyond the near-term scheduling window (see
@@ -449,20 +495,21 @@ class NotificationService implements NotificationPort {
   /// release's worth of already-scheduled notifications.
   ///
   /// [events] is a single DB snapshot the caller (`CalendarReconciler
-  /// ._refillNotifications`) already fetched before calling in here — this
-  /// method has no DB access of its own to re-verify a row's live state
-  /// mid-pass. A user editing/deleting/toggling notify off on one of these
+  /// ._refillNotifications`) already fetched before calling in here —
+  /// [notificationIdAllocator] only ever resolves a stable *id* for an
+  /// (event, offset) pair (see [_allocateEventId]), it has no way to
+  /// re-verify a
+  /// row's own live event data (title/notify/reminders) mid-pass the way
+  /// `TodoController.refillNotifications` re-fetches from its own event/
+  /// to-do DAO. A user editing/deleting/toggling notify off on one of these
   /// events while this call is still in flight for an *earlier* one used to
   /// be genuinely possible: with a plain sequential loop of `await
   /// _applyEvent(...)` calls (one real platform-channel round trip each),
   /// a user with ~30 events could see 200+ of them, spanning enough real
   /// wall-clock time for a concurrent edit to land and then be silently
-  /// re-armed anyway by this call's now-stale copy of that event (the exact
-  /// TOCTOU race `TodoController.refillNotifications` closes for to-dos by
-  /// re-fetching each row's live state immediately before scheduling it —
-  /// not available here since this class has no DAO). Dispatching every
-  /// still-needed `_applyEvent` call together via [Future.wait] instead of
-  /// one at a time shrinks that whole pass to roughly the time of a single
+  /// re-armed anyway by this call's now-stale copy of that event. Dispatching
+  /// every still-needed `_applyEvent` call together via [Future.wait] instead
+  /// of one at a time shrinks that whole pass to roughly the time of a single
   /// round trip rather than their sum, cutting the exposure window by
   /// roughly a factor of how many calls there are. This doesn't fully close
   /// the race the way the to-do side's re-fetch does — a concurrent edit
@@ -516,18 +563,32 @@ class NotificationService implements NotificationPort {
   Future<void> cancelForEvent(String eventId) async {
     await init();
     for (final offset in reminderOffsetOptions) {
-      await _plugin.cancel(id: notificationId(eventId, offset));
+      await _plugin.cancel(id: _allocateEventId(eventId, offset));
     }
   }
 
-  /// Stable positive 31-bit id derived from the to-do's uuid and which
-  /// reminder offset this is — namespaced (`todo#...` vs `notificationId`'s
-  /// `eventId#offset`) so a to-do and an event can never collide on the
-  /// same notification id even by coincidence, and so one to-do's several
-  /// reminders each get their own independent notification (mirrors
-  /// [notificationId]).
+  /// A ~2.1 billion-value hash of the to-do's uuid and which reminder
+  /// offset this is — namespaced (`todo#...` vs [notificationId]'s
+  /// `eventId#offset`) so a to-do and an event never shared a hash-derived
+  /// id even by coincidence. Same collision risk, and same "kept only as a
+  /// last-resort fallback, real scheduling uses [_allocateTodoId] instead"
+  /// status, as [notificationId] — see that field's own doc.
   static int todoNotificationId(String todoId, int offsetMinutes) =>
       'todo#$todoId#$offsetMinutes'.hashCode & 0x7fffffff;
+
+  /// The real, collision-free id [todoId]/[offsetMinutes] resolves to — see
+  /// [_allocateEventId]'s own doc (same reasoning, own namespace so a
+  /// to-do and an event never share an allocated id either).
+  int _allocateTodoId(String todoId, int offsetMinutes) {
+    final allocator = notificationIdAllocator;
+    if (allocator == null) {
+      throw StateError(
+        'NotificationService.scheduleForTodo/cancelForTodo called without '
+        'a notificationIdAllocator',
+      );
+    }
+    return allocator.allocate('todo#$todoId#$offsetMinutes');
+  }
 
   @override
   Future<void> scheduleForTodo(TodoRow todo) async {
@@ -545,7 +606,7 @@ class NotificationService implements NotificationPort {
         : todo.title;
 
     for (final offset in reminderOffsetOptions) {
-      final id = todoNotificationId(todo.id, offset);
+      final id = _allocateTodoId(todo.id, offset);
       final alertAt = todo.slotStart.subtract(Duration(minutes: offset));
       // Same "in the fixed menu but is it actually selected/due/in-window"
       // judgment as scheduleForEvent, per offset.
@@ -582,7 +643,7 @@ class NotificationService implements NotificationPort {
   Future<void> cancelForTodo(String todoId) async {
     await init();
     for (final offset in reminderOffsetOptions) {
-      await _plugin.cancel(id: todoNotificationId(todoId, offset));
+      await _plugin.cancel(id: _allocateTodoId(todoId, offset));
     }
   }
 }
