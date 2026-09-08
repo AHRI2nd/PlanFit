@@ -43,6 +43,16 @@ class MultiChipRow<T> extends StatelessWidget {
             children: [
               for (final value in options)
                 Padding(
+                  // Without this, a caller whose `options` list changes
+                  // membership at a fixed length/order (e.g. the event
+                  // editor's additional-reminders picker, which excludes
+                  // whichever value is currently the primary reminder)
+                  // reuses each slot's ChoiceChip Element across the
+                  // rebuild — RawChip's own selectController then keeps
+                  // animating from its *previous* selected state, briefly
+                  // showing the wrong chip highlighted/fading even though
+                  // `selected` (the actual data) was always correct.
+                  key: ValueKey(value),
                   padding: const EdgeInsets.only(right: AppSpacing.xs),
                   child: ChoiceChip(
                     label: Text(labelFor(value)),
