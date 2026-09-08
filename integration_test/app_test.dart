@@ -53,12 +53,26 @@ void main() {
     // Onboarding already marked complete above, so the router should have
     // landed directly on the home tab.
     expect(find.text('플랜핏'), findsNothing); // sanity: not still splash-y
-    expect(find.text('시간표'), findsOneWidget);
+    // On the real iOS Liquid Glass tab bar (GlassTabBar.bottom, only used on
+    // a physical iOS/simulator run — widget tests never exercise this path
+    // since Platform.isIOS is false there), each tab's label is genuinely
+    // rendered twice: once in an always-present "unselected" base row, once
+    // in a magnified "selected" overlay row that tracks the sliding
+    // indicator pill (ExcludeSemantics'd, so it doesn't double-announce —
+    // see liquid_glass_widgets' tab_bar_bottom_layout.dart, `childUnselected`
+    // vs `selectedTabBuilder`). A bare findsOneWidget here doesn't hold on
+    // that path.
+    expect(find.text('시간표'), findsAtLeastNWidgets(1));
 
-    await tester.tap(find.text('시간표'));
+    await tester.tap(find.text('시간표').first);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add));
+    // find.byIcon(Icons.add) is ambiguous now — day_view.dart alone grew two
+    // more inline add affordances (an empty-hour hint, a no-time bucket row)
+    // since this test was written, plus this screen's own FAB, so it's the
+    // FAB specifically (the one that opens the full event editor) that's
+    // wanted here.
+    await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
     const title = 'Integration test event';
