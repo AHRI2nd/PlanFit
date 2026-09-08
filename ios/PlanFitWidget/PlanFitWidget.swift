@@ -15,6 +15,34 @@ import SwiftUI
 
 private let appGroupId = "group.com.arisair.planfit"
 
+// The single key HomeWidgetSync.push (Dart) writes the whole snapshot under
+// as one JSON blob — see that class's own doc for why (one atomic write
+// instead of ~20 separate ones). Must match `HomeWidgetSync._snapshotKey`
+// and PlanFitWidgetProvider.kt's `SNAPSHOT_KEY` exactly. This file used to
+// read a set of individual flat keys (`event0_title`, `todo0_id`, ...) that
+// predated that change and were never written on either platform any more,
+// so every lookup silently fell back to empty — fixed to parse the same
+// blob PlanFitWidgetProvider.kt already does.
+private let widgetSnapshotKey = "widget_snapshot"
+
+private func parseWidgetSnapshot(_ json: String?) -> [String: Any] {
+    guard let json,
+          let data = json.data(using: .utf8),
+          let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+        return [:]
+    }
+    return object
+}
+
+private func snapshotString(_ snapshot: [String: Any], _ key: String, default defaultValue: String = "") -> String {
+    (snapshot[key] as? String) ?? defaultValue
+}
+
+private func snapshotBool(_ snapshot: [String: Any], _ key: String) -> Bool {
+    (snapshot[key] as? Bool) ?? false
+}
+
 // One row of HomeWidgetSync's `todo{i}_id`/`todo{i}_title`/`todo{i}_done`.
 struct PlanFitWidgetTodo: Identifiable {
     let id: String
@@ -69,21 +97,22 @@ struct PlanFitWidgetProvider: TimelineProvider {
         // the iOS widget stays single-event, unlike Android's expanded
         // large-size layout (see PlanFitWidgetProvider.kt).
         let defaults = UserDefaults(suiteName: appGroupId)
-        let title = defaults?.string(forKey: "event0_title") ?? ""
-        let eventUri = defaults?.string(forKey: "event0_uri") ?? ""
-        let todosUri = defaults?.string(forKey: "todos_uri") ?? ""
+        let snapshot = parseWidgetSnapshot(defaults?.string(forKey: widgetSnapshotKey))
+        let title = snapshotString(snapshot, "event0_title")
+        let eventUri = snapshotString(snapshot, "event0_uri")
+        let todosUri = snapshotString(snapshot, "todos_uri")
         let linkString = eventUri.isEmpty ? todosUri : eventUri
 
         var todos: [PlanFitWidgetTodo] = []
         for i in 0..<2 {
-            let id = defaults?.string(forKey: "todo\(i)_id") ?? ""
-            let todoTitle = defaults?.string(forKey: "todo\(i)_title") ?? ""
+            let id = snapshotString(snapshot, "todo\(i)_id")
+            let todoTitle = snapshotString(snapshot, "todo\(i)_title")
             if id.isEmpty || todoTitle.isEmpty { break }
             todos.append(
                 PlanFitWidgetTodo(
                     id: id,
                     title: todoTitle,
-                    done: defaults?.bool(forKey: "todo\(i)_done") ?? false
+                    done: snapshotBool(snapshot, "todo\(i)_done")
                 )
             )
         }
@@ -91,8 +120,8 @@ struct PlanFitWidgetProvider: TimelineProvider {
         return PlanFitWidgetEntry(
             date: Date(),
             nextEventTitle: title.isEmpty ? "예정된 일정이 없어요" : title,
-            nextEventTime: defaults?.string(forKey: "event0_time") ?? "",
-            todosProgress: defaults?.string(forKey: "todos_progress") ?? "0/0",
+            nextEventTime: snapshotString(snapshot, "event0_time"),
+            todosProgress: snapshotString(snapshot, "todos_progress", default: "0/0"),
             todos: todos,
             deepLinkUri: linkString.isEmpty ? nil : URL(string: linkString)
         )
