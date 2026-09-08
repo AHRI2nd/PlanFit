@@ -100,6 +100,27 @@ void main() {
     });
 
     test(
+      '"may" as the modal verb, not the month, is not misread as a date — '
+      'regression test: unlike every other month name here, "may" is also '
+      'an ordinary English word, so "I may 15 minutes late" satisfied the '
+      'same "month-name, number" shape as "March 15" and got silently '
+      'misread as May 15th, tearing "15" out of the title in the process',
+      () {
+        final r = parseQuickAdd('I may 15 minutes late', now: now);
+        expect(r.date, isNull);
+        expect(r.title, 'I may 15 minutes late');
+      },
+    );
+
+    test('"May 15" as an actual date phrase still resolves correctly — the '
+        'fix above only excludes a day number immediately followed by a '
+        'duration word, not "may" as a month generally', () {
+      final r = parseQuickAdd('May 15 deadline', now: now);
+      expect(r.date, DateTime(2026, 5, 15));
+      expect(r.title, 'deadline');
+    });
+
+    test(
       'a day that does not exist in that month is left unparsed (null), not '
       'silently rolled into the next month — regression test: only a flat '
       "1..31 range was checked before, so Dart's DateTime constructor "

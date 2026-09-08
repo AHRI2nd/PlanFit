@@ -209,10 +209,22 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
     }
 
     if (date == null) {
+      // (?!\s*(?:minutes?|mins?|hours?|hrs?|seconds?|secs?)\b) guards
+      // against "may" being read as the month: unlike every other month
+      // name here, "may" is also an ordinary English modal verb, so "I may
+      // 15 minutes late" satisfied this pattern just as well as "March 15"
+      // did — silently misreading it as May 15th and tearing "15" out of
+      // the title in the process. A day number immediately followed by a
+      // duration word is never a date phrase in the first place (mirrors
+      // this file's own 시/時 duration guard for the Korean/Japanese time
+      // patterns above), so excluding that shape rules out the one
+      // realistic way this ambiguity actually bites without narrowing what
+      // a genuine "may 15"/"May 15th" date phrase can look like.
       final enExplicit = RegExp(
         r'\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|'
         r'jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|'
-        r'dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\b',
+        r'dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\b'
+        r'(?!\s*(?:minutes?|mins?|hours?|hrs?|seconds?|secs?)\b)',
         caseSensitive: false,
       ).firstMatch(text);
       if (enExplicit != null) {
