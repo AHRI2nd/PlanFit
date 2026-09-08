@@ -36,6 +36,16 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     with WidgetsBindingObserver {
   StreamSubscription<Uri?>? _widgetClickSub;
 
+  /// Guards [_handleNotificationTap] against a second tap arriving (another
+  /// notification, or the same one re-delivered) while an earlier one is
+  /// still awaiting its own [showEventEditor]/[showTodoDetailSheet] call.
+  /// Both are pushed on the *root* navigator (see [_handleNotificationTap]'s
+  /// own doc on why), which sits above every tab's own nested navigator —
+  /// so without this, a second tap mid-edit stacked its editor on top of
+  /// the entire app, including whatever the user was already mid-edit on
+  /// underneath, rather than being queued or ignored.
+  bool _handlingNotificationTap = false;
+
   @override
   void initState() {
     super.initState();
@@ -293,10 +303,19 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   /// to isn't there any more (deleted since the notification fired) — same
   /// "never surface a best-effort failure" posture as every other handler
   /// in this file.
+  ///
+  /// [_handlingNotificationTap] makes a second call a no-op while an
+  /// earlier one is still awaiting its own editor/sheet — see that field's
+  /// own doc for why. A tap arriving during that window is simply dropped
+  /// rather than queued: the user is already looking at *a* result of
+  /// tapping a notification, and re-running this once the first editor
+  /// closes could jump them somewhere they no longer expect.
   Future<void> _handleNotificationTap(NotificationResponse response) async {
+    if (_handlingNotificationTap) return;
     final target = parseNotificationTapPayload(response);
     if (target == null) return;
 
+    _handlingNotificationTap = true;
     try {
       final event = switch (target) {
         EventTapTarget(:final eventId) =>
@@ -327,6 +346,8 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       }
     } catch (_) {
       // Best-effort — see doc comment above.
+    } finally {
+      _handlingNotificationTap = false;
     }
   }
 
