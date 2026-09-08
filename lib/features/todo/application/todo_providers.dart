@@ -363,12 +363,29 @@ class TodoController {
   /// surface as a save failure, since the local write already succeeded and
   /// `RemindersReconciler` retries anything left `pendingPush` on the next
   /// foreground resume.
+  ///
+  /// `RemindersReconciler`'s own doc leans on an invariant this method must
+  /// uphold: a `synced` row it later finds disagreeing with EventKit is
+  /// always a genuine Reminders-app edit, never a race with a pending local
+  /// write — because a local edit always either lands `synced` (this push
+  /// succeeded) or gets put back to `pendingPush` (it didn't). Before this
+  /// fix, a failed push on a row that was *already* `synced` (e.g. a second
+  /// edit, with access revoked or the linked list deleted in between) left
+  /// `reminderSyncStatus` untouched at its old `synced` value instead — not
+  /// just stalling the retry forever, but making the next reconcile treat
+  /// this edit as if it never happened: it would see the row "disagreeing"
+  /// with the stale EventKit values and pull those old values back over the
+  /// user's actual edit, silently discarding it.
   Future<void> _syncReminder(String id) async {
     final reminders = _ref.read(remindersPortProvider);
     if (!reminders.isEnabled) return;
     final dao = _ref.read(todoDaoProvider);
     final row = await dao.findById(id);
     if (row == null) return;
+    // Only a row that was already `synced` needs an explicit revert below —
+    // a fresh row (or one already `pendingPush` for some other reason)
+    // starts there and a failed push simply leaves it as-is.
+    final wasSynced = row.reminderSyncStatus == SyncStatus.synced;
     try {
       final osId = await reminders.pushTodo(row);
       if (osId != null) {
@@ -379,10 +396,25 @@ class TodoController {
             reminderSyncStatus: const Value(SyncStatus.synced),
           ),
         );
+      } else if (wasSynced) {
+        await dao.patch(
+          id,
+          const TodoItemsCompanion(
+            reminderSyncStatus: Value(SyncStatus.pendingPush),
+          ),
+        );
       }
     } on Exception {
-      // See doc comment above — left pendingPush (the table default), the
-      // reconciler will retry.
+      if (wasSynced) {
+        await dao.patch(
+          id,
+          const TodoItemsCompanion(
+            reminderSyncStatus: Value(SyncStatus.pendingPush),
+          ),
+        );
+      }
+      // Else: already pendingPush (e.g. a fresh row's first push failing) —
+      // nothing to revert, the reconciler will retry it either way.
     }
   }
 

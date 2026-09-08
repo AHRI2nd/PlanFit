@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:planfit/core/db/app_database.dart';
+import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/features/schedule/domain/ports.dart';
 import 'package:planfit/features/schedule/domain/recurrence.dart';
@@ -12,7 +13,7 @@ import 'package:planfit/features/todo/application/todo_providers.dart';
 
 import 'todo_controller_test.mocks.dart';
 
-@GenerateMocks([NotificationPort])
+@GenerateMocks([NotificationPort, RemindersPort])
 void main() {
   late AppDatabase db;
   late MockNotificationPort notifications;
@@ -575,6 +576,89 @@ void main() {
         await controller().refillNotifications();
 
         verifyNever(notifications.scheduleForTodo(any));
+      },
+    );
+  });
+
+  group('_syncReminder push-failure revert', () {
+    // Its own db/container/mocks — a reminders port that reports enabled
+    // shouldn't leak into the other groups above, which don't stub it at
+    // all.
+    late AppDatabase remDb;
+    late MockRemindersPort reminders;
+    late ProviderContainer remContainer;
+
+    setUp(() {
+      remDb = AppDatabase(NativeDatabase.memory());
+      reminders = MockRemindersPort();
+      when(reminders.isEnabled).thenReturn(true);
+      remContainer = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(remDb),
+          notificationPortProvider.overrideWithValue(notifications),
+          remindersPortProvider.overrideWithValue(reminders),
+        ],
+      );
+    });
+
+    tearDown(() {
+      remContainer.dispose();
+      remDb.close();
+    });
+
+    TodoController remController() =>
+        remContainer.read(todoControllerProvider);
+
+    Future<String> addAndSync() async {
+      when(reminders.pushTodo(any)).thenAnswer((_) async => 'os-1');
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await remController().add(title: 'Buy milk', slotStart: slot);
+      final row = (await remDb.todoDao.all()).single;
+      expect(row.reminderSyncStatus, SyncStatus.synced);
+      return row.id;
+    }
+
+    test(
+      'a re-push returning null on an already-synced row reverts it to '
+      'pendingPush instead of leaving it stuck at synced — regression '
+      'test: leaving it at synced made the next RemindersReconciler pass '
+      'treat this edit as a genuine Reminders-app change and pull the '
+      'stale pre-edit values back over it, silently discarding the edit',
+      () async {
+        final id = await addAndSync();
+
+        when(reminders.pushTodo(any)).thenAnswer((_) async => null);
+        await remController().toggle(id, true);
+
+        final row = await remDb.todoDao.findById(id);
+        expect(row?.reminderSyncStatus, SyncStatus.pendingPush);
+      },
+    );
+
+    test(
+      'a re-push throwing on an already-synced row reverts it to '
+      'pendingPush the same way',
+      () async {
+        final id = await addAndSync();
+
+        when(reminders.pushTodo(any)).thenThrow(Exception('EventKit error'));
+        await remController().toggle(id, true);
+
+        final row = await remDb.todoDao.findById(id);
+        expect(row?.reminderSyncStatus, SyncStatus.pendingPush);
+      },
+    );
+
+    test(
+      "a fresh row's first push failing stays pendingPush (no spurious "
+      'revert needed, and no crash from patching a status it already has)',
+      () async {
+        when(reminders.pushTodo(any)).thenAnswer((_) async => null);
+        final slot = DateTime.now().add(const Duration(hours: 2));
+        await remController().add(title: 'New todo', slotStart: slot);
+
+        final row = (await remDb.todoDao.all()).single;
+        expect(row.reminderSyncStatus, SyncStatus.pendingPush);
       },
     );
   });

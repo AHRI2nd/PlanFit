@@ -77,3 +77,34 @@ class MockNotificationPort extends _i1.Mock implements _i2.NotificationPort {
           )
           as _i3.Future<void>);
 }
+
+/// A class which mocks [RemindersPort].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockRemindersPort extends _i1.Mock implements _i2.RemindersPort {
+  MockRemindersPort() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  bool get isEnabled =>
+      (super.noSuchMethod(Invocation.getter(#isEnabled), returnValue: false)
+          as bool);
+
+  @override
+  _i3.Future<String?> pushTodo(_i4.TodoRow? todo) =>
+      (super.noSuchMethod(
+            Invocation.method(#pushTodo, [todo]),
+            returnValue: _i3.Future<String?>.value(),
+          )
+          as _i3.Future<String?>);
+
+  @override
+  _i3.Future<void> deleteTodo(_i4.TodoRow? todo) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteTodo, [todo]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+}
