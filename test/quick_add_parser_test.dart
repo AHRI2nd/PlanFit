@@ -132,6 +132,30 @@ void main() {
       );
     });
 
+    test(
+      '밤/저녁 12시 mean midnight, not noon — regression test: 밤/저녁 are '
+      'descriptive night markers, not a true 12-hour AM/PM pair the way '
+      '오전/오후 is, so "12" after them means midnight (자정) the same way '
+      '"밤 12시에 통화하자" ("let\'s call at midnight") is understood in '
+      'natural Korean — the naive % 12 + 12 arithmetic used to turn this '
+      'into noon (12:00) instead',
+      () {
+        expect(
+          parseQuickAdd('밤 12시에 통화', now: now).time,
+          const TimeOfDay(hour: 0, minute: 0),
+        );
+        expect(
+          parseQuickAdd('저녁 12시 약속', now: now).time,
+          const TimeOfDay(hour: 0, minute: 0),
+        );
+        // Unaffected: 오후 12시 (a true AM/PM pair) still means noon.
+        expect(
+          parseQuickAdd('오후 12시 회의', now: now).time,
+          const TimeOfDay(hour: 12, minute: 0),
+        );
+      },
+    );
+
     test('minutes: 반 and N분', () {
       expect(
         parseQuickAdd('오후 3시 반 회의', now: now).time,
@@ -242,6 +266,26 @@ void main() {
         const TimeOfDay(hour: 7, minute: 0),
       );
     });
+
+    test(
+      '夜/晩12時 mean midnight, not noon — same regression as the Korean '
+      '밤/저녁 12시 case',
+      () {
+        expect(
+          parseQuickAdd('夜12時 電話', now: now).time,
+          const TimeOfDay(hour: 0, minute: 0),
+        );
+        expect(
+          parseQuickAdd('晩12時 約束', now: now).time,
+          const TimeOfDay(hour: 0, minute: 0),
+        );
+        // Unaffected: 午後12時 (a true AM/PM pair) still means noon.
+        expect(
+          parseQuickAdd('午後12時 会議', now: now).time,
+          const TimeOfDay(hour: 12, minute: 0),
+        );
+      },
+    );
 
     test('time: minutes with 半 and N分', () {
       expect(

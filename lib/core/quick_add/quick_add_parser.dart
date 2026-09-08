@@ -237,8 +237,22 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
           marker == '午後' ||
           marker == '夜' ||
           marker == '晩';
+      // '저녁'/'밤' (and their Japanese equivalents 夜/晩) describe evening
+      // or night generically rather than being a true 12-hour-clock AM/PM
+      // marker the way 오후/午後 is. Said with "12", a Korean/Japanese
+      // speaker means midnight (자정/真夜中) — "밤 12시" is a very common
+      // way to say "midnight" — not noon. The plain `% 12` trick below
+      // correctly turns 오후/午後's "12" into noon (12 % 12 == 0, then +12),
+      // but blindly applying that same +12 to 밤/저녁's "12" silently
+      // produced noon instead of the midnight the phrase actually means.
+      final isNightMarker =
+          marker == '저녁' ||
+          marker == '밤' ||
+          marker == '夜' ||
+          marker == '晩';
       var hour = int.parse(koJaTime.group(2)!) % 12;
-      if (isPm) hour += 12;
+      final meansExactMidnight = isNightMarker && hour == 0;
+      if (isPm && !meansExactMidnight) hour += 12;
       final minutePart = koJaTime.group(3);
       final minute = minutePart == null
           ? 0
