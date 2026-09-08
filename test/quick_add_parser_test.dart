@@ -98,6 +98,39 @@ void main() {
         DateTime(2027, 1, 5),
       );
     });
+
+    test(
+      'a day that does not exist in that month is left unparsed (null), not '
+      'silently rolled into the next month — regression test: only a flat '
+      "1..31 range was checked before, so Dart's DateTime constructor "
+      'quietly normalized the overflow (e.g. "2월 29일" outside a leap '
+      'year silently became March 1) instead of the phrase failing to '
+      'parse the way every other ambiguous case in this file does',
+      () {
+        // April never has a 31st.
+        expect(parseQuickAdd('4월 31일 회의', now: now).date, isNull);
+        expect(parseQuickAdd('Apr 31 meeting', now: now).date, isNull);
+        // 2026 and 2027 (the two candidate years from `now`) are both
+        // non-leap, so Feb 29 doesn't exist in either.
+        expect(parseQuickAdd('2월 29일 회의', now: now).date, isNull);
+        // February never has a 30th, leap year or not.
+        expect(parseQuickAdd('2월 30일 회의', now: now).date, isNull);
+      },
+    );
+
+    test(
+      '2월 29일 still resolves correctly across a leap-year boundary, when '
+      'one of the two candidate years actually has it',
+      () {
+        // now is 2023-03-04 -- this year (2023) isn't a leap year, but next
+        // year (2024) is, so the leap day genuinely exists one year out.
+        final leapNow = DateTime(2023, 3, 4);
+        expect(
+          parseQuickAdd('2월 29일 회의', now: leapNow).date,
+          DateTime(2024, 2, 29),
+        );
+      },
+    );
   });
 
   group('time', () {

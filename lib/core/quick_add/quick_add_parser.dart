@@ -160,16 +160,35 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
   // --- Explicit date: N월 N일 / N月N日, English month name + day
   // ("March 15", "Mar 15th") ---
   if (date == null) {
-    DateTime resolveExplicitDate(int month, int day) {
-      final thisYear = DateTime(now.year, month, day);
+    int daysInMonth(int year, int month) => DateTime(year, month + 1, 0).day;
+
+    // Returns null when [day] isn't a real day of [month] in *either*
+    // candidate year — e.g. day 31 for a 30-day month, or day 29 for
+    // February outside a leap year — rather than letting Dart's DateTime
+    // constructor silently normalize the overflow into the next month
+    // (`DateTime(2026, 2, 29)` on a non-leap year quietly becomes March 1).
+    // That used to hand back a plausible-looking but entirely wrong date
+    // with no indication anything was off — worse than just leaving the
+    // phrase unparsed, the same reasoning behind every other "ambiguous ->
+    // null" choice in this file.
+    DateTime? resolveExplicitDate(int month, int day) {
       // A month/day that's already passed this year almost certainly means
       // next year, not "create this in the past" — e.g. typing "1월 5일" in
       // December means next January, not three days after the year already
       // ended. Compared by date only (dateOnly(now)), so typing today's own
       // month/day still resolves to today, not a year out.
-      return thisYear.isBefore(dateOnly(now))
-          ? DateTime(now.year + 1, month, day)
-          : thisYear;
+      if (day <= daysInMonth(now.year, month)) {
+        final thisYear = DateTime(now.year, month, day);
+        if (!thisYear.isBefore(dateOnly(now))) return thisYear;
+      }
+      // Either this year's candidate already passed, or [day] doesn't
+      // exist in [month] this year at all (Feb 29 outside a leap year) —
+      // try next year on its own terms rather than assuming it shares this
+      // year's month length.
+      if (day <= daysInMonth(now.year + 1, month)) {
+        return DateTime(now.year + 1, month, day);
+      }
+      return null;
     }
 
     // Korean 월/일 and Japanese 月/日 share the same "number, month marker,
@@ -181,8 +200,11 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
       final month = int.parse(koJaExplicit.group(1)!);
       final day = int.parse(koJaExplicit.group(2)!);
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        date = resolveExplicitDate(month, day);
-        text = strip(koJaExplicit);
+        final resolved = resolveExplicitDate(month, day);
+        if (resolved != null) {
+          date = resolved;
+          text = strip(koJaExplicit);
+        }
       }
     }
 
@@ -197,8 +219,11 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
         final month = _englishMonths[enExplicit.group(1)!.toLowerCase()]!;
         final day = int.parse(enExplicit.group(2)!);
         if (day >= 1 && day <= 31) {
-          date = resolveExplicitDate(month, day);
-          text = strip(enExplicit);
+          final resolved = resolveExplicitDate(month, day);
+          if (resolved != null) {
+            date = resolved;
+            text = strip(enExplicit);
+          }
         }
       }
     }
