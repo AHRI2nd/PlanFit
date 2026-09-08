@@ -46,10 +46,14 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   /// underneath, rather than being queued or ignored.
   bool _handlingNotificationTap = false;
 
+  /// Fires once at the next local midnight — see [_scheduleMidnightRefresh].
+  Timer? _midnightTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scheduleMidnightRefresh();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Onboarding itself is gated by appRouter's redirect (app_router.dart)
       // now, not here. Its own "get started" CTA is what requests
@@ -87,7 +91,36 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     WidgetsBinding.instance.removeObserver(this);
     ref.read(notificationServiceProvider).onTap = null;
     _widgetClickSub?.cancel();
+    _midnightTimer?.cancel();
     super.dispose();
+  }
+
+  /// Re-syncs the home-widget/app-badge at the next local midnight even if
+  /// the app never leaves the foreground across it.
+  ///
+  /// [build] below binds `ref.listen(todosForDayProvider(dateOnly(...)), ...)`
+  /// to whatever "today" was on its last run — that only changes on the next
+  /// rebuild. A session that sits continuously foregrounded straight through
+  /// midnight (no lifecycle transition to re-trigger [didChangeAppLifecycleState],
+  /// no unrelated provider change to force a rebuild) keeps that listener
+  /// bound to *yesterday's* day-family instance, so the home widget/app badge
+  /// silently go stale for however long the app stays open afterward. This
+  /// timer forces a rebuild (rebinding the listener to today) and an
+  /// immediate re-sync right after midnight regardless, then reschedules
+  /// itself for the following one.
+  void _scheduleMidnightRefresh() {
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    // A couple seconds of slack so `DateTime.now()` elsewhere has
+    // unambiguously rolled over by the time this fires.
+    final delay = nextMidnight.difference(now) + const Duration(seconds: 2);
+    _midnightTimer = Timer(delay, () {
+      if (!mounted) return;
+      setState(() {}); // Rebinds build()'s day-family ref.listen to today.
+      _syncHomeWidget();
+      _syncAppBadge();
+      _scheduleMidnightRefresh();
+    });
   }
 
   @override
