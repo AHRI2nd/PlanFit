@@ -68,11 +68,19 @@ class GlassNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Padding(
+      // The `* 0.0` this used to carry made the pill's bottom clearance a
+      // flat AppSpacing.sm regardless of the device's own gesture-nav inset
+      // — dead code since the very first commit, not a later regression.
+      // Scaffold's bottomNavigationBar slot doesn't strip that inset from
+      // MediaQuery (unlike its body slot with extendBody: true), so it's
+      // there to read; adding it back lifts the floating pill clear of a
+      // gesture-navigation bar on Android instead of sitting flush against
+      // it.
       padding: EdgeInsets.fromLTRB(
         AppSpacing.gutter,
         0,
         AppSpacing.gutter,
-        AppSpacing.sm + MediaQuery.viewPaddingOf(context).bottom * 0.0,
+        AppSpacing.sm + MediaQuery.viewPaddingOf(context).bottom,
       ),
       child: GlassSurface(
         borderRadius: AppRadius.allPill,
