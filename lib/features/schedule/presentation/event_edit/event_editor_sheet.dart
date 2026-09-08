@@ -645,6 +645,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
           setState(() {
             _title.text = t.title;
             _memo.text = t.memo ?? '';
+            _location.text = t.location ?? '';
             _end = _start.add(Duration(minutes: t.durationMinutes));
             _allDay = t.isAllDay;
             _notify = t.notify;
@@ -660,6 +661,9 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
         currentSnapshot: () => _TemplateSnapshot(
           title: _title.text.trim(),
           memo: _memo.text.trim().isEmpty ? null : _memo.text.trim(),
+          location: _location.text.trim().isEmpty
+              ? null
+              : _location.text.trim(),
           durationMinutes: _end
               .difference(_start)
               .inMinutes
@@ -1137,6 +1141,7 @@ class _TemplateSnapshot {
   const _TemplateSnapshot({
     required this.title,
     required this.memo,
+    required this.location,
     required this.durationMinutes,
     required this.isAllDay,
     required this.colorTag,
@@ -1146,11 +1151,66 @@ class _TemplateSnapshot {
 
   final String title;
   final String? memo;
+  final String? location;
   final int durationMinutes;
   final bool isAllDay;
   final String? colorTag;
   final bool notify;
   final int reminderMinutesBefore;
+}
+
+/// The "name this template" prompt [_TemplatePickerSheet._saveCurrent]
+/// shows before saving. A dedicated [StatefulWidget] (rather than building
+/// the [AlertDialog] inline with a bare [TextEditingController] owned by
+/// the surrounding method) purely so the controller disposes exactly when
+/// this widget itself is unmounted — i.e. once the dialog's own pop
+/// transition genuinely finishes — instead of being disposed manually
+/// right after `showDialog` returns. `showDialog`'s Future completes as
+/// soon as the route is popped, not once its exit animation finishes
+/// rendering, so disposing manually at that point could still hit the
+/// TextField while it (and its AlertDialog ancestor) were mid-fade-out and
+/// still mounted, referencing the now-disposed controller.
+class _TemplateNameDialog extends StatefulWidget {
+  const _TemplateNameDialog({required this.l10n});
+
+  final AppL10n l10n;
+
+  @override
+  State<_TemplateNameDialog> createState() => _TemplateNameDialogState();
+}
+
+class _TemplateNameDialogState extends State<_TemplateNameDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    return AlertDialog(
+      title: Text(l10n.templatesSaveCurrent),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(hintText: l10n.templatesNameHint),
+        onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(l10n.commonDone),
+        ),
+      ],
+    );
+  }
 }
 
 /// Lists saved templates for quick reuse and offers saving the editor's
@@ -1167,31 +1227,10 @@ class _TemplatePickerSheet extends ConsumerWidget {
 
   Future<void> _saveCurrent(BuildContext context, WidgetRef ref) async {
     final l10n = AppL10n.of(context);
-    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.templatesSaveCurrent),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.templatesNameHint),
-          onSubmitted: (v) => Navigator.of(dialogContext).pop(v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: Text(l10n.commonDone),
-          ),
-        ],
-      ),
+      builder: (dialogContext) => _TemplateNameDialog(l10n: l10n),
     );
-    controller.dispose();
     if (name == null || !context.mounted) return;
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showAutoDismissSnackBar(
@@ -1208,6 +1247,7 @@ class _TemplatePickerSheet extends ConsumerWidget {
             name: name,
             title: Value(snap.title),
             memo: Value(snap.memo),
+            location: Value(snap.location),
             durationMinutes: Value(snap.durationMinutes),
             isAllDay: Value(snap.isAllDay),
             colorTag: Value(snap.colorTag),
@@ -1307,11 +1347,23 @@ class _TemplatePickerSheet extends ConsumerWidget {
                                 SnackBar(content: Text(l10n.templatesDeleted)),
                               );
                             },
-                            child: ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(t.name),
-                              subtitle: t.title.isEmpty ? null : Text(t.title),
-                              onTap: () => onApply(t),
+                            // A Material ancestor of its own: this sheet's
+                            // outer Container above paints its own
+                            // BoxDecoration background, and ListTile paints
+                            // its ink splashes/highlight on the *nearest*
+                            // Material ancestor — without one directly
+                            // around it, that background silently hid every
+                            // tap's ink feedback entirely.
+                            child: Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(t.name),
+                                subtitle: t.title.isEmpty
+                                    ? null
+                                    : Text(t.title),
+                                onTap: () => onApply(t),
+                              ),
                             ),
                           );
                         },

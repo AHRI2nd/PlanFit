@@ -541,6 +541,69 @@ void main() {
     },
   );
 
+  testWidgets(
+    'saving the current event as a template captures its location too — '
+    'regression test: the EventTemplates table/save flow used to have no '
+    'location field at all, so it was silently dropped every time a '
+    'template was saved, and never restored when one was applied',
+    (tester) async {
+      when(templateDao.upsert(any)).thenAnswer((_) async {});
+      await pumpEditor(tester);
+
+      await tester.enterText(find.byType(TextField).at(0), 'Team sync');
+      await tester.enterText(find.byType(TextField).at(2), 'Room 2');
+
+      await tester.tap(find.byTooltip('템플릿'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('현재 내용을 템플릿으로 저장'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).last, 'Standup');
+      await tester.tap(find.text('완료'));
+      await tester.pumpAndSettle();
+      // The success snackbar auto-dismisses itself on its own timer —
+      // drain that so the test doesn't end with it still pending.
+      await tester.pump(const Duration(seconds: 5));
+
+      final companion =
+          verify(templateDao.upsert(captureAny)).captured.single
+              as EventTemplatesCompanion;
+      expect(companion.title.value, 'Team sync');
+      expect(companion.location.value, 'Room 2');
+    },
+  );
+
+  testWidgets(
+    'applying a template restores its saved location into the editor',
+    (tester) async {
+      final template = EventTemplateRow(
+        id: 't1',
+        name: 'Gym',
+        title: 'Workout',
+        memo: null,
+        location: 'Community Center',
+        durationMinutes: 60,
+        isAllDay: false,
+        colorTag: null,
+        notify: true,
+        reminderMinutesBefore: 0,
+        createdAt: DateTime(2020),
+      );
+      when(
+        templateDao.watchAll(),
+      ).thenAnswer((_) => Stream.value([template]));
+      await pumpEditor(tester);
+
+      await tester.tap(find.byTooltip('템플릿'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gym'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Community Center'), findsOneWidget);
+    },
+  );
+
   group('recomputeForNewStart', () {
     test(
       "pushing the start date past the old end recomputes the end "

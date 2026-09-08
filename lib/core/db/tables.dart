@@ -190,6 +190,7 @@ class EventTemplates extends Table {
   TextColumn get name => text()();
   TextColumn get title => text().withDefault(const Constant(''))();
   TextColumn get memo => text().nullable()();
+  TextColumn get location => text().nullable()();
   IntColumn get durationMinutes => integer().withDefault(const Constant(60))();
   BoolColumn get isAllDay => boolean().withDefault(const Constant(false))();
   TextColumn get colorTag => text().nullable()();

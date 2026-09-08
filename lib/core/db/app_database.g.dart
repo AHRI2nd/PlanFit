@@ -3318,6 +3318,17 @@ class $EventTemplatesTable extends EventTemplates
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _locationMeta = const VerificationMeta(
+    'location',
+  );
+  @override
+  late final GeneratedColumn<String> location = GeneratedColumn<String>(
+    'location',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _durationMinutesMeta = const VerificationMeta(
     'durationMinutes',
   );
@@ -3398,6 +3409,7 @@ class $EventTemplatesTable extends EventTemplates
     name,
     title,
     memo,
+    location,
     durationMinutes,
     isAllDay,
     colorTag,
@@ -3440,6 +3452,12 @@ class $EventTemplatesTable extends EventTemplates
       context.handle(
         _memoMeta,
         memo.isAcceptableOrUnknown(data['memo']!, _memoMeta),
+      );
+    }
+    if (data.containsKey('location')) {
+      context.handle(
+        _locationMeta,
+        location.isAcceptableOrUnknown(data['location']!, _locationMeta),
       );
     }
     if (data.containsKey('duration_minutes')) {
@@ -3509,6 +3527,10 @@ class $EventTemplatesTable extends EventTemplates
         DriftSqlType.string,
         data['${effectivePrefix}memo'],
       ),
+      location: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location'],
+      ),
       durationMinutes: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}duration_minutes'],
@@ -3548,6 +3570,7 @@ class EventTemplateRow extends DataClass
   final String name;
   final String title;
   final String? memo;
+  final String? location;
   final int durationMinutes;
   final bool isAllDay;
   final String? colorTag;
@@ -3559,6 +3582,7 @@ class EventTemplateRow extends DataClass
     required this.name,
     required this.title,
     this.memo,
+    this.location,
     required this.durationMinutes,
     required this.isAllDay,
     this.colorTag,
@@ -3574,6 +3598,9 @@ class EventTemplateRow extends DataClass
     map['title'] = Variable<String>(title);
     if (!nullToAbsent || memo != null) {
       map['memo'] = Variable<String>(memo);
+    }
+    if (!nullToAbsent || location != null) {
+      map['location'] = Variable<String>(location);
     }
     map['duration_minutes'] = Variable<int>(durationMinutes);
     map['is_all_day'] = Variable<bool>(isAllDay);
@@ -3592,6 +3619,9 @@ class EventTemplateRow extends DataClass
       name: Value(name),
       title: Value(title),
       memo: memo == null && nullToAbsent ? const Value.absent() : Value(memo),
+      location: location == null && nullToAbsent
+          ? const Value.absent()
+          : Value(location),
       durationMinutes: Value(durationMinutes),
       isAllDay: Value(isAllDay),
       colorTag: colorTag == null && nullToAbsent
@@ -3613,6 +3643,7 @@ class EventTemplateRow extends DataClass
       name: serializer.fromJson<String>(json['name']),
       title: serializer.fromJson<String>(json['title']),
       memo: serializer.fromJson<String?>(json['memo']),
+      location: serializer.fromJson<String?>(json['location']),
       durationMinutes: serializer.fromJson<int>(json['durationMinutes']),
       isAllDay: serializer.fromJson<bool>(json['isAllDay']),
       colorTag: serializer.fromJson<String?>(json['colorTag']),
@@ -3631,6 +3662,7 @@ class EventTemplateRow extends DataClass
       'name': serializer.toJson<String>(name),
       'title': serializer.toJson<String>(title),
       'memo': serializer.toJson<String?>(memo),
+      'location': serializer.toJson<String?>(location),
       'durationMinutes': serializer.toJson<int>(durationMinutes),
       'isAllDay': serializer.toJson<bool>(isAllDay),
       'colorTag': serializer.toJson<String?>(colorTag),
@@ -3645,6 +3677,7 @@ class EventTemplateRow extends DataClass
     String? name,
     String? title,
     Value<String?> memo = const Value.absent(),
+    Value<String?> location = const Value.absent(),
     int? durationMinutes,
     bool? isAllDay,
     Value<String?> colorTag = const Value.absent(),
@@ -3656,6 +3689,7 @@ class EventTemplateRow extends DataClass
     name: name ?? this.name,
     title: title ?? this.title,
     memo: memo.present ? memo.value : this.memo,
+    location: location.present ? location.value : this.location,
     durationMinutes: durationMinutes ?? this.durationMinutes,
     isAllDay: isAllDay ?? this.isAllDay,
     colorTag: colorTag.present ? colorTag.value : this.colorTag,
@@ -3669,6 +3703,7 @@ class EventTemplateRow extends DataClass
       name: data.name.present ? data.name.value : this.name,
       title: data.title.present ? data.title.value : this.title,
       memo: data.memo.present ? data.memo.value : this.memo,
+      location: data.location.present ? data.location.value : this.location,
       durationMinutes: data.durationMinutes.present
           ? data.durationMinutes.value
           : this.durationMinutes,
@@ -3689,6 +3724,7 @@ class EventTemplateRow extends DataClass
           ..write('name: $name, ')
           ..write('title: $title, ')
           ..write('memo: $memo, ')
+          ..write('location: $location, ')
           ..write('durationMinutes: $durationMinutes, ')
           ..write('isAllDay: $isAllDay, ')
           ..write('colorTag: $colorTag, ')
@@ -3705,6 +3741,7 @@ class EventTemplateRow extends DataClass
     name,
     title,
     memo,
+    location,
     durationMinutes,
     isAllDay,
     colorTag,
@@ -3720,6 +3757,7 @@ class EventTemplateRow extends DataClass
           other.name == this.name &&
           other.title == this.title &&
           other.memo == this.memo &&
+          other.location == this.location &&
           other.durationMinutes == this.durationMinutes &&
           other.isAllDay == this.isAllDay &&
           other.colorTag == this.colorTag &&
@@ -3733,6 +3771,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
   final Value<String> name;
   final Value<String> title;
   final Value<String?> memo;
+  final Value<String?> location;
   final Value<int> durationMinutes;
   final Value<bool> isAllDay;
   final Value<String?> colorTag;
@@ -3745,6 +3784,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
     this.name = const Value.absent(),
     this.title = const Value.absent(),
     this.memo = const Value.absent(),
+    this.location = const Value.absent(),
     this.durationMinutes = const Value.absent(),
     this.isAllDay = const Value.absent(),
     this.colorTag = const Value.absent(),
@@ -3758,6 +3798,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
     required String name,
     this.title = const Value.absent(),
     this.memo = const Value.absent(),
+    this.location = const Value.absent(),
     this.durationMinutes = const Value.absent(),
     this.isAllDay = const Value.absent(),
     this.colorTag = const Value.absent(),
@@ -3772,6 +3813,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
     Expression<String>? name,
     Expression<String>? title,
     Expression<String>? memo,
+    Expression<String>? location,
     Expression<int>? durationMinutes,
     Expression<bool>? isAllDay,
     Expression<String>? colorTag,
@@ -3785,6 +3827,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
       if (name != null) 'name': name,
       if (title != null) 'title': title,
       if (memo != null) 'memo': memo,
+      if (location != null) 'location': location,
       if (durationMinutes != null) 'duration_minutes': durationMinutes,
       if (isAllDay != null) 'is_all_day': isAllDay,
       if (colorTag != null) 'color_tag': colorTag,
@@ -3801,6 +3844,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
     Value<String>? name,
     Value<String>? title,
     Value<String?>? memo,
+    Value<String?>? location,
     Value<int>? durationMinutes,
     Value<bool>? isAllDay,
     Value<String?>? colorTag,
@@ -3814,6 +3858,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
       name: name ?? this.name,
       title: title ?? this.title,
       memo: memo ?? this.memo,
+      location: location ?? this.location,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       isAllDay: isAllDay ?? this.isAllDay,
       colorTag: colorTag ?? this.colorTag,
@@ -3839,6 +3884,9 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
     }
     if (memo.present) {
       map['memo'] = Variable<String>(memo.value);
+    }
+    if (location.present) {
+      map['location'] = Variable<String>(location.value);
     }
     if (durationMinutes.present) {
       map['duration_minutes'] = Variable<int>(durationMinutes.value);
@@ -3873,6 +3921,7 @@ class EventTemplatesCompanion extends UpdateCompanion<EventTemplateRow> {
           ..write('name: $name, ')
           ..write('title: $title, ')
           ..write('memo: $memo, ')
+          ..write('location: $location, ')
           ..write('durationMinutes: $durationMinutes, ')
           ..write('isAllDay: $isAllDay, ')
           ..write('colorTag: $colorTag, ')
@@ -6045,6 +6094,7 @@ typedef $$EventTemplatesTableCreateCompanionBuilder =
       required String name,
       Value<String> title,
       Value<String?> memo,
+      Value<String?> location,
       Value<int> durationMinutes,
       Value<bool> isAllDay,
       Value<String?> colorTag,
@@ -6059,6 +6109,7 @@ typedef $$EventTemplatesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> title,
       Value<String?> memo,
+      Value<String?> location,
       Value<int> durationMinutes,
       Value<bool> isAllDay,
       Value<String?> colorTag,
@@ -6094,6 +6145,11 @@ class $$EventTemplatesTableFilterComposer
 
   ColumnFilters<String> get memo => $composableBuilder(
     column: $table.memo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get location => $composableBuilder(
+    column: $table.location,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6157,6 +6213,11 @@ class $$EventTemplatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get location => $composableBuilder(
+    column: $table.location,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get durationMinutes => $composableBuilder(
     column: $table.durationMinutes,
     builder: (column) => ColumnOrderings(column),
@@ -6208,6 +6269,9 @@ class $$EventTemplatesTableAnnotationComposer
 
   GeneratedColumn<String> get memo =>
       $composableBuilder(column: $table.memo, builder: (column) => column);
+
+  GeneratedColumn<String> get location =>
+      $composableBuilder(column: $table.location, builder: (column) => column);
 
   GeneratedColumn<int> get durationMinutes => $composableBuilder(
     column: $table.durationMinutes,
@@ -6273,6 +6337,7 @@ class $$EventTemplatesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String?> memo = const Value.absent(),
+                Value<String?> location = const Value.absent(),
                 Value<int> durationMinutes = const Value.absent(),
                 Value<bool> isAllDay = const Value.absent(),
                 Value<String?> colorTag = const Value.absent(),
@@ -6285,6 +6350,7 @@ class $$EventTemplatesTableTableManager
                 name: name,
                 title: title,
                 memo: memo,
+                location: location,
                 durationMinutes: durationMinutes,
                 isAllDay: isAllDay,
                 colorTag: colorTag,
@@ -6299,6 +6365,7 @@ class $$EventTemplatesTableTableManager
                 required String name,
                 Value<String> title = const Value.absent(),
                 Value<String?> memo = const Value.absent(),
+                Value<String?> location = const Value.absent(),
                 Value<int> durationMinutes = const Value.absent(),
                 Value<bool> isAllDay = const Value.absent(),
                 Value<String?> colorTag = const Value.absent(),
@@ -6311,6 +6378,7 @@ class $$EventTemplatesTableTableManager
                 name: name,
                 title: title,
                 memo: memo,
+                location: location,
                 durationMinutes: durationMinutes,
                 isAllDay: isAllDay,
                 colorTag: colorTag,

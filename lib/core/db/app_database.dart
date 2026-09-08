@@ -28,7 +28,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -91,6 +91,16 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 17) {
         await m.createTable(pendingCalendarDeletions);
+      }
+      // Guarded by `from >= 4`, not just `from < 18`: an install upgrading
+      // from before v4 hits the `createTable(eventTemplates)` step above in
+      // this same pass, and that always builds the table from the *current*
+      // Dart definition (already including `location`) — addColumn-ing it
+      // again here would hit a "duplicate column name" sqlite error. Only an
+      // install that already had the table (from >= 4, pre-`location`)
+      // actually needs this column added.
+      if (from >= 4 && from < 18) {
+        await m.addColumn(eventTemplates, eventTemplates.location);
       }
     },
     // sqlite ships FK enforcement off by default, per-connection — every
