@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +27,23 @@ class _ThrowingNotificationService extends NotificationService {
   @override
   Future<bool> requestPermission() =>
       throw Exception('permission request failed');
+}
+
+/// Counts calls and lets the test hold [requestPermission] open — stands in
+/// for the OS permission dialog actually being on screen, awaiting the
+/// user's answer, while a second tap on "시작하기" fires in the meantime.
+class _CountingDelayedNotificationService extends NotificationService {
+  var requestPermissionCalls = 0;
+  final _gate = Completer<void>();
+
+  void openGate() => _gate.complete();
+
+  @override
+  Future<bool> requestPermission() async {
+    requestPermissionCalls++;
+    await _gate.future;
+    return true;
+  }
 }
 
 void main() {
@@ -150,6 +169,40 @@ void main() {
         reason:
             'a thrown permission request must not prevent navigating home',
       );
+    },
+  );
+
+  testWidgets(
+    'tapping Get started twice while the permission dialog is still up '
+    'only requests permission once — regression test: _finish() had no '
+    'guard against a second call landing while the first was still '
+    'mid-await (e.g. the OS permission dialog on screen), so a second tap '
+    'fired a second concurrent requestPermission() platform-channel call',
+    (tester) async {
+      final service = _CountingDelayedNotificationService();
+      final prefs = await pumpOnboarding(
+        tester,
+        notificationService: service,
+      );
+
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('시작하기'));
+      await tester.pump();
+      // Still mid-flight — requestPermission's own future hasn't resolved.
+      await tester.tap(find.text('시작하기'));
+      await tester.pump();
+
+      expect(service.requestPermissionCalls, 1);
+
+      service.openGate();
+      await tester.pumpAndSettle();
+
+      expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
+      expect(find.text('HOME_STUB'), findsOneWidget);
     },
   );
 }

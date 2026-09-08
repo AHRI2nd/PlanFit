@@ -37,6 +37,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
+  /// Guards [_finish] against a second call landing while the first is
+  /// still mid-flight (e.g. the "시작하기" button tapped twice before the
+  /// notification permission dialog it awaits has resolved) — same pattern
+  /// as `_handlingNotificationTap` in app.dart. Without it, a second tap
+  /// could fire a second concurrent `requestPermission()` platform-channel
+  /// call.
+  bool _finishing = false;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -44,6 +52,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
+    if (_finishing) return;
+    _finishing = true;
+    try {
+      await _doFinish();
+    } finally {
+      _finishing = false;
+    }
+  }
+
+  Future<void> _doFinish() async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setBool(OnboardingPrefs.completed, true);
     if (!(prefs.getBool(OnboardingPrefs.notificationPrompted) ?? false)) {
