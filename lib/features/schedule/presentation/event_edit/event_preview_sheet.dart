@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/db/event_row_x.dart';
 import '../../../../core/format.dart';
+import '../../../../core/maps_launcher.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
@@ -14,6 +15,7 @@ import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../settings/application/app_settings.dart';
 import '../../../settings/application/settings_controller.dart';
 import 'event_editor_sheet.dart';
 
@@ -59,16 +61,19 @@ class EventPreviewSheet extends ConsumerWidget {
   bool get _isHoliday =>
       (event.importSourceCalendarId ?? '').startsWith('holiday:');
 
-  Future<void> _openInMaps(BuildContext context, AppL10n l10n) async {
+  Future<void> _openInMaps(
+    BuildContext context,
+    AppL10n l10n,
+    MapsAppPreference mapsAppPreference,
+  ) async {
     final query = event.location?.trim() ?? '';
     if (query.isEmpty) return;
     final messenger = ScaffoldMessenger.of(context);
-    final uri = Platform.isIOS
-        ? Uri.https('maps.apple.com', '/', {'q': query})
-        : Uri.https('www.google.com', '/maps/search/', {
-            'api': '1',
-            'query': query,
-          });
+    final uri = buildMapsSearchUri(
+      query: query,
+      preference: mapsAppPreference,
+      isIOS: Platform.isIOS,
+    );
     try {
       final launched = await launchUrl(
         uri,
@@ -107,6 +112,9 @@ class EventPreviewSheet extends ConsumerWidget {
       ),
       context,
     );
+    final mapsAppPreference = ref.watch(
+      settingsControllerProvider.select((s) => s.mapsAppPreference),
+    );
     final accent = EventColorTag.resolve(event.colorTag, event.startAt);
     final textAccent = legibleOn(palette.surface, accent);
     final hasLocation = (event.location ?? '').isNotEmpty;
@@ -130,7 +138,7 @@ class EventPreviewSheet extends ConsumerWidget {
           icon: Icons.place_outlined,
           color: palette.inkFaint,
           child: InkWell(
-            onTap: () => _openInMaps(context, l10n),
+            onTap: () => _openInMaps(context, l10n, mapsAppPreference),
             child: Text(
               event.location!,
               style: theme.textTheme.bodyLarge?.copyWith(

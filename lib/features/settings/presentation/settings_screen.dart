@@ -332,9 +332,22 @@ class SettingsScreen extends ConsumerWidget {
                   enabled: settings.holidayCalendarEnabled,
                   settings: settings,
                   l10n: l10n,
-                  onTap: () =>
-                      context.go('/settings/holiday-calendar-source'),
+                  onTap: () => context.go('/settings/holiday-calendar-source'),
                 ),
+                // iOS only — Android has no native Apple Maps app to offer
+                // as a real alternative, so "system" and "Google 지도"
+                // would always resolve to the exact same thing there
+                // (buildMapsSearchUri's own "system" branch is just
+                // Platform.isIOS), making the choice meaningless rather
+                // than just narrower.
+                if (Platform.isIOS) ...[
+                  const _RowDivider(),
+                  _MapsAppRow(
+                    current: settings.mapsAppPreference,
+                    l10n: l10n,
+                    onChanged: controller.setMapsAppPreference,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -788,8 +801,7 @@ class _LanguageRow extends StatelessWidget {
                   RadioListTile<String>(
                     value: locale.languageCode,
                     title: Text(
-                      _nativeNames[locale.languageCode] ??
-                          locale.languageCode,
+                      _nativeNames[locale.languageCode] ?? locale.languageCode,
                     ),
                   ),
               ],
@@ -910,6 +922,84 @@ class _TimeFormatRow extends StatelessWidget {
                         // に…" in ja; letting it wrap instead (like
                         // _ThemeRow already does, harmlessly, for the same
                         // label) keeps it fully legible.
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: pref == current
+                                ? palette.accent
+                                : palette.inkSoft,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Three-way system/Apple Maps/Google Maps toggle for
+/// [AppSettings.mapsAppPreference] — same shape as [_TimeFormatRow] just
+/// above. Limited to these two real choices (plus "follow system") because
+/// they're the only map apps `buildMapsSearchUri` can open via a plain
+/// `https://` universal link, needing no extra manifest entry — see that
+/// function's own doc. iOS-only at its own call site — see that `if
+/// (Platform.isIOS)`'s own comment for why Android has no real choice to
+/// offer here at all.
+class _MapsAppRow extends StatelessWidget {
+  const _MapsAppRow({
+    required this.current,
+    required this.l10n,
+    required this.onChanged,
+  });
+
+  final MapsAppPreference current;
+  final AppL10n l10n;
+  final ValueChanged<MapsAppPreference> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+    final entries = [
+      (MapsAppPreference.system, l10n.settingsMapsAppSystem),
+      (MapsAppPreference.appleMaps, l10n.settingsMapsAppApple),
+      (MapsAppPreference.googleMaps, l10n.settingsMapsAppGoogle),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.settingsMapsApp, style: theme.textTheme.bodyLarge),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              for (final (pref, label) in entries)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.xs),
+                    child: GestureDetector(
+                      onTap: () => onChanged(pref),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: pref == current
+                              ? palette.accent.withValues(alpha: 0.18)
+                              : Colors.transparent,
+                          borderRadius: AppRadius.cardMd,
+                          border: Border.all(
+                            color: pref == current
+                                ? palette.accent
+                                : palette.hairline,
+                          ),
+                        ),
+                        alignment: Alignment.center,
                         child: Text(
                           label,
                           textAlign: TextAlign.center,

@@ -5,6 +5,17 @@ import 'package:flutter/material.dart';
 /// — same as before either of the two settings below existed.
 enum TimeFormatPreference { system, h12, h24 }
 
+/// Which map app "지도에서 열기"/`eventOpenInMaps` (the event editor's and
+/// preview sheet's own location row) opens — see `core/maps_launcher.dart`'s
+/// `buildMapsSearchUri`. `system` is the original, only-ever behavior before
+/// this setting existed: Apple Maps on iOS, Google Maps everywhere else.
+/// Both explicit choices are plain `https://` universal links (`maps.apple
+/// .com`/`google.com/maps`) on every platform — neither needs an iOS
+/// `LSApplicationQueriesSchemes`/Android `<queries>` manifest entry the way
+/// a custom-scheme deep link (Naver Map, Kakao Map, ...) would, which is
+/// exactly why this setting's own choices are limited to these two for now.
+enum MapsAppPreference { system, appleMaps, googleMaps }
+
 /// User-tunable app settings, persisted across launches.
 @immutable
 class AppSettings {
@@ -26,6 +37,7 @@ class AppSettings {
     this.holidaySourceColors = const {},
     this.showLunarDates = true,
     this.languageOverride,
+    this.mapsAppPreference = MapsAppPreference.system,
   });
 
   final ThemeMode themeMode;
@@ -129,6 +141,9 @@ class AppSettings {
   /// tag — this app has no region-specific locale variants to disambiguate.
   final String? languageOverride;
 
+  /// See [MapsAppPreference]'s own doc.
+  final MapsAppPreference mapsAppPreference;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     bool? notificationSound,
@@ -150,6 +165,7 @@ class AppSettings {
     bool? showLunarDates,
     String? languageOverride,
     bool clearLanguageOverride = false,
+    MapsAppPreference? mapsAppPreference,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -181,6 +197,7 @@ class AppSettings {
       languageOverride: clearLanguageOverride
           ? null
           : (languageOverride ?? this.languageOverride),
+      mapsAppPreference: mapsAppPreference ?? this.mapsAppPreference,
     );
   }
 }

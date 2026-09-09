@@ -12,6 +12,7 @@ import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
+import '../../../../core/maps_launcher.dart';
 import '../../../../core/share_origin.dart';
 import '../../../../core/time_format.dart';
 import '../../../settings/application/settings_controller.dart';
@@ -613,22 +614,23 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   /// location text as a plain search query — deliberately not a full
   /// Places/Maps SDK integration (no API key, no autocomplete, no
   /// coordinates stored), just a shortcut from the free-text field to
-  /// wherever the OS already sends map searches. Apple Maps on iOS,
-  /// Google Maps' web search (opens the app if installed, the browser
-  /// otherwise) everywhere else — both are plain `https://` universal
-  /// links, so neither platform needs a `LSApplicationQueriesSchemes`/
-  /// `<queries>` manifest entry to launch them.
+  /// wherever the OS already sends map searches. Which app — see
+  /// `buildMapsSearchUri`'s own doc for why the choice (Settings'
+  /// [MapsAppPreference]) only ever resolves to a plain `https://`
+  /// universal link, needing no `LSApplicationQueriesSchemes`/`<queries>`
+  /// manifest entry to launch.
   Future<void> _openInMaps() async {
     final query = _location.text.trim();
     if (query.isEmpty) return;
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppL10n.of(context);
-    final uri = Platform.isIOS
-        ? Uri.https('maps.apple.com', '/', {'q': query})
-        : Uri.https('www.google.com', '/maps/search/', {
-            'api': '1',
-            'query': query,
-          });
+    final uri = buildMapsSearchUri(
+      query: query,
+      preference: ref.read(
+        settingsControllerProvider.select((s) => s.mapsAppPreference),
+      ),
+      isIOS: Platform.isIOS,
+    );
     try {
       final launched = await launchUrl(
         uri,

@@ -40,6 +40,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _kHolidaySourceColors = 'settings.holidaySourceColors';
   static const _kShowLunarDates = 'settings.showLunarDates';
   static const _kLanguageOverride = 'settings.languageOverride';
+  static const _kMapsApp = 'settings.mapsAppPreference';
 
   static TimeFormatPreference _readTimeFormat(
     SharedPreferences prefs,
@@ -52,6 +53,17 @@ class SettingsController extends Notifier<AppSettings> {
       return TimeFormatPreference.system;
     }
     return TimeFormatPreference.values[index];
+  }
+
+  /// Same out-of-range guard as [_readTimeFormat].
+  static MapsAppPreference _readMapsApp(SharedPreferences prefs) {
+    final index = prefs.getInt(_kMapsApp);
+    if (index == null ||
+        index < 0 ||
+        index >= MapsAppPreference.values.length) {
+      return MapsAppPreference.system;
+    }
+    return MapsAppPreference.values[index];
   }
 
   /// Same out-of-range guard as [_readTimeFormat] — an unindexable stored
@@ -145,6 +157,7 @@ class SettingsController extends Notifier<AppSettings> {
       holidaySourceColors: _readHolidaySourceColors(prefs),
       showLunarDates: prefs.getBool(_kShowLunarDates) ?? true,
       languageOverride: prefs.getString(_kLanguageOverride),
+      mapsAppPreference: _readMapsApp(prefs),
     );
     _apply(settings);
     return settings;
@@ -223,6 +236,7 @@ class SettingsController extends Notifier<AppSettings> {
     } else {
       await prefs.setString(_kLanguageOverride, s.languageOverride!);
     }
+    await prefs.setInt(_kMapsApp, s.mapsAppPreference.index);
   }
 
   Future<void> _update(AppSettings next) async {
@@ -353,6 +367,9 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setDisplayTimeFormatPreference(
     TimeFormatPreference preference,
   ) => _update(state.copyWith(displayTimeFormatPreference: preference));
+
+  Future<void> setMapsAppPreference(MapsAppPreference preference) =>
+      _update(state.copyWith(mapsAppPreference: preference));
 
   /// Turns every selected holiday calendar on or off at once — see
   /// [AppSettings.holidayCalendarEnabled]. Turning it on pulls every

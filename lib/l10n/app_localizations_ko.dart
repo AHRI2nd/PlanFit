@@ -480,6 +480,18 @@ class AppL10nKo extends AppL10n {
   String get settingsTimeFormatH24 => '24시간제';
 
   @override
+  String get settingsMapsApp => '지도 앱';
+
+  @override
+  String get settingsMapsAppSystem => '시스템 설정';
+
+  @override
+  String get settingsMapsAppApple => 'Apple 지도';
+
+  @override
+  String get settingsMapsAppGoogle => 'Google 지도';
+
+  @override
   String get settingsTodo => '할 일';
 
   @override

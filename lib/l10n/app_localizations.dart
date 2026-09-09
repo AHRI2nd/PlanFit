@@ -985,6 +985,30 @@ abstract class AppL10n {
   /// **'24시간제'**
   String get settingsTimeFormatH24;
 
+  /// No description provided for @settingsMapsApp.
+  ///
+  /// In ko, this message translates to:
+  /// **'지도 앱'**
+  String get settingsMapsApp;
+
+  /// No description provided for @settingsMapsAppSystem.
+  ///
+  /// In ko, this message translates to:
+  /// **'시스템 설정'**
+  String get settingsMapsAppSystem;
+
+  /// No description provided for @settingsMapsAppApple.
+  ///
+  /// In ko, this message translates to:
+  /// **'Apple 지도'**
+  String get settingsMapsAppApple;
+
+  /// No description provided for @settingsMapsAppGoogle.
+  ///
+  /// In ko, this message translates to:
+  /// **'Google 지도'**
+  String get settingsMapsAppGoogle;
+
   /// No description provided for @settingsTodo.
   ///
   /// In ko, this message translates to:

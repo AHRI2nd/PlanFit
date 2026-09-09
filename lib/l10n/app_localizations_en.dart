@@ -499,6 +499,18 @@ class AppL10nEn extends AppL10n {
   String get settingsTimeFormatH24 => '24-hour';
 
   @override
+  String get settingsMapsApp => 'Maps app';
+
+  @override
+  String get settingsMapsAppSystem => 'Follow system';
+
+  @override
+  String get settingsMapsAppApple => 'Apple Maps';
+
+  @override
+  String get settingsMapsAppGoogle => 'Google Maps';
+
+  @override
   String get settingsTodo => 'To-dos';
 
   @override
