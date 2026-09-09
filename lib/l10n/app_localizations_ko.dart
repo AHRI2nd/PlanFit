@@ -598,6 +598,9 @@ class AppL10nKo extends AppL10n {
   String get eventEdit => '일정 편집';
 
   @override
+  String get eventPreviewEditButton => '편집하기';
+
+  @override
   String get eventSectionBasic => '기본';
 
   @override
@@ -677,6 +680,9 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get eventNotify => '시작할 때 알림';
+
+  @override
+  String get eventNotifyOff => '알림 없음';
 
   @override
   String get eventReminderLead => '알림 시점';
@@ -796,6 +802,9 @@ class AppL10nKo extends AppL10n {
   String eventSelectionCount(int count) {
     return '$count개 선택됨';
   }
+
+  @override
+  String get eventSelectionStart => '일정 선택';
 
   @override
   String get eventSelectionDelete => '삭제';

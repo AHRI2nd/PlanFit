@@ -18,6 +18,7 @@ import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/domain/calendar_dot.dart';
 import '../../schedule/domain/event_span.dart';
 import '../../schedule/presentation/event_edit/event_editor_sheet.dart';
+import '../../schedule/presentation/event_edit/event_preview_sheet.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
 import '../../todo/domain/todo_overdue.dart';
@@ -287,7 +288,8 @@ class _UpcomingTile extends StatelessWidget {
     final accent = EventColorTag.resolve(event.colorTag, event.startAt);
     final theme = Theme.of(context);
     return GestureDetector(
-      onTap: () => showEventEditor(context, existing: event),
+      onTap: () => showEventPreview(context, event: event),
+      onLongPress: () => showEventEditor(context, existing: event),
       child: GlassSurface(
         borderRadius: AppRadius.cardMd,
         padding: const EdgeInsets.all(AppSpacing.md),

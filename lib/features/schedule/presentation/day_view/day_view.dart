@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/clock.dart';
 import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
-import '../../../../core/di.dart';
 import '../../../../core/format.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/glass/glass_surface.dart';
@@ -18,9 +17,9 @@ import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
 import '../../../todo/presentation/hourly_todo_list.dart';
 import '../../domain/drag_create.dart';
-import '../../domain/event_input.dart';
 import '../../domain/event_overlap.dart';
 import '../event_edit/event_editor_sheet.dart';
+import '../event_edit/event_preview_sheet.dart';
 import 'day_clock_view.dart';
 
 /// The signature view: a day laid out as a vertical river of hours, with events
@@ -545,14 +544,6 @@ class _TimelineState extends ConsumerState<_Timeline>
     return best;
   }
 
-  /// The event currently being dragged, if any — only one card can drag at a
-  /// time since drags are single-pointer gestures.
-  String? _draggingId;
-
-  /// Raw accumulated pointer delta in pixels since the drag began; converted
-  /// to a 5-minute-snapped offset for both the live preview and the save.
-  double _dragPixels = 0;
-
   /// Long-press-drag-to-create state: the anchor (touch-down) and current
   /// pointer Y, both in the timeline's own coordinate space (0 = midnight).
   /// Null whenever no create-drag is in progress. The lower of the two ends
@@ -590,14 +581,8 @@ class _TimelineState extends ConsumerState<_Timeline>
   }
 
   void _resetDragState() {
-    if (_draggingId == null &&
-        _createAnchorY == null &&
-        _createCurrentY == null) {
-      return;
-    }
+    if (_createAnchorY == null && _createCurrentY == null) return;
     setState(() {
-      _draggingId = null;
-      _dragPixels = 0;
       _createAnchorY = null;
       _createCurrentY = null;
     });
@@ -617,94 +602,6 @@ class _TimelineState extends ConsumerState<_Timeline>
     );
     final minutes = t.difference(dayStart).inMinutes;
     return minutes / 60.0 * widget.hourHeight;
-  }
-
-  int get _snappedDeltaMinutes {
-    final raw = _dragPixels / widget.hourHeight * 60;
-    return (raw / 5).round() * 5;
-  }
-
-  /// The start/end a card should render at (and, on drag end, be saved with)
-  /// given the current drag — clamped to stay within [day, day+1) so a card
-  /// can never drag itself out of the timeline it's shown in. Shifts both
-  /// ends by the same amount, preserving the event's own duration — moving
-  /// is the only drag gesture a card has (see [_EventCard.onMoveStart]'s
-  /// doc for why resizing this way was dropped).
-  ///
-  /// Each side's clamp only fires when the *drag* is what pushed that side
-  /// out of [dayStart, dayEnd) — not when it was already there before any
-  /// delta was applied. An event that spans midnight (e.g. 23:30–00:30)
-  /// naturally has `e.startAt` or `e.endAt` outside this day's own window
-  /// even at rest; without this guard, a zero-movement long-press (press
-  /// and release, no drag at all — `_snappedDeltaMinutes == 0`) still
-  /// computed a "clamped" start/end that differed from the original, so
-  /// `_endDrag`'s `start == e.startAt && end == e.endAt` no-op check never
-  /// caught it and the event's time was silently rewritten on every long
-  /// press, drag or not. See the regression test for the exact scenario.
-  (DateTime start, DateTime end) _effectiveTimes(EventRow e) {
-    if (_draggingId != e.id) {
-      return (e.startAt, e.endAt);
-    }
-    final dayStart = DateTime(
-      widget.day.year,
-      widget.day.month,
-      widget.day.day,
-    );
-    final dayEnd = addCalendarDays(dayStart, 1);
-    final delta = Duration(minutes: _snappedDeltaMinutes);
-
-    var start = e.startAt.add(delta);
-    var end = e.endAt.add(delta);
-    if (start.isBefore(dayStart) && !e.startAt.isBefore(dayStart)) {
-      final shift = dayStart.difference(start);
-      start = start.add(shift);
-      end = end.add(shift);
-    }
-    if (end.isAfter(dayEnd) && !e.endAt.isAfter(dayEnd)) {
-      final shift = end.difference(dayEnd);
-      start = start.subtract(shift);
-      end = end.subtract(shift);
-    }
-    return (start, end);
-  }
-
-  void _startDrag(String eventId) {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _draggingId = eventId;
-      _dragPixels = 0;
-    });
-  }
-
-  /// [totalDeltaY] is the cumulative offset since the long-press began (as
-  /// long-press-move reports it), not a per-frame delta — so this sets
-  /// rather than accumulates.
-  void _updateDrag(double totalDeltaY) {
-    setState(() => _dragPixels = totalDeltaY);
-  }
-
-  Future<void> _endDrag(EventRow e) async {
-    final (start, end) = _effectiveTimes(e);
-    setState(() {
-      _draggingId = null;
-      _dragPixels = 0;
-    });
-    if (start == e.startAt && end == e.endAt) return;
-    await ref
-        .read(eventRepositoryProvider)
-        .save(
-          EventInput(
-            id: e.id,
-            title: e.title,
-            memo: e.memo,
-            startAt: start,
-            endAt: end,
-            isAllDay: false,
-            notify: e.notify,
-            reminderMinutesBefore: e.reminderMinutesBefore,
-            colorTag: e.colorTag,
-          ),
-        );
   }
 
   void _startCreate(double y) {
@@ -935,8 +832,8 @@ class _TimelineState extends ConsumerState<_Timeline>
                 key: ValueKey(c.event.id),
                 builder: (context) {
                   final e = c.event;
-                  final (start, end) = _effectiveTimes(e);
-                  final isDragging = _draggingId == e.id;
+                  final start = e.startAt;
+                  final end = e.endAt;
                   final columnWidth = availableWidth / c.columnCount;
                   final leftInset = c.column * columnWidth;
                   final rightInset = availableWidth - leftInset - columnWidth;
@@ -982,14 +879,6 @@ class _TimelineState extends ConsumerState<_Timeline>
                   final height = rawHeight < cappedMinHeight
                       ? cappedMinHeight
                       : rawHeight;
-                  // A mirrored event (holiday or subscribed-calendar) stays
-                  // read-only here the same way tapping it already routes to
-                  // MirroredEventDetailScreen instead of the editor — drag
-                  // is just another way to edit it, and letting it through
-                  // used to silently push a duplicate to the device
-                  // calendar (see EventRepositoryImpl._applySideEffects's
-                  // own doc on this exact path).
-                  final draggable = e.importSourceCalendarId == null;
                   return Positioned(
                     top: _offsetFor(start),
                     left: widget.railInset + leftInset,
@@ -1000,10 +889,6 @@ class _TimelineState extends ConsumerState<_Timeline>
                       allDay: false,
                       height: height,
                       tight: tight,
-                      isDragging: isDragging,
-                      onMoveStart: draggable ? () => _startDrag(e.id) : null,
-                      onMoveUpdate: _updateDrag,
-                      onMoveEnd: () => _endDrag(e),
                     ),
                   );
                 },
@@ -1043,10 +928,6 @@ class _EventCard extends ConsumerWidget {
     required this.allDay,
     this.height,
     this.tight = false,
-    this.isDragging = false,
-    this.onMoveStart,
-    this.onMoveUpdate,
-    this.onMoveEnd,
   });
 
   final EventRow event;
@@ -1063,19 +944,6 @@ class _EventCard extends ConsumerWidget {
   /// title, time-range and notify icon — the content set that smaller
   /// budget was tuned for.
   final bool tight;
-  final bool isDragging;
-
-  /// Dragging the card body moves the whole event, preserving its
-  /// duration — the only drag gesture a card has. An earlier version also
-  /// let a bottom-edge grip resize just the end time; removed for being
-  /// inconsistently available (only cards with room to spare — i.e. not
-  /// immediately followed by another event, see [tight] — could show it
-  /// at all, so most cards never had it) rather than dropped for every
-  /// card alike. Resizing is still possible through the editor sheet
-  /// (tap the card) — this only removed the drag shortcut.
-  final VoidCallback? onMoveStart;
-  final ValueChanged<double>? onMoveUpdate;
-  final VoidCallback? onMoveEnd;
 
   /// [color] shifted [amount] (0-1) toward black in HSL lightness, fully
   /// opaque — used for the card border so it reads as a solid, slightly
@@ -1110,20 +978,16 @@ class _EventCard extends ConsumerWidget {
     // card sits inside) without the two competing for the same gesture.
     return GestureDetector(
       // Tapping anywhere on the card — not just the title/time text — opens
-      // it for editing.
-      onTap: () => showEventEditor(context, existing: event),
-      // Long-press-then-drag (not a plain vertical drag) so a swipe that
-      // starts on top of a card still scrolls the day timeline instead of
-      // picking the event up — the two would otherwise both claim the same
-      // vertical pan gesture. Lives on the same detector as onTap now that
-      // it covers the whole card — tap and long-press are different enough
-      // gesture types that Flutter's arena resolves them by timing, not by
-      // competing for the same slot.
-      onLongPressStart: onMoveStart == null ? null : (_) => onMoveStart!(),
-      onLongPressMoveUpdate: onMoveUpdate == null
-          ? null
-          : (d) => onMoveUpdate!(d.offsetFromOrigin.dy),
-      onLongPressEnd: onMoveEnd == null ? null : (_) => onMoveEnd!(),
+      // the read-only preview; long-press skips straight to the editor (see
+      // showEventEditor's own doc for how a mirrored/holiday event
+      // converges back to the same preview either way, since there's
+      // nothing to edit on it). Drag-to-move used to live on this same
+      // long-press — removed rather than reconciled with the new gesture,
+      // since the two would otherwise fight over the same touch: a
+      // reschedule is still just as reachable through the editor's own
+      // date/time fields.
+      onTap: () => showEventPreview(context, event: event),
+      onLongPress: () => showEventEditor(context, existing: event),
       // A visible per-event border, distinct from GlassSurface's own subtle
       // hairline one — the main cue separating two cards that now sit flush
       // against each other (no gap) since cards align exactly to their hour
@@ -1140,10 +1004,7 @@ class _EventCard extends ConsumerWidget {
           RepaintBoundary(
             child: GlassSurface(
               borderRadius: AppRadius.cardMd,
-              tint: accent.withValues(
-                alpha:
-                    (palette.isDark ? 0.22 : 0.16) * (isDragging ? 1.6 : 1.0),
-              ),
+              tint: accent.withValues(alpha: palette.isDark ? 0.22 : 0.16),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.sm,
                 vertical: AppSpacing.xs,

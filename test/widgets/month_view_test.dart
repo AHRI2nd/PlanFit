@@ -190,22 +190,22 @@ void main() {
     'a marker positioned below it never actually sits on that circle',
     (tester) async {
       final day = DateTime(2026, 3, 15);
-      when(events.watchBetween(any, any)).thenAnswer(
-        (_) => Stream.value([singleDayEvent(id: 'e1', day: day)]),
-      );
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([singleDayEvent(id: 'e1', day: day)]));
 
       // Select the very day the event is on — exactly the scenario that
       // used to turn the marker white.
       await pumpMonth(tester, day);
 
-      final dots = tester.widgetList<Container>(find.byType(Container)).where(
-        (c) {
-          final decoration = c.decoration;
-          return decoration is BoxDecoration &&
-              decoration.shape == BoxShape.circle &&
-              c.constraints?.maxWidth == monthCollapsedDotSize;
-        },
-      );
+      final dots = tester.widgetList<Container>(find.byType(Container)).where((
+        c,
+      ) {
+        final decoration = c.decoration;
+        return decoration is BoxDecoration &&
+            decoration.shape == BoxShape.circle &&
+            c.constraints?.maxWidth == monthCollapsedDotSize;
+      });
 
       expect(dots, hasLength(1));
       expect(
@@ -231,15 +231,14 @@ void main() {
 
       await pumpMonth(tester, DateTime(2026, 3, 1));
 
-      final dots = tester
-          .widgetList<Container>(find.byType(Container))
-          .where((c) {
-            final decoration = c.decoration;
-            return decoration is BoxDecoration &&
-                decoration.shape == BoxShape.circle &&
-                c.constraints?.maxWidth == monthCollapsedDotSize;
-          })
-          .toList();
+      final dots = tester.widgetList<Container>(find.byType(Container)).where((
+        c,
+      ) {
+        final decoration = c.decoration;
+        return decoration is BoxDecoration &&
+            decoration.shape == BoxShape.circle &&
+            c.constraints?.maxWidth == monthCollapsedDotSize;
+      }).toList();
 
       expect(dots, hasLength(tags.length));
       final dotColors = dots
@@ -271,14 +270,14 @@ void main() {
       await pumpMonth(tester, DateTime(2026, 3, 1));
 
       expect(find.text('+$eventCount'), findsOneWidget);
-      final dots = tester.widgetList<Container>(find.byType(Container)).where(
-        (c) {
-          final decoration = c.decoration;
-          return decoration is BoxDecoration &&
-              decoration.shape == BoxShape.circle &&
-              c.constraints?.maxWidth == monthCollapsedDotSize;
-        },
-      );
+      final dots = tester.widgetList<Container>(find.byType(Container)).where((
+        c,
+      ) {
+        final decoration = c.decoration;
+        return decoration is BoxDecoration &&
+            decoration.shape == BoxShape.circle &&
+            c.constraints?.maxWidth == monthCollapsedDotSize;
+      });
       expect(
         dots,
         isEmpty,
@@ -323,7 +322,11 @@ void main() {
       final painter = TextPainter(
         text: const TextSpan(
           text: '+$eventCount',
-          style: TextStyle(fontSize: 7, height: 1.0, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontSize: 7,
+            height: 1.0,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -332,8 +335,7 @@ void main() {
       expect(
         renderedSize.height,
         closeTo(painter.height, 0.5),
-        reason:
-            'should render at ~its natural size, not meaningfully shrunk',
+        reason: 'should render at ~its natural size, not meaningfully shrunk',
       );
     },
   );
@@ -359,32 +361,26 @@ void main() {
   );
 
   group('lunar date labels', () {
-    testWidgets(
-      'a quiet day (no events) shows its compact lunar label at the '
-      'default row height — there\'s slack for it once nothing else is '
-      'competing for the same marker space',
-      (tester) async {
-        when(
-          events.watchBetween(any, any),
-        ).thenAnswer((_) => Stream.value(const []));
+    testWidgets('a quiet day (no events) shows its compact lunar label at the '
+        'default row height — there\'s slack for it once nothing else is '
+        'competing for the same marker space', (tester) async {
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
 
-        await pumpMonth(tester, DateTime(2026, 3, 1));
+      await pumpMonth(tester, DateTime(2026, 3, 1));
 
-        // March 19, 2026 is lunar 2/1 — the 1st of its lunar month, so
-        // LunarFmt.cell renders the full "month.day" form here rather than
-        // a bare day number. That makes the label's text content unique
-        // across the whole visible grid on its own (a bare day number like
-        // "13" isn't: March 1 is lunar 1/13 and March 31 is lunar 2/13,
-        // both non-first days, both rendering as plain "13" — asserting
-        // on that date would find two matching widgets instead of one).
-        final lunar = LunarDate.fromSolar(DateTime(2026, 3, 19))!;
-        expect(
-          monthListText(LunarFmt.cell(AppL10nKo(), lunar)),
-          findsOneWidget,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+      // March 19, 2026 is lunar 2/1 — the 1st of its lunar month, so
+      // LunarFmt.cell renders the full "month.day" form here rather than
+      // a bare day number. That makes the label's text content unique
+      // across the whole visible grid on its own (a bare day number like
+      // "13" isn't: March 1 is lunar 1/13 and March 31 is lunar 2/13,
+      // both non-first days, both rendering as plain "13" — asserting
+      // on that date would find two matching widgets instead of one).
+      final lunar = LunarDate.fromSolar(DateTime(2026, 3, 19))!;
+      expect(monthListText(LunarFmt.cell(AppL10nKo(), lunar)), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets(
       'turning the setting off removes every lunar label from the grid',
@@ -398,35 +394,31 @@ void main() {
         await pumpMonth(tester, DateTime(2026, 3, 1));
 
         final lunar = LunarDate.fromSolar(DateTime(2026, 3, 1))!;
-        expect(
-          monthListText(LunarFmt.cell(AppL10nKo(), lunar)),
-          findsNothing,
-        );
-      },
-    );
-
-    testWidgets(
-      'a busy day (over the dot cap) at the default row height keeps '
-      'showing its dots/count — the lunar label quietly steps aside '
-      'there rather than overflowing the cell or crowding them out',
-      (tester) async {
-        final day = DateTime(2026, 3, 15);
-        const eventCount = 5;
-        when(events.watchBetween(any, any)).thenAnswer(
-          (_) => Stream.value([
-            for (var i = 0; i < eventCount; i++)
-              singleDayEvent(id: 'e$i', day: day),
-          ]),
-        );
-
-        await pumpMonth(tester, DateTime(2026, 3, 1));
-
-        expect(find.text('+$eventCount'), findsOneWidget);
-        final lunar = LunarDate.fromSolar(day)!;
         expect(monthListText(LunarFmt.cell(AppL10nKo(), lunar)), findsNothing);
-        expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets('a busy day (over the dot cap) at the default row height keeps '
+        'showing its dots/count — the lunar label quietly steps aside '
+        'there rather than overflowing the cell or crowding them out', (
+      tester,
+    ) async {
+      final day = DateTime(2026, 3, 15);
+      const eventCount = 5;
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          for (var i = 0; i < eventCount; i++)
+            singleDayEvent(id: 'e$i', day: day),
+        ]),
+      );
+
+      await pumpMonth(tester, DateTime(2026, 3, 1));
+
+      expect(find.text('+$eventCount'), findsOneWidget);
+      final lunar = LunarDate.fromSolar(day)!;
+      expect(monthListText(LunarFmt.cell(AppL10nKo(), lunar)), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('expanded list mode (row dragged tall enough for a real list)', () {
@@ -530,128 +522,138 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets(
+      'tapping an event row opens the read-only preview, and long-pressing '
+      'it skips straight to the editor — new gesture wiring, this list row '
+      'previously had no tap target at all',
+      (tester) async {
+        await pumpWithEvents(tester, 1);
+
+        await tester.tap(monthListText('e0'));
+        await tester.pumpAndSettle();
+        expect(find.text('편집하기'), findsOneWidget);
+        expect(find.widgetWithText(TextField, 'e0'), findsNothing);
+        Navigator.of(tester.element(find.text('편집하기'))).pop();
+        await tester.pumpAndSettle();
+
+        await tester.longPress(monthListText('e0'));
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(TextField, 'e0'), findsOneWidget);
+        expect(find.text('편집하기'), findsNothing);
+      },
+    );
   });
 
   group('monthEventRowHeight/monthEventListCapacity text-scale awareness', () {
-    test(
-      'monthEventRowHeight scales with the given textScaler instead of '
-      "always measuring at the default (unscaled) size — regression "
-      'test: this used to construct its TextPainter with no textScaler '
-      "at all, so it always measured at 1.0x regardless of the app's "
-      'own accessibility text-scale clamp (app.dart allows up to 1.3x); '
-      'the row budget this feeds monthEventListCapacity then came out '
-      'too generous once the real (larger) text rendered',
-      () {
-        final unscaled = monthEventRowHeight();
-        final scaled = monthEventRowHeight(
-          textScaler: const TextScaler.linear(1.3),
-        );
-        expect(scaled, greaterThan(unscaled));
-        expect(scaled, closeTo(unscaled * 1.3, 1.0));
-      },
-    );
+    test('monthEventRowHeight scales with the given textScaler instead of '
+        "always measuring at the default (unscaled) size — regression "
+        'test: this used to construct its TextPainter with no textScaler '
+        "at all, so it always measured at 1.0x regardless of the app's "
+        'own accessibility text-scale clamp (app.dart allows up to 1.3x); '
+        'the row budget this feeds monthEventListCapacity then came out '
+        'too generous once the real (larger) text rendered', () {
+      final unscaled = monthEventRowHeight();
+      final scaled = monthEventRowHeight(
+        textScaler: const TextScaler.linear(1.3),
+      );
+      expect(scaled, greaterThan(unscaled));
+      expect(scaled, closeTo(unscaled * 1.3, 1.0));
+    });
 
-    test(
-      'monthEventListCapacity reports fewer rows fitting at a larger '
-      'text scale for the same cell height — same regression, the '
-      'capacity-math side',
-      () {
-        // A row height tall enough for several rows at the default scale,
-        // but not so tall either scale hits monthEventListCapacity's own
-        // hard cap of 5 (which would mask the difference this checks for).
-        const rowHeight = 80.0;
-        const columnWidth = 60.0;
-        final unscaled = monthEventListCapacity(
-          rowHeight: rowHeight,
-          columnWidth: columnWidth,
-        );
-        final scaled = monthEventListCapacity(
-          rowHeight: rowHeight,
-          columnWidth: columnWidth,
-          textScaler: const TextScaler.linear(1.3),
-        );
-        expect(
-          scaled,
-          lessThan(unscaled),
-          reason:
-              'each row needs more vertical room at 1.3x scale, so fewer '
-              'of them should fit in the same rowHeight',
-        );
-      },
-    );
+    test('monthEventListCapacity reports fewer rows fitting at a larger '
+        'text scale for the same cell height — same regression, the '
+        'capacity-math side', () {
+      // A row height tall enough for several rows at the default scale,
+      // but not so tall either scale hits monthEventListCapacity's own
+      // hard cap of 5 (which would mask the difference this checks for).
+      const rowHeight = 80.0;
+      const columnWidth = 60.0;
+      final unscaled = monthEventListCapacity(
+        rowHeight: rowHeight,
+        columnWidth: columnWidth,
+      );
+      final scaled = monthEventListCapacity(
+        rowHeight: rowHeight,
+        columnWidth: columnWidth,
+        textScaler: const TextScaler.linear(1.3),
+      );
+      expect(
+        scaled,
+        lessThan(unscaled),
+        reason:
+            'each row needs more vertical room at 1.3x scale, so fewer '
+            'of them should fit in the same rowHeight',
+      );
+    });
   });
 
-  testWidgets(
-    'selecting a different day within the same month reuses the same '
-    'eventsForMonthProvider/todosForMonthProvider subscription instead of '
-    'opening a new one — regression test: passing the raw, day-granularity '
-    'selectedDateProvider value straight through as the family key (rather '
-    'than normalized to (year, month) first) minted a brand-new, never-'
-    'disposed live DB subscription for every distinct day ever tapped '
-    'within a month, even though the query window is identical for all of '
-    'them',
-    (tester) async {
-      when(
-        events.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value(const []));
-      final prefs = await SharedPreferences.getInstance();
-      late ProviderContainer container;
+  testWidgets('selecting a different day within the same month reuses the same '
+      'eventsForMonthProvider/todosForMonthProvider subscription instead of '
+      'opening a new one — regression test: passing the raw, day-granularity '
+      'selectedDateProvider value straight through as the family key (rather '
+      'than normalized to (year, month) first) minted a brand-new, never-'
+      'disposed live DB subscription for every distinct day ever tapped '
+      'within a month, even though the query window is identical for all of '
+      'them', (tester) async {
+    when(
+      events.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
+    final prefs = await SharedPreferences.getInstance();
+    late ProviderContainer container;
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sharedPreferencesProvider.overrideWithValue(prefs),
-            eventRepositoryProvider.overrideWithValue(events),
-            todoDaoProvider.overrideWithValue(todos),
-          ],
-          child: Builder(
-            builder: (context) {
-              container = ProviderScope.containerOf(context);
-              return MaterialApp(
-                theme: AppTheme.light(),
-                locale: const Locale('ko'),
-                localizationsDelegates: const [
-                  AppL10n.delegate,
-                  GlobalMaterialLocalizations.delegate,
-                  GlobalWidgetsLocalizations.delegate,
-                  GlobalCupertinoLocalizations.delegate,
-                ],
-                supportedLocales: AppL10n.supportedLocales,
-                home: const Scaffold(body: MonthView()),
-              );
-            },
-          ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          eventRepositoryProvider.overrideWithValue(events),
+          todoDaoProvider.overrideWithValue(todos),
+        ],
+        child: Builder(
+          builder: (context) {
+            container = ProviderScope.containerOf(context);
+            return MaterialApp(
+              theme: AppTheme.light(),
+              locale: const Locale('ko'),
+              localizationsDelegates: const [
+                AppL10n.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: AppL10n.supportedLocales,
+              home: const Scaffold(body: MonthView()),
+            );
+          },
         ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-      // Verified by the exact month window (not a blanket `any, any`
-      // count): MonthView also embeds a compact DayView for whichever day
-      // is selected (see _FixedSelectedDate's own doc above), which calls
-      // this same mocked events.watchBetween through its own, differently-
-      // windowed eventsForDayProvider — a plain call-count check would be
-      // confounded by those unrelated calls.
-      final marchWindow = (DateTime(2026, 3, 1), DateTime(2026, 4, 1));
+    // Verified by the exact month window (not a blanket `any, any`
+    // count): MonthView also embeds a compact DayView for whichever day
+    // is selected (see _FixedSelectedDate's own doc above), which calls
+    // this same mocked events.watchBetween through its own, differently-
+    // windowed eventsForDayProvider — a plain call-count check would be
+    // confounded by those unrelated calls.
+    final marchWindow = (DateTime(2026, 3, 1), DateTime(2026, 4, 1));
 
-      container.read(selectedDateProvider.notifier).select(DateTime(2026, 3, 5));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+    container.read(selectedDateProvider.notifier).select(DateTime(2026, 3, 5));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-      // A different day, same month.
-      container.read(selectedDateProvider.notifier).select(DateTime(2026, 3, 20));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+    // A different day, same month.
+    container.read(selectedDateProvider.notifier).select(DateTime(2026, 3, 20));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-      // Exactly one call for the whole test, across both selections — a
-      // second one here would mean the March 20 selection opened a brand-
-      // new (year, month)-scoped subscription instead of reusing the one
-      // the March 5 selection already opened. (mockito's verify() consumes
-      // matched invocations, so this has to be one single check covering
-      // the whole test rather than a verify after each selection.)
-      verify(
-        events.watchBetween(marchWindow.$1, marchWindow.$2),
-      ).called(1);
-    },
-  );
+    // Exactly one call for the whole test, across both selections — a
+    // second one here would mean the March 20 selection opened a brand-
+    // new (year, month)-scoped subscription instead of reusing the one
+    // the March 5 selection already opened. (mockito's verify() consumes
+    // matched invocations, so this has to be one single check covering
+    // the whole test rather than a verify after each selection.)
+    verify(events.watchBetween(marchWindow.$1, marchWindow.$2)).called(1);
+  });
 }

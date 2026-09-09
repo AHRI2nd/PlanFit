@@ -96,9 +96,7 @@ void main() {
     'not let its stale results reappear once it finally resolves',
     (tester) async {
       final pending = Completer<List<EventRow>>();
-      when(
-        eventRepository.search('abc'),
-      ).thenAnswer((_) => pending.future);
+      when(eventRepository.search('abc')).thenAnswer((_) => pending.future);
       when(todoDao.search('abc')).thenAnswer((_) async => <TodoRow>[]);
 
       await pumpScreen(tester);
@@ -122,26 +120,67 @@ void main() {
     },
   );
 
+  testWidgets('a fresh search started right after clearing still shows its own '
+      'results normally — the fix only suppresses the stale one, not '
+      'search itself', (tester) async {
+    when(
+      eventRepository.search('xyz'),
+    ).thenAnswer((_) async => [event(title: 'Xylophone lesson')]);
+    when(todoDao.search('xyz')).thenAnswer((_) async => <TodoRow>[]);
+
+    await pumpScreen(tester);
+
+    await tester.enterText(find.byType(TextField), 'abc');
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'xyz');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(find.text('Xylophone lesson'), findsOneWidget);
+  });
+
+  testWidgets('tapping an event result closes search and opens the read-only '
+      'preview over the day view it jumped to', (tester) async {
+    when(
+      eventRepository.search('team'),
+    ).thenAnswer((_) async => [event(title: 'Team standup')]);
+    when(todoDao.search('team')).thenAnswer((_) async => <TodoRow>[]);
+
+    await pumpScreen(tester);
+    await tester.enterText(find.byType(TextField), 'team');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    await tester.tap(find.text('Team standup'));
+    await tester.pumpAndSettle();
+
+    // The search box itself is gone (this tap closes search first, same
+    // as it always has) — a lone "편집하기" button and no title-prefilled
+    // TextField is what distinguishes the preview from the full editor.
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('편집하기'), findsOneWidget);
+  });
+
   testWidgets(
-    'a fresh search started right after clearing still shows its own '
-    'results normally — the fix only suppresses the stale one, not '
-    'search itself',
+    'long-pressing an event result closes search and skips straight to '
+    'the editor, title pre-filled',
     (tester) async {
       when(
-        eventRepository.search('xyz'),
-      ).thenAnswer((_) async => [event(title: 'Xylophone lesson')]);
-      when(todoDao.search('xyz')).thenAnswer((_) async => <TodoRow>[]);
+        eventRepository.search('team'),
+      ).thenAnswer((_) async => [event(title: 'Team standup')]);
+      when(todoDao.search('team')).thenAnswer((_) async => <TodoRow>[]);
 
       await pumpScreen(tester);
-
-      await tester.enterText(find.byType(TextField), 'abc');
-      await tester.enterText(find.byType(TextField), '');
-      await tester.pump();
-      await tester.enterText(find.byType(TextField), 'xyz');
+      await tester.enterText(find.byType(TextField), 'team');
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
 
-      expect(find.text('Xylophone lesson'), findsOneWidget);
+      await tester.longPress(find.text('Team standup'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextField, 'Team standup'), findsOneWidget);
+      expect(find.text('편집하기'), findsNothing);
     },
   );
 }

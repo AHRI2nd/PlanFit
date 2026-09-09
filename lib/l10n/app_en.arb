@@ -257,6 +257,7 @@
 
   "eventNew": "New event",
   "eventEdit": "Edit event",
+  "eventPreviewEditButton": "Edit",
   "eventSectionBasic": "Basic",
   "eventSectionSchedule": "Date & time",
   "eventSectionNotify": "Notification",
@@ -284,6 +285,7 @@
   "eventStart": "Starts",
   "eventEnd": "Ends",
   "eventNotify": "Notify at start",
+  "eventNotifyOff": "No reminder",
   "eventReminderLead": "Remind me",
   "eventReminderAtStart": "At start",
   "eventReminderMinutesBefore": "{minutes}m before",
@@ -333,6 +335,7 @@
   "@eventSelectionCount": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "eventSelectionStart": "Select events",
   "eventSelectionDelete": "Delete",
   "eventSelectionDeleted": "Deleted {count}",
   "@eventSelectionDeleted": {

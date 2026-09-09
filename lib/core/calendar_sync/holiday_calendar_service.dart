@@ -14,8 +14,8 @@ import '../serial_queue.dart';
 
 /// Source-id prefix for a country-based holiday mirror — see
 /// [holidayCustomSourceId] for the other kind. Both start with `'holiday:'`,
-/// which is the only part `MirroredEventDetailScreen._isHoliday` actually
-/// checks, so either shape is recognized as a read-only holiday row there.
+/// which is the only part `EventPreviewSheet._isHoliday` actually checks, so
+/// either shape is recognized as a read-only holiday row there.
 String holidayCountrySourceId(String countryCode) =>
     'holiday:country:$countryCode';
 

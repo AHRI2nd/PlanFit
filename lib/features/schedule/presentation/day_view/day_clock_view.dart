@@ -12,6 +12,7 @@ import '../../../../design/tokens/event_color_tag.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../domain/day_clock_geometry.dart';
 import '../event_edit/event_editor_sheet.dart';
+import '../event_edit/event_preview_sheet.dart';
 
 /// The day view's alternate layout: every timed event laid out as a colored
 /// arc on a 24-hour dial (0/24:00 at the top, clockwise) instead of a
@@ -83,6 +84,13 @@ class DayClockView extends ConsumerWidget {
                 metrics,
                 arcs,
               ),
+              onLongPressStart: (details) => _handleLongPress(
+                context,
+                details.localPosition,
+                center,
+                metrics,
+                arcs,
+              ),
               child: CustomPaint(
                 painter: _ClockPainter(
                   metrics: metrics,
@@ -102,8 +110,12 @@ class DayClockView extends ConsumerWidget {
     );
   }
 
-  void _handleTap(
-    BuildContext context,
+  /// Geometric hit-test shared by [_handleTap] and [_handleLongPress] — the
+  /// dial has no per-event widget of its own to hang a gesture callback off
+  /// (unlike every other event surface), so both gestures resolve which
+  /// event (if any) was hit the same way, then just differ in what they do
+  /// with it.
+  EventRow? _hitTest(
     Offset local,
     Offset center,
     _DialMetrics metrics,
@@ -112,11 +124,32 @@ class DayClockView extends ConsumerWidget {
     final dx = local.dx - center.dx;
     final dy = local.dy - center.dy;
     final r = math.sqrt(dx * dx + dy * dy);
-    if (metrics.ringBandWidth <= 0) return;
+    if (metrics.ringBandWidth <= 0) return null;
     final ringFraction = (r - metrics.ringInnerRadius) / metrics.ringBandWidth;
-    if (ringFraction < 0 || ringFraction > 1) return;
+    if (ringFraction < 0 || ringFraction > 1) return null;
     final angle = math.atan2(dy, dx);
-    final hit = hitTestClockArcs(arcs, angle, ringFraction);
+    return hitTestClockArcs(arcs, angle, ringFraction);
+  }
+
+  void _handleTap(
+    BuildContext context,
+    Offset local,
+    Offset center,
+    _DialMetrics metrics,
+    List<ClockArc> arcs,
+  ) {
+    final hit = _hitTest(local, center, metrics, arcs);
+    if (hit != null) showEventPreview(context, event: hit);
+  }
+
+  void _handleLongPress(
+    BuildContext context,
+    Offset local,
+    Offset center,
+    _DialMetrics metrics,
+    List<ClockArc> arcs,
+  ) {
+    final hit = _hitTest(local, center, metrics, arcs);
     if (hit != null) showEventEditor(context, existing: hit);
   }
 }
@@ -362,7 +395,8 @@ class _ClockPainter extends CustomPainter {
 /// A plain, upright, always-legible list of every timed event on
 /// [DayClockView]'s dial — see that class's own doc for why the arcs
 /// themselves carry no title text at all. Sorted by start time; tapping a
-/// row opens the same [showEventEditor] an arc tap does.
+/// row opens the same read-only preview an arc tap does, and long-pressing
+/// it opens the editor directly, same as an arc long-press.
 class DayClockLegend extends ConsumerWidget {
   const DayClockLegend({super.key, required this.events, required this.locale});
 
@@ -408,7 +442,8 @@ class _LegendRow extends StatelessWidget {
 
     return InkWell(
       borderRadius: AppRadius.cardMd,
-      onTap: () => showEventEditor(context, existing: event),
+      onTap: () => showEventPreview(context, event: event),
+      onLongPress: () => showEventEditor(context, existing: event),
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xs,

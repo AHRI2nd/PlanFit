@@ -18,6 +18,8 @@ import '../../application/schedule_providers.dart';
 import '../../domain/calendar_dot.dart';
 import '../../domain/event_span.dart';
 import '../day_view/day_view.dart';
+import '../event_edit/event_editor_sheet.dart';
+import '../event_edit/event_preview_sheet.dart';
 
 /// Number of week-rows [TableCalendar] renders for the month containing
 /// [focusedDay], replicating its own internal `_getRowCount` (see
@@ -595,6 +597,9 @@ class MonthView extends ConsumerWidget {
                         _MonthEventListRow(
                           color: EventColorTag.resolve(e.colorTag, e.startAt),
                           label: e.title.isEmpty ? '—' : e.title,
+                          onTap: () => showEventPreview(context, event: e),
+                          onLongPress: () =>
+                              showEventEditor(context, existing: e),
                         ),
                       if (hasOverdueTodo || hasTodo)
                         _MonthEventListRow(
@@ -646,6 +651,8 @@ class MonthView extends ConsumerWidget {
                                 color: last.color,
                                 label: last.label,
                                 trailingHint: hint,
+                                onTap: last.onTap,
+                                onLongPress: last.onLongPress,
                               )
                             : _MonthMoreRow(count: hint),
                       );
@@ -759,16 +766,26 @@ class _MonthEventListRow extends StatelessWidget {
     required this.color,
     required this.label,
     this.trailingHint,
+    this.onTap,
+    this.onLongPress,
   });
 
   final Color color;
   final String label;
   final int? trailingHint;
 
+  /// Both null for the to-do summary row this same widget also renders
+  /// (see its call site) — there's no single to-do to preview/edit here,
+  /// only a count. An event row gets both: tap opens the read-only
+  /// preview, long-press skips straight to the editor, same split every
+  /// other event surface now has.
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return SizedBox(
+    final content = SizedBox(
       height: monthEventRowHeight(textScaler: MediaQuery.textScalerOf(context)),
       child: Row(
         children: [
@@ -811,6 +828,13 @@ class _MonthEventListRow extends StatelessWidget {
             ),
         ],
       ),
+    );
+    if (onTap == null && onLongPress == null) return content;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: content,
     );
   }
 }

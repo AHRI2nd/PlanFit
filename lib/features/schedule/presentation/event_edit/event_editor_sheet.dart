@@ -27,8 +27,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/event_input.dart';
 import '../../domain/recurrence.dart';
+import 'event_preview_sheet.dart';
 import 'lunar_date_picker.dart';
-import 'mirrored_event_detail_screen.dart';
 
 /// Opens the create/edit screen. When [existing] is null it's a new event
 /// anchored at [initialDay]; otherwise it edits that row. [duplicateFrom]
@@ -38,9 +38,11 @@ import 'mirrored_event_detail_screen.dart';
 ///
 /// An [existing] event mirrored in from a subscribed calendar (see
 /// CalendarImportService's doc comment) opens the read-only
-/// [MirroredEventDetailScreen] instead — never the editable form, since a
-/// save there would try to push the edit back out to a calendar that may
-/// not even be writable.
+/// [showEventPreview] sheet instead — never the editable form, since a save
+/// there would try to push the edit back out to a calendar that may not even
+/// be writable. Every "look at this event" gesture in the app (tap → preview,
+/// long-press → this function) converges on the same read-only sheet for a
+/// mirrored event, since there's no edit path to distinguish them by.
 ///
 /// Pushed as a full-screen route (not `showModalBottomSheet`) so its content
 /// always gets the whole screen height up front — a modal sheet that resizes
@@ -58,11 +60,7 @@ Future<void> showEventEditor(
   DateTime? initialEnd,
 }) {
   if (existing != null && existing.importSourceCalendarId != null) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => MirroredEventDetailScreen(event: existing),
-      ),
-    );
+    return showEventPreview(context, event: existing);
   }
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
@@ -76,6 +74,19 @@ Future<void> showEventEditor(
       ),
     ),
   );
+}
+
+/// A reminder lead time (minutes before an event's own start) as a short,
+/// human-readable label — "정시 알림"/"1일 전"/"3시간 전"/"45분 전" and their
+/// en/ja equivalents. A public top-level function (same reasoning as
+/// [recomputeForNewStart] just below) so [EventPreviewSheet] can show the
+/// exact same labels this sheet's own reminder chips use, rather than
+/// drifting out of sync with a second, independently-maintained copy.
+String eventReminderLeadTimeLabel(AppL10n l10n, int minutes) {
+  if (minutes == 0) return l10n.eventReminderAtStart;
+  if (minutes == 1440) return l10n.eventReminderDayBefore;
+  if (minutes % 60 == 0) return l10n.eventReminderHoursBefore(minutes ~/ 60);
+  return l10n.eventReminderMinutesBefore(minutes);
 }
 
 /// The pure recomputation `_applyPicked` needs when the *start* date/time
@@ -105,7 +116,8 @@ Future<void> showEventEditor(
 ///    a local midnight-to-midnight difference isn't always an exact
 ///    multiple of 24h when a DST transition falls in between, which would
 ///    otherwise land the recomputed until on the wrong calendar day by one.
-({DateTime start, DateTime end, DateTime recurrenceUntil}) recomputeForNewStart({
+({DateTime start, DateTime end, DateTime recurrenceUntil})
+recomputeForNewStart({
   required DateTime oldStart,
   required DateTime oldEnd,
   required DateTime oldRecurrenceUntil,
@@ -298,12 +310,8 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   String _weekdayLabel(int weekday, String locale) =>
       Fmt.weekdayShort(DateTime(2024, 1, weekday), locale);
 
-  String _leadTimeLabel(AppL10n l10n, int minutes) {
-    if (minutes == 0) return l10n.eventReminderAtStart;
-    if (minutes == 1440) return l10n.eventReminderDayBefore;
-    if (minutes % 60 == 0) return l10n.eventReminderHoursBefore(minutes ~/ 60);
-    return l10n.eventReminderMinutesBefore(minutes);
-  }
+  String _leadTimeLabel(AppL10n l10n, int minutes) =>
+      eventReminderLeadTimeLabel(l10n, minutes);
 
   int _nextHour() {
     final h = DateTime.now().hour + 1;
@@ -982,8 +990,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                                 count: _recurrenceCount,
                                 max: RecurrenceExpansion.maxOccurrences,
                                 accent: accent,
-                                labelFor: (n) =>
-                                    l10n.eventRepeatCountTimes(n),
+                                labelFor: (n) => l10n.eventRepeatCountTimes(n),
                                 onChanged: (v) =>
                                     setState(() => _recurrenceCount = v),
                               )

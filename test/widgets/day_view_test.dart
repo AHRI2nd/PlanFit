@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart' show kLongPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +14,6 @@ import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/widgets/section_header.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
-import 'package:planfit/features/schedule/domain/event_input.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_clock_view.dart';
 import 'package:planfit/features/schedule/presentation/day_view/day_view.dart';
@@ -252,149 +250,152 @@ void main() {
     expect(card.height, greaterThanOrEqualTo(84));
   });
 
-  group('back-to-back events (one starting exactly when the previous ends)', () {
-    testWidgets(
-      'never visually overlap, and a plain 1-hour one renders at exactly '
-      'its own true height with no artificial stretch at all',
-      (tester) async {
-        // Regression test — reported live: a screenshot of 6 consecutive
-        // plain 1-hour events showed every boundary looking like an
-        // overlap. Each is only 64px tall at this DayView's 64px/hour;
-        // back when _minEventCardHeight was 80 (it budgeted room for a
-        // resize grip that's since been removed entirely — see that
-        // constant's own doc), every one of them got stretched past its
-        // own true duration regardless of what followed, painting 16px
-        // into the very next event's card despite the two sharing no
-        // time at all. Now that the floor (64) matches a plain hour
-        // exactly, this case doesn't even need the next-event capping
-        // that shorter/crowded/located events still do — asserting the
-        // exact height (not just "no overlap") pins that down.
-        final day = DateTime(2026, 3, 10);
-        final first = row(
-          id: 'first',
-          title: 'First',
-          startAt: DateTime(2026, 3, 10, 9),
-          endAt: DateTime(2026, 3, 10, 10),
-        );
-        final second = row(
-          id: 'second',
-          title: 'Second',
-          startAt: DateTime(2026, 3, 10, 10),
-          endAt: DateTime(2026, 3, 10, 11),
-        );
-        when(
-          events.watchBetween(any, any),
-        ).thenAnswer((_) => Stream.value([first, second]));
+  group(
+    'back-to-back events (one starting exactly when the previous ends)',
+    () {
+      testWidgets(
+        'never visually overlap, and a plain 1-hour one renders at exactly '
+        'its own true height with no artificial stretch at all',
+        (tester) async {
+          // Regression test — reported live: a screenshot of 6 consecutive
+          // plain 1-hour events showed every boundary looking like an
+          // overlap. Each is only 64px tall at this DayView's 64px/hour;
+          // back when _minEventCardHeight was 80 (it budgeted room for a
+          // resize grip that's since been removed entirely — see that
+          // constant's own doc), every one of them got stretched past its
+          // own true duration regardless of what followed, painting 16px
+          // into the very next event's card despite the two sharing no
+          // time at all. Now that the floor (64) matches a plain hour
+          // exactly, this case doesn't even need the next-event capping
+          // that shorter/crowded/located events still do — asserting the
+          // exact height (not just "no overlap") pins that down.
+          final day = DateTime(2026, 3, 10);
+          final first = row(
+            id: 'first',
+            title: 'First',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 10),
+          );
+          final second = row(
+            id: 'second',
+            title: 'Second',
+            startAt: DateTime(2026, 3, 10, 10),
+            endAt: DateTime(2026, 3, 10, 11),
+          );
+          when(
+            events.watchBetween(any, any),
+          ).thenAnswer((_) => Stream.value([first, second]));
 
-        await pumpDay(tester, day);
+          await pumpDay(tester, day);
 
-        expect(tester.takeException(), isNull);
-        Finder cardOf(String title) => find
-            .ancestor(
-              of: find.text(title),
-              matching: find.byType(RepaintBoundary),
-            )
-            .first;
-        final firstRect = tester.getRect(cardOf('First'));
-        final secondRect = tester.getRect(cardOf('Second'));
-        expect(firstRect.bottom, lessThanOrEqualTo(secondRect.top));
-        expect(firstRect.height, 64);
-      },
-    );
+          expect(tester.takeException(), isNull);
+          Finder cardOf(String title) => find
+              .ancestor(
+                of: find.text(title),
+                matching: find.byType(RepaintBoundary),
+              )
+              .first;
+          final firstRect = tester.getRect(cardOf('First'));
+          final secondRect = tester.getRect(cardOf('Second'));
+          expect(firstRect.bottom, lessThanOrEqualTo(secondRect.top));
+          expect(firstRect.height, 64);
+        },
+      );
 
-    testWidgets(
-      'a card squeezed by the next event still shows its title and time '
-      'range, with no overflow even when it also carries a location',
-      (tester) async {
-        // The tight-mode budget (_tightEventCardHeight) drops the
-        // location row but keeps the time-range line — this pins down
-        // that a location on the squeezed event doesn't sneak back in
-        // and overflow the smaller budget the same way an earlier bug
-        // let it overflow the comfortable one (see the "gets enough
-        // extra height for its location row" test above).
-        final day = DateTime(2026, 3, 10);
-        final first = row(
-          id: 'first',
-          title: 'Coffee with a client',
-          startAt: DateTime(2026, 3, 10, 9),
-          endAt: DateTime(2026, 3, 10, 10),
-          location: '1234 Main St',
-        );
-        final second = row(
-          id: 'second',
-          title: 'Next thing',
-          startAt: DateTime(2026, 3, 10, 10),
-          endAt: DateTime(2026, 3, 10, 11),
-        );
-        when(
-          events.watchBetween(any, any),
-        ).thenAnswer((_) => Stream.value([first, second]));
+      testWidgets(
+        'a card squeezed by the next event still shows its title and time '
+        'range, with no overflow even when it also carries a location',
+        (tester) async {
+          // The tight-mode budget (_tightEventCardHeight) drops the
+          // location row but keeps the time-range line — this pins down
+          // that a location on the squeezed event doesn't sneak back in
+          // and overflow the smaller budget the same way an earlier bug
+          // let it overflow the comfortable one (see the "gets enough
+          // extra height for its location row" test above).
+          final day = DateTime(2026, 3, 10);
+          final first = row(
+            id: 'first',
+            title: 'Coffee with a client',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 10),
+            location: '1234 Main St',
+          );
+          final second = row(
+            id: 'second',
+            title: 'Next thing',
+            startAt: DateTime(2026, 3, 10, 10),
+            endAt: DateTime(2026, 3, 10, 11),
+          );
+          when(
+            events.watchBetween(any, any),
+          ).thenAnswer((_) => Stream.value([first, second]));
 
-        await pumpDay(tester, day);
+          await pumpDay(tester, day);
 
-        expect(tester.takeException(), isNull);
-        expect(find.text('Coffee with a client'), findsOneWidget);
-        // The time-range line uses an en dash between start and end
-        // regardless of 12h/24h formatting — check for that rather than
-        // a specific "09:00"/"9:00 AM" string tied to one format. Both
-        // cards show their own time range now, so at least one (not
-        // exactly one).
-        expect(
-          find.byWidgetPredicate(
-            (w) => w is Text && (w.data?.contains('–') ?? false),
-          ),
-          findsAtLeastNWidgets(1),
-        );
-        // The location row is dropped in tight mode — there's no budget
-        // for it once squeezed this far.
-        expect(find.text('1234 Main St'), findsNothing);
-      },
-    );
+          expect(tester.takeException(), isNull);
+          expect(find.text('Coffee with a client'), findsOneWidget);
+          // The time-range line uses an en dash between start and end
+          // regardless of 12h/24h formatting — check for that rather than
+          // a specific "09:00"/"9:00 AM" string tied to one format. Both
+          // cards show their own time range now, so at least one (not
+          // exactly one).
+          expect(
+            find.byWidgetPredicate(
+              (w) => w is Text && (w.data?.contains('–') ?? false),
+            ),
+            findsAtLeastNWidgets(1),
+          );
+          // The location row is dropped in tight mode — there's no budget
+          // for it once squeezed this far.
+          expect(find.text('1234 Main St'), findsNothing);
+        },
+      );
 
-    testWidgets(
-      'a squeezed card in a crowded (side-by-side) column still shows no '
-      'overflow even with a title long enough to want 2 lines',
-      (tester) async {
-        // Regression test for the fix's first attempt: tight mode kept
-        // the crowded case's own maxLines: 2 (meant for the *comfortable*
-        // budget's extra headroom — _crowdedColumnExtraHeight — which the
-        // smaller _tightEventCardHeight budget was never given), and a
-        // genuinely 2-line-wrapping title overflowed it by exactly the
-        // second line's worth of height. Fixed by pinning tight mode to
-        // maxLines: 1 regardless of crowding, rather than trying to also
-        // budget _tightEventCardHeight for a 2nd title line.
-        final day = DateTime(2026, 3, 10);
-        // "first"/"overlap" genuinely overlap (9:00-9:30 and 9:15-10:00),
-        // forcing a 2-column crowded layout; "first" then also butts
-        // straight up against "next" starting the moment it ends.
-        final first = row(
-          id: 'first',
-          title: 'A genuinely quite long meeting title that wraps twice',
-          startAt: DateTime(2026, 3, 10, 9),
-          endAt: DateTime(2026, 3, 10, 9, 30),
-        );
-        final overlap = row(
-          id: 'overlap',
-          title: 'Overlap',
-          startAt: DateTime(2026, 3, 10, 9, 15),
-          endAt: DateTime(2026, 3, 10, 10),
-        );
-        final next = row(
-          id: 'next',
-          title: 'Next',
-          startAt: DateTime(2026, 3, 10, 9, 30),
-          endAt: DateTime(2026, 3, 10, 10, 30),
-        );
-        when(
-          events.watchBetween(any, any),
-        ).thenAnswer((_) => Stream.value([first, overlap, next]));
+      testWidgets(
+        'a squeezed card in a crowded (side-by-side) column still shows no '
+        'overflow even with a title long enough to want 2 lines',
+        (tester) async {
+          // Regression test for the fix's first attempt: tight mode kept
+          // the crowded case's own maxLines: 2 (meant for the *comfortable*
+          // budget's extra headroom — _crowdedColumnExtraHeight — which the
+          // smaller _tightEventCardHeight budget was never given), and a
+          // genuinely 2-line-wrapping title overflowed it by exactly the
+          // second line's worth of height. Fixed by pinning tight mode to
+          // maxLines: 1 regardless of crowding, rather than trying to also
+          // budget _tightEventCardHeight for a 2nd title line.
+          final day = DateTime(2026, 3, 10);
+          // "first"/"overlap" genuinely overlap (9:00-9:30 and 9:15-10:00),
+          // forcing a 2-column crowded layout; "first" then also butts
+          // straight up against "next" starting the moment it ends.
+          final first = row(
+            id: 'first',
+            title: 'A genuinely quite long meeting title that wraps twice',
+            startAt: DateTime(2026, 3, 10, 9),
+            endAt: DateTime(2026, 3, 10, 9, 30),
+          );
+          final overlap = row(
+            id: 'overlap',
+            title: 'Overlap',
+            startAt: DateTime(2026, 3, 10, 9, 15),
+            endAt: DateTime(2026, 3, 10, 10),
+          );
+          final next = row(
+            id: 'next',
+            title: 'Next',
+            startAt: DateTime(2026, 3, 10, 9, 30),
+            endAt: DateTime(2026, 3, 10, 10, 30),
+          );
+          when(
+            events.watchBetween(any, any),
+          ).thenAnswer((_) => Stream.value([first, overlap, next]));
 
-        await pumpDay(tester, day);
+          await pumpDay(tester, day);
 
-        expect(tester.takeException(), isNull);
-      },
-    );
-  });
+          expect(tester.takeException(), isNull);
+        },
+      );
+    },
+  );
 
   testWidgets(
     // _EventCard's own swipe-to-delete was removed in favor of freeing the
@@ -425,116 +426,89 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a mirrored event (holiday/subscribed calendar) does not wire up '
-    'long-press-drag at all — regression test: it used to, and dragging it '
-    'called save() straight from the gesture handler, bypassing the '
-    '"mirrored events are read-only" gate that tapping the card already '
-    'goes through, and created a duplicate device-calendar event',
-    (tester) async {
-      final day = DateTime(2026, 3, 10);
-      final mirrored = row(
-        id: 'holiday1',
-        title: 'Chuseok',
-        startAt: DateTime(2026, 3, 10, 9),
-        endAt: DateTime(2026, 3, 10, 10),
-        importSourceCalendarId:
-            'ko.south_korea#holiday@group.v.calendar.google.com',
-      );
-      when(
-        events.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value([mirrored]));
+  testWidgets('tapping a timed event card opens the read-only preview, not the '
+      'editor — the old drag-to-move gesture used to live on the same '
+      'long-press this preview/edit split now claims (see the sibling test '
+      'below), so a plain tap never touched it either way; this just pins '
+      'tap\'s own behavior now that showEventEditor is no longer tap\'s '
+      'target', (tester) async {
+    final day = DateTime(2026, 3, 10);
+    final e = row(
+      id: 'e1',
+      title: 'Tea time',
+      startAt: DateTime(2026, 3, 10, 2),
+      endAt: DateTime(2026, 3, 10, 3),
+    );
+    when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
 
-      await pumpDay(tester, day);
+    await pumpDay(tester, day);
+    await tester.tap(find.text('Tea time'));
+    await tester.pumpAndSettle();
 
-      final detector = tester.widget<GestureDetector>(
-        find
-            .ancestor(
-              of: find.text('Chuseok'),
-              matching: find.byType(GestureDetector),
-            )
-            .first,
-      );
-      expect(detector.onLongPressStart, isNull);
-    },
-  );
+    // The preview's own "편집하기" button — its presence is what
+    // distinguishes the preview sheet from the full editor here.
+    expect(find.text('편집하기'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Tea time'), findsNothing);
+  });
 
   testWidgets(
-    'long-pressing a midnight-spanning event and releasing without any '
-    'drag does not rewrite its saved time — regression test for '
-    "_effectiveTimes' boundary clamp firing even at zero delta",
+    'long-pressing a timed event card skips the preview and opens the '
+    'full editor directly — regression test: this long-press used to '
+    'drive a drag-to-move gesture instead; removed (see event_editor_sheet '
+    'commit) in favor of this being the one required "long-press = edit" '
+    'entry point every event surface now shares',
     (tester) async {
       final day = DateTime(2026, 3, 10);
-      // Spans this day's midnight: starts 23:30 on the 10th, ends 00:30 on
-      // the 11th — so it's also rendered (and long-press-draggable) when
-      // viewing the 10th, even though `e.endAt` itself lies outside that
-      // day's own [dayStart, dayEnd) window at rest.
       final e = row(
-        id: 'overnight',
-        title: 'Overnight shift',
-        startAt: DateTime(2026, 3, 10, 23, 30),
-        endAt: DateTime(2026, 3, 11, 0, 30),
+        id: 'e1',
+        title: 'Tea time',
+        startAt: DateTime(2026, 3, 10, 2),
+        endAt: DateTime(2026, 3, 10, 3),
       );
       when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
 
       await pumpDay(tester, day);
-      // 23:30 sits near the bottom of the 24h timeline, well below the
-      // default test viewport — scroll whatever Scrollable ancestor(s) it
-      // needs to actually bring it into a hit-testable position, rather
-      // than assuming a fixed pixel offset.
-      await tester.ensureVisible(find.text('Overnight shift'));
+      await tester.longPress(find.text('Tea time'));
       await tester.pumpAndSettle();
 
-      // A plain long-press-and-release (no movement in between) — exactly
-      // what `WidgetTester.longPress` does: press down, wait past the
-      // long-press timeout, then release with no drag.
-      await tester.longPress(find.text('Overnight shift'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-
-      verifyNever(events.save(any));
+      // showEventEditor for an existing event opens its title pre-filled
+      // into the editor's own text field — the preview never shows.
+      expect(find.widgetWithText(TextField, 'Tea time'), findsOneWidget);
+      expect(find.text('편집하기'), findsNothing);
     },
   );
 
-  testWidgets(
-    'a real long-press-drag on a midnight-spanning event still moves it '
-    'normally — the zero-delta fix above must not disable clamping when '
-    'the drag itself pushes the event further out',
-    (tester) async {
-      final day = DateTime(2026, 3, 10);
-      final e = row(
-        id: 'overnight',
-        title: 'Overnight shift',
-        startAt: DateTime(2026, 3, 10, 23, 30),
-        endAt: DateTime(2026, 3, 11, 0, 30),
-      );
-      when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([e]));
-      when(events.save(any)).thenAnswer((_) async => e);
+  testWidgets('a mirrored event (holiday/subscribed calendar) opens the same '
+      'read-only preview whether tapped or long-pressed — there is no edit '
+      'path for it either way, so long-press has nothing extra to skip to', (
+    tester,
+  ) async {
+    final day = DateTime(2026, 3, 10);
+    final mirrored = row(
+      id: 'holiday1',
+      title: 'Chuseok',
+      startAt: DateTime(2026, 3, 10, 2),
+      endAt: DateTime(2026, 3, 10, 3),
+      importSourceCalendarId:
+          'ko.south_korea#holiday@group.v.calendar.google.com',
+    );
+    when(
+      events.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value([mirrored]));
 
-      await pumpDay(tester, day);
-      await tester.ensureVisible(find.text('Overnight shift'));
-      await tester.pumpAndSettle();
+    await pumpDay(tester, day);
 
-      // Drag the card 1 hour earlier (up by one hourHeight — compact day
-      // view's hourHeight; using a generous pixel delta and relying on the
-      // 5-minute snap plus the still-active "before dayStart" clamp is
-      // brittle across hourHeight tuning, so just assert the *direction* and
-      // that a save still happens with the duration preserved).
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.text('Overnight shift')),
-      );
-      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-      await gesture.moveBy(const Offset(0, -60));
-      await tester.pump();
-      await gesture.up();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Chuseok'));
+    await tester.pumpAndSettle();
+    expect(find.text('편집하기'), findsNothing);
+    Navigator.of(tester.element(find.text('Chuseok').last)).pop();
+    await tester.pumpAndSettle();
 
-      final input = verify(events.save(captureAny)).captured.single as EventInput;
-      expect(input.endAt.difference(input.startAt), const Duration(hours: 1));
-      expect(input.startAt.isBefore(e.startAt), isTrue);
-    },
-  );
+    await tester.longPress(find.text('Chuseok'));
+    await tester.pumpAndSettle();
+    expect(find.text('편집하기'), findsNothing);
+    expect(find.widgetWithText(TextField, 'Chuseok'), findsNothing);
+  });
 
   group('swiping the all-day/timeline area navigates by whole days', () {
     testWidgets('a left fling advances to the next day', (tester) async {
@@ -745,8 +719,9 @@ void main() {
   );
 
   testWidgets(
-    'tapping a title in the clock legend opens the same editor an arc tap '
-    'would',
+    'tapping a title in the clock legend opens the read-only preview, and '
+    'long-pressing it opens the editor directly — same split an arc tap/'
+    'long-press has',
     (tester) async {
       final day = DateTime(2026, 3, 10);
       final lunch = row(
@@ -778,10 +753,18 @@ void main() {
 
       await tester.tap(find.text('Dinner'));
       await tester.pumpAndSettle();
+      expect(find.text('편집하기'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Dinner'), findsNothing);
+      Navigator.of(tester.element(find.text('편집하기'))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Dinner'));
+      await tester.pumpAndSettle();
 
       // showEventEditor for an existing event opens its title pre-filled
       // into the editor's own text field.
       expect(find.widgetWithText(TextField, 'Dinner'), findsOneWidget);
+      expect(find.text('편집하기'), findsNothing);
     },
   );
 
@@ -887,151 +870,144 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a closing "오전 12시" boundary appears below the last hour row — '
-    'regression test for the grid visually just stopping at 오후 11시 with '
-    'nothing marking where the day actually ends',
-    (tester) async {
-      final day = DateTime(2026, 3, 10);
-      // A timed event, not an empty list — an empty day renders _EmptyDay
-      // instead of the timeline this test is actually about.
-      when(events.watchBetween(any, any)).thenAnswer(
-        (_) => Stream.value([
-          row(
-            id: 'e1',
-            title: 'Anchor',
-            startAt: DateTime(2026, 3, 10, 9),
-            endAt: DateTime(2026, 3, 10, 10),
-          ),
-        ]),
-      );
+  testWidgets('a closing "오전 12시" boundary appears below the last hour row — '
+      'regression test for the grid visually just stopping at 오후 11시 with '
+      'nothing marking where the day actually ends', (tester) async {
+    final day = DateTime(2026, 3, 10);
+    // A timed event, not an empty list — an empty day renders _EmptyDay
+    // instead of the timeline this test is actually about.
+    when(events.watchBetween(any, any)).thenAnswer(
+      (_) => Stream.value([
+        row(
+          id: 'e1',
+          title: 'Anchor',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+        ),
+      ]),
+    );
 
-      await pumpDay(tester, day);
+    await pumpDay(tester, day);
 
-      // 64 (hourHeight) * 24 — the boundary sits exactly one hour row below
-      // the 23시 row's own top edge, i.e. right at the grid's true bottom.
-      final boundary = find.byWidgetPredicate(
-        (w) => w is Positioned && w.top == 64.0 * 24,
-      );
-      expect(boundary, findsWidgets);
-      expect(find.text('오전 12시'), findsWidgets);
-    },
-  );
+    // 64 (hourHeight) * 24 — the boundary sits exactly one hour row below
+    // the 23시 row's own top edge, i.e. right at the grid's true bottom.
+    final boundary = find.byWidgetPredicate(
+      (w) => w is Positioned && w.top == 64.0 * 24,
+    );
+    expect(boundary, findsWidgets);
+    expect(find.text('오전 12시'), findsWidgets);
+  });
 
-  testWidgets(
-    "dragging the timeline actually scrolls the day into view — "
-    'regression test: giving the inner (timeline) SingleChildScrollView '
-    'even a few px of its own scroll extent (an earlier, since-reverted '
-    "fix for the 00시-label clip above) made it capture the vertical drag "
-    "for itself instead of the *outer* list this whole day's content "
-    'sits inside, leaving that outer list stuck unscrollable — the '
-    "to-dos section below the timeline became permanently unreachable, "
-    'not just harder to get to',
-    (tester) async {
-      final day = DateTime(2026, 3, 10);
-      // A timed event, not an empty list — an empty day's much shorter
-      // _EmptyDay (280px) fits without the outer list needing to scroll at
-      // all, which wouldn't exercise the regression this guards against.
-      when(events.watchBetween(any, any)).thenAnswer(
-        (_) => Stream.value([
-          row(
-            id: 'e1',
-            title: 'Anchor',
-            startAt: DateTime(2026, 3, 10, 9),
-            endAt: DateTime(2026, 3, 10, 10),
-          ),
-        ]),
-      );
-      when(
-        todos.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value(const []));
+  testWidgets("dragging the timeline actually scrolls the day into view — "
+      'regression test: giving the inner (timeline) SingleChildScrollView '
+      'even a few px of its own scroll extent (an earlier, since-reverted '
+      "fix for the 00시-label clip above) made it capture the vertical drag "
+      "for itself instead of the *outer* list this whole day's content "
+      'sits inside, leaving that outer list stuck unscrollable — the '
+      "to-dos section below the timeline became permanently unreachable, "
+      'not just harder to get to', (tester) async {
+    final day = DateTime(2026, 3, 10);
+    // A timed event, not an empty list — an empty day's much shorter
+    // _EmptyDay (280px) fits without the outer list needing to scroll at
+    // all, which wouldn't exercise the regression this guards against.
+    when(events.watchBetween(any, any)).thenAnswer(
+      (_) => Stream.value([
+        row(
+          id: 'e1',
+          title: 'Anchor',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+        ),
+      ]),
+    );
+    when(
+      todos.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
 
-      await pumpDay(tester, day);
+    await pumpDay(tester, day);
 
-      // The pager reserves a full 1536px (24 hours) box before the to-dos
-      // section even starts, so SectionHeader sits well outside a test
-      // surface's default viewport + cache extent — genuinely unmounted,
-      // not just scrolled out of view. That's the baseline this test
-      // relies on: if the outer list can really scroll, dragging it far
-      // enough must bring SectionHeader into the cache extent and mount
-      // it; if the outer list is stuck (the regression this guards
-      // against), it never will be, no matter how many times this drags.
-      expect(find.byType(SectionHeader), findsNothing);
+    // The pager reserves a full 1536px (24 hours) box before the to-dos
+    // section even starts, so SectionHeader sits well outside a test
+    // surface's default viewport + cache extent — genuinely unmounted,
+    // not just scrolled out of view. That's the baseline this test
+    // relies on: if the outer list can really scroll, dragging it far
+    // enough must bring SectionHeader into the cache extent and mount
+    // it; if the outer list is stuck (the regression this guards
+    // against), it never will be, no matter how many times this drags.
+    expect(find.byType(SectionHeader), findsNothing);
 
-      // A fixed screen coordinate, not a text finder — whatever hour label
-      // happens to be there scrolls out (and unmounts) after the first
-      // couple of drags, but the coordinate itself stays valid throughout.
-      for (var i = 0; i < 6; i++) {
-        await tester.dragFrom(const Offset(400, 400), const Offset(0, -600));
-        await tester.pump();
-      }
-      await tester.pump(const Duration(milliseconds: 50));
+    // A fixed screen coordinate, not a text finder — whatever hour label
+    // happens to be there scrolls out (and unmounts) after the first
+    // couple of drags, but the coordinate itself stays valid throughout.
+    for (var i = 0; i < 6; i++) {
+      await tester.dragFrom(const Offset(400, 400), const Offset(0, -600));
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 50));
 
-      expect(
-        find.byType(SectionHeader),
-        findsOneWidget,
-        reason:
-            "the to-dos section header never scrolled into view — the "
-            "outer list is stuck exactly like the regression this guards "
-            'against',
-      );
-    },
-  );
+    expect(
+      find.byType(SectionHeader),
+      findsOneWidget,
+      reason:
+          "the to-dos section header never scrolled into view — the "
+          "outer list is stuck exactly like the regression this guards "
+          'against',
+    );
+  });
 
-  testWidgets(
-    'the same outer-scroll invariant holds on a day that also has an '
-    'all-day event — regression test: the pager only ever reserves '
-    'hourHeight*24 + endOfDayHeight (see DayView.build\'s pagerHeight), '
-    "never budgeting extra room for the all-day card(s) _DayContent "
-    'renders *above* that same timeline SizedBox — so on any day with '
-    'an all-day event, the inner scrollable\'s real content height '
-    "exceeds its reserved viewport height by however tall the all-day "
-    'section is, giving it the exact nonzero scroll extent this file\'s '
-    'own doc says captures the drag and strands the outer list',
-    (tester) async {
-      final day = DateTime(2026, 3, 10);
-      when(events.watchBetween(any, any)).thenAnswer(
-        (_) => Stream.value([
-          row(
-            id: 'holiday',
-            title: 'Public Holiday',
-            startAt: day,
-            endAt: DateTime(2026, 3, 11),
-            isAllDay: true,
-          ),
-          row(
-            id: 'e1',
-            title: 'Anchor',
-            startAt: DateTime(2026, 3, 10, 9),
-            endAt: DateTime(2026, 3, 10, 10),
-          ),
-        ]),
-      );
-      when(
-        todos.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value(const []));
+  testWidgets('the same outer-scroll invariant holds on a day that also has an '
+      'all-day event — regression test: the pager only ever reserves '
+      'hourHeight*24 + endOfDayHeight (see DayView.build\'s pagerHeight), '
+      "never budgeting extra room for the all-day card(s) _DayContent "
+      'renders *above* that same timeline SizedBox — so on any day with '
+      'an all-day event, the inner scrollable\'s real content height '
+      "exceeds its reserved viewport height by however tall the all-day "
+      'section is, giving it the exact nonzero scroll extent this file\'s '
+      'own doc says captures the drag and strands the outer list', (
+    tester,
+  ) async {
+    final day = DateTime(2026, 3, 10);
+    when(events.watchBetween(any, any)).thenAnswer(
+      (_) => Stream.value([
+        row(
+          id: 'holiday',
+          title: 'Public Holiday',
+          startAt: day,
+          endAt: DateTime(2026, 3, 11),
+          isAllDay: true,
+        ),
+        row(
+          id: 'e1',
+          title: 'Anchor',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 10, 10),
+        ),
+      ]),
+    );
+    when(
+      todos.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
 
-      await pumpDay(tester, day);
+    await pumpDay(tester, day);
 
-      expect(find.byType(SectionHeader), findsNothing);
-      for (var i = 0; i < 6; i++) {
-        await tester.dragFrom(const Offset(400, 400), const Offset(0, -600));
-        await tester.pump();
-      }
-      await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(SectionHeader), findsNothing);
+    for (var i = 0; i < 6; i++) {
+      await tester.dragFrom(const Offset(400, 400), const Offset(0, -600));
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 50));
 
-      expect(
-        find.byType(SectionHeader),
-        findsOneWidget,
-        reason:
-            "the to-dos section header never scrolled into view with an "
-            "all-day event present — the inner scrollable's own extra "
-            'content height (the all-day card, on top of the full '
-            "timeline) gave it real scroll extent and it captured the "
-            "drag instead of the outer list",
-      );
-    },
-  );
+    expect(
+      find.byType(SectionHeader),
+      findsOneWidget,
+      reason:
+          "the to-dos section header never scrolled into view with an "
+          "all-day event present — the inner scrollable's own extra "
+          'content height (the all-day card, on top of the full '
+          "timeline) gave it real scroll extent and it captured the "
+          "drag instead of the outer list",
+    );
+  });
 
   testWidgets(
     'an all-day card with a 2-line title and a location renders without '
@@ -1123,49 +1099,44 @@ void main() {
     },
   );
 
-  testWidgets(
-    "the inline to-do row's checkbox has a tappable area of at least "
-    '44x44 — regression test, same fix as the home/todo-list checkboxes '
-    'elsewhere in the app',
-    (tester) async {
-      final day = DateTime(2026, 3, 10);
-      final todo = TodoRow(
-        id: 't1',
-        eventId: null,
-        title: 'Buy milk',
-        slotStart: day.add(const Duration(hours: 9)),
-        slotEnd: null,
-        hasTime: true,
-        isDone: false,
-        sortOrder: 0,
-        priority: 0,
-        tags: null,
-        notify: false,
-        isPinned: false,
-        recurrenceRule: null,
-        recurrenceGroupId: null,
-        reminderSyncStatus: SyncStatus.pendingPush,
-        createdAt: day,
-      );
-      when(
-        todos.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value([todo]));
-      when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([]));
+  testWidgets("the inline to-do row's checkbox has a tappable area of at least "
+      '44x44 — regression test, same fix as the home/todo-list checkboxes '
+      'elsewhere in the app', (tester) async {
+    final day = DateTime(2026, 3, 10);
+    final todo = TodoRow(
+      id: 't1',
+      eventId: null,
+      title: 'Buy milk',
+      slotStart: day.add(const Duration(hours: 9)),
+      slotEnd: null,
+      hasTime: true,
+      isDone: false,
+      sortOrder: 0,
+      priority: 0,
+      tags: null,
+      notify: false,
+      isPinned: false,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
+      createdAt: day,
+    );
+    when(todos.watchBetween(any, any)).thenAnswer((_) => Stream.value([todo]));
+    when(events.watchBetween(any, any)).thenAnswer((_) => Stream.value([]));
 
-      await pumpDay(tester, day);
+    await pumpDay(tester, day);
 
-      final hitArea = find.ancestor(
-        of: find.byIcon(Icons.radio_button_unchecked),
-        matching: find.byWidgetPredicate(
-          (w) => w is SizedBox && w.width == 44 && w.height == 44,
-        ),
-      );
-      expect(hitArea, findsOneWidget);
-      final size = tester.getSize(hitArea);
-      expect(size.width, greaterThanOrEqualTo(44));
-      expect(size.height, greaterThanOrEqualTo(44));
-    },
-  );
+    final hitArea = find.ancestor(
+      of: find.byIcon(Icons.radio_button_unchecked),
+      matching: find.byWidgetPredicate(
+        (w) => w is SizedBox && w.width == 44 && w.height == 44,
+      ),
+    );
+    expect(hitArea, findsOneWidget);
+    final size = tester.getSize(hitArea);
+    expect(size.width, greaterThanOrEqualTo(44));
+    expect(size.height, greaterThanOrEqualTo(44));
+  });
 
   testWidgets(
     'an event card has no resize grip at all, on any card — dragging its '

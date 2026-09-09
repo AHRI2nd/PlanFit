@@ -21,6 +21,7 @@ import '../../domain/drag_create.dart';
 import '../../domain/event_overlap.dart';
 import '../../domain/event_span.dart';
 import '../event_edit/event_editor_sheet.dart';
+import '../event_edit/event_preview_sheet.dart';
 
 /// Truncates [text] to fit one line at [maxWidth]/[style], appending an
 /// ellipsis itself — used only for a cascaded (overlapping-events) card's
@@ -93,7 +94,10 @@ String fitOneLine({
 /// own accessibility text-scale clamp, so at a larger system text size the
 /// budgeted line count came out too generous and the card's real content
 /// needed more room than [fitLines]' resulting `maxLines` accounted for.
-double lineHeightOf(TextStyle? style, {TextScaler textScaler = TextScaler.noScaling}) {
+double lineHeightOf(
+  TextStyle? style, {
+  TextScaler textScaler = TextScaler.noScaling,
+}) {
   final painter = TextPainter(
     text: TextSpan(text: 'A', style: style),
     textDirection: TextDirection.ltr,
@@ -656,13 +660,16 @@ class _AllDayStrip extends StatelessWidget {
                           // in the app already has (DayView's own
                           // all-day _EventCard) — this strip was missing it
                           // entirely, so a holiday or all-day event was
-                          // visible here but unopenable. showEventEditor
-                          // itself routes a subscribed/holiday-mirrored
-                          // event to its read-only detail screen instead of
-                          // the editable form — see its own doc.
+                          // visible here but unopenable. Tap opens the
+                          // read-only preview; long-press skips straight to
+                          // the editor — showEventEditor itself still routes
+                          // a subscribed/holiday-mirrored event back to that
+                          // same preview instead of the editable form, see
+                          // its own doc.
                           return GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: () =>
+                            onTap: () => showEventPreview(context, event: e),
+                            onLongPress: () =>
                                 showEventEditor(context, existing: e),
                             child: Container(
                               margin: const EdgeInsets.symmetric(vertical: 1),
@@ -913,11 +920,8 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                         width: railInset - AppSpacing.xxs,
                         child: Text(
                           Fmt.hour(0, locale, use24Hour: use24),
-                          style: Theme.of(
-                            context,
-                          ).textTheme.labelSmall?.copyWith(
-                            color: palette.inkFaint,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: palette.inkFaint),
                         ),
                       ),
                       Expanded(
@@ -1035,7 +1039,9 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                         left: railInset + i * columnWidth + 1 + leftInset,
                         width: eventWidth.clamp(0.0, columnWidth),
                         child: GestureDetector(
-                          onTap: () => showEventEditor(context, existing: e),
+                          onTap: () => showEventPreview(context, event: e),
+                          onLongPress: () =>
+                              showEventEditor(context, existing: e),
                           child: Container(
                             constraints: BoxConstraints(minHeight: cardHeight),
                             padding: EdgeInsets.symmetric(

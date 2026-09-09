@@ -51,7 +51,7 @@ class _CalendarLegendSheet extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _LegendRow(color: palette.accent, label: l10n.calendarLegendEvent),
           const SizedBox(height: AppSpacing.md),
-          // Same info-box language mirrored_event_detail_screen.dart's own
+          // Same info-box language event_preview_sheet.dart's own
           // read-only note already uses.
           Container(
             padding: const EdgeInsets.all(AppSpacing.sm),

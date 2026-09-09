@@ -257,6 +257,7 @@
 
   "eventNew": "새 일정",
   "eventEdit": "일정 편집",
+  "eventPreviewEditButton": "편집하기",
   "eventSectionBasic": "기본",
   "eventSectionSchedule": "일시",
   "eventSectionNotify": "알림",
@@ -284,6 +285,7 @@
   "eventStart": "시작",
   "eventEnd": "종료",
   "eventNotify": "시작할 때 알림",
+  "eventNotifyOff": "알림 없음",
   "eventReminderLead": "알림 시점",
   "eventReminderAtStart": "정시",
   "eventReminderMinutesBefore": "{minutes}분 전",
@@ -333,6 +335,7 @@
   "@eventSelectionCount": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "eventSelectionStart": "일정 선택",
   "eventSelectionDelete": "삭제",
   "eventSelectionDeleted": "{count}개를 삭제했어요",
   "@eventSelectionDeleted": {

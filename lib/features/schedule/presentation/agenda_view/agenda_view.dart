@@ -22,6 +22,7 @@ import '../../../todo/presentation/todo_detail_sheet.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/agenda_grouping.dart';
 import '../event_edit/event_editor_sheet.dart';
+import '../event_edit/event_preview_sheet.dart';
 
 /// One row of the agenda's flattened, `ListView.builder`-indexable list —
 /// either a day header or an entry (event or to-do) tile, never both.
@@ -43,10 +44,11 @@ class _AgendaRow {
 /// grids, closer to how most calendar apps' list view reads. See
 /// [eventsForAgendaProvider] for the window this covers.
 ///
-/// Also the one event surface with a multi-select mode (long-press a tile):
-/// unlike the day/week grids, these tiles have no drag-to-move/resize or
-/// swipe-to-delete gesture of their own to fight over the same touch input,
-/// so selection can safely repurpose tap/long-press here without conflict.
+/// Also the one event surface with a multi-select mode — entered via the
+/// small "선택" button shown above the list (see [_AgendaSelectHeader]),
+/// not long-press: long-press here is the same "open the editor directly"
+/// gesture every other event surface now shares, so it's no longer free for
+/// selection to repurpose the way it used to be.
 class AgendaView extends ConsumerStatefulWidget {
   const AgendaView({super.key, required this.anchor});
 
@@ -77,8 +79,7 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController()
-      ..addListener(_rememberScrollOffset);
+    _scrollController = ScrollController()..addListener(_rememberScrollOffset);
   }
 
   @override
@@ -109,7 +110,9 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
   /// triggers no rebuilds of its own.
   void _rememberScrollOffset() {
     if (!_scrollController.hasClients) return;
-    ref.read(agendaScrollMemoryProvider.notifier).save(_scrollController.offset);
+    ref
+        .read(agendaScrollMemoryProvider.notifier)
+        .save(_scrollController.offset);
   }
 
   /// Once per anchor (see [didUpdateWidget]): either restores the scroll
@@ -137,12 +140,13 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
     });
   }
 
-  void _enterSelection(String id) {
+  /// Entry point for the "선택" header button — starts selection mode with
+  /// nothing pre-selected yet, unlike the old long-press-a-tile entry this
+  /// replaced (which pre-selected the tile that was pressed).
+  void _enterSelectionMode() {
     setState(() {
       _selectionMode = true;
-      _selectedIds
-        ..clear()
-        ..add(id);
+      _selectedIds.clear();
     });
   }
 
@@ -249,7 +253,9 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                 l10n: l10n,
                 onCancel: _exitSelection,
                 onDelete: () => _bulkDelete(events),
-              ),
+              )
+            else
+              _AgendaSelectHeader(l10n: l10n, onSelect: _enterSelectionMode),
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
@@ -299,7 +305,6 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                         selectionMode: _selectionMode,
                         selected: _selectedIds.contains(event.id),
                         onToggleSelected: () => _toggleSelected(event.id),
-                        onEnterSelection: () => _enterSelection(event.id),
                       ),
                       // To-dos are tap-only — deliberately outside this
                       // view's multi-select/bulk-delete mode, which is
@@ -372,6 +377,37 @@ class _AgendaSelectionToolbar extends StatelessWidget {
   }
 }
 
+/// Sits where [_AgendaSelectionToolbar] would once selection mode is
+/// active — the one entry point into that mode now that long-press a tile
+/// opens the editor instead (see [AgendaView]'s own doc).
+class _AgendaSelectHeader extends StatelessWidget {
+  const _AgendaSelectHeader({required this.l10n, required this.onSelect});
+
+  final AppL10n l10n;
+  final VoidCallback onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        child: IconButton(
+          tooltip: l10n.eventSelectionStart,
+          onPressed: onSelect,
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            Icons.checklist_rounded,
+            size: 20,
+            color: palette.inkFaint,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DayHeader extends ConsumerWidget {
   const _DayHeader({required this.day});
   final DateTime day;
@@ -414,22 +450,17 @@ class _AgendaTile extends ConsumerWidget {
     this.selectionMode = false,
     this.selected = false,
     this.onToggleSelected,
-    this.onEnterSelection,
   });
 
   final EventRow event;
 
   /// Whether the agenda view is in multi-select mode — while true, tapping
-  /// this tile toggles [selected] instead of opening the editor, and
-  /// long-press is disabled (there's no "enter" to do from inside the mode
-  /// that's already active).
+  /// this tile toggles [selected] instead of opening the preview, and
+  /// long-press is disabled (selection mode is entered via the header
+  /// button now, not by long-pressing a tile — see [AgendaView]'s own doc).
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onToggleSelected;
-
-  /// Long-pressing the tile while not already in selection mode enters it,
-  /// pre-selecting this event.
-  final VoidCallback? onEnterSelection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -450,8 +481,10 @@ class _AgendaTile extends ConsumerWidget {
       child: InkWell(
         onTap: selectionMode
             ? onToggleSelected
+            : () => showEventPreview(context, event: event),
+        onLongPress: selectionMode
+            ? null
             : () => showEventEditor(context, existing: event),
-        onLongPress: selectionMode ? null : onEnterSelection,
         borderRadius: AppRadius.cardMd,
         child: Padding(
           padding: const EdgeInsets.symmetric(

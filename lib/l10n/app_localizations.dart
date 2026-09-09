@@ -1201,6 +1201,12 @@ abstract class AppL10n {
   /// **'일정 편집'**
   String get eventEdit;
 
+  /// No description provided for @eventPreviewEditButton.
+  ///
+  /// In ko, this message translates to:
+  /// **'편집하기'**
+  String get eventPreviewEditButton;
+
   /// No description provided for @eventSectionBasic.
   ///
   /// In ko, this message translates to:
@@ -1362,6 +1368,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'시작할 때 알림'**
   String get eventNotify;
+
+  /// No description provided for @eventNotifyOff.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 없음'**
+  String get eventNotifyOff;
 
   /// No description provided for @eventReminderLead.
   ///
@@ -1584,6 +1596,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'{count}개 선택됨'**
   String eventSelectionCount(int count);
+
+  /// No description provided for @eventSelectionStart.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정 선택'**
+  String get eventSelectionStart;
 
   /// No description provided for @eventSelectionDelete.
   ///

@@ -629,6 +629,9 @@ class AppL10nEn extends AppL10n {
   String get eventEdit => 'Edit event';
 
   @override
+  String get eventPreviewEditButton => 'Edit';
+
+  @override
   String get eventSectionBasic => 'Basic';
 
   @override
@@ -708,6 +711,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get eventNotify => 'Notify at start';
+
+  @override
+  String get eventNotifyOff => 'No reminder';
 
   @override
   String get eventReminderLead => 'Remind me';
@@ -835,6 +841,9 @@ class AppL10nEn extends AppL10n {
   String eventSelectionCount(int count) {
     return '$count selected';
   }
+
+  @override
+  String get eventSelectionStart => 'Select events';
 
   @override
   String get eventSelectionDelete => 'Delete';

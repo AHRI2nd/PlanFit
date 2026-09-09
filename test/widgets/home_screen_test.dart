@@ -132,6 +132,47 @@ void main() {
     expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsNothing);
   });
 
+  testWidgets('tapping an upcoming event tile opens the read-only preview, and '
+      'long-pressing it skips straight to the editor', (tester) async {
+    final now = DateTime.now();
+    final event = EventRow(
+      id: 'e1',
+      title: 'Team sync',
+      memo: null,
+      startAt: now.add(const Duration(hours: 1)),
+      endAt: now.add(const Duration(hours: 2)),
+      isAllDay: false,
+      notify: true,
+      reminderMinutesBefore: 0,
+      colorTag: null,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      osCalendarId: null,
+      osEventId: null,
+      osLastKnownModified: null,
+      syncStatus: SyncStatus.pendingPush,
+      createdAt: now,
+      updatedAt: now,
+    );
+    when(
+      events.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value([event]));
+
+    await pumpHome(tester);
+
+    await tester.tap(find.text('Team sync'));
+    await tester.pumpAndSettle();
+    expect(find.text('편집하기'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Team sync'), findsNothing);
+    Navigator.of(tester.element(find.text('편집하기'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Team sync'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Team sync'), findsOneWidget);
+    expect(find.text('편집하기'), findsNothing);
+  });
+
   testWidgets(
     "an event days away no longer leaks into the 오늘 card — the bug this "
     "regression guards against: the card used to watch upcomingEventsProvider "
@@ -246,111 +287,101 @@ void main() {
     },
   );
 
-  testWidgets(
-    "the today card's to-do checkbox has a tappable area of at least "
-    '44x44 — regression test for a hit box that used to be a 22px icon '
-    'plus 4px of padding (~30x30), under the accessibility floor',
-    (tester) async {
-      final today = DateTime(2026, 3, 10);
-      final todo = TodoRow(
-        id: 't1',
-        eventId: null,
-        title: 'Buy milk',
-        slotStart: today.add(const Duration(hours: 9)),
-        slotEnd: null,
-        hasTime: true,
-        isDone: false,
-        sortOrder: 0,
-        priority: 0,
-        tags: null,
-        notify: false,
-        isPinned: false,
-        recurrenceRule: null,
-        recurrenceGroupId: null,
-        reminderSyncStatus: SyncStatus.pendingPush,
-        createdAt: today,
-      );
-      when(
-        todos.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value([todo]));
+  testWidgets("the today card's to-do checkbox has a tappable area of at least "
+      '44x44 — regression test for a hit box that used to be a 22px icon '
+      'plus 4px of padding (~30x30), under the accessibility floor', (
+    tester,
+  ) async {
+    final today = DateTime(2026, 3, 10);
+    final todo = TodoRow(
+      id: 't1',
+      eventId: null,
+      title: 'Buy milk',
+      slotStart: today.add(const Duration(hours: 9)),
+      slotEnd: null,
+      hasTime: true,
+      isDone: false,
+      sortOrder: 0,
+      priority: 0,
+      tags: null,
+      notify: false,
+      isPinned: false,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
+      createdAt: today,
+    );
+    when(todos.watchBetween(any, any)).thenAnswer((_) => Stream.value([todo]));
 
-      await pumpHome(tester);
+    await pumpHome(tester);
 
-      final hitArea = find.ancestor(
-        of: find.byIcon(Icons.radio_button_unchecked),
-        matching: find.byWidgetPredicate(
-          (w) => w is SizedBox && w.width == 44 && w.height == 44,
-        ),
-      );
-      expect(hitArea, findsOneWidget);
-      final size = tester.getSize(hitArea);
-      expect(size.width, greaterThanOrEqualTo(44));
-      expect(size.height, greaterThanOrEqualTo(44));
-    },
-  );
+    final hitArea = find.ancestor(
+      of: find.byIcon(Icons.radio_button_unchecked),
+      matching: find.byWidgetPredicate(
+        (w) => w is SizedBox && w.width == 44 && w.height == 44,
+      ),
+    );
+    expect(hitArea, findsOneWidget);
+    final size = tester.getSize(hitArea);
+    expect(size.width, greaterThanOrEqualTo(44));
+    expect(size.height, greaterThanOrEqualTo(44));
+  });
 
-  testWidgets(
-    "the weekly stats bar's done/total label fits its own box at the "
-    "app's 1.3x accessibility text-scale ceiling — regression test: that "
-    'box was a fixed 12px SizedBox around labelSmall/fontSize:9 text, '
-    'which needs only ~10.8px at the default 1.0x scale but ~14px at '
-    "1.3x — 2px taller than the box. Being a plain SizedBox (not a Flex) "
-    "meant this never threw a catchable overflow error; the label's true "
-    'layout just silently painted outside its box and overlapped the '
-    'weekday abbreviation directly below it',
-    (tester) async {
-      final today = DateTime.now();
-      final todo = TodoRow(
-        id: 't1',
-        eventId: null,
-        title: 'Buy milk',
-        slotStart: today,
-        slotEnd: null,
-        hasTime: true,
-        isDone: false,
-        sortOrder: 0,
-        priority: 0,
-        tags: null,
-        notify: false,
-        isPinned: false,
-        recurrenceRule: null,
-        recurrenceGroupId: null,
-        reminderSyncStatus: SyncStatus.pendingPush,
-        createdAt: today,
-      );
-      when(
-        todos.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value([todo]));
+  testWidgets("the weekly stats bar's done/total label fits its own box at the "
+      "app's 1.3x accessibility text-scale ceiling — regression test: that "
+      'box was a fixed 12px SizedBox around labelSmall/fontSize:9 text, '
+      'which needs only ~10.8px at the default 1.0x scale but ~14px at '
+      "1.3x — 2px taller than the box. Being a plain SizedBox (not a Flex) "
+      "meant this never threw a catchable overflow error; the label's true "
+      'layout just silently painted outside its box and overlapped the '
+      'weekday abbreviation directly below it', (tester) async {
+    final today = DateTime.now();
+    final todo = TodoRow(
+      id: 't1',
+      eventId: null,
+      title: 'Buy milk',
+      slotStart: today,
+      slotEnd: null,
+      hasTime: true,
+      isDone: false,
+      sortOrder: 0,
+      priority: 0,
+      tags: null,
+      notify: false,
+      isPinned: false,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
+      createdAt: today,
+    );
+    when(todos.watchBetween(any, any)).thenAnswer((_) => Stream.value([todo]));
 
-      await pumpHome(tester, textScaler: const TextScaler.linear(1.3));
+    await pumpHome(tester, textScaler: const TextScaler.linear(1.3));
 
-      final labelFinder = find.text('0/1');
-      expect(labelFinder, findsOneWidget);
-      final boxFinder = find
-          .ancestor(of: labelFinder, matching: find.byType(SizedBox))
-          .first;
-      final boxHeight = tester.getSize(boxFinder).height;
+    final labelFinder = find.text('0/1');
+    expect(labelFinder, findsOneWidget);
+    final boxFinder = find
+        .ancestor(of: labelFinder, matching: find.byType(SizedBox))
+        .first;
+    final boxHeight = tester.getSize(boxFinder).height;
 
-      final labelWidget = tester.widget<Text>(labelFinder);
-      final naturalHeight =
-          (TextPainter(
-                text: TextSpan(text: '0/1', style: labelWidget.style),
-                textDirection: TextDirection.ltr,
-                textScaler: const TextScaler.linear(1.3),
-              )..layout())
-              .height;
+    final labelWidget = tester.widget<Text>(labelFinder);
+    final naturalHeight = (TextPainter(
+      text: TextSpan(text: '0/1', style: labelWidget.style),
+      textDirection: TextDirection.ltr,
+      textScaler: const TextScaler.linear(1.3),
+    )..layout()).height;
 
-      expect(
-        boxHeight,
-        greaterThanOrEqualTo(naturalHeight),
-        reason:
-            "the label's own box (${boxHeight}px) must be at least as "
-            'tall as the text actually needs at this scale '
-            '(${naturalHeight}px), or it paints outside the box and '
-            'overlaps the weekday label below',
-      );
-    },
-  );
+    expect(
+      boxHeight,
+      greaterThanOrEqualTo(naturalHeight),
+      reason:
+          "the label's own box (${boxHeight}px) must be at least as "
+          'tall as the text actually needs at this scale '
+          '(${naturalHeight}px), or it paints outside the box and '
+          'overlaps the weekday label below',
+    );
+  });
 
   testWidgets(
     "the week bar gets an accent dot on every day a multi-day event spans, "

@@ -232,9 +232,10 @@ void main() {
   );
 
   testWidgets(
-    'tapping an all-day bar in the strip opens it for editing — regression '
-    'test for the strip having no tap target at all, which made a holiday '
-    'or all-day event visible but unopenable',
+    'tapping an all-day bar in the strip opens the read-only preview, and '
+    'long-pressing it skips straight to the editor — regression test for '
+    'the strip having no tap target at all, which made a holiday or '
+    'all-day event visible but unopenable',
     (tester) async {
       final anchor = DateTime(2026, 3, 10); // a Tuesday
       when(events.watchBetween(any, any)).thenAnswer(
@@ -256,28 +257,35 @@ void main() {
       await tester.tap(find.text('Holiday'));
       await tester.pumpAndSettle();
 
+      // The preview's own "편집하기" button — its presence is what
+      // distinguishes the preview sheet from the full editor here.
+      expect(find.text('편집하기'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Holiday'), findsNothing);
+      Navigator.of(tester.element(find.text('편집하기'))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Holiday'));
+      await tester.pumpAndSettle();
+
       // showEventEditor for an existing event opens its title pre-filled
-      // into the editor's own text field — same assertion day_view_test.dart
-      // uses for its own (already-tappable) event cards.
+      // into the editor's own text field — the preview never shows.
       expect(find.widgetWithText(TextField, 'Holiday'), findsOneWidget);
+      expect(find.text('편집하기'), findsNothing);
     },
   );
 
   testWidgets(
-    "a crowded time slot never lets one event card's width overlap "
-    "another's — regression test for an earlier attempt at widening "
-    'crowded cards that let them overlap each other instead, painting '
-    "two different events' titles on top of one another",
+    'tapping a timed event card in the grid opens the read-only preview, '
+    'and long-pressing it skips straight to the editor',
     (tester) async {
       final anchor = DateTime(2026, 3, 10);
       when(events.watchBetween(any, any)).thenAnswer(
         (_) => Stream.value([
-          for (var i = 1; i <= 3; i++)
-            event(
-              id: 'e$i',
-              startAt: DateTime(2026, 3, 11, 11),
-              endAt: DateTime(2026, 3, 11, 14),
-            ),
+          event(
+            id: 'Standup',
+            startAt: DateTime(2026, 3, 11, 2),
+            endAt: DateTime(2026, 3, 11, 3),
+          ),
         ]),
       );
       when(
@@ -286,33 +294,66 @@ void main() {
 
       await pumpWeek(tester, anchor);
 
-      final ranges =
-          [
-              for (var i = 1; i <= 3; i++)
-                tester
-                    .widgetList<Positioned>(
-                      find.ancestor(
-                        of: find.text('e$i'),
-                        matching: find.byType(Positioned),
-                      ),
-                    )
-                    .first,
-            ]
-            .map((p) => (left: p.left!, right: p.left! + p.width!))
-            .toList()
-          ..sort((a, b) => a.left.compareTo(b.left));
+      await tester.tap(find.text('Standup'));
+      await tester.pumpAndSettle();
+      expect(find.text('편집하기'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Standup'), findsNothing);
+      Navigator.of(tester.element(find.text('편집하기'))).pop();
+      await tester.pumpAndSettle();
 
-      for (var i = 0; i < ranges.length - 1; i++) {
-        expect(
-          ranges[i].right,
-          lessThanOrEqualTo(ranges[i + 1].left + 0.01),
-          reason:
-              'card $i (spanning ${ranges[i].left}-${ranges[i].right}) '
-              'overlaps the next one (starting at ${ranges[i + 1].left})',
-        );
-      }
+      await tester.longPress(find.text('Standup'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'Standup'), findsOneWidget);
+      expect(find.text('편집하기'), findsNothing);
     },
   );
+
+  testWidgets("a crowded time slot never lets one event card's width overlap "
+      "another's — regression test for an earlier attempt at widening "
+      'crowded cards that let them overlap each other instead, painting '
+      "two different events' titles on top of one another", (tester) async {
+    final anchor = DateTime(2026, 3, 10);
+    when(events.watchBetween(any, any)).thenAnswer(
+      (_) => Stream.value([
+        for (var i = 1; i <= 3; i++)
+          event(
+            id: 'e$i',
+            startAt: DateTime(2026, 3, 11, 11),
+            endAt: DateTime(2026, 3, 11, 14),
+          ),
+      ]),
+    );
+    when(
+      todos.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
+
+    await pumpWeek(tester, anchor);
+
+    final ranges =
+        [
+          for (var i = 1; i <= 3; i++)
+            tester
+                .widgetList<Positioned>(
+                  find.ancestor(
+                    of: find.text('e$i'),
+                    matching: find.byType(Positioned),
+                  ),
+                )
+                .first,
+        ].map((p) => (left: p.left!, right: p.left! + p.width!)).toList()..sort(
+          (a, b) => a.left.compareTo(b.left),
+        );
+
+    for (var i = 0; i < ranges.length - 1; i++) {
+      expect(
+        ranges[i].right,
+        lessThanOrEqualTo(ranges[i + 1].left + 0.01),
+        reason:
+            'card $i (spanning ${ranges[i].left}-${ranges[i].right}) '
+            'overlaps the next one (starting at ${ranges[i + 1].left})',
+      );
+    }
+  });
 
   testWidgets(
     'a short title still renders as exactly one line, whether the event '
@@ -430,7 +471,8 @@ void main() {
       final scrollView = tester.widget<SingleChildScrollView>(
         find.byType(SingleChildScrollView),
       );
-      final bottomPadding = scrollView.padding?.resolve(TextDirection.ltr).bottom ?? 0;
+      final bottomPadding =
+          scrollView.padding?.resolve(TextDirection.ltr).bottom ?? 0;
       expect(
         bottomPadding,
         greaterThanOrEqualTo(100),
@@ -511,34 +553,31 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a closing "오전 12시" boundary appears below the last hour row — '
-    'regression test for the grid visually just stopping at 오후 11시 with '
-    'nothing marking where the day actually ends',
-    (tester) async {
-      final anchor = DateTime(2026, 3, 10);
-      when(
-        events.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value(const []));
-      when(
-        todos.watchBetween(any, any),
-      ).thenAnswer((_) => Stream.value(const []));
+  testWidgets('a closing "오전 12시" boundary appears below the last hour row — '
+      'regression test for the grid visually just stopping at 오후 11시 with '
+      'nothing marking where the day actually ends', (tester) async {
+    final anchor = DateTime(2026, 3, 10);
+    when(
+      events.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
+    when(
+      todos.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
 
-      await pumpWeek(tester, anchor);
+    await pumpWeek(tester, anchor);
 
-      // 48 (hourHeight) * 24 — the boundary sits exactly one hour row below
-      // the 23시 row's own top edge, i.e. right at the grid's true bottom.
-      final boundary = find.byWidgetPredicate(
-        (w) => w is Positioned && w.top == 48.0 * 24,
-      );
-      expect(boundary, findsWidgets);
+    // 48 (hourHeight) * 24 — the boundary sits exactly one hour row below
+    // the 23시 row's own top edge, i.e. right at the grid's true bottom.
+    final boundary = find.byWidgetPredicate(
+      (w) => w is Positioned && w.top == 48.0 * 24,
+    );
+    expect(boundary, findsWidgets);
 
-      // Both "오전 12시" instances (00시's own label and this boundary's)
-      // must be findable in the same page — this is the same string
-      // reused, not a typo of some other label.
-      expect(find.text('오전 12시'), findsWidgets);
-    },
-  );
+    // Both "오전 12시" instances (00시's own label and this boundary's)
+    // must be findable in the same page — this is the same string
+    // reused, not a typo of some other label.
+    expect(find.text('오전 12시'), findsWidgets);
+  });
 
   group(
     'swiping the page (header, strip, or grid) navigates by whole weeks',

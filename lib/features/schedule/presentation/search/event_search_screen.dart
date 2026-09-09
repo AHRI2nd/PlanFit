@@ -18,6 +18,7 @@ import '../../../todo/domain/todo_priority.dart';
 import '../../../todo/domain/todo_tag_match.dart';
 import '../../application/schedule_providers.dart';
 import '../event_edit/event_editor_sheet.dart';
+import '../event_edit/event_preview_sheet.dart';
 
 /// Full-text search over both events (title/memo) and to-dos (title).
 /// Tapping an event result jumps the schedule tab to that day (in day view)
@@ -133,7 +134,19 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     });
   }
 
-  void _openEvent(EventRow event) {
+  /// Tap target: closes search, jumps the day view to the event's own day,
+  /// then opens the read-only preview over it — same as every other event
+  /// surface's tap now does.
+  void _previewEvent(EventRow event) {
+    ref.read(selectedDateProvider.notifier).select(event.startAt);
+    ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
+    Navigator.of(context).pop();
+    showEventPreview(context, event: event);
+  }
+
+  /// Long-press target: same jump-and-close, but straight to the full
+  /// editor instead of the preview.
+  void _editEvent(EventRow event) {
     ref.read(selectedDateProvider.notifier).select(event.startAt);
     ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
     Navigator.of(context).pop();
@@ -238,7 +251,8 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
             _EventResultTile(
               event: event,
               locale: locale,
-              onTap: () => _openEvent(event),
+              onTap: () => _previewEvent(event),
+              onLongPress: () => _editEvent(event),
             ),
           const SizedBox(height: AppSpacing.md),
         ],
@@ -357,11 +371,13 @@ class _EventResultTile extends ConsumerWidget {
     required this.event,
     required this.locale,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final EventRow event;
   final String locale;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -376,6 +392,7 @@ class _EventResultTile extends ConsumerWidget {
     );
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         child: Row(
