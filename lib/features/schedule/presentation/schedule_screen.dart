@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/clock.dart';
 import '../../../core/date_math.dart';
 import '../../../core/format.dart';
 import '../../../core/lunar/lunar_date.dart';
@@ -53,6 +54,7 @@ class ScheduleScreen extends ConsumerWidget {
     final selected = ref.watch(selectedDateProvider);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final weekStartWeekday = ref.watch(weekStartWeekdayProvider);
+    final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
 
     final title = switch (view) {
       ScheduleView.day => Fmt.fullDate(selected, locale),
@@ -82,6 +84,7 @@ class ScheduleScreen extends ConsumerWidget {
     }
 
     return TimeGradientBackground(
+      at: now,
       intensity: 0.7,
       child: Scaffold(
         backgroundColor: Colors.transparent,

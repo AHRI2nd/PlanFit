@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show GlassTabBar, GlassTab;
 
+import '../../core/clock.dart';
 import '../../design/glass/glass_nav_bar.dart';
 import '../../design/tokens/app_colors.dart';
 import '../../l10n/app_localizations.dart';
@@ -50,7 +51,14 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
-    final accent = AppColors.timeGradient(DateTime.now()).first;
+    // Watches nowTickerProvider rather than computing DateTime.now()
+    // directly — same staleness this widget's own todayProvider fix
+    // addresses for the badge below, but for the tab bar's time-of-day
+    // accent: without this, the accent color froze at whatever time it was
+    // when AppShell last happened to rebuild, which a StatefulShellRoute
+    // branch switch alone never triggers.
+    final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
+    final accent = AppColors.timeGradient(now).first;
 
     // Today's undone to-dos, surfaced as a badge on the schedule tab so a
     // pending day is visible without opening it. Watches `todayProvider`

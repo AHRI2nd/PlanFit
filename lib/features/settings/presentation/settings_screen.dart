@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart'
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/calendar_sync/holiday_calendar_service.dart';
+import '../../../core/clock.dart';
 import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/share_origin.dart';
@@ -231,7 +232,9 @@ class SettingsScreen extends ConsumerWidget {
       }
     }
 
+    final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
     return TimeGradientBackground(
+      at: now,
       intensity: 0.5,
       child: Scaffold(
         backgroundColor: Colors.transparent,

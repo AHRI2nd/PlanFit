@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart' show kLongPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:planfit/core/clock.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
@@ -86,6 +89,7 @@ void main() {
     DateTime day, {
     bool compact = false,
     TextScaler? textScaler,
+    Stream<DateTime>? nowStream,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     late ProviderContainer container;
@@ -96,6 +100,8 @@ void main() {
           eventRepositoryProvider.overrideWithValue(events),
           todoDaoProvider.overrideWithValue(todos),
           selectedDateProvider.overrideWith(() => _FixedSelectedDate(day)),
+          if (nowStream != null)
+            nowTickerProvider.overrideWith((_) => nowStream),
         ],
         child: Builder(
           builder: (context) {
@@ -1194,6 +1200,68 @@ void main() {
         ),
         findsNothing,
       );
+    },
+  );
+
+  testWidgets(
+    "the \"now\" indicator follows nowTickerProvider — regression test: "
+    'this line used to compute DateTime.now() directly inside build(), so '
+    'it only moved when something else happened to rebuild this widget; '
+    "left sitting on a day view with nothing else changing, it visibly "
+    'froze in place instead of creeping forward as real time passed',
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      // _DayContent shows the empty-state placeholder (no timeline, so no
+      // "now" indicator at all) on a day with no timed events — need at
+      // least one so the real _Timeline actually renders.
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          row(
+            id: 'e1',
+            title: 'Something',
+            startAt: DateTime(2026, 3, 10, 8),
+            endAt: DateTime(2026, 3, 10, 9),
+          ),
+        ]),
+      );
+      final nowController = StreamController<DateTime>();
+      addTearDown(nowController.close);
+
+      await pumpDay(tester, day, nowStream: nowController.stream);
+      nowController.add(DateTime(2026, 3, 10, 9));
+      // A stream emission needs two pumps to reach a dependent widget: one
+      // to flush the event into the provider's own AsyncValue, another to
+      // actually rebuild whatever watches it.
+      await tester.pump();
+      await tester.pump();
+
+      final firstTop = tester
+          .getRect(find.byKey(const ValueKey('dayNowIndicator')))
+          .top;
+
+      nowController.add(DateTime(2026, 3, 10, 10));
+      await tester.pump();
+      await tester.pump();
+
+      final secondTop = tester
+          .getRect(find.byKey(const ValueKey('dayNowIndicator')))
+          .top;
+
+      expect(
+        secondTop,
+        greaterThan(firstTop),
+        reason:
+            'an hour later in the same day should sit lower on the '
+            'timeline, not stay pinned to the first reading',
+      );
+
+      // A day change (still watching the same `day`) should hide the
+      // indicator entirely, since it is no longer "today".
+      nowController.add(DateTime(2026, 3, 11, 0, 1));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('dayNowIndicator')), findsNothing);
     },
   );
 }

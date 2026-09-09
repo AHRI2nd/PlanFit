@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/clock.dart';
 import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/di.dart';
@@ -324,7 +325,11 @@ class _DayContent extends ConsumerWidget {
     final palette = context.palette;
     final locale = Localizations.localeOf(context).toLanguageTag();
     final eventsAsync = ref.watch(eventsForDayProvider(day));
-    final now = DateTime.now();
+    // Watches nowTickerProvider — see that provider's own doc — rather than
+    // computing DateTime.now() directly, so the "now" indicator line below
+    // keeps creeping forward even while this tab sits idle (no other
+    // rebuild trigger) or is a backgrounded StatefulShellRoute branch.
+    final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
     final isToday = dateOnly(now) == dateOnly(day);
     final layoutMode = compact
         ? DayViewLayoutMode.timeline
@@ -1007,6 +1012,7 @@ class _TimelineState extends ConsumerState<_Timeline>
             // "Now" indicator.
             if (widget.isToday)
               Positioned(
+                key: const ValueKey('dayNowIndicator'),
                 top: _offsetFor(widget.now) - 4,
                 left: widget.railInset - AppSpacing.sm - 4,
                 right: 0,

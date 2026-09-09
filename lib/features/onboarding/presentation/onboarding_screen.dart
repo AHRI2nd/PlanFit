@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/clock.dart';
 import '../../../core/di.dart';
 import '../../../core/onboarding_prefs.dart';
 import '../../../design/glass/glass_surface.dart';
@@ -120,8 +121,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
     ];
     final isLast = _page == pages.length - 1;
+    final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
 
     return TimeGradientBackground(
+      at: now,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

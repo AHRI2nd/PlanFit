@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/clock.dart';
 import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/format.dart';
@@ -355,7 +356,11 @@ class _WeekPageContent extends ConsumerWidget {
         const <TodoRow>[];
     final overdueTodos =
         ref.watch(overdueTodosProvider).asData?.value ?? const <TodoRow>[];
-    final now = DateTime.now();
+    // Watches nowTickerProvider — see that provider's own doc — rather than
+    // computing DateTime.now() directly, so the "now" indicator line below
+    // keeps creeping forward even while this tab sits idle or is a
+    // backgrounded StatefulShellRoute branch.
+    final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
     final today = dateOnly(now);
     // Per calendar_dot.dart's shared rule — scoped to just this week's 7
     // days, unlike overdueTodosProvider itself (app-wide, unscoped).
