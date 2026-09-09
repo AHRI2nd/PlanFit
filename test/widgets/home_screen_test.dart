@@ -175,6 +175,45 @@ void main() {
   );
 
   testWidgets(
+    'an event whose end time has passed reads 종료됨, not 진행 중 — regression '
+    'test: editing a still-"진행 중" event\'s end time to somewhere in the '
+    'past (a normal correction, not just something that eventually happens '
+    'on its own) used to keep the card claiming it was still running, since '
+    'the relative-time label only ever looked at the start time',
+    (tester) async {
+      final now = DateTime(2026, 3, 10, 15);
+      final endedEvent = EventRow(
+        id: 'e3',
+        title: 'Morning standup',
+        memo: null,
+        startAt: now.subtract(const Duration(hours: 2)),
+        endAt: now.subtract(const Duration(minutes: 30)),
+        isAllDay: false,
+        notify: false,
+        reminderMinutesBefore: 0,
+        colorTag: null,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        osCalendarId: null,
+        osEventId: null,
+        osLastKnownModified: null,
+        syncStatus: SyncStatus.pendingPush,
+        createdAt: now,
+        updatedAt: now,
+      );
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([endedEvent]));
+
+      await pumpHome(tester, now: now);
+
+      expect(find.text('Morning standup'), findsOneWidget);
+      expect(find.text('종료됨'), findsOneWidget);
+      expect(find.text('진행 중'), findsNothing);
+    },
+  );
+
+  testWidgets(
     "renders today's to-do title once data arrives, interleaved with events",
     (tester) async {
       final today = DateTime(2026, 3, 10);

@@ -25,6 +25,59 @@ void main() {
       );
     });
 
+    test(
+      'an event whose end time has also passed reads as ended, not still '
+      'in progress — regression test: editing a still-"진행 중" event\'s end '
+      'time to somewhere in the past (a normal correction, e.g. "this '
+      'actually ended at 11:30, not 1pm") used to keep showing "진행 중" '
+      'forever, since the label only ever looked at the start time',
+      () {
+        expect(
+          Fmt.relative(
+            now.subtract(const Duration(hours: 2)),
+            now,
+            'ko',
+            end: now.subtract(const Duration(minutes: 30)),
+          ),
+          '종료됨',
+        );
+        expect(
+          Fmt.relative(
+            now.subtract(const Duration(hours: 2)),
+            now,
+            'en',
+            end: now.subtract(const Duration(minutes: 30)),
+          ),
+          'ended',
+        );
+        expect(
+          Fmt.relative(
+            now.subtract(const Duration(hours: 2)),
+            now,
+            'ja',
+            end: now.subtract(const Duration(minutes: 30)),
+          ),
+          '終了',
+        );
+      },
+    );
+
+    test(
+      'an event still within its own end time reads as in progress even '
+      'when end is provided — only a past end time should flip the label',
+      () {
+        expect(
+          Fmt.relative(
+            now.subtract(const Duration(minutes: 30)),
+            now,
+            'ko',
+            end: now.add(const Duration(minutes: 30)),
+          ),
+          '진행 중',
+        );
+      },
+    );
+
     test('starting within the next minute reads as soon/now', () {
       expect(Fmt.relative(now.add(const Duration(seconds: 30)), now, 'ko'), '곧');
       expect(Fmt.relative(now, now, 'en'), 'now');

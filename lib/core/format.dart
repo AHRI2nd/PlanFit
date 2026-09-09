@@ -129,13 +129,34 @@ class Fmt {
       DateFormat.yMMMEd(locale).format(dt);
 
   /// A compact relative label like "3시간 뒤" / "in 3h" for upcoming events —
-  /// or, if [target] (the event's own start time) is already in the past,
-  /// "진행 중" / "in progress". [watchUpcoming]'s query only filters by
-  /// `startAt` at the moment it runs, so a card built from its stream keeps
-  /// showing an event whose start has since ticked past `now` without the
-  /// row itself changing — this is what actually turns "곧"/"now" into a
-  /// stale, indefinitely-wrong label for it instead of just a brief flash.
-  static String relative(DateTime target, DateTime now, String locale) {
+  /// "진행 중" / "in progress" once [target] (the event's own start time) has
+  /// passed, or "종료됨" / "ended" once [end] (its end time, if given) has
+  /// passed too. [watchUpcoming]'s query only filters by `startAt` at the
+  /// moment it runs, so a card built from its stream keeps showing an event
+  /// whose start has since ticked past `now` without the row itself
+  /// changing — this is what actually turns "곧"/"now" into a stale,
+  /// indefinitely-wrong label for it instead of just a brief flash.
+  ///
+  /// [end] is optional (some callers only ever show genuinely-upcoming
+  /// events, where it can never matter) — but any caller that can also
+  /// display an already-started event needs it, or a "진행 중" that should
+  /// have flipped to "종료됨" once the event's own end time passed just
+  /// keeps claiming it's still running. This is the same underlying
+  /// staleness [target] alone already has, one field over: editing a
+  /// still-"진행 중" event's end time to somewhere in the past (a normal
+  /// correction — "this actually ended at 2:30, not 5") is a fast, common
+  /// way to reach it without needing to wait out a real end time passing.
+  static String relative(
+    DateTime target,
+    DateTime now,
+    String locale, {
+    DateTime? end,
+  }) {
+    if (end != null && !now.isBefore(end)) {
+      if (locale.startsWith('ko')) return '종료됨';
+      if (locale.startsWith('ja')) return '終了';
+      return 'ended';
+    }
     final diff = target.difference(now);
     if (locale.startsWith('ko')) {
       if (diff.isNegative) return '진행 중';

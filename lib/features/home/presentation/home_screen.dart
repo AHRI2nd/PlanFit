@@ -306,7 +306,7 @@ class _UpcomingTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  Fmt.relative(event.startAt, now, locale),
+                  Fmt.relative(event.startAt, now, locale, end: event.endAt),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: palette.inkFaint,
                   ),
