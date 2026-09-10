@@ -22,6 +22,7 @@ import '../../schedule/presentation/event_edit/event_preview_sheet.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
 import '../../todo/domain/todo_overdue.dart';
+import '../../todo/presentation/quick_add_todo_sheet.dart';
 import '../../todo/presentation/todo_detail_sheet.dart';
 import '../../todo/presentation/todo_smart_list_screen.dart';
 
@@ -65,6 +66,18 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xl),
             SectionHeader(l10n.homeWeekTitle),
             _WeeklyStats(now: now, locale: locale, l10n: l10n),
+            const SizedBox(height: AppSpacing.xl),
+            // The "+" here was mistaken for a moment for the FAB
+            // schedule_screen.dart's own "+" opens (that one's for
+            // events) — this is the day/week views' own convention
+            // instead: an always-visible inline add field, not a FAB
+            // hiding the affordance behind a modal sheet. Home has no
+            // single day of its own to scope the field's date/time
+            // defaults to (unlike HourlyTodoList's), so it falls back to
+            // today, no time, same as QuickAddTodoSheet's own field does
+            // for the smart-list screen.
+            SectionHeader(l10n.todoAdd),
+            const QuickAddTodoField(),
           ],
         ),
       ),

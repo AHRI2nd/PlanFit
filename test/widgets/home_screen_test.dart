@@ -432,4 +432,39 @@ void main() {
       expect(dots, hasLength(3));
     },
   );
+
+  testWidgets('the bottom of the home screen has an always-visible inline "할 일 '
+      '추가" field — home never had an add affordance of its own before, and '
+      'this matches the day/week views\' own inline-field convention rather '
+      'than a FAB opening a modal sheet (that "+" is the schedule tab\'s own, '
+      'for adding an event)', (tester) async {
+    await pumpHome(tester);
+
+    expect(find.text('할 일 추가'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+  });
+
+  testWidgets(
+    'submitting a title in that inline field creates the to-do and clears '
+    'the field in place — there\'s no sheet here to close',
+    (tester) async {
+      when(todos.findById(any)).thenAnswer((_) async => null);
+      when(todos.upsert(any)).thenAnswer((_) async {});
+
+      await pumpHome(tester);
+      await tester.enterText(find.byType(TextField), 'Buy milk');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      final captured =
+          verify(todos.upsert(captureAny)).captured.single
+              as TodoItemsCompanion;
+      expect(captured.title.value, 'Buy milk');
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+    },
+  );
 }

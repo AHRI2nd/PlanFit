@@ -3,18 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
-import '../../../core/quick_add/quick_add_parser.dart';
 import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
-import '../../../design/widgets/adaptive_bottom_sheet.dart';
-import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show dateOnly;
 import '../../settings/application/settings_controller.dart';
 import '../application/todo_providers.dart';
 import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
+import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
 
 enum _SmartListTab { today, overdue, highPriority, pinned, byTag }
@@ -47,7 +45,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen> {
       // "add" affordance — a FAB opening a tiny quick-add sheet — instead.
       floatingActionButton: FloatingActionButton(
         tooltip: l10n.todoAdd,
-        onPressed: () => _openQuickAdd(context),
+        onPressed: () => showQuickAddTodoSheet(context),
         child: const Icon(Icons.add),
       ),
       body: Column(
@@ -88,13 +86,6 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen> {
       ),
     );
   }
-
-  Future<void> _openQuickAdd(BuildContext context) =>
-      showAdaptiveBottomSheet<void>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const _QuickAddTodoSheet(),
-      );
 
   String _tabLabel(AppL10n l10n, _SmartListTab tab) => switch (tab) {
     _SmartListTab.today => l10n.smartListToday,
@@ -385,111 +376,6 @@ class _SmartTodoTile extends ConsumerWidget {
               style: theme.textTheme.labelSmall?.copyWith(
                 color: isOverdue ? palette.danger : palette.inkFaint,
                 fontWeight: isOverdue ? FontWeight.w700 : null,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The smart-list screen's FAB target — this screen has no single day to
-/// scope an inline add row to (unlike `HourlyTodoList`'s), so a new to-do
-/// here defaults to today, no time, reusing the same [parseQuickAdd]
-/// phrase-parsing the day view's own quick-add field runs.
-class _QuickAddTodoSheet extends ConsumerStatefulWidget {
-  const _QuickAddTodoSheet();
-
-  @override
-  ConsumerState<_QuickAddTodoSheet> createState() => _QuickAddTodoSheetState();
-}
-
-class _QuickAddTodoSheetState extends ConsumerState<_QuickAddTodoSheet> {
-  final _controller = TextEditingController();
-  final _focusNode = FocusNode();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final l10n = AppL10n.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    final locale = Localizations.localeOf(context).toLanguageTag();
-    final navigator = Navigator.of(context);
-    final today = dateOnly(DateTime.now());
-
-    final parsed = parseQuickAdd(text, now: DateTime.now());
-    final base = parsed.date ?? today;
-    final time = parsed.time;
-    final title = parsed.title.isEmpty ? text : parsed.title;
-
-    await ref
-        .read(todoControllerProvider)
-        .add(
-          title: title,
-          slotStart: time == null
-              ? base
-              : DateTime(
-                  base.year,
-                  base.month,
-                  base.day,
-                  time.hour,
-                  time.minute,
-                ),
-          hasTime: time != null,
-          priority: parsed.priority ?? 0,
-          tags: parsed.tags.isEmpty ? null : parsed.tags.join(','),
-        );
-
-    if (!mounted) return;
-    navigator.pop();
-    if (parsed.date != null && !dateOnly(base).isAtSameMomentAs(today)) {
-      messenger.showAutoDismissSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.todoQuickAddAddedToOtherDay(Fmt.monthDay(base, locale)),
-          ),
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppL10n.of(context);
-    final palette = context.palette;
-
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: AppSpacing.gutter,
-          right: AppSpacing.gutter,
-          top: AppSpacing.sm,
-          bottom: AppSpacing.gutter + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.todoAdd, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              autofocus: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _submit(),
-              decoration: InputDecoration(
-                hintText: l10n.todoHint,
-                prefixIcon: Icon(Icons.add, color: palette.inkFaint),
               ),
             ),
           ],
