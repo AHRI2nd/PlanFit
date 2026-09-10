@@ -2,35 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
-import '../../../core/quick_add/quick_add_parser.dart';
 import '../../../design/tokens/app_colors.dart';
-import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
-import '../../schedule/domain/recurrence.dart';
 import '../application/todo_providers.dart';
 import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
+import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
 import '../../settings/application/settings_controller.dart';
 
-/// The day's to-dos with an inline "add" field. Lightweight checkboxes, tied to
-/// the selected day. New items default to 9am on that day, adjustable via the
-/// time chip before adding; existing items' time can be changed the same way.
-/// A repeat icon next to the time chip lets a new item be materialized as a
-/// recurring series (see [TodoController.add]).
-///
-/// The add field also runs [parseQuickAdd] on submit — typing "내일 오후
-/// 3시 병원" fills in the date/time from the phrase and adds just "병원" as
-/// the title, overriding the day/time chips below rather than requiring
-/// them to be set by hand first. A recognized date can point at a *different*
-/// day than [day] (e.g. typing "내일" while looking at today) — the to-do
-/// still gets created there, it just won't appear in this list until the
-/// user navigates to that day, so a SnackBar names which day it landed on.
+/// The day's to-dos with an inline "add" field. Lightweight checkboxes, tied
+/// to the selected day. Existing items' time can be changed via their own
+/// trailing time chip. The add field itself is the shared
+/// [QuickAddTodoField] (day-scoped here) — see its doc for the time /
+/// priority / repeat controls and the [parseQuickAdd] phrase handling.
 class HourlyTodoList extends ConsumerStatefulWidget {
   const HourlyTodoList({super.key, required this.day, this.addFocusNode});
 
@@ -47,21 +37,8 @@ class HourlyTodoList extends ConsumerStatefulWidget {
 }
 
 class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
-  final _controller = TextEditingController();
   late final FocusNode _addFocusNode = widget.addFocusNode ?? FocusNode();
-  late TimeOfDay _addTime;
   late DateTime _lastDay;
-  RecurrenceFrequency _addRecurrence = RecurrenceFrequency.none;
-  bool _addHasTime = true;
-  TodoPriority _addPriority = TodoPriority.none;
-
-  /// Whether the priority/repeat/no-time controls are expanded below the
-  /// main add row — collapsed by default so the "quick" add row actually
-  /// reads as quick (add icon + text field + time chip), not a five-control
-  /// wall. Deliberately not reset in [didUpdateWidget] on a day change —
-  /// it's a display preference, not per-day data, so it stays as the user
-  /// left it while paging between days.
-  bool _addOptionsExpanded = false;
 
   /// Multi-select state, entered by long-pressing any tile — see
   /// `_TodoTile.onEnterSelection`. `_selectedIds` is only ever non-empty
@@ -135,7 +112,6 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
   @override
   void initState() {
     super.initState();
-    _addTime = const TimeOfDay(hour: 9, minute: 0);
     _lastDay = dateOnly(widget.day);
   }
 
@@ -145,15 +121,13 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
     final day = dateOnly(widget.day);
     if (day != _lastDay) {
       _lastDay = day;
-      _addTime = const TimeOfDay(hour: 9, minute: 0);
-      _addRecurrence = RecurrenceFrequency.none;
-      _addHasTime = true;
-      _addPriority = TodoPriority.none;
       // This widget instance is reused (no key at either DayView call site)
       // when the selected day changes, so any selection made on the
       // previous day must be cleared here too — otherwise the toolbar stays
       // open and a bulk action would silently complete/delete a to-do that
-      // belongs to a day no longer even visible on screen.
+      // belongs to a day no longer even visible on screen. (The add
+      // field's own per-day defaults reset themselves — see
+      // QuickAddTodoField.didUpdateWidget.)
       _selectionMode = false;
       _selectedIds.clear();
     }
@@ -161,97 +135,17 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
 
   @override
   void dispose() {
-    _controller.dispose();
     // Only dispose it if we created it ourselves — a FocusNode passed in
     // via widget.addFocusNode is owned (and disposed) by its caller.
     if (widget.addFocusNode == null) _addFocusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _pickAddTime() async {
-    final picked = await showAppTimePicker(
-      context: context,
-      initialTime: _addTime,
-      dialFormat: ref.read(
-        settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
-      ),
-    );
-    if (picked == null || !mounted) return;
-    setState(() {
-      _addTime = picked;
-      _addHasTime = true;
-    });
-  }
-
-  String _recurrenceLabel(AppL10n l10n, RecurrenceFrequency f) => switch (f) {
-    RecurrenceFrequency.none => l10n.eventRepeatNone,
-    RecurrenceFrequency.daily => l10n.eventRepeatDaily,
-    RecurrenceFrequency.weekly => l10n.eventRepeatWeekly,
-    RecurrenceFrequency.monthly => l10n.eventRepeatMonthly,
-    RecurrenceFrequency.yearly => l10n.eventRepeatYearly,
-    // To-dos have no lunar-date input mode (that's an event-editor-only
-    // feature — see event_editor_sheet.dart's own doc), so this value never
-    // actually reaches this switch from this screen; only here for
-    // RecurrenceFrequency's own exhaustiveness.
-    RecurrenceFrequency.yearlyLunar => l10n.eventRepeatYearlyLunar,
-  };
-
-  Future<void> _add() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final l10n = AppL10n.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    final locale = Localizations.localeOf(context).toLanguageTag();
-
-    final parsed = parseQuickAdd(text, now: DateTime.now());
-    final base = parsed.date ?? dateOnly(widget.day);
-    final time = parsed.time ?? _addTime;
-    final title = parsed.title.isEmpty ? text : parsed.title;
-
-    await ref
-        .read(todoControllerProvider)
-        .add(
-          title: title,
-          slotStart: DateTime(
-            base.year,
-            base.month,
-            base.day,
-            time.hour,
-            time.minute,
-          ),
-          hasTime: parsed.time != null || _addHasTime,
-          frequency: _addRecurrence,
-          // A parsed !priority/#tag overrides the chip/(future) picker,
-          // same "explicit phrase wins over the UI default" rule the
-          // date/time fields already follow.
-          priority: parsed.priority ?? _addPriority.value,
-          tags: parsed.tags.isEmpty ? null : parsed.tags.join(','),
-        );
-    _controller.clear();
-    setState(() {
-      _addRecurrence = RecurrenceFrequency.none;
-      _addPriority = TodoPriority.none;
-    });
-
-    if (parsed.date != null &&
-        !dateOnly(base).isAtSameMomentAs(dateOnly(widget.day))) {
-      messenger.showAutoDismissSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.todoQuickAddAddedToOtherDay(Fmt.monthDay(base, locale)),
-          ),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
-    final palette = context.palette;
     final locale = Localizations.localeOf(context).toLanguageTag();
     final todosAsync = ref.watch(todosForDayProvider(widget.day));
-    final repeating = _addRecurrence != RecurrenceFrequency.none;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -314,197 +208,7 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
           },
           orElse: () => const SizedBox.shrink(),
         ),
-        Container(
-          margin: const EdgeInsets.only(top: AppSpacing.xs),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.cardMd,
-            border: Border.all(color: palette.hairline),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.add, size: 20, color: palette.inkFaint),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _addFocusNode,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _add(),
-                      decoration: InputDecoration(
-                        hintText: l10n.todoHint,
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: AppSpacing.sm,
-                        ),
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: _pickAddTime,
-                    borderRadius: BorderRadius.all(AppRadius.xs),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: AppSpacing.xxs,
-                      ),
-                      child: Text(
-                        _addHasTime
-                            ? _addTime.format(context)
-                            : l10n.todoNoTime,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelMedium?.copyWith(
-                          color: _addHasTime
-                              ? palette.inkSoft
-                              : palette.accent,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Priority/repeat/no-time all sit behind this toggle by
-                  // default (see _addOptionsExpanded's doc) — tinted accent
-                  // whenever one of them is set to something non-default,
-                  // so a collapsed panel never silently hides an active
-                  // choice from view.
-                  IconButton(
-                    tooltip: _addOptionsExpanded
-                        ? l10n.todoFewerOptions
-                        : l10n.todoMoreOptions,
-                    onPressed: () => setState(
-                      () => _addOptionsExpanded = !_addOptionsExpanded,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(
-                      _addOptionsExpanded ? Icons.expand_less : Icons.tune,
-                      size: 18,
-                      color: (repeating || _addPriority != TodoPriority.none)
-                          ? palette.accent
-                          : palette.inkFaint,
-                    ),
-                  ),
-                ],
-              ),
-              AnimatedSize(
-                duration: context.motionDuration(
-                  const Duration(milliseconds: 180),
-                ),
-                curve: Curves.easeOut,
-                alignment: Alignment.topCenter,
-                child: !_addOptionsExpanded
-                    ? const SizedBox(width: double.infinity)
-                    : Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            PopupMenuButton<TodoPriority>(
-                              tooltip: l10n.todoPriorityLabel,
-                              initialValue: _addPriority,
-                              onSelected: (v) =>
-                                  setState(() => _addPriority = v),
-                              itemBuilder: (context) => TodoPriority.values
-                                  .map(
-                                    (p) => PopupMenuItem(
-                                      value: p,
-                                      child: Text(p.label(l10n)),
-                                    ),
-                                  )
-                                  .toList(),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.xxs,
-                                  vertical: AppSpacing.xxs,
-                                ),
-                                child: Icon(
-                                  _addPriority == TodoPriority.none
-                                      ? Icons.flag_outlined
-                                      : Icons.flag,
-                                  size: 18,
-                                  color:
-                                      _addPriority.color(palette) ??
-                                      palette.inkFaint,
-                                ),
-                              ),
-                            ),
-                            PopupMenuButton<RecurrenceFrequency>(
-                              tooltip: l10n.todoRepeat,
-                              initialValue: _addRecurrence,
-                              onSelected: (v) =>
-                                  setState(() => _addRecurrence = v),
-                              itemBuilder: (context) =>
-                                  RecurrenceFrequency.values
-                                      // To-dos have no lunar-date input mode
-                                      // (event-editor-only — see
-                                      // event_editor_sheet.dart's own doc),
-                                      // so yearlyLunar is excluded here
-                                      // rather than just assumed
-                                      // unreachable: this menu used to build
-                                      // from every enum value unfiltered,
-                                      // which meant it actually *was*
-                                      // reachable and selectable the moment
-                                      // the value was added, contradicting
-                                      // the comment that used to sit here.
-                                      .where(
-                                        (f) =>
-                                            f !=
-                                            RecurrenceFrequency.yearlyLunar,
-                                      )
-                                      .map(
-                                        (f) => PopupMenuItem(
-                                          value: f,
-                                          child: Text(
-                                            _recurrenceLabel(l10n, f),
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.xxs,
-                                  vertical: AppSpacing.xxs,
-                                ),
-                                child: Icon(
-                                  Icons.repeat_rounded,
-                                  size: 18,
-                                  color: repeating
-                                      ? palette.accent
-                                      : palette.inkFaint,
-                                ),
-                              ),
-                            ),
-                            // Toggles between a picked time and no-time-at-
-                            // all — tapping the chip in the row above always
-                            // sets a concrete time (that's what
-                            // showTimePicker does), so clearing it needs its
-                            // own control.
-                            IconButton(
-                              tooltip: l10n.todoNoTime,
-                              onPressed: () => setState(
-                                () => _addHasTime = !_addHasTime,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                              icon: Icon(
-                                _addHasTime
-                                    ? Icons.timer_off_outlined
-                                    : Icons.access_time_outlined,
-                                size: 16,
-                                color: palette.inkFaint,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
+        QuickAddTodoField(day: widget.day, focusNode: _addFocusNode),
       ],
     );
   }

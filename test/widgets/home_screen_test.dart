@@ -467,4 +467,37 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'the inline field carries the same time / priority / repeat controls the '
+    'day view\'s own add field has — the tune toggle reveals a priority menu '
+    'and a repeat menu, and a picked priority reaches the new to-do',
+    (tester) async {
+      when(todos.findById(any)).thenAnswer((_) async => null);
+      when(todos.upsert(any)).thenAnswer((_) async {});
+
+      await pumpHome(tester);
+
+      // Collapsed by default — priority/repeat live behind the tune toggle.
+      expect(find.byIcon(Icons.flag_outlined), findsNothing);
+      await tester.tap(find.byIcon(Icons.tune));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.flag_outlined), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.flag_outlined));
+      await tester.pumpAndSettle();
+      // TodoPriority.high — the last entry in the menu.
+      await tester.tap(find.text('높음').last);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Taxes');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      final captured =
+          verify(todos.upsert(captureAny)).captured.single
+              as TodoItemsCompanion;
+      expect(captured.priority.value, greaterThan(0));
+    },
+  );
 }
