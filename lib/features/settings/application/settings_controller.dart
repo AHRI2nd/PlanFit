@@ -145,7 +145,7 @@ class SettingsController extends Notifier<AppSettings> {
       targetCalendarId: prefs.getString(_kCalendar),
       autoImportCalendarEnabled: prefs.getBool(_kAutoImportCalendar) ?? false,
       remindersSyncEnabled: prefs.getBool(_kReminderSync) ?? false,
-      weekStartsMonday: prefs.getBool(_kWeekStart) ?? true,
+      weekStartsMonday: prefs.getBool(_kWeekStart) ?? false,
       subscribedCalendarIds: (prefs.getStringList(_kSubscribed) ?? const [])
           .toSet(),
       completedTodoRetentionDays: prefs.getInt(_kTodoRetention),

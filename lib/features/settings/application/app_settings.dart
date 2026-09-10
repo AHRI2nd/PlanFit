@@ -26,7 +26,7 @@ class AppSettings {
     this.targetCalendarId,
     this.autoImportCalendarEnabled = false,
     this.remindersSyncEnabled = false,
-    this.weekStartsMonday = true,
+    this.weekStartsMonday = false,
     this.subscribedCalendarIds = const {},
     this.completedTodoRetentionDays,
     this.dialTimeFormatPreference = TimeFormatPreference.system,

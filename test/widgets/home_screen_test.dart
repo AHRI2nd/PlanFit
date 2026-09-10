@@ -390,8 +390,9 @@ void main() {
     "bare dateOnly(e.startAt), so a 3-day trip only lit up the bar's first "
     "day even though the event genuinely covered all 3",
     (tester) async {
-      // A fixed Wednesday — weekStartsMonday defaults to true, so this
-      // week's Monday is 2026-03-09.
+      // A fixed Wednesday. The event is placed by absolute date (Tue–Thu),
+      // so this only needs a stable anchor — whichever weekday the bar
+      // starts on, Tue/Wed/Thu all fall inside that same week.
       final now = DateTime(2026, 3, 11);
       final weekStart = startOfWeek(now, startWeekday: DateTime.monday);
       final palette = AppTheme.light().extension<AppPalette>()!;

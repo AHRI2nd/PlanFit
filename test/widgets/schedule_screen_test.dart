@@ -559,9 +559,9 @@ void main() {
       'overflowed the swipeable title\'s own tight header, ellipsizing '
       'mid-word ("August 31 – Septe…")',
       (tester) async {
-        // A Monday-start week fully inside August/September, so the
-        // expected range is unambiguous regardless of the week-start
-        // setting.
+        // 2026-08-31 is a Monday, so with the default Sunday week start the
+        // week runs Aug 30 – Sep 5 — a range straddling a month boundary,
+        // which is what makes the full month names long enough to overflow.
         final selected = DateTime(2026, 8, 31);
         await pumpSchedule(
           tester,
@@ -570,7 +570,7 @@ void main() {
           locale: const Locale('en'),
         );
 
-        expect(find.text('Aug 31 – Sep 6'), findsOneWidget);
+        expect(find.text('Aug 30 – Sep 5'), findsOneWidget);
         expect(find.textContaining('August'), findsNothing);
       },
     );
