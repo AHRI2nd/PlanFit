@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/date_math.dart';
 import '../../../core/format.dart';
 import '../../../core/quick_add/quick_add_parser.dart';
 import '../../../core/time_format.dart';
@@ -28,11 +29,11 @@ Future<void> showQuickAddTodoSheet(BuildContext context) =>
       builder: (_) => const QuickAddTodoSheet(),
     );
 
-/// A new to-do here defaults to 9am today, reusing the same [parseQuickAdd]
-/// phrase-parsing (and the same time/priority/repeat controls) the day
-/// view's own quick-add field runs. Just a title plus [QuickAddTodoField]
-/// in sheet chrome — see that widget's own doc for the actual field +
-/// submit logic.
+/// A new to-do here defaults to the nearest upcoming top of the hour,
+/// reusing the same [parseQuickAdd] phrase-parsing (and the same
+/// date/time/priority/repeat controls) the day view's own quick-add field
+/// runs. Just a title plus [QuickAddTodoField] in sheet chrome — see that
+/// widget's own doc for the actual field + submit logic.
 class QuickAddTodoSheet extends StatelessWidget {
   const QuickAddTodoSheet({super.key});
 
@@ -65,18 +66,24 @@ class QuickAddTodoSheet extends StatelessWidget {
   }
 }
 
-/// The inline "add a to-do" row: an add icon, a text field, a time chip, and
-/// — behind a "tune" toggle so the collapsed row still reads as *quick* — a
-/// priority menu, a repeat menu, and a no-time toggle. Submitting runs
-/// [parseQuickAdd], so typing "내일 오후 3시 병원" fills in the date/time from
-/// the phrase (overriding the chips) and adds just "병원" as the title.
+/// The inline "add a to-do" row: an add icon, a text field, a date chip, a
+/// time chip, and — behind a "tune" toggle so the collapsed row still reads
+/// as *quick* — a priority menu, a repeat menu, and a no-time toggle.
+/// Submitting runs [parseQuickAdd], so typing "내일 오후 3시 병원" fills in
+/// the date/time from the phrase (overriding the chips) and adds just "병원"
+/// as the title.
+///
+/// The date/time chips show the nearest upcoming top of the hour until the
+/// user picks something explicitly (day view keeps its own open day as the
+/// default date instead — see [day]).
 ///
 /// Shared by three places so they stay literally identical rather than
 /// drifting: the day view's [day]-scoped list (`HourlyTodoList`), the home
 /// screen's always-visible bottom section, and the smart-list screen's
 /// quick-add sheet ([QuickAddTodoSheet]). [day] anchors a new item's date
 /// and the "added to another day" SnackBar's comparison; when null (home /
-/// the sheet, neither of which frames a single day) it falls back to today.
+/// the sheet, neither of which frames a single day) it falls back to the
+/// auto "next top of the hour".
 class QuickAddTodoField extends ConsumerStatefulWidget {
   const QuickAddTodoField({
     super.key,
@@ -112,21 +119,51 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
   final _controller = TextEditingController();
   late final FocusNode _focusNode = widget.focusNode ?? FocusNode();
 
-  TimeOfDay _addTime = const TimeOfDay(hour: 9, minute: 0);
-  bool _addHasTime = true;
+  /// The date/time the user picked explicitly, or null while the chip is
+  /// still showing the auto "nearest upcoming top of the hour" (see
+  /// [_effectiveDate] / [_effectiveTime]).
+  DateTime? _pickedDate;
+  TimeOfDay? _pickedTime;
+
+  /// Whether the new to-do carries a time of day at all. Off → it goes into
+  /// that day's "no time" bucket and never fires a reminder.
+  bool _timeEnabled = true;
+
   RecurrenceFrequency _addRecurrence = RecurrenceFrequency.none;
   TodoPriority _addPriority = TodoPriority.none;
 
   /// Whether the priority/repeat/no-time controls are expanded below the
   /// main row — collapsed by default so the "quick" add row actually reads
-  /// as quick (add icon + text field + time chip), not a five-control wall.
-  /// A display preference, not per-day data, so it's deliberately not reset
-  /// on a [day] change — it stays as the user left it while paging days.
+  /// as quick. A display preference, not per-day data, so it's deliberately
+  /// not reset on a [day] change — it stays as the user left it while
+  /// paging days.
   bool _addOptionsExpanded = false;
 
   late DateTime _lastAnchorDay = _anchorDay;
 
   DateTime get _anchorDay => dateOnly(widget.day ?? DateTime.now());
+
+  /// The nearest top of the hour strictly after [now] — a bare "3:47" now
+  /// yields 4:00, and 23:xx rolls the date to the next day.
+  static DateTime _nextTopOfHour(DateTime now) => DateTime(
+    now.year,
+    now.month,
+    now.day,
+    now.hour,
+  ).add(const Duration(hours: 1));
+
+  /// What the date chip shows: the user's pick, else the day view's open day
+  /// ([day] set), else the auto next-top-of-hour date.
+  DateTime get _effectiveDate =>
+      _pickedDate ??
+      (widget.day != null
+          ? _anchorDay
+          : dateOnly(_nextTopOfHour(DateTime.now())));
+
+  /// What the time chip shows: the user's pick, else the auto next-top-of-
+  /// hour time.
+  TimeOfDay get _effectiveTime =>
+      _pickedTime ?? TimeOfDay.fromDateTime(_nextTopOfHour(DateTime.now()));
 
   @override
   void didUpdateWidget(covariant QuickAddTodoField oldWidget) {
@@ -136,8 +173,9 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
     // defaults when that happens, the same way the old inline field did.
     if (_anchorDay != _lastAnchorDay) {
       _lastAnchorDay = _anchorDay;
-      _addTime = const TimeOfDay(hour: 9, minute: 0);
-      _addHasTime = true;
+      _pickedDate = null;
+      _pickedTime = null;
+      _timeEnabled = true;
       _addRecurrence = RecurrenceFrequency.none;
       _addPriority = TodoPriority.none;
     }
@@ -150,19 +188,38 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
     super.dispose();
   }
 
+  Future<void> _pickAddDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _effectiveDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _pickedDate = dateOnly(picked));
+  }
+
   Future<void> _pickAddTime() async {
     final picked = await showAppTimePicker(
       context: context,
-      initialTime: _addTime,
+      initialTime: _effectiveTime,
       dialFormat: ref.read(
         settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
       ),
     );
     if (picked == null || !mounted) return;
     setState(() {
-      _addTime = picked;
-      _addHasTime = true;
+      _pickedTime = picked;
+      _timeEnabled = true;
     });
+  }
+
+  String _dateChipLabel(AppL10n l10n, String locale) {
+    final date = dateOnly(_effectiveDate);
+    final today = dateOnly(DateTime.now());
+    if (date == today) return l10n.commonToday;
+    if (date == addCalendarDays(today, 1)) return l10n.commonTomorrow;
+    return Fmt.monthDayShort(date, locale);
   }
 
   String _recurrenceLabel(AppL10n l10n, RecurrenceFrequency f) => switch (f) {
@@ -183,11 +240,13 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
     final l10n = AppL10n.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final anchor = _anchorDay;
+    final snackbarAnchor = widget.day != null
+        ? _anchorDay
+        : dateOnly(DateTime.now());
 
     final parsed = parseQuickAdd(text, now: DateTime.now());
-    final base = parsed.date ?? anchor;
-    final time = parsed.time ?? _addTime;
+    final base = parsed.date ?? _effectiveDate;
+    final time = parsed.time ?? _effectiveTime;
     final title = parsed.title.isEmpty ? text : parsed.title;
 
     await ref
@@ -201,7 +260,7 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
             time.hour,
             time.minute,
           ),
-          hasTime: parsed.time != null || _addHasTime,
+          hasTime: parsed.time != null || _timeEnabled,
           frequency: _addRecurrence,
           // A parsed !priority/#tag overrides the chip/picker, the same
           // "explicit phrase wins over the UI default" rule the date/time
@@ -213,12 +272,16 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
     if (!mounted) return;
     _controller.clear();
     setState(() {
+      _pickedDate = null;
+      _pickedTime = null;
+      _timeEnabled = true;
       _addRecurrence = RecurrenceFrequency.none;
       _addPriority = TodoPriority.none;
     });
     widget.onAdded?.call();
 
-    if (parsed.date != null && !dateOnly(base).isAtSameMomentAs(anchor)) {
+    if (parsed.date != null &&
+        !dateOnly(base).isAtSameMomentAs(snackbarAnchor)) {
       messenger.showAutoDismissSnackBar(
         SnackBar(
           content: Text(
@@ -233,7 +296,10 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final theme = Theme.of(context);
     final repeating = _addRecurrence != RecurrenceFrequency.none;
+    final hasActiveOption = repeating || _addPriority != TodoPriority.none;
 
     return Container(
       margin: const EdgeInsets.only(top: AppSpacing.xs),
@@ -268,6 +334,35 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                   ),
                 ),
               ),
+              // Date chip — sits left of the time chip. Muted until the user
+              // picks a date explicitly; before that it just shows the auto
+              // "nearest upcoming hour" date. Shown only when there's no
+              // day already in context: the day view (`widget.day` set) is
+              // *on* a specific day, so re-picking a date there is redundant
+              // (a "내일 …" phrase still retargets it), and squeezing a third
+              // chip into that row overflows it on a narrow phone.
+              if (widget.day == null)
+                Tooltip(
+                  message: l10n.todoDate,
+                  child: InkWell(
+                    onTap: _pickAddDate,
+                    borderRadius: BorderRadius.all(AppRadius.xs),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                        vertical: AppSpacing.xxs,
+                      ),
+                      child: Text(
+                        _dateChipLabel(l10n, locale),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: _pickedDate == null
+                              ? palette.inkFaint
+                              : palette.inkSoft,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               InkWell(
                 onTap: _pickAddTime,
                 borderRadius: BorderRadius.all(AppRadius.xs),
@@ -277,9 +372,15 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                     vertical: AppSpacing.xxs,
                   ),
                   child: Text(
-                    _addHasTime ? _addTime.format(context) : l10n.todoNoTime,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _addHasTime ? palette.inkSoft : palette.accent,
+                    _timeEnabled
+                        ? _effectiveTime.format(context)
+                        : l10n.todoNoTime,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: !_timeEnabled
+                          ? palette.accent
+                          : _pickedTime == null
+                          ? palette.inkFaint
+                          : palette.inkSoft,
                     ),
                   ),
                 ),
@@ -298,9 +399,7 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                 icon: Icon(
                   _addOptionsExpanded ? Icons.expand_less : Icons.tune,
                   size: 18,
-                  color: (repeating || _addPriority != TodoPriority.none)
-                      ? palette.accent
-                      : palette.inkFaint,
+                  color: hasActiveOption ? palette.accent : palette.inkFaint,
                 ),
               ),
             ],
@@ -377,16 +476,15 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                           ),
                         ),
                         // Toggles between a picked time and no-time-at-all —
-                        // tapping the chip in the row above always sets a
-                        // concrete time (that's what showTimePicker does),
-                        // so clearing it needs its own control.
+                        // tapping the time chip above always sets a concrete
+                        // time, so clearing it needs its own control.
                         IconButton(
                           tooltip: l10n.todoNoTime,
                           onPressed: () =>
-                              setState(() => _addHasTime = !_addHasTime),
+                              setState(() => _timeEnabled = !_timeEnabled),
                           visualDensity: VisualDensity.compact,
                           icon: Icon(
-                            _addHasTime
+                            _timeEnabled
                                 ? Icons.timer_off_outlined
                                 : Icons.access_time_outlined,
                             size: 16,

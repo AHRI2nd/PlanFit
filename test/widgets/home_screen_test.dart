@@ -15,6 +15,7 @@ import 'package:planfit/design/tokens/app_colors.dart';
 import 'package:planfit/features/home/presentation/home_screen.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
+import 'package:planfit/features/todo/presentation/quick_add_todo_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -500,4 +501,56 @@ void main() {
       expect(captured.priority.value, greaterThan(0));
     },
   );
+
+  testWidgets(
+    'the date and time chips default to the nearest upcoming top of the '
+    "hour when nothing's been picked — no more hard-coded 9am",
+    (tester) async {
+      await pumpHome(tester);
+
+      final field = find.byType(QuickAddTodoField);
+      final ctx = tester.element(field);
+      final now = DateTime.now();
+      final nextHour = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        now.hour,
+      ).add(const Duration(hours: 1));
+
+      // Time chip: exactly the next top of the hour.
+      final expectedTime = TimeOfDay(
+        hour: nextHour.hour,
+        minute: 0,
+      ).format(ctx);
+      expect(
+        find.descendant(of: field, matching: find.text(expectedTime)),
+        findsOneWidget,
+      );
+
+      // Date chip: 오늘 (or 내일 if that next hour already rolled past
+      // midnight) — never a hard-coded absolute date.
+      final expectedDate = nextHour.day == now.day ? '오늘' : '내일';
+      expect(
+        find.descendant(of: field, matching: find.text(expectedDate)),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('tapping the date chip opens a date picker', (tester) async {
+    await pumpHome(tester);
+
+    final field = find.byType(QuickAddTodoField);
+    final chip = find.descendant(
+      of: field,
+      matching: find.byWidgetPredicate(
+        (w) => w is Text && (w.data == '오늘' || w.data == '내일'),
+      ),
+    );
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+  });
 }

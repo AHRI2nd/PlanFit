@@ -1675,6 +1675,12 @@ abstract class AppL10n {
   /// **'시간 없음'**
   String get todoNoTime;
 
+  /// No description provided for @todoDate.
+  ///
+  /// In ko, this message translates to:
+  /// **'날짜'**
+  String get todoDate;
+
   /// No description provided for @todoMoreOptions.
   ///
   /// In ko, this message translates to:

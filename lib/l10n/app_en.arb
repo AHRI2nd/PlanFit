@@ -352,6 +352,7 @@
   "todoHint": "Enter a to-do",
   "todoRepeat": "Repeat",
   "todoNoTime": "No time",
+  "todoDate": "Date",
   "todoMoreOptions": "More options (priority, repeat, no time)",
   "todoFewerOptions": "Fewer options",
   "todoRepeatIndicator": "Recurring to-do",

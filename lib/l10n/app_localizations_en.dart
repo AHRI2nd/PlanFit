@@ -885,6 +885,9 @@ class AppL10nEn extends AppL10n {
   String get todoNoTime => 'No time';
 
   @override
+  String get todoDate => 'Date';
+
+  @override
   String get todoMoreOptions => 'More options (priority, repeat, no time)';
 
   @override
