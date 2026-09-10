@@ -68,10 +68,10 @@ class QuickAddTodoSheet extends StatelessWidget {
 
 /// The inline "add a to-do" row: an add icon, a text field, a date chip, a
 /// time chip, and — behind a "tune" toggle so the collapsed row still reads
-/// as *quick* — a priority menu, a repeat menu, and a no-time toggle.
-/// Submitting runs [parseQuickAdd], so typing "내일 오후 3시 병원" fills in
-/// the date/time from the phrase (overriding the chips) and adds just "병원"
-/// as the title.
+/// as *quick* — a details panel with a tags field, a no-time toggle, a
+/// repeat menu, and a priority menu. Submitting runs [parseQuickAdd], so
+/// typing "내일 오후 3시 병원" fills in the date/time from the phrase
+/// (overriding the chips) and adds just "병원" as the title.
 ///
 /// The date/time chips show the nearest upcoming top of the hour until the
 /// user picks something explicitly (day view keeps its own open day as the
@@ -117,6 +117,7 @@ class QuickAddTodoField extends ConsumerStatefulWidget {
 
 class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
   final _controller = TextEditingController();
+  final _tagsController = TextEditingController();
   late final FocusNode _focusNode = widget.focusNode ?? FocusNode();
 
   /// The date/time the user picked explicitly, or null while the chip is
@@ -132,11 +133,11 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
   RecurrenceFrequency _addRecurrence = RecurrenceFrequency.none;
   TodoPriority _addPriority = TodoPriority.none;
 
-  /// Whether the priority/repeat/no-time controls are expanded below the
-  /// main row — collapsed by default so the "quick" add row actually reads
-  /// as quick. A display preference, not per-day data, so it's deliberately
-  /// not reset on a [day] change — it stays as the user left it while
-  /// paging days.
+  /// Whether the details panel (tags field + no-time/repeat/priority
+  /// controls) is expanded below the main row — collapsed by default so the
+  /// "quick" add row actually reads as quick. A display preference, not
+  /// per-day data, so it's deliberately not reset on a [day] change — it
+  /// stays as the user left it while paging days.
   bool _addOptionsExpanded = false;
 
   late DateTime _lastAnchorDay = _anchorDay;
@@ -184,6 +185,7 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
   @override
   void dispose() {
     _controller.dispose();
+    _tagsController.dispose();
     if (widget.focusNode == null) _focusNode.dispose();
     super.dispose();
   }
@@ -249,6 +251,14 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
     final time = parsed.time ?? _effectiveTime;
     final title = parsed.title.isEmpty ? text : parsed.title;
 
+    // A parsed "#tag" phrase and whatever's typed in the tags field both
+    // count — union, first occurrence wins, order preserved.
+    final fieldTags = _tagsController.text
+        .split(RegExp(r'[,\s]+'))
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty);
+    final tags = <String>{...parsed.tags, ...fieldTags}.toList();
+
     await ref
         .read(todoControllerProvider)
         .add(
@@ -266,11 +276,12 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
           // "explicit phrase wins over the UI default" rule the date/time
           // fields already follow.
           priority: parsed.priority ?? _addPriority.value,
-          tags: parsed.tags.isEmpty ? null : parsed.tags.join(','),
+          tags: tags.isEmpty ? null : tags.join(','),
         );
 
     if (!mounted) return;
     _controller.clear();
+    _tagsController.clear();
     setState(() {
       _pickedDate = null;
       _pickedTime = null;
@@ -299,7 +310,10 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final theme = Theme.of(context);
     final repeating = _addRecurrence != RecurrenceFrequency.none;
-    final hasActiveOption = repeating || _addPriority != TodoPriority.none;
+    final hasActiveOption =
+        repeating ||
+        _addPriority != TodoPriority.none ||
+        _tagsController.text.trim().isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(top: AppSpacing.xs),
@@ -385,8 +399,8 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                   ),
                 ),
               ),
-              // Priority/repeat/no-time all sit behind this toggle by
-              // default — tinted accent whenever one of them is set to
+              // The details panel (tags, no-time/repeat/priority) sits behind
+              // this toggle — tinted accent whenever one of those is set to
               // something non-default, so a collapsed panel never silently
               // hides an active choice from view.
               IconButton(
@@ -412,84 +426,123 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                 ? const SizedBox(width: double.infinity)
                 : Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        PopupMenuButton<TodoPriority>(
-                          tooltip: l10n.todoPriorityLabel,
-                          initialValue: _addPriority,
-                          onSelected: (v) => setState(() => _addPriority = v),
-                          itemBuilder: (context) => TodoPriority.values
-                              .map(
-                                (p) => PopupMenuItem(
-                                  value: p,
-                                  child: Text(p.label(l10n)),
-                                ),
-                              )
-                              .toList(),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xxs,
-                              vertical: AppSpacing.xxs,
-                            ),
-                            child: Icon(
-                              _addPriority == TodoPriority.none
-                                  ? Icons.flag_outlined
-                                  : Icons.flag,
+                        Divider(height: 1, color: palette.hairline),
+                        const SizedBox(height: AppSpacing.xxs),
+                        TextField(
+                          controller: _tagsController,
+                          textInputAction: TextInputAction.done,
+                          onChanged: (_) => setState(() {}),
+                          onSubmitted: (_) => _submit(),
+                          style: theme.textTheme.bodyMedium,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: l10n.todoTagsHint,
+                            prefixIcon: Icon(
+                              Icons.tag,
                               size: 18,
-                              color:
-                                  _addPriority.color(palette) ??
-                                  palette.inkFaint,
+                              color: palette.inkFaint,
+                            ),
+                            prefixIconConstraints: const BoxConstraints(
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.xs,
                             ),
                           ),
                         ),
-                        PopupMenuButton<RecurrenceFrequency>(
-                          tooltip: l10n.todoRepeat,
-                          initialValue: _addRecurrence,
-                          onSelected: (v) => setState(() => _addRecurrence = v),
-                          itemBuilder: (context) => RecurrenceFrequency.values
-                              // To-dos have no lunar-date input mode
-                              // (event-editor-only), so yearlyLunar is
-                              // excluded here rather than assumed unreachable.
-                              .where(
-                                (f) => f != RecurrenceFrequency.yearlyLunar,
-                              )
-                              .map(
-                                (f) => PopupMenuItem(
-                                  value: f,
-                                  child: Text(_recurrenceLabel(l10n, f)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            // Toggles between a picked time and no-time-at-
+                            // all — tapping the time chip above always sets a
+                            // concrete time, so clearing it needs its own
+                            // control.
+                            IconButton(
+                              tooltip: l10n.todoNoTime,
+                              onPressed: () =>
+                                  setState(() => _timeEnabled = !_timeEnabled),
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                _timeEnabled
+                                    ? Icons.timer_off_outlined
+                                    : Icons.access_time_outlined,
+                                size: 16,
+                                color: palette.inkFaint,
+                              ),
+                            ),
+                            PopupMenuButton<RecurrenceFrequency>(
+                              tooltip: l10n.todoRepeat,
+                              initialValue: _addRecurrence,
+                              onSelected: (v) =>
+                                  setState(() => _addRecurrence = v),
+                              itemBuilder: (context) => RecurrenceFrequency
+                                  .values
+                                  // To-dos have no lunar-date input mode
+                                  // (event-editor-only), so yearlyLunar is
+                                  // excluded here rather than assumed
+                                  // unreachable.
+                                  .where(
+                                    (f) => f != RecurrenceFrequency.yearlyLunar,
+                                  )
+                                  .map(
+                                    (f) => PopupMenuItem(
+                                      value: f,
+                                      child: Text(_recurrenceLabel(l10n, f)),
+                                    ),
+                                  )
+                                  .toList(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xxs,
+                                  vertical: AppSpacing.xxs,
                                 ),
-                              )
-                              .toList(),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xxs,
-                              vertical: AppSpacing.xxs,
+                                child: Icon(
+                                  Icons.repeat_rounded,
+                                  size: 18,
+                                  color: repeating
+                                      ? palette.accent
+                                      : palette.inkFaint,
+                                ),
+                              ),
                             ),
-                            child: Icon(
-                              Icons.repeat_rounded,
-                              size: 18,
-                              color: repeating
-                                  ? palette.accent
-                                  : palette.inkFaint,
+                            PopupMenuButton<TodoPriority>(
+                              tooltip: l10n.todoPriorityLabel,
+                              initialValue: _addPriority,
+                              onSelected: (v) =>
+                                  setState(() => _addPriority = v),
+                              itemBuilder: (context) => TodoPriority.values
+                                  .map(
+                                    (p) => PopupMenuItem(
+                                      value: p,
+                                      child: Text(p.label(l10n)),
+                                    ),
+                                  )
+                                  .toList(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xxs,
+                                  vertical: AppSpacing.xxs,
+                                ),
+                                child: Icon(
+                                  _addPriority == TodoPriority.none
+                                      ? Icons.flag_outlined
+                                      : Icons.flag,
+                                  size: 18,
+                                  color:
+                                      _addPriority.color(palette) ??
+                                      palette.inkFaint,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        // Toggles between a picked time and no-time-at-all —
-                        // tapping the time chip above always sets a concrete
-                        // time, so clearing it needs its own control.
-                        IconButton(
-                          tooltip: l10n.todoNoTime,
-                          onPressed: () =>
-                              setState(() => _timeEnabled = !_timeEnabled),
-                          visualDensity: VisualDensity.compact,
-                          icon: Icon(
-                            _timeEnabled
-                                ? Icons.timer_off_outlined
-                                : Icons.access_time_outlined,
-                            size: 16,
-                            color: palette.inkFaint,
-                          ),
+                          ],
                         ),
                       ],
                     ),

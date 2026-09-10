@@ -491,7 +491,9 @@ void main() {
       await tester.tap(find.text('높음').last);
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'Taxes');
+      // Title field is the first TextField; the expanded panel's tags
+      // field is the second.
+      await tester.enterText(find.byType(TextField).first, 'Taxes');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
@@ -553,4 +555,31 @@ void main() {
 
     expect(find.byType(DatePickerDialog), findsOneWidget);
   });
+
+  testWidgets(
+    'the expanded panel has a tags field, and what\'s typed there lands on '
+    'the new to-do alongside any "#tag" phrase in the title',
+    (tester) async {
+      when(todos.findById(any)).thenAnswer((_) async => null);
+      when(todos.upsert(any)).thenAnswer((_) async {});
+
+      await pumpHome(tester);
+      await tester.tap(find.byIcon(Icons.tune));
+      await tester.pumpAndSettle();
+
+      // Two fields now: [0] title, [1] tags.
+      expect(find.byType(TextField), findsNWidgets(2));
+
+      await tester.enterText(find.byType(TextField).at(1), '업무, 급함');
+      await tester.enterText(find.byType(TextField).first, '보고서 #분기');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      final captured =
+          verify(todos.upsert(captureAny)).captured.single
+              as TodoItemsCompanion;
+      expect(captured.tags.value, '분기,업무,급함');
+      expect(captured.title.value, '보고서');
+    },
+  );
 }
