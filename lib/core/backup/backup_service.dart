@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart' show compute;
 import 'package:path_provider/path_provider.dart';
 
 import '../db/app_database.dart';
@@ -36,6 +37,16 @@ class BackupImportSummary {
   /// auto_backup_screen.dart.
   final bool legacyFormat;
 }
+
+/// [compute] requires a top-level (or static) function reference — see
+/// [BackupService.buildJson]'s own doc on why this call is offloaded at all.
+String _encodeBackupJson(Map<String, dynamic> json) =>
+    const JsonEncoder.withIndent('  ').convert(json);
+
+/// Same as [_encodeBackupJson], for [BackupService.importFromFile]'s decode
+/// side.
+Map<String, dynamic> _decodeBackupJson(String raw) =>
+    jsonDecode(raw) as Map<String, dynamic>;
 
 /// Exports/imports the full local database (events + to-dos) as a single
 /// JSON file — the only way a user can move their schedule to a new device or
@@ -77,6 +88,14 @@ class BackupService {
   /// [exportToFile] writes out, exposed separately so [AutoBackupService]
   /// can write it to its own rolling-retention location instead of the
   /// share-sheet temp file.
+  ///
+  /// [AutoBackupService.runIfDue] calls this silently on app foreground
+  /// resume (once a day), with no progress UI of any kind — unlike a
+  /// manual export/import, a slow encode here has no visible reason for
+  /// the user to wait through. A long-running install's full event/to-do
+  /// history can make the encode itself (a single tight synchronous pass,
+  /// no `await` in it anywhere) noticeable, so it runs via [compute] on a
+  /// background isolate rather than blocking the UI thread.
   Future<String> buildJson() async {
     final events = (await eventRepository.allEvents())
         .where((e) => e.importSourceCalendarId == null)
@@ -91,7 +110,7 @@ class BackupService {
       'todos': todos.map(_todoToJson).toList(),
       'todoSubtasks': subtasks.map(_subtaskToJson).toList(),
     };
-    return const JsonEncoder.withIndent('  ').convert(json);
+    return compute(_encodeBackupJson, json);
   }
 
   /// Serializes the full database and writes it to a temp file, returning
@@ -112,7 +131,7 @@ class BackupService {
   /// re-importing the same backup is safe to repeat.
   Future<BackupImportSummary> importFromFile(String path) async {
     final raw = await File(path).readAsString();
-    final json = jsonDecode(raw) as Map<String, dynamic>;
+    final json = await compute(_decodeBackupJson, raw);
 
     final eventsJson = (json['events'] as List?) ?? const [];
     final todosJson = (json['todos'] as List?) ?? const [];
