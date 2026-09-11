@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show compute;
+
 /// One parsed RFC 5545 `VEVENT` block — the shared building block behind
 /// both [IcsExportService.importFromFile]'s "add as a brand-new editable
 /// event" flow and `HolidayCalendarService`'s "mirror as a read-only row"
@@ -40,10 +42,28 @@ class IcsParseResult {
   final int skipped;
 }
 
+/// Runs [IcsParser.parse] on a background isolate via [compute] — a real
+/// subscribed calendar or a manually-imported `.ics` file can run to
+/// thousands of `VEVENT`s, and [IcsParser.parse] is a single tight
+/// synchronous pass with no `await` in it anywhere, so calling it directly
+/// would freeze the UI thread (animations, the "가져오는 중…" spinner
+/// itself included) for however long that pass takes. Both call sites
+/// ([IcsExportService.importFromFile], [HolidayCalendarService]'s own
+/// feed sync) already run inside an `async` function, so awaiting this in
+/// place of a direct `.parse()` call costs nothing when the feed is small.
+Future<IcsParseResult> parseIcsInBackground(String raw) =>
+    compute(_parseIcsForCompute, raw);
+
+/// [compute] requires a top-level (or static) function reference rather
+/// than an instance method torn off a closure — [IcsParser] has no
+/// instance state (it's a `const` constructor), so this just forwards.
+IcsParseResult _parseIcsForCompute(String raw) => const IcsParser().parse(raw);
+
 /// Parses raw RFC 5545 (`.ics`) text into [IcsVevent]s. Stateless and
 /// side-effect-free — what happens to a parsed VEVENT (saved as an
 /// editable event, upserted as a read-only mirror row, …) is entirely the
-/// caller's concern.
+/// caller's concern. Prefer [parseIcsInBackground] over calling [parse]
+/// directly for any real (non-test) feed — see that function's own doc.
 class IcsParser {
   const IcsParser();
 

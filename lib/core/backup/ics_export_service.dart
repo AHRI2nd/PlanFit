@@ -82,7 +82,7 @@ class IcsExportService {
   /// around re-importing the same PlanFit-originated backup safely).
   Future<IcsImportSummary> importFromFile(String path) async {
     final raw = await File(path).readAsString();
-    final result = const IcsParser().parse(raw);
+    final result = await parseIcsInBackground(raw);
 
     for (final v in result.vevents) {
       await eventRepository.save(

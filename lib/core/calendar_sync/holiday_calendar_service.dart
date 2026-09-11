@@ -279,7 +279,7 @@ class HolidayCalendarService {
       );
     }
 
-    final result = const IcsParser().parse(response.body);
+    final result = await parseIcsInBackground(response.body);
     final existing = await eventDao.mirroredFrom(
       sourceId,
       DateTime(2000),
