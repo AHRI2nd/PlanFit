@@ -4,6 +4,20 @@ import 'package:intl/intl.dart';
 class Fmt {
   const Fmt._();
 
+  /// Every `DateFormat` this class has ever built, keyed by a tag identifying
+  /// its skeleton plus the locale it was built for (e.g. `'jm|ko'`) — a
+  /// `DateFormat` is immutable/stateless once constructed (safe to reuse
+  /// across any number of `.format()` calls on different dates), but every
+  /// method below used to build a brand-new one on every single call. Cheap
+  /// in isolation, but these run on every event/to-do tile's every render —
+  /// including, notably, the day view's clock dial redrawing 8 hour labels
+  /// on every minute tick (see `day_clock_view.dart`'s own `_ClockFacePainter`
+  /// doc) before that was itself fixed to stop happening so often.
+  static final _cache = <String, DateFormat>{};
+
+  static DateFormat _cached(String key, DateFormat Function() create) =>
+      _cache.putIfAbsent(key, create);
+
   /// [use24Hour] `true` forces 24-hour (`DateFormat.Hm`, guaranteed 24h
   /// regardless of locale — see intl's own doc on `Hm`). `null` uses the
   /// locale's own preferred hour convention (`DateFormat.jm`) as-is — for
@@ -14,22 +28,22 @@ class Fmt {
   /// user. `false` instead goes through [_force12h], which only actually
   /// does anything when the locale's own pattern isn't already 12-hour.
   static String time(DateTime dt, String locale, {bool? use24Hour}) {
-    if (use24Hour == true) return DateFormat.Hm(locale).format(dt);
-    final format = DateFormat.jm(locale);
-    return (use24Hour == false ? _force12h(format, locale) : format).format(
-      dt,
-    );
+    if (use24Hour == true) {
+      return _cached('Hm|$locale', () => DateFormat.Hm(locale)).format(dt);
+    }
+    final format = _cached('jm|$locale', () => DateFormat.jm(locale));
+    return (use24Hour == false ? _force12h(format, locale) : format).format(dt);
   }
 
   /// Same `use24Hour` contract as [time], for an hour-only label (the
   /// day/week timeline's axis).
   static String hour(int hour24, String locale, {bool? use24Hour}) {
     final dt = DateTime(2000, 1, 1, hour24);
-    if (use24Hour == true) return DateFormat.H(locale).format(dt);
-    final format = DateFormat.j(locale);
-    return (use24Hour == false ? _force12h(format, locale) : format).format(
-      dt,
-    );
+    if (use24Hour == true) {
+      return _cached('H|$locale', () => DateFormat.H(locale)).format(dt);
+    }
+    final format = _cached('j|$locale', () => DateFormat.j(locale));
+    return (use24Hour == false ? _force12h(format, locale) : format).format(dt);
   }
 
   /// Rewrites [source]'s pattern into 12-hour form for a locale (like `ja`)
@@ -55,12 +69,14 @@ class Fmt {
     // depend on that staying true for every locale this might ever run
     // against.
     if (_hasUnquotedChar(pattern, 'h')) return source;
-    var forced = pattern.replaceAllMapped(
-      RegExp('H+'),
-      (m) => 'h' * m[0]!.length,
-    );
-    if (!_hasUnquotedChar(forced, 'a')) forced = 'a $forced';
-    return DateFormat(forced, locale);
+    return _cached('force12h|$pattern|$locale', () {
+      var forced = pattern.replaceAllMapped(
+        RegExp('H+'),
+        (m) => 'h' * m[0]!.length,
+      );
+      if (!_hasUnquotedChar(forced, 'a')) forced = 'a $forced';
+      return DateFormat(forced, locale);
+    });
   }
 
   /// Whether [pattern] contains [char] outside of any single-quoted ICU
@@ -85,10 +101,10 @@ class Fmt {
   }
 
   static String weekdayShort(DateTime dt, String locale) =>
-      DateFormat.E(locale).format(dt);
+      _cached('E|$locale', () => DateFormat.E(locale)).format(dt);
 
   static String monthDay(DateTime dt, String locale) =>
-      DateFormat.MMMMd(locale).format(dt);
+      _cached('MMMMd|$locale', () => DateFormat.MMMMd(locale)).format(dt);
 
   /// [monthDay] with the abbreviated month (`MMM`, not `MMMM`) — for a
   /// context that concatenates two of these into a range, like the week
@@ -98,10 +114,10 @@ class Fmt {
   /// are effectively unaffected since neither has a long-vs-abbreviated
   /// month-name distinction the way en does.
   static String monthDayShort(DateTime dt, String locale) =>
-      DateFormat.MMMd(locale).format(dt);
+      _cached('MMMd|$locale', () => DateFormat.MMMd(locale)).format(dt);
 
   static String monthName(DateTime dt, String locale) =>
-      DateFormat.MMMM(locale).format(dt);
+      _cached('MMMM|$locale', () => DateFormat.MMMM(locale)).format(dt);
 
   /// [monthName] abbreviated (`MMM`) — for a context with real width
   /// pressure, like year_view.dart's own mini-month header (12 of these
@@ -109,7 +125,7 @@ class Fmt {
   /// it's tall enough wrapped that it can push the fixed-aspect-ratio grid
   /// cell below it into an actual bottom overflow, not just an ellipsis.
   static String monthNameShort(DateTime dt, String locale) =>
-      DateFormat.MMM(locale).format(dt);
+      _cached('MMM|$locale', () => DateFormat.MMM(locale)).format(dt);
 
   /// schedule_screen.dart's own Month-view title (e.g. "Sep 2026") — uses
   /// the abbreviated month for the same reason [monthDayShort] does: this
@@ -119,14 +135,14 @@ class Fmt {
   /// abbreviation lives directly in `yearMonth` rather than a parallel
   /// `yearMonthShort` nobody else would use).
   static String yearMonth(DateTime dt, String locale) =>
-      DateFormat.yMMM(locale).format(dt);
+      _cached('yMMM|$locale', () => DateFormat.yMMM(locale)).format(dt);
 
   /// Uses the `yMMMEd` ICU skeleton rather than the fully-spelled-out
   /// `yMMMMEEEEd` — the abbreviated weekday keeps this to one line in the
   /// day header (e.g. ko "2026년 8월 28일 (금)", en "Fri, Aug 28, 2026"),
   /// where full weekday names like "금요일"/"Friday" used to wrap.
   static String fullDate(DateTime dt, String locale) =>
-      DateFormat.yMMMEd(locale).format(dt);
+      _cached('yMMMEd|$locale', () => DateFormat.yMMMEd(locale)).format(dt);
 
   /// A compact relative label like "3시간 뒤" / "in 3h" for upcoming events —
   /// "진행 중" / "in progress" once [target] (the event's own start time) has
