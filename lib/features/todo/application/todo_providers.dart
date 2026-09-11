@@ -80,8 +80,18 @@ final todosForAgendaProvider = StreamProvider.family<List<TodoRow>, DateTime>((
 
 /// A to-do's checklist — the detail sheet's live source, also used by
 /// [HourlyTodoList] to show a "2/3" subtask-progress badge inline.
-final todoSubtasksProvider =
-    StreamProvider.family<List<TodoSubtaskRow>, String>((ref, todoId) {
+///
+/// `.autoDispose`: [HourlyTodoList] and the smart-list screen watch this
+/// once per *rendered row*, keyed by [todoId] — unlike the date-bucketed
+/// providers below, there's no way to normalize that key down to a handful
+/// of cache slots. Without `.autoDispose` every to-do ever scrolled past
+/// this session would leave behind a permanently-open Drift `.watch()`
+/// subscription (and, since Drift invalidates per-table rather than per-row,
+/// a stray subtask edit anywhere would re-run every one of them) — plain
+/// `.autoDispose` tears each down the moment its row scrolls off/its sheet
+/// closes, which is the right trade here since a re-open just re-queries.
+final todoSubtasksProvider = StreamProvider.autoDispose
+    .family<List<TodoSubtaskRow>, String>((ref, todoId) {
       return ref.watch(todoDaoProvider).watchSubtasks(todoId);
     });
 
@@ -303,20 +313,17 @@ class TodoController {
   /// timed items by [TodoItems.slotStart] first, so reordering across that
   /// boundary would just be silently undone by the next rebuild — only the
   /// no-time bucket has no other sort key ahead of [TodoItems.sortOrder].
-  Future<void> reorder(
-    List<TodoRow> current,
-    int oldIndex,
-    int newIndex,
-  ) => _reorderQueue.run(() async {
-    final items = List<TodoRow>.from(current);
-    final moved = items.removeAt(oldIndex);
-    items.insert(newIndex, moved);
+  Future<void> reorder(List<TodoRow> current, int oldIndex, int newIndex) =>
+      _reorderQueue.run(() async {
+        final items = List<TodoRow>.from(current);
+        final moved = items.removeAt(oldIndex);
+        items.insert(newIndex, moved);
 
-    final dao = _ref.read(todoDaoProvider);
-    for (var i = 0; i < items.length; i++) {
-      await dao.setSortOrder(items[i].id, i);
-    }
-  });
+        final dao = _ref.read(todoDaoProvider);
+        for (var i = 0; i < items.length; i++) {
+          await dao.setSortOrder(items[i].id, i);
+        }
+      });
 
   Future<void> setPinned(String id, bool pinned) =>
       _ref.read(todoDaoProvider).setPinned(id, pinned);
