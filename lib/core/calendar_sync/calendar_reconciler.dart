@@ -145,11 +145,25 @@ class CalendarReconciler {
 
     // 2) Pull edits/deletes made in the calendar app for events we own.
     final linked = await _eventDao.between(from, to);
+    final needsPull = linked.any(
+      (row) => row.osEventId != null && row.syncStatus == SyncStatus.synced,
+    );
+    // One batched fetch of every OS event PlanFit has ever pushed, instead
+    // of a fetchEvent() platform-channel round trip per synced row below —
+    // each is a real IPC call, so this used to make one per event in
+    // [from, to] on *every single app resume* (see this method's own
+    // history for the N+1 this replaces). Null (as opposed to an empty
+    // map) specifically means "couldn't even ask" — no target calendar
+    // resolved — so the loop below leaves every synced row untouched this
+    // pass rather than reading that as "everything in it was deleted".
+    final osEventsById = needsPull ? await _fetchLinkedOsEventsById() : null;
+
     for (final row in linked) {
       final osId = row.osEventId;
       if (osId == null || row.syncStatus != SyncStatus.synced) continue;
+      if (osEventsById == null) continue;
 
-      final osEvent = await _service.fetchEvent(osId);
+      final osEvent = osEventsById[osId];
 
       if (osEvent == null) {
         // The event no longer exists anywhere — cancel its notification
@@ -226,6 +240,33 @@ class CalendarReconciler {
     }
 
     return changes;
+  }
+
+  /// Every OS event currently in the sync target calendar, by id — step 2's
+  /// own batched replacement for calling `fetchEvent` once per synced row.
+  ///
+  /// Deliberately `[DateTime(2000), DateTime(2100)]`, not `[from, to]`: an
+  /// event step 2 already knows as synced may since have been *moved* (in
+  /// the calendar app) to a date outside this reconcile's own window —
+  /// scoping this fetch to `[from, to]` would make that event vanish from
+  /// this map and read as "deleted" to step 2's `osEvent == null` branch,
+  /// when it was only moved. `[2000, 2100]` is the same bound this app
+  /// already uses for every other user-facing date (see
+  /// `event_editor_sheet.dart`'s own date picker), so nothing created
+  /// through the app can ever fall outside it.
+  ///
+  /// Null (never an empty map, in this one case) when no target calendar
+  /// can be resolved at all — step 2's caller treats that as "couldn't
+  /// check", not "checked and found nothing".
+  Future<Map<String, dc.Event>?> _fetchLinkedOsEventsById() async {
+    final targetId = await _service.resolveTargetCalendarId();
+    if (targetId == null) return null;
+    final events = await _service.listEvents(
+      targetId,
+      from: DateTime(2000),
+      to: DateTime(2100),
+    );
+    return {for (final e in events) e.eventId: e};
   }
 
   /// Calendars step 3 scans, mapped to each one's own OS color (`#RRGGBB`,

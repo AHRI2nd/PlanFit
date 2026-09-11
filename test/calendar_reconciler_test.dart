@@ -74,6 +74,13 @@ void main() {
     when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
     when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
     when(notifications.refillEvents(any)).thenAnswer((_) async {});
+    // Mirrors the real CalendarService.resolveTargetCalendarId(), which
+    // just returns the already-configured id with no async work once one
+    // exists — every test below sets targetCalendarId directly (or leaves
+    // it null) rather than exercising the create-a-calendar path.
+    when(
+      service.resolveTargetCalendarId(),
+    ).thenAnswer((_) async => service.targetCalendarId);
     // No subscribed calendars by default — most tests aren't about mirroring.
     when(service.subscribedCalendarIds).thenReturn(<String>{});
     // Off by default — most tests aren't about auto-import.
@@ -84,39 +91,39 @@ void main() {
   });
 
   group('concurrency guard', () {
+    test('a reconcile() call started while one is already running is a '
+        'no-op, not a second overlapping run', () async {
+      when(service.isEnabled).thenReturn(false);
+      final now = DateTime(2026, 1, 1);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+
+      // Not awaited between the two calls — this is exactly the shape of
+      // two AppLifecycleState.resumed events firing in quick succession
+      // (see CalendarReconciler._reconciling's doc).
+      final first = reconciler.reconcile(now: now);
+      final second = reconciler.reconcile(now: now);
+
+      expect(await second, 0);
+      expect(await first, 0);
+      // Proves the second call short-circuited before doing any work,
+      // rather than running the whole reconcile pass a second time
+      // concurrently.
+      verify(dao.between(any, any)).called(1);
+    });
+
     test(
-      'a reconcile() call started while one is already running is a '
-      'no-op, not a second overlapping run',
+      'a later call succeeds normally once the first has finished',
       () async {
         when(service.isEnabled).thenReturn(false);
         final now = DateTime(2026, 1, 1);
         when(dao.between(any, any)).thenAnswer((_) async => []);
 
-        // Not awaited between the two calls — this is exactly the shape of
-        // two AppLifecycleState.resumed events firing in quick succession
-        // (see CalendarReconciler._reconciling's doc).
-        final first = reconciler.reconcile(now: now);
-        final second = reconciler.reconcile(now: now);
+        await reconciler.reconcile(now: now);
+        await reconciler.reconcile(now: now);
 
-        expect(await second, 0);
-        expect(await first, 0);
-        // Proves the second call short-circuited before doing any work,
-        // rather than running the whole reconcile pass a second time
-        // concurrently.
-        verify(dao.between(any, any)).called(1);
+        verify(dao.between(any, any)).called(2);
       },
     );
-
-    test('a later call succeeds normally once the first has finished', () async {
-      when(service.isEnabled).thenReturn(false);
-      final now = DateTime(2026, 1, 1);
-      when(dao.between(any, any)).thenAnswer((_) async => []);
-
-      await reconciler.reconcile(now: now);
-      await reconciler.reconcile(now: now);
-
-      verify(dao.between(any, any)).called(2);
-    });
   });
 
   group('notification refill', () {
@@ -155,46 +162,46 @@ void main() {
       },
     );
 
-    test('excludes an event with notifications turned off from the batch', () async {
-      when(service.isEnabled).thenReturn(false);
-      final now = DateTime(2026, 1, 1);
-      final silent = row(
-        id: 'e3',
-        startAt: now.add(const Duration(days: 10)),
-        notify: false,
-      );
-      when(dao.between(any, any)).thenAnswer((_) async => [silent]);
-
-      await reconciler.reconcile(now: now);
-
-      // Filtering by notify is the reconciler's own job (refillEvents has no
-      // way to tell "off" apart from "on with zero offsets selected") — the
-      // batch it hands off is empty, not skipped entirely, since the refill
-      // still needs to run for whatever *other* candidates exist.
-      verify(notifications.refillEvents([])).called(1);
-    });
-
     test(
-      'still passes a candidate whose primary alert has already passed '
-      'through to refillEvents — refillEvents itself judges each reminder '
-      'offset',
+      'excludes an event with notifications turned off from the batch',
       () async {
         when(service.isEnabled).thenReturn(false);
         final now = DateTime(2026, 1, 1);
-        // Starts inside the window, but a long lead time pulls the primary
-        // alert into the past relative to "now".
-        final alreadyAlerted = row(
-          id: 'e4',
-          startAt: now.add(const Duration(hours: 1)),
-          reminderMinutesBefore: 1440,
+        final silent = row(
+          id: 'e3',
+          startAt: now.add(const Duration(days: 10)),
+          notify: false,
         );
-        when(dao.between(any, any)).thenAnswer((_) async => [alreadyAlerted]);
+        when(dao.between(any, any)).thenAnswer((_) async => [silent]);
 
         await reconciler.reconcile(now: now);
 
-        verify(notifications.refillEvents([alreadyAlerted])).called(1);
+        // Filtering by notify is the reconciler's own job (refillEvents has no
+        // way to tell "off" apart from "on with zero offsets selected") — the
+        // batch it hands off is empty, not skipped entirely, since the refill
+        // still needs to run for whatever *other* candidates exist.
+        verify(notifications.refillEvents([])).called(1);
       },
     );
+
+    test('still passes a candidate whose primary alert has already passed '
+        'through to refillEvents — refillEvents itself judges each reminder '
+        'offset', () async {
+      when(service.isEnabled).thenReturn(false);
+      final now = DateTime(2026, 1, 1);
+      // Starts inside the window, but a long lead time pulls the primary
+      // alert into the past relative to "now".
+      final alreadyAlerted = row(
+        id: 'e4',
+        startAt: now.add(const Duration(hours: 1)),
+        reminderMinutesBefore: 1440,
+      );
+      when(dao.between(any, any)).thenAnswer((_) async => [alreadyAlerted]);
+
+      await reconciler.reconcile(now: now);
+
+      verify(notifications.refillEvents([alreadyAlerted])).called(1);
+    });
   });
 
   group('subscribed-calendar mirroring', () {
@@ -262,6 +269,7 @@ void main() {
       'cancels the notification when the OS event was deleted externally',
       () async {
         when(service.isEnabled).thenReturn(true);
+        when(service.targetCalendarId).thenReturn('cal-1');
         final now = DateTime(2026, 1, 1);
         final linked = row(
           id: 'e10',
@@ -271,7 +279,11 @@ void main() {
         );
         when(dao.needingPush()).thenAnswer((_) async => []);
         when(dao.between(any, any)).thenAnswer((_) async => [linked]);
-        when(service.fetchEvent('os-1')).thenAnswer((_) async => null);
+        // Genuinely gone from the calendar — not just missing from a
+        // too-narrow query window (see the far-future test below).
+        when(
+          service.listEvents('cal-1', from: DateTime(2000), to: DateTime(2100)),
+        ).thenAnswer((_) async => []);
         when(dao.deleteById(any)).thenAnswer((_) async {});
         when(syncLogDao.add(any)).thenAnswer((_) async {});
 
@@ -285,6 +297,7 @@ void main() {
     test('reschedules the notification at the new time when the OS event was '
         'edited externally', () async {
       when(service.isEnabled).thenReturn(true);
+      when(service.targetCalendarId).thenReturn('cal-1');
       final now = DateTime(2026, 1, 1);
       final oldStart = now.add(const Duration(days: 5, hours: 9));
       final newStart = now.add(const Duration(days: 5, hours: 15));
@@ -303,8 +316,8 @@ void main() {
       when(dao.needingPush()).thenAnswer((_) async => []);
       when(dao.between(any, any)).thenAnswer((_) async => [linked]);
       when(
-        service.fetchEvent('os-2'),
-      ).thenAnswer((_) async => osEvent(eventId: 'os-2', start: newStart));
+        service.listEvents('cal-1', from: DateTime(2000), to: DateTime(2100)),
+      ).thenAnswer((_) async => [osEvent(eventId: 'os-2', start: newStart)]);
       when(dao.patch(any, any)).thenAnswer((_) async {});
       when(dao.findById('e11')).thenAnswer((_) async => pulled);
       when(syncLogDao.add(any)).thenAnswer((_) async {});
@@ -315,12 +328,18 @@ void main() {
       verifyNever(notifications.cancelForEvent('e11'));
     });
 
-    test('still calls scheduleForEvent when the externally-edited time moved '
-        'far into the future — scheduleForEvent itself judges each reminder '
-        'offset against the window', () async {
+    test('still finds (and pulls, rather than treats as deleted) an event '
+        "moved outside this reconcile's own [from, to] window — regression "
+        'test: the batched replacement for a plain fetchEvent() call must '
+        'query a bound wide enough to still find it by id, not just '
+        '[from, to]', () async {
       when(service.isEnabled).thenReturn(true);
+      when(service.targetCalendarId).thenReturn('cal-1');
       final now = DateTime(2026, 1, 1);
       final oldStart = now.add(const Duration(days: 5));
+      // Well outside reconcile()'s default 90-day lookAhead — the exact
+      // shape of bug this test guards against: mistaking "moved far away"
+      // for "deleted".
       final farFutureStart = now.add(const Duration(days: 400));
       final linked = row(
         id: 'e12',
@@ -336,8 +355,10 @@ void main() {
       );
       when(dao.needingPush()).thenAnswer((_) async => []);
       when(dao.between(any, any)).thenAnswer((_) async => [linked]);
-      when(service.fetchEvent('os-3')).thenAnswer(
-        (_) async => osEvent(eventId: 'os-3', start: farFutureStart),
+      when(
+        service.listEvents('cal-1', from: DateTime(2000), to: DateTime(2100)),
+      ).thenAnswer(
+        (_) async => [osEvent(eventId: 'os-3', start: farFutureStart)],
       );
       when(dao.patch(any, any)).thenAnswer((_) async {});
       when(dao.findById('e12')).thenAnswer((_) async => pulled);
@@ -345,8 +366,37 @@ void main() {
 
       await reconciler.reconcile(now: now);
 
+      verify(
+        service.listEvents('cal-1', from: DateTime(2000), to: DateTime(2100)),
+      ).called(1);
       verify(notifications.scheduleForEvent(pulled)).called(1);
       verifyNever(notifications.cancelForEvent('e12'));
+      verifyNever(dao.deleteById(any));
+    });
+
+    test('leaves every synced row untouched when no target calendar can be '
+        'resolved at all — regression test: this must not read "couldn\'t '
+        'check" as "everything in it was deleted"', () async {
+      when(service.isEnabled).thenReturn(true);
+      // No target calendar available — resolveTargetCalendarId() (per the
+      // shared setUp() default) then resolves to null too.
+      when(service.targetCalendarId).thenReturn(null);
+      final now = DateTime(2026, 1, 1);
+      final linked = row(
+        id: 'e13',
+        startAt: now.add(const Duration(days: 5)),
+        osEventId: 'os-4',
+        syncStatus: SyncStatus.synced,
+      );
+      when(dao.needingPush()).thenAnswer((_) async => []);
+      when(dao.between(any, any)).thenAnswer((_) async => [linked]);
+
+      final changes = await reconciler.reconcile(now: now);
+
+      expect(changes, 0);
+      verifyNever(dao.deleteById(any));
+      verifyNever(dao.patch(any, any));
+      verifyNever(notifications.cancelForEvent(any));
     });
   });
 
@@ -469,13 +519,9 @@ void main() {
         );
         when(dao.needingPush()).thenAnswer((_) async => []);
         when(dao.between(any, any)).thenAnswer((_) async => [existing]);
-        when(service.fetchEvent('os-existing')).thenAnswer(
-          (_) async => osEvent(
-            eventId: 'os-existing',
-            start: start,
-            title: existing.title,
-          ),
-        );
+        // Covers both step 2's own batched lookup (see the "pulling
+        // changes" group above) and step 3's calendar scan below — both
+        // call listEvents('cal-1', ...), just with different bounds.
         when(
           service.listEvents(
             'cal-1',
@@ -637,26 +683,23 @@ void main() {
       },
     );
 
-    test(
-      'retries a pending calendar deletion every reconcile pass and clears '
-      'its tombstone once the OS event is confirmed actually gone',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        when(dao.needingPush()).thenAnswer((_) async => []);
-        when(dao.between(any, any)).thenAnswer((_) async => []);
-        when(
-          dao.pendingCalendarDeletionIds(),
-        ).thenAnswer((_) async => {'os-retry'});
-        when(service.deleteEventById('os-retry')).thenAnswer((_) async {});
-        when(dao.clearPendingCalendarDeletion('os-retry')).thenAnswer(
-          (_) async {},
-        );
+    test('retries a pending calendar deletion every reconcile pass and clears '
+        'its tombstone once the OS event is confirmed actually gone', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(dao.needingPush()).thenAnswer((_) async => []);
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+      when(
+        dao.pendingCalendarDeletionIds(),
+      ).thenAnswer((_) async => {'os-retry'});
+      when(service.deleteEventById('os-retry')).thenAnswer((_) async {});
+      when(
+        dao.clearPendingCalendarDeletion('os-retry'),
+      ).thenAnswer((_) async {});
 
-        await reconciler.reconcile(now: DateTime(2026, 1, 1));
+      await reconciler.reconcile(now: DateTime(2026, 1, 1));
 
-        verify(service.deleteEventById('os-retry')).called(1);
-        verify(dao.clearPendingCalendarDeletion('os-retry')).called(1);
-      },
-    );
+      verify(service.deleteEventById('os-retry')).called(1);
+      verify(dao.clearPendingCalendarDeletion('os-retry')).called(1);
+    });
   });
 }
