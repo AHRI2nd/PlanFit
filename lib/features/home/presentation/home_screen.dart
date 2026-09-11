@@ -303,43 +303,50 @@ class _UpcomingTile extends StatelessWidget {
     return GestureDetector(
       onTap: () => showEventPreview(context, event: event),
       onLongPress: () => showEventEditor(context, existing: event),
-      child: GlassSurface(
-        borderRadius: AppRadius.cardMd,
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  Fmt.time(event.startAt, locale, use24Hour: use24Hour),
-                  // A light preset (amber/sky/rose) or a time-gradient
-                  // moment near those same hues measured well under WCAG
-                  // AA's 4.5:1 text floor here — see legibleOn's own doc.
-                  style: AppTypography.clockSmall.copyWith(
-                    color: legibleOn(palette.surface, accent),
+      // RepaintBoundary isolates this tile's own BackdropFilter blur layer
+      // — same fix as day_view.dart's event cards — so scrolling the
+      // "오늘" feed (or the minute-by-minute nowTickerProvider tick this
+      // card's ancestor watches) doesn't force every tile's blur to
+      // recomposite, just because its position on screen moved.
+      child: RepaintBoundary(
+        child: GlassSurface(
+          borderRadius: AppRadius.cardMd,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    Fmt.time(event.startAt, locale, use24Hour: use24Hour),
+                    // A light preset (amber/sky/rose) or a time-gradient
+                    // moment near those same hues measured well under WCAG
+                    // AA's 4.5:1 text floor here — see legibleOn's own doc.
+                    style: AppTypography.clockSmall.copyWith(
+                      color: legibleOn(palette.surface, accent),
+                    ),
                   ),
-                ),
-                Text(
-                  Fmt.relative(event.startAt, now, locale, end: event.endAt),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: palette.inkFaint,
+                  Text(
+                    Fmt.relative(event.startAt, now, locale, end: event.endAt),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: palette.inkFaint,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Container(width: 1, height: 32, color: palette.hairline),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                event.title.isEmpty ? '—' : event.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium,
+                ],
               ),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.md),
+              Container(width: 1, height: 32, color: palette.hairline),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  event.title.isEmpty ? '—' : event.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -365,68 +372,72 @@ class _FeedTodoTile extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () => showTodoDetailSheet(context, todo),
-      child: GlassSurface(
-        borderRadius: AppRadius.cardMd,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        child: Row(
-          children: [
-            // Same tap-target/color language as HourlyTodoList's own
-            // checkbox — accent when done, danger when overdue, faint
-            // otherwise. Forced up to the 44x44 accessibility floor via
-            // SizedBox, kept separate from the 22px icon's own visual size
-            // — same pattern as _TitleChevron in schedule_screen.dart.
-            Semantics(
-              button: true,
-              checked: todo.isDone,
-              label: AppL10n.of(context).todoMarkDone,
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: InkWell(
-                  onTap: () => ref
-                      .read(todoControllerProvider)
-                      .toggle(todo.id, !todo.isDone),
-                  customBorder: const CircleBorder(),
-                  child: Center(
-                    child: Icon(
-                      todo.isDone
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      size: 22,
-                      color: todo.isDone
-                          ? palette.accent
-                          : (isOverdue ? palette.danger : palette.inkFaint),
+      // See _UpcomingTile's own comment — isolates this tile's blur layer
+      // from the rest of the scrolling feed.
+      child: RepaintBoundary(
+        child: GlassSurface(
+          borderRadius: AppRadius.cardMd,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              // Same tap-target/color language as HourlyTodoList's own
+              // checkbox — accent when done, danger when overdue, faint
+              // otherwise. Forced up to the 44x44 accessibility floor via
+              // SizedBox, kept separate from the 22px icon's own visual size
+              // — same pattern as _TitleChevron in schedule_screen.dart.
+              Semantics(
+                button: true,
+                checked: todo.isDone,
+                label: AppL10n.of(context).todoMarkDone,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: InkWell(
+                    onTap: () => ref
+                        .read(todoControllerProvider)
+                        .toggle(todo.id, !todo.isDone),
+                    customBorder: const CircleBorder(),
+                    child: Center(
+                      child: Icon(
+                        todo.isDone
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        size: 22,
+                        color: todo.isDone
+                            ? palette.accent
+                            : (isOverdue ? palette.danger : palette.inkFaint),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                todo.title.isEmpty ? '—' : todo.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: todo.isDone ? palette.inkFaint : palette.ink,
-                  decoration: todo.isDone ? TextDecoration.lineThrough : null,
-                ),
-              ),
-            ),
-            if (todo.hasTime) ...[
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                Fmt.time(todo.slotStart, locale, use24Hour: use24Hour),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: isOverdue ? palette.danger : palette.inkFaint,
-                  fontWeight: isOverdue ? FontWeight.w700 : null,
+              Expanded(
+                child: Text(
+                  todo.title.isEmpty ? '—' : todo.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: todo.isDone ? palette.inkFaint : palette.ink,
+                    decoration: todo.isDone ? TextDecoration.lineThrough : null,
+                  ),
                 ),
               ),
+              if (todo.hasTime) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  Fmt.time(todo.slotStart, locale, use24Hour: use24Hour),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: isOverdue ? palette.danger : palette.inkFaint,
+                    fontWeight: isOverdue ? FontWeight.w700 : null,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
