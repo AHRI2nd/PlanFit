@@ -91,17 +91,37 @@ class DayClockView extends ConsumerWidget {
                 metrics,
                 arcs,
               ),
-              child: CustomPaint(
-                painter: _ClockPainter(
-                  metrics: metrics,
-                  arcs: arcs,
-                  isToday: isToday,
-                  now: now,
-                  day: day,
-                  locale: locale,
-                  use24: use24,
-                  palette: palette,
-                ),
+              child: Stack(
+                children: [
+                  // Split from the needle below so the dial's ticks/labels/
+                  // event arcs — unchanged from one minute to the next —
+                  // don't get fully re-painted (including re-laying-out
+                  // every hour label's TextPainter) just because
+                  // nowTickerProvider ticked. See _ClockFacePainter's own
+                  // doc.
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _ClockFacePainter(
+                        metrics: metrics,
+                        arcs: arcs,
+                        locale: locale,
+                        use24: use24,
+                        palette: palette,
+                      ),
+                    ),
+                  ),
+                  if (isToday)
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _ClockNeedlePainter(
+                          metrics: metrics,
+                          day: day,
+                          now: now,
+                          palette: palette,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -179,13 +199,17 @@ class _DialMetrics {
   double get ringBandWidth => ringOuterRadius - ringInnerRadius;
 }
 
-class _ClockPainter extends CustomPainter {
-  _ClockPainter({
+/// Everything on the dial *except* the "now" needle: the 24 hour ticks (with
+/// their every-3rd-hour labels) and every event arc (with its own label).
+/// None of that changes from one minute to the next, so it's kept out of
+/// [_ClockNeedlePainter] deliberately — before this split, one painter
+/// covering both meant `nowTickerProvider`'s once-a-minute tick fully
+/// re-painted the entire dial, re-laying-out every hour label's
+/// [TextPainter] included, just to move a needle.
+class _ClockFacePainter extends CustomPainter {
+  _ClockFacePainter({
     required this.metrics,
     required this.arcs,
-    required this.isToday,
-    required this.now,
-    required this.day,
     required this.locale,
     required this.use24,
     required this.palette,
@@ -193,9 +217,6 @@ class _ClockPainter extends CustomPainter {
 
   final _DialMetrics metrics;
   final List<ClockArc> arcs;
-  final bool isToday;
-  final DateTime now;
-  final DateTime day;
   final String locale;
   final bool use24;
   final AppPalette palette;
@@ -226,7 +247,6 @@ class _ClockPainter extends CustomPainter {
 
     _paintTicks(canvas, center);
     _paintArcs(canvas, center);
-    if (isToday) _paintNowNeedle(canvas, center);
   }
 
   void _paintTicks(Canvas canvas, Offset center) {
@@ -366,7 +386,35 @@ class _ClockPainter extends CustomPainter {
     );
   }
 
-  void _paintNowNeedle(Canvas canvas, Offset center) {
+  @override
+  bool shouldRepaint(covariant _ClockFacePainter oldDelegate) {
+    return oldDelegate.arcs != arcs ||
+        oldDelegate.use24 != use24 ||
+        oldDelegate.palette != palette;
+  }
+}
+
+/// The "now" indicator alone, on its own [CustomPaint] layer — see
+/// [_ClockFacePainter]'s own doc for why. Only mounted at all when
+/// [DayClockView.isToday] (see that widget's `build()`), so [shouldRepaint]
+/// here never has to account for a needle appearing/disappearing, only
+/// moving.
+class _ClockNeedlePainter extends CustomPainter {
+  _ClockNeedlePainter({
+    required this.metrics,
+    required this.day,
+    required this.now,
+    required this.palette,
+  });
+
+  final _DialMetrics metrics;
+  final DateTime day;
+  final DateTime now;
+  final AppPalette palette;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
     final minutes = clampedMinutesOfDay(day, now);
     final angle = angleForMinutes(minutes);
     final dir = Offset(math.cos(angle), math.sin(angle));
@@ -383,12 +431,8 @@ class _ClockPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ClockPainter oldDelegate) {
-    return oldDelegate.arcs != arcs ||
-        oldDelegate.isToday != isToday ||
-        oldDelegate.now != now ||
-        oldDelegate.use24 != use24 ||
-        oldDelegate.palette != palette;
+  bool shouldRepaint(covariant _ClockNeedlePainter oldDelegate) {
+    return oldDelegate.now != now || oldDelegate.palette != palette;
   }
 }
 
