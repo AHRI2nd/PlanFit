@@ -449,15 +449,17 @@ class _WeeklyStats extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    // `now` ticks every 30s (nowTickerProvider) with full second/millisecond
-    // precision; these providers only care which *week* that lands in, and
-    // aren't .autoDispose. Keying them on `now` directly would mint a brand
-    // new family instance — and a brand new open DB stream subscription —
-    // on every tick, forever, since the old ones never get disposed. Keying
-    // on the day instead (stable for 24h) reuses the same instance across
-    // every tick within that day, matching how _TodayTodos already keys
-    // todosForDayProvider on `dateOnly(DateTime.now())` rather than a raw
-    // timestamp.
+    // `now` ticks every minute (nowTickerProvider) with full second/
+    // millisecond precision; these providers only care which *week* that
+    // lands in. Keying them on `now` directly would mint a brand new family
+    // instance — and a brand new open DB stream subscription — on every
+    // tick; even with these providers' own autoDispose-plus-grace-period
+    // (see riverpod_x.dart's keepAliveFor), that's still a fresh instance
+    // (and a fresh query) every single minute instead of reusing one.
+    // Keying on the day instead (stable for 24h) reuses the same instance
+    // across every tick within that day, matching how _TodayTodos already
+    // keys todosForDayProvider on `dateOnly(DateTime.now())` rather than a
+    // raw timestamp.
     final today = dateOnly(now);
     final events =
         ref.watch(eventsForWeekProvider(today)).asData?.value ??

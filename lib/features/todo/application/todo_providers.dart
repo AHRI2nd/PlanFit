@@ -7,6 +7,7 @@ import '../../../core/db/app_database.dart';
 import '../../../core/db/sync_status.dart';
 import '../../../core/di.dart';
 import '../../../core/notifications/notification_window.dart';
+import '../../../core/riverpod_x.dart';
 import '../../../core/serial_queue.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/domain/recurrence.dart';
@@ -15,52 +16,48 @@ import '../domain/todo_priority.dart';
 
 /// To-dos whose slot falls on the given day, grouped-ready (already ordered by
 /// slot then manual order by the DAO).
-final todosForDayProvider = StreamProvider.family<List<TodoRow>, DateTime>((
-  ref,
-  day,
-) {
-  final start = dateOnly(day);
-  final end = addCalendarDays(start, 1);
-  return ref.watch(todoDaoProvider).watchBetween(start, end);
-});
+final todosForDayProvider = StreamProvider.autoDispose
+    .family<List<TodoRow>, DateTime>((ref, day) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = dateOnly(day);
+      final end = addCalendarDays(start, 1);
+      return ref.watch(todoDaoProvider).watchBetween(start, end);
+    });
 
 /// To-dos in the week containing [anyDayInWeek] (per the week-start setting)
 /// — the home screen's weekly stats card.
-final todosForWeekProvider = StreamProvider.family<List<TodoRow>, DateTime>((
-  ref,
-  anyDayInWeek,
-) {
-  final start = startOfWeek(
-    anyDayInWeek,
-    startWeekday: ref.watch(weekStartWeekdayProvider),
-  );
-  final end = addCalendarDays(start, 7);
-  return ref.watch(todoDaoProvider).watchBetween(start, end);
-});
+final todosForWeekProvider = StreamProvider.autoDispose
+    .family<List<TodoRow>, DateTime>((ref, anyDayInWeek) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = startOfWeek(
+        anyDayInWeek,
+        startWeekday: ref.watch(weekStartWeekdayProvider),
+      );
+      final end = addCalendarDays(start, 7);
+      return ref.watch(todoDaoProvider).watchBetween(start, end);
+    });
 
 /// To-dos in the month containing [monthAnchor] — used for the month grid's
 /// day markers (see `calendar_dot.dart`). Mirrors `eventsForMonthProvider`'s
 /// own window exactly, [monthAnchor] already normalized to (year, month)
 /// by the caller included — see that provider's own doc for why.
-final todosForMonthProvider = StreamProvider.family<List<TodoRow>, DateTime>((
-  ref,
-  monthAnchor,
-) {
-  final start = DateTime(monthAnchor.year, monthAnchor.month, 1);
-  final end = DateTime(monthAnchor.year, monthAnchor.month + 1, 1);
-  return ref.watch(todoDaoProvider).watchBetween(start, end);
-});
+final todosForMonthProvider = StreamProvider.autoDispose
+    .family<List<TodoRow>, DateTime>((ref, monthAnchor) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = DateTime(monthAnchor.year, monthAnchor.month, 1);
+      final end = DateTime(monthAnchor.year, monthAnchor.month + 1, 1);
+      return ref.watch(todoDaoProvider).watchBetween(start, end);
+    });
 
 /// To-dos across the year of [year] — used for the year heat view's day
 /// markers. Mirrors `eventsForYearProvider`'s own window exactly.
-final todosForYearProvider = StreamProvider.family<List<TodoRow>, int>((
-  ref,
-  year,
-) {
-  final start = DateTime(year, 1, 1);
-  final end = DateTime(year + 1, 1, 1);
-  return ref.watch(todoDaoProvider).watchBetween(start, end);
-});
+final todosForYearProvider = StreamProvider.autoDispose
+    .family<List<TodoRow>, int>((ref, year) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = DateTime(year, 1, 1);
+      final end = DateTime(year + 1, 1, 1);
+      return ref.watch(todoDaoProvider).watchBetween(start, end);
+    });
 
 /// To-dos for the agenda view's merged, time-sorted list — mirrors
 /// `eventsForAgendaProvider`'s own window (a week back, 180 days forward
@@ -69,14 +66,13 @@ final todosForYearProvider = StreamProvider.family<List<TodoRow>, int>((
 /// providers above, which filter at their call site) — the agenda list
 /// still shows a completed to-do, struck through, rather than making it
 /// vanish.
-final todosForAgendaProvider = StreamProvider.family<List<TodoRow>, DateTime>((
-  ref,
-  anchor,
-) {
-  final start = addCalendarDays(dateOnly(anchor), -7);
-  final end = addCalendarDays(dateOnly(anchor), 180);
-  return ref.watch(todoDaoProvider).watchBetween(start, end);
-});
+final todosForAgendaProvider = StreamProvider.autoDispose
+    .family<List<TodoRow>, DateTime>((ref, anchor) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = addCalendarDays(dateOnly(anchor), -7);
+      final end = addCalendarDays(dateOnly(anchor), 180);
+      return ref.watch(todoDaoProvider).watchBetween(start, end);
+    });
 
 /// A to-do's checklist — the detail sheet's live source, also used by
 /// [HourlyTodoList] to show a "2/3" subtask-progress badge inline.
@@ -116,12 +112,11 @@ final todoTagsProvider = FutureProvider<List<String>>((ref) {
 });
 
 /// The smart list screen's "태그별" (by tag) tab, once a tag is picked.
-final todosByTagProvider = StreamProvider.family<List<TodoRow>, String>((
-  ref,
-  tag,
-) {
-  return ref.watch(todoDaoProvider).watchByTag(tag);
-});
+final todosByTagProvider = StreamProvider.autoDispose
+    .family<List<TodoRow>, String>((ref, tag) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      return ref.watch(todoDaoProvider).watchByTag(tag);
+    });
 
 /// A removed to-do bundled with its checklist. [TodoSubtasks.todoId] cascades
 /// on delete (see tables.dart), so a plain delete silently takes the

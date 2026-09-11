@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/di.dart';
+import '../../../core/riverpod_x.dart';
 import '../../settings/application/settings_controller.dart';
 
 /// Which calendar granularity the schedule tab is showing.
@@ -110,9 +111,8 @@ class AgendaScrollMemory extends Notifier<double?> {
   void clear() => state = null;
 }
 
-final agendaScrollMemoryProvider = NotifierProvider<AgendaScrollMemory, double?>(
-  AgendaScrollMemory.new,
-);
+final agendaScrollMemoryProvider =
+    NotifierProvider<AgendaScrollMemory, double?>(AgendaScrollMemory.new);
 
 /// Height (in logical pixels) of a single week row in [MonthView]'s
 /// calendar grid — dragging the handle between the grid and the day
@@ -190,14 +190,13 @@ final dayViewLayoutModeProvider =
     );
 
 /// Events overlapping the given day.
-final eventsForDayProvider = StreamProvider.family<List<EventRow>, DateTime>((
-  ref,
-  day,
-) {
-  final start = dateOnly(day);
-  final end = addCalendarDays(start, 1);
-  return ref.watch(eventRepositoryProvider).watchBetween(start, end);
-});
+final eventsForDayProvider = StreamProvider.autoDispose
+    .family<List<EventRow>, DateTime>((ref, day) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = dateOnly(day);
+      final end = addCalendarDays(start, 1);
+      return ref.watch(eventRepositoryProvider).watchBetween(start, end);
+    });
 
 /// Events overlapping the month that contains [monthAnchor] — used for the
 /// month grid's day markers.
@@ -207,28 +206,26 @@ final eventsForDayProvider = StreamProvider.family<List<EventRow>, DateTime>((
 /// caches by the exact parameter value (`DateTime.==` compares down to the
 /// microsecond), so passing a day-granularity value straight through would
 /// mint a brand-new, separately-cached provider instance — and a brand-new
-/// live Drift `.watch()` subscription, never disposed — for every distinct
-/// day ever selected within the same month, even though the query window
-/// (and so the result) is identical for all of them. `eventsForWeekProvider`
-/// normalizes the same way via `startOfWeek(...)` at its own call site.
-final eventsForMonthProvider = StreamProvider.family<List<EventRow>, DateTime>((
-  ref,
-  monthAnchor,
-) {
-  final start = DateTime(monthAnchor.year, monthAnchor.month, 1);
-  final end = DateTime(monthAnchor.year, monthAnchor.month + 1, 1);
-  return ref.watch(eventRepositoryProvider).watchBetween(start, end);
-});
+/// live Drift `.watch()` subscription — for every distinct day ever selected
+/// within the same month, even though the query window (and so the result)
+/// is identical for all of them. `eventsForWeekProvider` normalizes the
+/// same way via `startOfWeek(...)` at its own call site.
+final eventsForMonthProvider = StreamProvider.autoDispose
+    .family<List<EventRow>, DateTime>((ref, monthAnchor) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = DateTime(monthAnchor.year, monthAnchor.month, 1);
+      final end = DateTime(monthAnchor.year, monthAnchor.month + 1, 1);
+      return ref.watch(eventRepositoryProvider).watchBetween(start, end);
+    });
 
 /// Events across the year of [yearAnchor] — used for the year heat view.
-final eventsForYearProvider = StreamProvider.family<List<EventRow>, int>((
-  ref,
-  year,
-) {
-  final start = DateTime(year, 1, 1);
-  final end = DateTime(year + 1, 1, 1);
-  return ref.watch(eventRepositoryProvider).watchBetween(start, end);
-});
+final eventsForYearProvider = StreamProvider.autoDispose
+    .family<List<EventRow>, int>((ref, year) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = DateTime(year, 1, 1);
+      final end = DateTime(year + 1, 1, 1);
+      return ref.watch(eventRepositoryProvider).watchBetween(start, end);
+    });
 
 /// Next few upcoming events from now, for the home screen.
 final upcomingEventsProvider = StreamProvider<List<EventRow>>((ref) {
@@ -239,28 +236,27 @@ final upcomingEventsProvider = StreamProvider<List<EventRow>>((ref) {
 
 /// Events in the week containing [anyDayInWeek] (per the week-start setting)
 /// — the home screen's weekly stats card.
-final eventsForWeekProvider = StreamProvider.family<List<EventRow>, DateTime>((
-  ref,
-  anyDayInWeek,
-) {
-  final start = startOfWeek(
-    anyDayInWeek,
-    startWeekday: ref.watch(weekStartWeekdayProvider),
-  );
-  final end = addCalendarDays(start, 7);
-  return ref.watch(eventRepositoryProvider).watchBetween(start, end);
-});
+final eventsForWeekProvider = StreamProvider.autoDispose
+    .family<List<EventRow>, DateTime>((ref, anyDayInWeek) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = startOfWeek(
+        anyDayInWeek,
+        startWeekday: ref.watch(weekStartWeekdayProvider),
+      );
+      final end = addCalendarDays(start, 7);
+      return ref.watch(eventRepositoryProvider).watchBetween(start, end);
+    });
 
 /// Events for the agenda view's flat chronological list — a window anchored
 /// at [anchor]: a week back (so a just-passed event doesn't vanish the
 /// instant it starts) through 6 months forward.
-final eventsForAgendaProvider = StreamProvider.family<List<EventRow>, DateTime>(
-  (ref, anchor) {
-    final start = addCalendarDays(dateOnly(anchor), -7);
-    final end = addCalendarDays(dateOnly(anchor), 180);
-    return ref.watch(eventRepositoryProvider).watchBetween(start, end);
-  },
-);
+final eventsForAgendaProvider = StreamProvider.autoDispose
+    .family<List<EventRow>, DateTime>((ref, anchor) {
+      ref.keepAliveFor(kDataProviderCacheGrace);
+      final start = addCalendarDays(dateOnly(anchor), -7);
+      final end = addCalendarDays(dateOnly(anchor), 180);
+      return ref.watch(eventRepositoryProvider).watchBetween(start, end);
+    });
 
 /// Saved event templates ("자주 쓰는 일정"), oldest first.
 final eventTemplatesProvider = StreamProvider<List<EventTemplateRow>>((ref) {
