@@ -16,6 +16,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
 import '../../../todo/presentation/hourly_todo_list.dart';
+import '../../domain/day_clock_geometry.dart' show clampedMinutesOfDay;
 import '../../domain/drag_create.dart';
 import '../../domain/event_overlap.dart';
 import '../event_edit/event_editor_sheet.dart';
@@ -594,15 +595,17 @@ class _TimelineState extends ConsumerState<_Timeline>
   /// drag clamps an end time to when pushed past the bottom of the
   /// timeline) as 0, identical to the day's own start, collapsing the live
   /// preview card to zero height instead of showing it pinned to the bottom.
-  double _offsetFor(DateTime t) {
-    final dayStart = DateTime(
-      widget.day.year,
-      widget.day.month,
-      widget.day.day,
-    );
-    final minutes = t.difference(dayStart).inMinutes;
-    return minutes / 60.0 * widget.hourHeight;
-  }
+  ///
+  /// Clamped to `[0, 1440]` minutes via [clampedMinutesOfDay] — [t] can fall
+  /// outside [widget.day] entirely for an event that starts the evening
+  /// before or ends past midnight (`eventsForDayProvider` returns anything
+  /// merely *overlapping* the day, same as [DayClockView]'s own events).
+  /// Without this, such an event's card got a negative `top` or a height
+  /// stretching past the bottom of the timeline, painting mostly outside
+  /// the visible area instead of pinned flush to whichever end of the day
+  /// it actually spans.
+  double _offsetFor(DateTime t) =>
+      clampedMinutesOfDay(widget.day, t) / 60.0 * widget.hourHeight;
 
   void _startCreate(double y) {
     HapticFeedback.mediumImpact();

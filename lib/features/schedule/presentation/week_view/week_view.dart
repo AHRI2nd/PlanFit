@@ -17,6 +17,7 @@ import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/calendar_dot.dart';
+import '../../domain/day_clock_geometry.dart' show clampedMinutesOfDay;
 import '../../domain/drag_create.dart';
 import '../../domain/event_overlap.dart';
 import '../../domain/event_span.dart';
@@ -397,8 +398,15 @@ class _WeekPageContent extends ConsumerWidget {
         final timed = events.where((e) => !e.isAllDay).toList();
         final byDay = <DateTime, List<EventRow>>{for (final d in days) d: []};
         for (final e in timed) {
-          final d = dateOnly(e.startAt);
-          byDay[d]?.add(e);
+          // Every day the event actually touches (via eventDaysInRange, the
+          // same rule the all-day bar/header dot below already use for
+          // this), not just its start day — a timed event running past
+          // midnight into the next day used to appear only on its start
+          // day's column and vanish entirely from the day it continues
+          // into.
+          for (final d in eventDaysInRange(e, weekStart, weekEnd)) {
+            byDay[d]?.add(e);
+          }
         }
         // Both all-day and timed events count toward "this day has an
         // event" — the header dot doesn't distinguish the two the way the
@@ -783,8 +791,12 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
     });
   }
 
+  // Clamped to [0, 1440] minutes via clampedMinutesOfDay — same reasoning
+  // as day_view.dart's own _offsetFor: an event that starts the evening
+  // before or ends past midnight into [dayStart]'s next day otherwise gets
+  // a negative top or a height stretching past this column's bottom.
   double _offsetFor(DateTime dayStart, DateTime t) =>
-      t.difference(dayStart).inMinutes / 60.0 * widget.hourHeight;
+      clampedMinutesOfDay(dayStart, t) / 60.0 * widget.hourHeight;
 
   void _startCreate(int dayIndex, double y) {
     HapticFeedback.mediumImpact();

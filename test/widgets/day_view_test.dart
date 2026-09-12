@@ -181,6 +181,76 @@ void main() {
   });
 
   testWidgets(
+    'an event spanning midnight from the day before renders pinned to the '
+    "top of today's timeline instead of drawing above it — regression "
+    'test: _offsetFor used to return a negative top for a start time '
+    "before this day's own midnight",
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      final overnight = row(
+        id: 'overnight',
+        title: 'Overnight',
+        startAt: DateTime(2026, 3, 9, 23),
+        endAt: DateTime(2026, 3, 10, 2),
+      );
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([overnight]));
+
+      await pumpDay(tester, day);
+
+      final positioned = tester.widget<Positioned>(
+        find
+            .ancestor(
+              of: find.text('Overnight'),
+              matching: find.byType(Positioned),
+            )
+            .first,
+      );
+      expect(positioned.top, 0);
+      // Only the 00:00-02:00 slice actually falls on today — 2 hours, at
+      // 64px/hour.
+      expect(positioned.height, closeTo(128, 0.1));
+    },
+  );
+
+  testWidgets(
+    'an event running past midnight into the next day renders pinned to '
+    "the bottom of today's timeline instead of stretching past it — "
+    'regression test: _offsetFor used to return an offset beyond the '
+    "24-hour column for an end time after this day's own midnight",
+    (tester) async {
+      final day = DateTime(2026, 3, 10);
+      final overnight = row(
+        id: 'overnight',
+        title: 'Overnight',
+        startAt: DateTime(2026, 3, 10, 23),
+        endAt: DateTime(2026, 3, 11, 2),
+      );
+      when(
+        events.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([overnight]));
+
+      await pumpDay(tester, day);
+
+      final positioned = tester.widget<Positioned>(
+        find
+            .ancestor(
+              of: find.text('Overnight'),
+              matching: find.byType(Positioned),
+            )
+            .first,
+      );
+      // 23:00 today, 64px/hour.
+      expect(positioned.top, closeTo(23 * 64, 0.1));
+      // Only the 23:00-24:00 slice falls on today — 1 hour — though the
+      // minimum-card-height floor may stretch it a bit taller; either way
+      // it must never reach past the bottom of the 24-hour column.
+      expect(positioned.top! + positioned.height!, lessThanOrEqualTo(24 * 64));
+    },
+  );
+
+  testWidgets(
     'two events starting at the same time but ending differently each '
     'keep their own full height',
     (tester) async {

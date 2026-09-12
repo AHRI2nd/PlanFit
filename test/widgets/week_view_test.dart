@@ -232,6 +232,33 @@ void main() {
   );
 
   testWidgets(
+    'a timed (non all-day) event running past midnight renders on both '
+    "days it spans, not just its start day's column — regression test: "
+    'the grid used to bucket timed events by a bare dateOnly(e.startAt), '
+    "so an overnight event vanished from the day it continues into",
+    (tester) async {
+      final anchor = DateTime(2026, 3, 10); // a Tuesday
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          event(
+            id: 'late',
+            startAt: DateTime(2026, 3, 11, 23),
+            endAt: DateTime(2026, 3, 12, 2),
+          ),
+        ]),
+      );
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpWeek(tester, anchor);
+
+      // One card in the Mar 11 column, one in the Mar 12 column.
+      expect(find.text('late'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
     'tapping an all-day bar in the strip opens the read-only preview, and '
     'long-pressing it skips straight to the editor — regression test for '
     'the strip having no tap target at all, which made a holiday or '
