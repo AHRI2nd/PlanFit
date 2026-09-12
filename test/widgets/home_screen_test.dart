@@ -600,6 +600,26 @@ void main() {
   );
 
   testWidgets(
+    'a runtime text-scale change re-measures the pull-up bar instead of '
+    'keeping its stale collapsed height — a rotation or an accessibility '
+    'text-size change used to leave the sheet at its old size until the '
+    'screen was rebuilt from scratch',
+    (tester) async {
+      await pumpHome(tester);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final baselineHeight = tester.getSize(surface).height;
+
+      tester.platformDispatcher.textScaleFactorTestValue = 3.0;
+      await tester.pumpAndSettle();
+
+      final rescaledHeight = tester.getSize(surface).height;
+      expect(rescaledHeight, greaterThan(baselineHeight));
+    },
+  );
+
+  testWidgets(
     'the date and time chips default to the nearest upcoming top of the '
     "hour when nothing's been picked — no more hard-coded 9am",
     (tester) async {

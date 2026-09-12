@@ -45,7 +45,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   final _peekKey = GlobalKey();
 
   /// A permanently-offstage twin of the pull-up bar's collapsed content,
@@ -83,13 +84,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback(_measure);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sheetController.dispose();
     super.dispose();
+  }
+
+  /// Rotation, window resize, or a system text-scale change can all change
+  /// how tall the pull-up bar's own content is — re-measure from scratch
+  /// rather than keep stale [_peekHeight]/[_expandedExtraHeight] values.
+  @override
+  void didChangeMetrics() => _remeasure();
+
+  @override
+  void didChangeTextScaleFactor() => _remeasure();
+
+  void _remeasure() {
+    if (!mounted) return;
+    setState(() {
+      _peekHeight = null;
+      _expandedExtraHeight = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback(_measure);
   }
 
   void _measure(Duration _) {
