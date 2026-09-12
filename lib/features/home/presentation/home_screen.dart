@@ -25,6 +25,7 @@ import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
 import '../../todo/domain/todo_delete_flow.dart';
 import '../../todo/domain/todo_overdue.dart';
+import '../../todo/domain/todo_priority.dart';
 import '../../todo/presentation/quick_add_todo_sheet.dart';
 import '../../todo/presentation/todo_detail_sheet.dart';
 import '../../todo/presentation/todo_smart_list_screen.dart';
@@ -638,6 +639,12 @@ class _FeedTodoTile extends ConsumerWidget {
     final palette = context.palette;
     final theme = Theme.of(context);
     final isOverdue = isTodoOverdue(todo, DateTime.now());
+    final priority = TodoPriority.fromValue(todo.priority);
+    final tags = (todo.tags ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
     final trailing = !showDate
         ? (todo.hasTime
               ? Fmt.time(todo.slotStart, locale, use24Hour: use24Hour)
@@ -701,17 +708,45 @@ class _FeedTodoTile extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    todo.title.isEmpty ? '—' : todo.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: todo.isDone ? palette.inkFaint : palette.ink,
-                      decoration: todo.isDone
-                          ? TextDecoration.lineThrough
-                          : null,
+                // Same priority-dot treatment as _SmartTodoTile's own —
+                // this tile used to drop priority entirely, so setting one
+                // never showed up anywhere on the home screen.
+                if (priority.color(palette) != null) ...[
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: AppSpacing.xxs),
+                    decoration: BoxDecoration(
+                      color: priority.color(palette),
+                      shape: BoxShape.circle,
                     ),
+                  ),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        todo.title.isEmpty ? '—' : todo.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: todo.isDone ? palette.inkFaint : palette.ink,
+                          decoration: todo.isDone
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                      if (tags.isNotEmpty)
+                        Text(
+                          tags.join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: palette.inkFaint,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (trailing != null) ...[

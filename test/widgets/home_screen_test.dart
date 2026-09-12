@@ -17,6 +17,7 @@ import 'package:planfit/features/home/presentation/home_screen.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/domain/ports.dart';
+import 'package:planfit/features/todo/domain/todo_priority.dart';
 import 'package:planfit/features/todo/presentation/quick_add_todo_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -682,6 +683,9 @@ void main() {
       required String id,
       required String title,
       required DateTime slotStart,
+      int priority = 0,
+      String? tags,
+      String? recurrenceGroupId,
     }) {
       return TodoRow(
         id: id,
@@ -692,12 +696,12 @@ void main() {
         hasTime: true,
         isDone: false,
         sortOrder: 0,
-        priority: 0,
-        tags: null,
+        priority: priority,
+        tags: tags,
         notify: false,
         isPinned: false,
         recurrenceRule: null,
-        recurrenceGroupId: null,
+        recurrenceGroupId: recurrenceGroupId,
         reminderSyncStatus: SyncStatus.pendingPush,
         createdAt: slotStart,
       );
@@ -800,6 +804,35 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(TextField, 'Soon'), findsOneWidget);
+    });
+
+    testWidgets('shows a priority dot and tags — this list used to drop both '
+        'entirely, so setting either never showed up anywhere on the home '
+        'screen', (tester) async {
+      final now = DateTime(2026, 3, 10, 12);
+      final important = todo(
+        id: 'upcoming-important',
+        title: 'Renew passport',
+        slotStart: now.add(const Duration(hours: 2)),
+        priority: TodoPriority.high.value,
+        tags: '여권,긴급',
+      );
+      when(
+        todos.watchUpcomingNotOverdue(any, limit: anyNamed('limit')),
+      ).thenAnswer((_) => Stream.value([important]));
+
+      await pumpHome(tester, now: now);
+      await expandTodoSheet(tester);
+
+      expect(find.text('Renew passport'), findsOneWidget);
+      expect(find.text('여권 · 긴급'), findsOneWidget);
+      final dot = find.byWidgetPredicate(
+        (w) =>
+            w is Container &&
+            w.constraints?.maxWidth == 8 &&
+            w.constraints?.maxHeight == 8,
+      );
+      expect(dot, findsOneWidget);
     });
 
     group('swipe-to-delete', () {
