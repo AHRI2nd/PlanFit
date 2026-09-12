@@ -44,6 +44,7 @@ void main() {
     required DateTime startAt,
     required DateTime endAt,
     required String colorTag,
+    bool isAllDay = true,
   }) {
     return EventRow(
       id: id,
@@ -52,7 +53,7 @@ void main() {
       location: null,
       startAt: startAt,
       endAt: endAt,
-      isAllDay: true,
+      isAllDay: isAllDay,
       colorTag: colorTag,
       notify: false,
       reminderMinutesBefore: 0,
@@ -178,6 +179,45 @@ void main() {
       });
 
       // One bar per day cell the 3-day event actually spans.
+      expect(bars, hasLength(3));
+    },
+  );
+
+  testWidgets(
+    'a multi-day timed (non all-day) event also renders as a bar across '
+    'every day it spans, not just a dot on its start day — regression '
+    'test: only isAllDay events used to qualify for the spanning bar, so '
+    'a timed event running across several days (or just past midnight) '
+    "showed only a single dot on its start day and nothing on the rest",
+    (tester) async {
+      final eventStart = DateTime(2026, 3, 10, 9);
+      final selectedDay = DateTime(2026, 3, 20);
+      const tag = '#3388CC';
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          multiDayEvent(
+            id: 'trip',
+            startAt: eventStart,
+            endAt: DateTime(2026, 3, 12, 17),
+            colorTag: tag,
+            isAllDay: false,
+          ),
+        ]),
+      );
+
+      await pumpMonth(tester, selectedDay);
+
+      final expectedColor = EventColorTag.resolve(tag, eventStart);
+      final bars = tester.widgetList<Container>(find.byType(Container)).where((
+        c,
+      ) {
+        final decoration = c.decoration;
+        return decoration is BoxDecoration &&
+            decoration.color == expectedColor &&
+            c.constraints?.maxHeight == 4;
+      });
+
+      // Mar 10, 11, 12 — one bar per day cell the event actually spans.
       expect(bars, hasLength(3));
     },
   );

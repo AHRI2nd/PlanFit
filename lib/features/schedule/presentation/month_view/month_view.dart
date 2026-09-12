@@ -261,18 +261,21 @@ class MonthView extends ConsumerWidget {
     }..removeAll(overdueDays);
     final monthStart = DateTime(selected.year, selected.month, 1);
     final monthEnd = DateTime(selected.year, selected.month + 1, 1);
-    // Multi-day (typically all-day) events get a continuous bar across every
+    // Multi-day events — all-day or not — get a continuous bar across every
     // day they touch — see eventDaysInRange's doc — rather than a marker on
-    // just their start date. Single-day events keep the plain dot.
+    // just their start date. A timed event spanning several days used to
+    // miss this entirely (only isAllDay ones qualified), so it rendered
+    // only as a single dot on its start day and never appeared on the
+    // other days it actually ran through. Single-day events keep the
+    // plain dot.
     final multiDay = <EventRow>[];
     final byDay = <DateTime, List<EventRow>>{};
     for (final e in monthEvents) {
       final key = dateOnly(e.startAt);
       byDay.putIfAbsent(key, () => []).add(e);
-      if (e.isAllDay &&
-          !dateOnly(
-            e.endAt.subtract(const Duration(microseconds: 1)),
-          ).isAtSameMomentAs(key)) {
+      if (!dateOnly(
+        e.endAt.subtract(const Duration(microseconds: 1)),
+      ).isAtSameMomentAs(key)) {
         multiDay.add(e);
       }
     }
