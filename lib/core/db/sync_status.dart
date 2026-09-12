@@ -22,4 +22,11 @@ enum SyncResolution {
   conflictLocalWon,
   conflictRemoteWon,
   deletedRemotely,
+
+  /// A single item's own step of a reconcile pass (one event's push/pull,
+  /// one auto-import calendar's scan) threw — logged and skipped rather
+  /// than letting the exception abort the rest of that pass, which used to
+  /// mean one stuck event silently blocked every other event's sync (and
+  /// auto-import entirely) until whatever caused it resolved on its own.
+  failed,
 }

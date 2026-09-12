@@ -110,17 +110,27 @@ class CalendarReconciler {
     //    rolls inside the window on some later reconcile. Accepted scope
     //    limit, not a bug — keeps the diff bounded on every run.
     for (final row in await _eventDao.needingPush()) {
-      final osId = await _service.pushEvent(row);
-      if (osId != null) {
-        await _eventDao.patch(
-          row.id,
-          EventsCompanion(
-            osEventId: Value(osId),
-            osLastKnownModified: Value(at),
-            syncStatus: const Value(SyncStatus.synced),
-          ),
-        );
-        changes++;
+      // One event's push failing (a transient platform-channel error, a
+      // calendar removed mid-sync) used to `rethrow` straight out of this
+      // whole method — aborting every other row still waiting in this same
+      // loop, plus steps 1.5-3 below, until whatever caused it happened to
+      // clear up on its own. Logged and skipped instead, same as every
+      // other best-effort platform-channel call in this file already is.
+      try {
+        final osId = await _service.pushEvent(row);
+        if (osId != null) {
+          await _eventDao.patch(
+            row.id,
+            EventsCompanion(
+              osEventId: Value(osId),
+              osLastKnownModified: Value(at),
+              syncStatus: const Value(SyncStatus.synced),
+            ),
+          );
+          changes++;
+        }
+      } on Exception catch (e) {
+        await _log(row.title, SyncResolution.failed, 'Push failed: $e');
       }
     }
 
@@ -165,49 +175,56 @@ class CalendarReconciler {
 
       final osEvent = osEventsById[osId];
 
-      if (osEvent == null) {
-        // The event no longer exists anywhere — cancel its notification
-        // before dropping the row, same as EventRepository.delete() does.
-        // This reconciler bypasses the repository (it isn't a user-driven
-        // delete), so that cancellation doesn't happen automatically.
-        await _notifications.cancelForEvent(row.id);
-        await _eventDao.deleteById(row.id);
-        await _log(
-          row.title,
-          SyncResolution.deletedRemotely,
-          'Removed in the calendar app',
-        );
-        changes++;
-        continue;
-      }
-
-      if (!_matches(row, osEvent)) {
-        final locallyEdited = row.updatedAt.isAfter(
-          row.osLastKnownModified ?? row.createdAt,
-        );
-        await _eventDao.patch(row.id, _pullCompanion(osEvent, at));
-        // The pulled values may have moved the alert time(s) (or the
-        // notify/all-day flags feeding them) — re-sync the local
-        // notifications so they don't keep firing at a stale time.
-        // scheduleForEvent judges each reminder offset on its own.
-        final updated = await _eventDao.findById(row.id);
-        if (updated != null) {
-          if (updated.notify) {
-            await _notifications.scheduleForEvent(updated);
-          } else {
-            await _notifications.cancelForEvent(updated.id);
-          }
+      // Same reasoning as step 1's own try/catch: one row's pull failing
+      // must not stop every other row in this loop (or step 3 below) from
+      // being reconciled.
+      try {
+        if (osEvent == null) {
+          // The event no longer exists anywhere — cancel its notification
+          // before dropping the row, same as EventRepository.delete() does.
+          // This reconciler bypasses the repository (it isn't a user-driven
+          // delete), so that cancellation doesn't happen automatically.
+          await _notifications.cancelForEvent(row.id);
+          await _eventDao.deleteById(row.id);
+          await _log(
+            row.title,
+            SyncResolution.deletedRemotely,
+            'Removed in the calendar app',
+          );
+          changes++;
+          continue;
         }
-        await _log(
-          osEvent.title,
-          locallyEdited
-              ? SyncResolution.conflictRemoteWon
-              : SyncResolution.pulled,
-          locallyEdited
-              ? 'Both sides changed — kept the calendar app version'
-              : 'Updated from the calendar app',
-        );
-        changes++;
+
+        if (!_matches(row, osEvent)) {
+          final locallyEdited = row.updatedAt.isAfter(
+            row.osLastKnownModified ?? row.createdAt,
+          );
+          await _eventDao.patch(row.id, _pullCompanion(osEvent, at));
+          // The pulled values may have moved the alert time(s) (or the
+          // notify/all-day flags feeding them) — re-sync the local
+          // notifications so they don't keep firing at a stale time.
+          // scheduleForEvent judges each reminder offset on its own.
+          final updated = await _eventDao.findById(row.id);
+          if (updated != null) {
+            if (updated.notify) {
+              await _notifications.scheduleForEvent(updated);
+            } else {
+              await _notifications.cancelForEvent(updated.id);
+            }
+          }
+          await _log(
+            osEvent.title,
+            locallyEdited
+                ? SyncResolution.conflictRemoteWon
+                : SyncResolution.pulled,
+            locallyEdited
+                ? 'Both sides changed — kept the calendar app version'
+                : 'Updated from the calendar app',
+          );
+          changes++;
+        }
+      } on Exception catch (e) {
+        await _log(row.title, SyncResolution.failed, 'Pull failed: $e');
       }
     }
 
@@ -225,16 +242,33 @@ class CalendarReconciler {
           .whereType<String>()
           .toSet();
       for (final entry in calendarColors.entries) {
-        final osEvents = await _service.listEvents(
-          entry.key,
-          from: from,
-          to: to,
-        );
+        // One calendar failing to scan (or one of its events failing to
+        // import) must not skip every other calendar/event this step would
+        // otherwise still get to.
+        List<dc.Event> osEvents;
+        try {
+          osEvents = await _service.listEvents(entry.key, from: from, to: to);
+        } on Exception catch (e) {
+          await _log(
+            null,
+            SyncResolution.failed,
+            'Auto-import scan failed for a calendar: $e',
+          );
+          continue;
+        }
         for (final osEvent in osEvents) {
           if (linkedOsIds.contains(osEvent.eventId)) continue;
           if (pendingDeletions.contains(osEvent.eventId)) continue;
-          await _importNewEvent(osEvent, at, entry.value);
-          changes++;
+          try {
+            await _importNewEvent(osEvent, at, entry.value);
+            changes++;
+          } on Exception catch (e) {
+            await _log(
+              osEvent.title,
+              SyncResolution.failed,
+              'Auto-import failed: $e',
+            );
+          }
         }
       }
     }

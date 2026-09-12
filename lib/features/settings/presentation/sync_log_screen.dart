@@ -104,10 +104,11 @@ class SyncLogScreen extends ConsumerWidget {
     SyncResolution.conflictLocalWon => Icons.merge_type,
     SyncResolution.conflictRemoteWon => Icons.merge_type,
     SyncResolution.deletedRemotely => Icons.delete_outline,
+    SyncResolution.failed => Icons.error_outline,
   };
 
   Color _colorFor(SyncResolution r, AppPalette palette) => switch (r) {
-    SyncResolution.deletedRemotely => palette.danger,
+    SyncResolution.deletedRemotely || SyncResolution.failed => palette.danger,
     SyncResolution.conflictLocalWon ||
     SyncResolution.conflictRemoteWon => AppColors.dayAmber,
     _ => palette.accent,

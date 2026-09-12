@@ -245,6 +245,60 @@ void main() {
     });
   });
 
+  group('per-item failure isolation', () {
+    // Regression coverage: any of these steps used to let one item's
+    // exception `rethrow` straight out of the whole reconcile pass,
+    // aborting every other item still waiting in the same loop (and every
+    // later step) until whatever caused it happened to clear up on its own.
+    test('one event failing to push does not block another event in the same '
+        'push batch, or the pull/auto-import steps that follow', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(service.targetCalendarId).thenReturn('cal-1');
+      when(service.autoImportEnabled).thenReturn(true);
+      when(service.writableCalendars()).thenAnswer((_) async => []);
+      final now = DateTime(2026, 1, 1);
+      final failing = row(
+        id: 'fail',
+        startAt: now.add(const Duration(days: 1)),
+      );
+      final ok = row(id: 'ok', startAt: now.add(const Duration(days: 2)));
+      when(dao.needingPush()).thenAnswer((_) async => [failing, ok]);
+      when(service.pushEvent(failing)).thenThrow(Exception('boom'));
+      when(service.pushEvent(ok)).thenAnswer((_) async => 'os-ok');
+      when(dao.patch(any, any)).thenAnswer((_) async {});
+      when(dao.between(any, any)).thenAnswer((_) async => []);
+      when(
+        service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')),
+      ).thenAnswer((_) async => []);
+      when(syncLogDao.add(any)).thenAnswer((_) async {});
+
+      final changes = await reconciler.reconcile(now: now);
+
+      // The failing row never got patched; the other one still did.
+      verifyNever(dao.patch('fail', any));
+      verify(dao.patch('ok', any)).called(1);
+      expect(changes, 1);
+      // dao.between is called once for the notification refill's own
+      // window query and once more for the pull step's [from, to] query —
+      // both still ran afterward, rather than the push failure aborting
+      // the whole pass before reaching them. The auto-import scan ran too.
+      verify(dao.between(any, any)).called(2);
+      verify(
+        service.listEvents('cal-1', from: anyNamed('from'), to: anyNamed('to')),
+      ).called(1);
+      // The failure itself was logged, not silently swallowed.
+      final logged = verify(syncLogDao.add(captureAny)).captured;
+      expect(
+        logged.any(
+          (c) =>
+              (c as SyncLogsCompanion).resolution.value ==
+              SyncResolution.failed,
+        ),
+        isTrue,
+      );
+    });
+  });
+
   group('pulling changes from the calendar app', () {
     dc.Event osEvent({
       required String eventId,
