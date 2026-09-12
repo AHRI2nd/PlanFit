@@ -17,6 +17,7 @@ import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
 import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
+import 'todo_selection.dart';
 
 enum _SmartListTab { today, overdue, highPriority, pinned, byTag }
 
@@ -32,9 +33,30 @@ class TodoSmartListScreen extends ConsumerStatefulWidget {
       _TodoSmartListScreenState();
 }
 
-class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen> {
+class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
+    with TodoSelectionMixin<TodoSmartListScreen> {
   _SmartListTab _tab = _SmartListTab.today;
   String? _selectedTag;
+
+  /// Switching tabs (or the selected tag, within the 태그별 tab) swaps the
+  /// entire list a selection was made against — same reasoning as
+  /// HourlyTodoList's own day-change reset, just triggered by a tab/tag
+  /// pick here instead of paging to a different day.
+  void _switchTab(_SmartListTab tab) {
+    setState(() {
+      _tab = tab;
+      selectionMode = false;
+      selectedIds.clear();
+    });
+  }
+
+  void _switchTag(String tag) {
+    setState(() {
+      _selectedTag = tag;
+      selectionMode = false;
+      selectedIds.clear();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,35 +82,49 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter,
-              AppSpacing.sm,
-              AppSpacing.gutter,
-              AppSpacing.xs,
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final tab in _SmartListTab.values)
-                    Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.xs),
-                      child: ChoiceChip(
-                        label: Text(_tabLabel(l10n, tab)),
-                        selected: _tab == tab,
-                        onSelected: (_) => setState(() => _tab = tab),
-                        showCheckmark: false,
-                        selectedColor: palette.accent,
-                        labelStyle: TextStyle(
-                          color: _tab == tab ? Colors.white : palette.inkSoft,
+          if (selectionMode)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.gutter,
+              ),
+              child: TodoSelectionToolbar(
+                count: selectedIds.length,
+                l10n: l10n,
+                onCancel: exitSelection,
+                onComplete: bulkComplete,
+                onDelete: bulkDelete,
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                AppSpacing.sm,
+                AppSpacing.gutter,
+                AppSpacing.xs,
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final tab in _SmartListTab.values)
+                      Padding(
+                        padding: const EdgeInsets.only(right: AppSpacing.xs),
+                        child: ChoiceChip(
+                          label: Text(_tabLabel(l10n, tab)),
+                          selected: _tab == tab,
+                          onSelected: (_) => _switchTab(tab),
+                          showCheckmark: false,
+                          selectedColor: palette.accent,
+                          labelStyle: TextStyle(
+                            color: _tab == tab ? Colors.white : palette.inkSoft,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           const Divider(height: 1),
           Expanded(child: _buildBody(context, l10n)),
         ],
@@ -111,36 +147,67 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen> {
           watch: (ref) =>
               ref.watch(todosForDayProvider(dateOnly(DateTime.now()))),
           emptyMessage: l10n.smartListEmptyToday,
+          selectionMode: selectionMode,
+          selectedIds: selectedIds,
+          onToggleSelected: toggleSelected,
+          onEnterSelection: enterSelection,
         );
       case _SmartListTab.overdue:
         return _TodoListView(
           watch: (ref) => ref.watch(overdueTodosProvider),
           emptyMessage: l10n.smartListEmptyOverdue,
+          selectionMode: selectionMode,
+          selectedIds: selectedIds,
+          onToggleSelected: toggleSelected,
+          onEnterSelection: enterSelection,
         );
       case _SmartListTab.highPriority:
         return _TodoListView(
           watch: (ref) => ref.watch(highPriorityTodosProvider),
           emptyMessage: l10n.smartListEmptyHighPriority,
+          selectionMode: selectionMode,
+          selectedIds: selectedIds,
+          onToggleSelected: toggleSelected,
+          onEnterSelection: enterSelection,
         );
       case _SmartListTab.pinned:
         return _TodoListView(
           watch: (ref) => ref.watch(pinnedTodosProvider),
           emptyMessage: l10n.smartListEmptyPinned,
+          selectionMode: selectionMode,
+          selectedIds: selectedIds,
+          onToggleSelected: toggleSelected,
+          onEnterSelection: enterSelection,
         );
       case _SmartListTab.byTag:
         return _ByTagView(
           selectedTag: _selectedTag,
-          onSelectTag: (tag) => setState(() => _selectedTag = tag),
+          onSelectTag: _switchTag,
+          selectionMode: selectionMode,
+          selectedIds: selectedIds,
+          onToggleSelected: toggleSelected,
+          onEnterSelection: enterSelection,
         );
     }
   }
 }
 
 class _ByTagView extends ConsumerWidget {
-  const _ByTagView({required this.selectedTag, required this.onSelectTag});
+  const _ByTagView({
+    required this.selectedTag,
+    required this.onSelectTag,
+    required this.selectionMode,
+    required this.selectedIds,
+    required this.onToggleSelected,
+    required this.onEnterSelection,
+  });
 
   final String? selectedTag;
   final ValueChanged<String> onSelectTag;
+  final bool selectionMode;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelected;
+  final ValueChanged<String> onEnterSelection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -210,6 +277,10 @@ class _ByTagView extends ConsumerWidget {
                       watch: (ref) =>
                           ref.watch(todosByTagProvider(selectedTag!)),
                       emptyMessage: l10n.smartListEmptyByTag,
+                      selectionMode: selectionMode,
+                      selectedIds: selectedIds,
+                      onToggleSelected: onToggleSelected,
+                      onEnterSelection: onEnterSelection,
                     ),
             ),
           ],
@@ -220,7 +291,14 @@ class _ByTagView extends ConsumerWidget {
 }
 
 class _TodoListView extends ConsumerWidget {
-  const _TodoListView({required this.watch, required this.emptyMessage});
+  const _TodoListView({
+    required this.watch,
+    required this.emptyMessage,
+    required this.selectionMode,
+    required this.selectedIds,
+    required this.onToggleSelected,
+    required this.onEnterSelection,
+  });
 
   /// `(ref) => ref.watch(someProvider)` — passed as a closure rather than a
   /// provider reference directly, since the different tabs' sources are a
@@ -228,6 +306,10 @@ class _TodoListView extends ConsumerWidget {
   /// argument, which don't share one convenient static type to hold here.
   final AsyncValue<List<TodoRow>> Function(WidgetRef ref) watch;
   final String emptyMessage;
+  final bool selectionMode;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelected;
+  final ValueChanged<String> onEnterSelection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -256,7 +338,13 @@ class _TodoListView extends ConsumerWidget {
             kFloatingNavBarClearance,
           ),
           itemCount: todos.length,
-          itemBuilder: (context, i) => _SmartTodoTile(todo: todos[i]),
+          itemBuilder: (context, i) => _SmartTodoTile(
+            todo: todos[i],
+            selectionMode: selectionMode,
+            selected: selectedIds.contains(todos[i].id),
+            onToggleSelected: () => onToggleSelected(todos[i].id),
+            onEnterSelection: () => onEnterSelection(todos[i].id),
+          ),
         );
       },
     );
@@ -264,8 +352,28 @@ class _TodoListView extends ConsumerWidget {
 }
 
 class _SmartTodoTile extends ConsumerWidget {
-  const _SmartTodoTile({required this.todo});
+  const _SmartTodoTile({
+    required this.todo,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelected,
+    this.onEnterSelection,
+  });
+
   final TodoRow todo;
+
+  /// Whether the screen is in multi-select mode — while true, every tap on
+  /// this row toggles [selected] instead of its normal action (toggling
+  /// done, opening the detail sheet), and the swipe-to-delete gesture is
+  /// disabled so it can't fire mid-selection. Same pattern as
+  /// HourlyTodoList's own `_TodoTile`.
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelected;
+
+  /// Long-pressing the row while not already in selection mode enters it,
+  /// pre-selecting this to-do.
+  final VoidCallback? onEnterSelection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -289,118 +397,137 @@ class _SmartTodoTile extends ConsumerWidget {
 
     return Dismissible(
       key: ValueKey(todo.id),
-      direction: DismissDirection.endToStart,
+      direction: selectionMode
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: AppSpacing.md),
         child: Icon(Icons.delete_outline, color: palette.danger),
       ),
       confirmDismiss: (_) => confirmAndDeleteTodo(context, ref, todo),
-      child: InkWell(
-        onTap: () => showTodoDetailSheet(context, todo),
-        borderRadius: AppRadius.cardMd,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Row(
-            children: [
-              // Forced up to the 44x44 accessibility floor via SizedBox, kept
-              // separate from the 20px icon's own visual size — same pattern
-              // as _TitleChevron in schedule_screen.dart.
-              Semantics(
-                button: true,
-                checked: todo.isDone,
-                label: l10n.todoMarkDone,
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: InkWell(
-                    onTap: () => ref
-                        .read(todoControllerProvider)
-                        .toggle(todo.id, !todo.isDone),
-                    customBorder: const CircleBorder(),
-                    child: Center(
-                      child: Icon(
-                        todo.isDone
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                        size: 20,
-                        color: todo.isDone
-                            ? palette.accent
-                            : isOverdue
-                            ? palette.danger
-                            : palette.inkFaint,
+      child: Container(
+        color: selected ? palette.accent.withValues(alpha: 0.1) : null,
+        child: InkWell(
+          onTap: selectionMode
+              ? onToggleSelected
+              : () => showTodoDetailSheet(context, todo),
+          onLongPress: selectionMode ? null : onEnterSelection,
+          borderRadius: AppRadius.cardMd,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Row(
+              children: [
+                // Forced up to the 44x44 accessibility floor via SizedBox,
+                // kept separate from the 20px icon's own visual size — same
+                // pattern as _TitleChevron in schedule_screen.dart.
+                Semantics(
+                  button: true,
+                  checked: selectionMode ? selected : todo.isDone,
+                  label: selectionMode
+                      ? l10n.todoSelectItem
+                      : l10n.todoMarkDone,
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: InkWell(
+                      onTap: selectionMode
+                          ? onToggleSelected
+                          : () => ref
+                                .read(todoControllerProvider)
+                                .toggle(todo.id, !todo.isDone),
+                      onLongPress: selectionMode ? null : onEnterSelection,
+                      customBorder: const CircleBorder(),
+                      child: Center(
+                        child: Icon(
+                          selectionMode
+                              ? (selected
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked)
+                              : (todo.isDone
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked),
+                          size: 20,
+                          color: selectionMode
+                              ? (selected ? palette.accent : palette.inkFaint)
+                              : todo.isDone
+                              ? palette.accent
+                              : isOverdue
+                              ? palette.danger
+                              : palette.inkFaint,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              if (priority.color(palette) != null) ...[
-                Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.only(right: AppSpacing.xxs),
-                  decoration: BoxDecoration(
-                    color: priority.color(palette),
-                    shape: BoxShape.circle,
+                const SizedBox(width: AppSpacing.xs),
+                if (priority.color(palette) != null) ...[
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: AppSpacing.xxs),
+                    decoration: BoxDecoration(
+                      color: priority.color(palette),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              todo.title.isEmpty ? '—' : todo.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: todo.isDone
+                                    ? palette.inkFaint
+                                    : palette.ink,
+                                decoration: todo.isDone
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          if (todo.isPinned) ...[
+                            const SizedBox(width: AppSpacing.xxs),
+                            Icon(
+                              Icons.push_pin,
+                              size: 12,
+                              color: palette.inkFaint,
+                              semanticLabel: l10n.todoPinned,
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (tags.isNotEmpty)
+                        Text(
+                          tags.join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: palette.inkFaint,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  todo.hasTime
+                      ? '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)}'
+                      : Fmt.monthDay(todo.slotStart, locale),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: isOverdue ? palette.danger : palette.inkFaint,
+                    fontWeight: isOverdue ? FontWeight.w700 : null,
                   ),
                 ),
               ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            todo.title.isEmpty ? '—' : todo.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: todo.isDone
-                                  ? palette.inkFaint
-                                  : palette.ink,
-                              decoration: todo.isDone
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                            ),
-                          ),
-                        ),
-                        if (todo.isPinned) ...[
-                          const SizedBox(width: AppSpacing.xxs),
-                          Icon(
-                            Icons.push_pin,
-                            size: 12,
-                            color: palette.inkFaint,
-                            semanticLabel: l10n.todoPinned,
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (tags.isNotEmpty)
-                      Text(
-                        tags.join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: palette.inkFaint,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                todo.hasTime
-                    ? '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)}'
-                    : Fmt.monthDay(todo.slotStart, locale),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: isOverdue ? palette.danger : palette.inkFaint,
-                  fontWeight: isOverdue ? FontWeight.w700 : null,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

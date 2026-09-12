@@ -287,4 +287,114 @@ void main() {
       },
     );
   });
+
+  group('multi-select', () {
+    // Regression coverage: this screen used to have no bulk-action path at
+    // all, unlike the day view's own HourlyTodoList (long-press to select,
+    // then complete/delete several to-dos at once).
+    late TodoRow milk;
+    late TodoRow eggs;
+
+    setUp(() {
+      final today = DateTime(2026, 3, 10);
+      TodoRow row(String id, String title) => TodoRow(
+        id: id,
+        eventId: null,
+        title: title,
+        slotStart: today.add(const Duration(hours: 9)),
+        slotEnd: null,
+        hasTime: true,
+        isDone: false,
+        sortOrder: 0,
+        priority: 0,
+        tags: null,
+        notify: false,
+        isPinned: false,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        reminderSyncStatus: SyncStatus.pendingPush,
+        createdAt: today,
+      );
+      milk = row('t1', 'Buy milk');
+      eggs = row('t2', 'Buy eggs');
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([milk, eggs]));
+      when(todos.findById('t1')).thenAnswer((_) async => milk);
+      when(todos.findById('t2')).thenAnswer((_) async => eggs);
+      when(todos.watchSubtasks(any)).thenAnswer((_) => Stream.value(const []));
+      when(todos.setDone(any, any)).thenAnswer((_) async {});
+      when(todos.deleteById(any)).thenAnswer((_) async {});
+    });
+
+    testWidgets(
+      'long-pressing a row enters selection mode, pre-selecting that row '
+      'and replacing the tab chips with the selection toolbar',
+      (tester) async {
+        await pumpScreen(tester);
+
+        expect(find.text('1개 선택됨'), findsNothing);
+        await tester.longPress(find.text('Buy milk'));
+        await tester.pump();
+
+        expect(find.text('1개 선택됨'), findsOneWidget);
+      },
+    );
+
+    testWidgets('tapping a second row while already selecting adds it to the '
+        'selection, and the bulk-complete button completes every selected '
+        'to-do', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.longPress(find.text('Buy milk'));
+      await tester.pump();
+      await tester.tap(find.text('Buy eggs'));
+      await tester.pump();
+      expect(find.text('2개 선택됨'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.check_circle_outline));
+      await tester.pump();
+
+      verify(todos.setDone('t1', true)).called(1);
+      verify(todos.setDone('t2', true)).called(1);
+      // Bulk actions exit selection mode afterward — back to the tab
+      // chips, toolbar gone.
+      expect(find.text('2개 선택됨'), findsNothing);
+    });
+
+    testWidgets(
+      'the bulk-delete button removes every selected to-do at once, with '
+      'a single combined undo snackbar',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tester.longPress(find.text('Buy milk'));
+        await tester.pump();
+        await tester.tap(find.text('Buy eggs'));
+        await tester.pump();
+
+        await tester.tap(find.byIcon(Icons.delete_outline).last);
+        await tester.pump();
+
+        verify(todos.deleteById('t1')).called(1);
+        verify(todos.deleteById('t2')).called(1);
+        expect(find.textContaining('개를 삭제했어요'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+      },
+    );
+
+    testWidgets('the cancel button exits selection mode without changing '
+        'anything', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.longPress(find.text('Buy milk'));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pump();
+
+      expect(find.text('1개 선택됨'), findsNothing);
+      verifyNever(todos.setDone(any, any));
+      verifyNever(todos.deleteById(any));
+    });
+  });
 }

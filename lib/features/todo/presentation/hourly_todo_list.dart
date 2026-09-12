@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/db/app_database.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
-import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../application/todo_providers.dart';
@@ -13,6 +12,7 @@ import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
 import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
+import 'todo_selection.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
 import '../../settings/application/settings_controller.dart';
@@ -37,78 +37,10 @@ class HourlyTodoList extends ConsumerStatefulWidget {
   ConsumerState<HourlyTodoList> createState() => _HourlyTodoListState();
 }
 
-class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
+class _HourlyTodoListState extends ConsumerState<HourlyTodoList>
+    with TodoSelectionMixin<HourlyTodoList> {
   late final FocusNode _addFocusNode = widget.addFocusNode ?? FocusNode();
   late DateTime _lastDay;
-
-  /// Multi-select state, entered by long-pressing any tile — see
-  /// `_TodoTile.onEnterSelection`. `_selectedIds` is only ever non-empty
-  /// while [_selectionMode] is true; the last deselect exits the mode
-  /// automatically (see `_toggleSelected`).
-  bool _selectionMode = false;
-  final Set<String> _selectedIds = {};
-
-  void _enterSelection(String id) {
-    setState(() {
-      _selectionMode = true;
-      _selectedIds
-        ..clear()
-        ..add(id);
-    });
-  }
-
-  void _toggleSelected(String id) {
-    setState(() {
-      if (_selectedIds.contains(id)) {
-        _selectedIds.remove(id);
-        if (_selectedIds.isEmpty) _selectionMode = false;
-      } else {
-        _selectedIds.add(id);
-      }
-    });
-  }
-
-  void _exitSelection() {
-    setState(() {
-      _selectionMode = false;
-      _selectedIds.clear();
-    });
-  }
-
-  Future<void> _bulkComplete() async {
-    final controller = ref.read(todoControllerProvider);
-    for (final id in _selectedIds.toList()) {
-      await controller.toggle(id, true);
-    }
-    if (mounted) _exitSelection();
-  }
-
-  Future<void> _bulkDelete() async {
-    final l10n = AppL10n.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    final controller = ref.read(todoControllerProvider);
-    final ids = _selectedIds.toList();
-
-    final removed = <RemovedTodo>[];
-    for (final id in ids) {
-      removed.addAll(await controller.remove(id));
-    }
-    if (mounted) _exitSelection();
-
-    messenger.showAutoDismissSnackBar(
-      SnackBar(
-        content: Text(l10n.todoSelectionDeleted(removed.length)),
-        action: SnackBarAction(
-          label: l10n.eventUndo,
-          onPressed: () async {
-            for (final r in removed) {
-              await controller.restore(r);
-            }
-          },
-        ),
-      ),
-    );
-  }
 
   @override
   void initState() {
@@ -129,8 +61,8 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
       // belongs to a day no longer even visible on screen. (The add
       // field's own per-day defaults reset themselves — see
       // QuickAddTodoField.didUpdateWidget.)
-      _selectionMode = false;
-      _selectedIds.clear();
+      selectionMode = false;
+      selectedIds.clear();
     }
   }
 
@@ -151,13 +83,13 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_selectionMode)
-          _SelectionToolbar(
-            count: _selectedIds.length,
+        if (selectionMode)
+          TodoSelectionToolbar(
+            count: selectedIds.length,
             l10n: l10n,
-            onCancel: _exitSelection,
-            onComplete: _bulkComplete,
-            onDelete: _bulkDelete,
+            onCancel: exitSelection,
+            onComplete: bulkComplete,
+            onDelete: bulkDelete,
           ),
         todosAsync.maybeWhen(
           data: (todos) {
@@ -187,11 +119,11 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
                           // Dragging and multi-select both hijack the
                           // trailing handle/whole-row gestures, so only one
                           // is ever active at a time.
-                          dragHandleIndex: _selectionMode ? null : i,
-                          selectionMode: _selectionMode,
-                          selected: _selectedIds.contains(noTime[i].id),
-                          onToggleSelected: () => _toggleSelected(noTime[i].id),
-                          onEnterSelection: () => _enterSelection(noTime[i].id),
+                          dragHandleIndex: selectionMode ? null : i,
+                          selectionMode: selectionMode,
+                          selected: selectedIds.contains(noTime[i].id),
+                          onToggleSelected: () => toggleSelected(noTime[i].id),
+                          onEnterSelection: () => enterSelection(noTime[i].id),
                         ),
                     ],
                   ),
@@ -199,10 +131,10 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
                   _TodoTile(
                     todo: t,
                     locale: locale,
-                    selectionMode: _selectionMode,
-                    selected: _selectedIds.contains(t.id),
-                    onToggleSelected: () => _toggleSelected(t.id),
-                    onEnterSelection: () => _enterSelection(t.id),
+                    selectionMode: selectionMode,
+                    selected: selectedIds.contains(t.id),
+                    onToggleSelected: () => toggleSelected(t.id),
+                    onEnterSelection: () => enterSelection(t.id),
                   ),
               ],
             );
@@ -211,62 +143,6 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList> {
         ),
         QuickAddTodoField(day: widget.day, focusNode: _addFocusNode),
       ],
-    );
-  }
-}
-
-/// Shown above the to-do list in place of nothing while multi-select is
-/// active — see `_HourlyTodoListState._selectionMode`.
-class _SelectionToolbar extends StatelessWidget {
-  const _SelectionToolbar({
-    required this.count,
-    required this.l10n,
-    required this.onCancel,
-    required this.onComplete,
-    required this.onDelete,
-  });
-
-  final int count;
-  final AppL10n l10n;
-  final VoidCallback onCancel;
-  final VoidCallback onComplete;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: l10n.commonCancel,
-            onPressed: onCancel,
-            visualDensity: VisualDensity.compact,
-            icon: Icon(Icons.close, size: 20, color: palette.inkFaint),
-          ),
-          Expanded(
-            child: Text(
-              l10n.todoSelectionCount(count),
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: palette.inkSoft),
-            ),
-          ),
-          IconButton(
-            tooltip: l10n.todoSelectionComplete,
-            onPressed: onComplete,
-            visualDensity: VisualDensity.compact,
-            icon: Icon(Icons.check_circle_outline, color: palette.accent),
-          ),
-          IconButton(
-            tooltip: l10n.todoSelectionDelete,
-            onPressed: onDelete,
-            visualDensity: VisualDensity.compact,
-            icon: Icon(Icons.delete_outline, color: palette.danger),
-          ),
-        ],
-      ),
     );
   }
 }
