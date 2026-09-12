@@ -96,8 +96,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   /// Rotation, window resize, or a system text-scale change can all change
-  /// how tall the pull-up bar's own content is — re-measure from scratch
-  /// rather than keep stale [_peekHeight]/[_expandedExtraHeight] values.
+  /// how tall the pull-up bar's own content is — re-measure rather than
+  /// keep stale [_peekHeight]/[_expandedExtraHeight] values.
+  ///
+  /// Deliberately does *not* null those out first: doing so used to force
+  /// [build] back into its "nothing measured yet" branch, which swaps the
+  /// entire live pull-up bar for the invisible measuring placeholder until
+  /// the next frame's [_measure] callback lands — and on iOS in
+  /// particular, [didChangeMetrics] itself fires several times in a row
+  /// around app launch as the safe-area/keyboard insets settle, well
+  /// before any actual rotation or text-scale change, so that swap
+  /// visibly happened repeatedly and read as the whole bar flickering.
+  /// [_peekKey]'s widget stays mounted (inside the live sheet, not the
+  /// offstage probe) the whole time [_peekHeight] is already known, so
+  /// [_measure] can still re-read its current size in place — the sheet
+  /// just keeps rendering at its last-known height for the one frame
+  /// before that re-read lands, instead of disappearing.
   @override
   void didChangeMetrics() => _remeasure();
 
@@ -106,10 +120,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _remeasure() {
     if (!mounted) return;
-    setState(() {
-      _peekHeight = null;
-      _expandedExtraHeight = null;
-    });
     WidgetsBinding.instance.addPostFrameCallback(_measure);
   }
 
