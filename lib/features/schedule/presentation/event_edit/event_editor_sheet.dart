@@ -186,6 +186,11 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   late RecurrenceFrequency _recurrence;
   late DateTime _recurrenceUntil;
 
+  /// Whether the user picked [_recurrenceUntil] explicitly via [_pickUntil]
+  /// — once true, a later recurrence-frequency change no longer overwrites
+  /// it with [RecurrenceExpansion.defaultUntil]'s own recompute.
+  bool _untilCustomized = false;
+
   /// Extra weekdays a weekly repeat also lands on, on top of [_start]'s own
   /// — see `EventInput.recurrenceByWeekdays`. Empty means "just the start
   /// date's weekday", the original single-weekday behavior.
@@ -245,7 +250,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     // Recurrence is create-only (see EventRepository.save); defaults are
     // never surfaced when editing since the picker stays hidden then.
     _recurrence = RecurrenceFrequency.none;
-    _recurrenceUntil = _start.add(const Duration(days: 365));
+    _recurrenceUntil = RecurrenceExpansion.defaultUntil(_start, _recurrence);
   }
 
   String _recurrenceLabel(AppL10n l10n, RecurrenceFrequency f) => switch (f) {
@@ -286,7 +291,22 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
       _recurrence = picked == RecurrenceFrequency.yearly && _useLunarInput
           ? RecurrenceFrequency.yearlyLunar
           : picked;
+      _resyncUntilToDefault();
     });
+  }
+
+  /// Re-derives [_recurrenceUntil] from [RecurrenceExpansion.defaultUntil]
+  /// whenever the frequency changes and the user hasn't overridden it via
+  /// [_pickUntil] — called from every site that reassigns [_recurrence].
+  /// Without this, every new recurring event defaulted to a flat
+  /// `start + 365 days` regardless of frequency, which silently produced
+  /// just one occurrence for a "매년"(yearly)/음력 매년 event whenever a leap
+  /// year fell inside that fixed window — see [RecurrenceExpansion
+  /// .defaultUntil]'s own doc, and `TodoController.add`, which already
+  /// calls it for exactly this reason.
+  void _resyncUntilToDefault() {
+    if (_untilCustomized) return;
+    _recurrenceUntil = RecurrenceExpansion.defaultUntil(_start, _recurrence);
   }
 
   /// Called when the lunar-input toggle itself flips — promotes/demotes an
@@ -299,7 +319,10 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     } else if (_recurrence == RecurrenceFrequency.yearlyLunar &&
         !_useLunarInput) {
       _recurrence = RecurrenceFrequency.yearly;
+    } else {
+      return;
     }
+    _resyncUntilToDefault();
   }
 
   /// 2024-01-01 was a Monday, so `DateTime(2024, 1, weekday)` for
@@ -424,9 +447,10 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     if (date == null || !mounted) return;
     // Compared by date only in RecurrenceExpansion, so no need to match this
     // to the event's time-of-day.
-    setState(
-      () => _recurrenceUntil = DateTime(date.year, date.month, date.day),
-    );
+    setState(() {
+      _recurrenceUntil = DateTime(date.year, date.month, date.day);
+      _untilCustomized = true;
+    });
   }
 
   Future<void> _pickCustomColor() async {

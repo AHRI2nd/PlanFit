@@ -176,68 +176,97 @@ void main() {
     },
   );
 
-  testWidgets(
-    'picking "매년" while lunar input is on saves as yearlyLunar, not '
-    'plain yearly — and the chip still just reads "매년", not a 6th '
-    'option of its own',
-    (tester) async {
-      await pumpEditor(tester);
+  testWidgets('picking "매년" while lunar input is on saves as yearlyLunar, not '
+      'plain yearly — and the chip still just reads "매년", not a 6th '
+      'option of its own', (tester) async {
+    await pumpEditor(tester);
 
-      await tester.enterText(find.byType(TextField).at(0), 'Lunar birthday');
-      await tester.tap(find.byIcon(Icons.nightlight_outlined));
-      await tester.pump();
+    await tester.enterText(find.byType(TextField).at(0), 'Lunar birthday');
+    await tester.tap(find.byIcon(Icons.nightlight_outlined));
+    await tester.pump();
 
-      await tester.dragUntilVisible(
-        find.text('매년'),
-        find.byType(ListView),
-        const Offset(0, -100),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('음력'), findsNothing);
-      await tester.tap(find.text('매년'), warnIfMissed: false);
-      await tester.pump();
-      await tester.tap(find.text('저장'));
-      await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('매년'),
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('음력'), findsNothing);
+    await tester.tap(find.text('매년'), warnIfMissed: false);
+    await tester.pump();
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
 
-      final input = verify(repo.save(captureAny)).captured.single as EventInput;
-      expect(input.recurrenceFrequency, RecurrenceFrequency.yearlyLunar);
-    },
-  );
+    final input = verify(repo.save(captureAny)).captured.single as EventInput;
+    expect(input.recurrenceFrequency, RecurrenceFrequency.yearlyLunar);
+  });
 
-  testWidgets(
-    'turning lunar input back off after picking "매년" reverts it to '
-    'plain yearly',
-    (tester) async {
-      await pumpEditor(tester);
+  testWidgets('picking "매년" defaults its end date via RecurrenceExpansion'
+      '.defaultUntil, not a flat start+365 days — regression test: a '
+      'fixed +365 days silently produced just one occurrence whenever a '
+      'leap year fell inside that window, since defaultUntil special-cases '
+      'yearly/yearlyLunar for exactly this reason (already used by '
+      'TodoController.add, but not here until now)', (tester) async {
+    // A fixed +365 days from here lands on 2024-02-29 (2024 is a leap
+    // year), a day *before* the real next anniversary of 2024-03-01 —
+    // exactly the silent "ends one occurrence early" failure mode
+    // defaultUntil exists to avoid.
+    final start = DateTime(2023, 3, 1, 9);
+    await pumpEditor(tester, initialStart: start);
 
-      await tester.enterText(find.byType(TextField).at(0), 'Plain yearly');
-      await tester.tap(find.byIcon(Icons.nightlight_outlined));
-      await tester.pump();
-      await tester.dragUntilVisible(
-        find.text('매년'),
-        find.byType(ListView),
-        const Offset(0, -100),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('매년'), warnIfMissed: false);
-      await tester.pump();
+    await tester.enterText(find.byType(TextField).at(0), 'Leap year birthday');
+    await tester.dragUntilVisible(
+      find.text('매년'),
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('매년'), warnIfMissed: false);
+    await tester.pump();
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
 
-      // Toggle lunar input back off — scroll back up to reach the icon.
-      await tester.dragUntilVisible(
-        find.byIcon(Icons.nightlight_round),
-        find.byType(ListView),
-        const Offset(0, 100),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.nightlight_round));
-      await tester.pump();
-      await tester.tap(find.text('저장'));
-      await tester.pumpAndSettle();
+    final input = verify(repo.save(captureAny)).captured.single as EventInput;
+    expect(input.recurrenceFrequency, RecurrenceFrequency.yearly);
+    expect(
+      input.recurrenceUntil,
+      RecurrenceExpansion.defaultUntil(start, RecurrenceFrequency.yearly),
+    );
+    // The bug this guards against: the old flat +365-days default.
+    expect(input.recurrenceUntil, isNot(start.add(const Duration(days: 365))));
+  });
 
-      final input = verify(repo.save(captureAny)).captured.single as EventInput;
-      expect(input.recurrenceFrequency, RecurrenceFrequency.yearly);
-    },
-  );
+  testWidgets('turning lunar input back off after picking "매년" reverts it to '
+      'plain yearly', (tester) async {
+    await pumpEditor(tester);
+
+    await tester.enterText(find.byType(TextField).at(0), 'Plain yearly');
+    await tester.tap(find.byIcon(Icons.nightlight_outlined));
+    await tester.pump();
+    await tester.dragUntilVisible(
+      find.text('매년'),
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('매년'), warnIfMissed: false);
+    await tester.pump();
+
+    // Toggle lunar input back off — scroll back up to reach the icon.
+    await tester.dragUntilVisible(
+      find.byIcon(Icons.nightlight_round),
+      find.byType(ListView),
+      const Offset(0, 100),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.nightlight_round));
+    await tester.pump();
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    final input = verify(repo.save(captureAny)).captured.single as EventInput;
+    expect(input.recurrenceFrequency, RecurrenceFrequency.yearly);
+  });
 
   testWidgets(
     'saving an occurrence of a recurring series and choosing "apply to future" '
@@ -590,9 +619,7 @@ void main() {
         reminderMinutesBefore: 0,
         createdAt: DateTime(2020),
       );
-      when(
-        templateDao.watchAll(),
-      ).thenAnswer((_) => Stream.value([template]));
+      when(templateDao.watchAll()).thenAnswer((_) => Stream.value([template]));
       await pumpEditor(tester);
 
       await tester.tap(find.byTooltip('템플릿'));
@@ -605,49 +632,46 @@ void main() {
   );
 
   group('recomputeForNewStart', () {
-    test(
-      "pushing the start date past the old end recomputes the end "
-      "using the event's wall-clock length, not elapsed real time — "
-      'regression test: a real DST spring-forward, verified with '
-      "timezone's TZDateTime pinned to America/New_York (its actual "
-      '2026 transition) rather than relying on the host running this '
-      'test to observe one',
-      () {
-        tzdata.initializeTimeZones();
-        final ny = tz.getLocation('America/New_York');
-        // An ordinary 2h30m event, nowhere near any transition.
-        final oldStart = tz.TZDateTime(ny, 2026, 1, 5, 1, 0);
-        final oldEnd = tz.TZDateTime(ny, 2026, 1, 5, 3, 30);
-        // Pushed out to the very night of the 2026 US spring-forward
-        // (2AM -> 3AM) — old end (Jan 5) is now before this, so the end
-        // gets recomputed from it.
-        final newStart = tz.TZDateTime(ny, 2026, 3, 8, 1, 0);
+    test("pushing the start date past the old end recomputes the end "
+        "using the event's wall-clock length, not elapsed real time — "
+        'regression test: a real DST spring-forward, verified with '
+        "timezone's TZDateTime pinned to America/New_York (its actual "
+        '2026 transition) rather than relying on the host running this '
+        'test to observe one', () {
+      tzdata.initializeTimeZones();
+      final ny = tz.getLocation('America/New_York');
+      // An ordinary 2h30m event, nowhere near any transition.
+      final oldStart = tz.TZDateTime(ny, 2026, 1, 5, 1, 0);
+      final oldEnd = tz.TZDateTime(ny, 2026, 1, 5, 3, 30);
+      // Pushed out to the very night of the 2026 US spring-forward
+      // (2AM -> 3AM) — old end (Jan 5) is now before this, so the end
+      // gets recomputed from it.
+      final newStart = tz.TZDateTime(ny, 2026, 3, 8, 1, 0);
 
-        final result = recomputeForNewStart(
-          oldStart: oldStart,
-          oldEnd: oldEnd,
-          oldRecurrenceUntil: newStart, // not exercised by this case
-          newStart: newStart,
-          recurrence: RecurrenceFrequency.none,
-        );
+      final result = recomputeForNewStart(
+        oldStart: oldStart,
+        oldEnd: oldEnd,
+        oldRecurrenceUntil: newStart, // not exercised by this case
+        newStart: newStart,
+        recurrence: RecurrenceFrequency.none,
+      );
 
-        expect(result.end.hour, 3);
-        expect(result.end.minute, 30);
-        expect(result.end.day, 8);
+      expect(result.end.hour, 3);
+      expect(result.end.minute, 30);
+      expect(result.end.day, 8);
 
-        // Confirm this scenario actually exercises the transition — the
-        // old elapsed-time approach really does drift an hour later here.
-        final buggyEnd = newStart.add(oldEnd.difference(oldStart));
-        expect(
-          buggyEnd.hour,
-          4,
-          reason:
-              'the elapsed-time approach lands an hour later than '
-              'intended here — confirming this scenario genuinely '
-              'crosses the transition, not a false negative',
-        );
-      },
-    );
+      // Confirm this scenario actually exercises the transition — the
+      // old elapsed-time approach really does drift an hour later here.
+      final buggyEnd = newStart.add(oldEnd.difference(oldStart));
+      expect(
+        buggyEnd.hour,
+        4,
+        reason:
+            'the elapsed-time approach lands an hour later than '
+            'intended here — confirming this scenario genuinely '
+            'crosses the transition, not a false negative',
+      );
+    });
 
     test('leaves the end alone when it is still after the new start', () {
       final oldStart = DateTime(2026, 3, 10, 9);
@@ -665,40 +689,34 @@ void main() {
       expect(result.end, oldEnd);
     });
 
-    test(
-      'pushing the start past a still-active recurrence carries "until" '
-      'forward by the same number of calendar days — the DST-safety of '
-      'this calculation rests entirely on calendarDuration, already '
-      "verified directly (with a real DST transition) in "
-      'date_math_test.dart; this covers the wiring with ordinary dates',
-      () {
-        final result = recomputeForNewStart(
-          oldStart: DateTime(2026, 1, 5, 9),
-          oldEnd: DateTime(2026, 1, 5, 10),
-          oldRecurrenceUntil: DateTime(2026, 5, 15), // 130 days after Jan 5
-          newStart: DateTime(2026, 6, 1, 9), // past the old until
-          recurrence: RecurrenceFrequency.daily,
-        );
+    test('pushing the start past a still-active recurrence carries "until" '
+        'forward by the same number of calendar days — the DST-safety of '
+        'this calculation rests entirely on calendarDuration, already '
+        "verified directly (with a real DST transition) in "
+        'date_math_test.dart; this covers the wiring with ordinary dates', () {
+      final result = recomputeForNewStart(
+        oldStart: DateTime(2026, 1, 5, 9),
+        oldEnd: DateTime(2026, 1, 5, 10),
+        oldRecurrenceUntil: DateTime(2026, 5, 15), // 130 days after Jan 5
+        newStart: DateTime(2026, 6, 1, 9), // past the old until
+        recurrence: RecurrenceFrequency.daily,
+      );
 
-        expect(result.recurrenceUntil, DateTime(2026, 10, 9));
-      },
-    );
+      expect(result.recurrenceUntil, DateTime(2026, 10, 9));
+    });
 
-    test(
-      'leaves "until" alone when it is still after the new start',
-      () {
-        final until = DateTime(2026, 5, 15);
-        final result = recomputeForNewStart(
-          oldStart: DateTime(2026, 1, 5, 9),
-          oldEnd: DateTime(2026, 1, 5, 10),
-          oldRecurrenceUntil: until,
-          newStart: DateTime(2026, 2, 1, 9),
-          recurrence: RecurrenceFrequency.daily,
-        );
+    test('leaves "until" alone when it is still after the new start', () {
+      final until = DateTime(2026, 5, 15);
+      final result = recomputeForNewStart(
+        oldStart: DateTime(2026, 1, 5, 9),
+        oldEnd: DateTime(2026, 1, 5, 10),
+        oldRecurrenceUntil: until,
+        newStart: DateTime(2026, 2, 1, 9),
+        recurrence: RecurrenceFrequency.daily,
+      );
 
-        expect(result.recurrenceUntil, until);
-      },
-    );
+      expect(result.recurrenceUntil, until);
+    });
 
     test('leaves "until" alone when the event has no recurrence at all', () {
       final until = DateTime(2020); // a bare default, never meant to be used
