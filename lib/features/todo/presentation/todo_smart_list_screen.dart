@@ -10,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show dateOnly;
 import '../../settings/application/settings_controller.dart';
 import '../application/todo_providers.dart';
+import '../domain/todo_delete_flow.dart';
 import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
 import 'quick_add_todo_sheet.dart';
@@ -276,109 +277,121 @@ class _SmartTodoTile extends ConsumerWidget {
       context,
     );
 
-    return InkWell(
-      onTap: () => showTodoDetailSheet(context, todo),
-      borderRadius: AppRadius.cardMd,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        child: Row(
-          children: [
-            // Forced up to the 44x44 accessibility floor via SizedBox, kept
-            // separate from the 20px icon's own visual size — same pattern
-            // as _TitleChevron in schedule_screen.dart.
-            Semantics(
-              button: true,
-              checked: todo.isDone,
-              label: l10n.todoMarkDone,
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: InkWell(
-                  onTap: () => ref
-                      .read(todoControllerProvider)
-                      .toggle(todo.id, !todo.isDone),
-                  customBorder: const CircleBorder(),
-                  child: Center(
-                    child: Icon(
-                      todo.isDone
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      size: 20,
-                      color: todo.isDone
-                          ? palette.accent
-                          : isOverdue
-                          ? palette.danger
-                          : palette.inkFaint,
+    return Dismissible(
+      key: ValueKey(todo.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppSpacing.md),
+        child: Icon(Icons.delete_outline, color: palette.danger),
+      ),
+      confirmDismiss: (_) => confirmAndDeleteTodo(context, ref, todo),
+      child: InkWell(
+        onTap: () => showTodoDetailSheet(context, todo),
+        borderRadius: AppRadius.cardMd,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Row(
+            children: [
+              // Forced up to the 44x44 accessibility floor via SizedBox, kept
+              // separate from the 20px icon's own visual size — same pattern
+              // as _TitleChevron in schedule_screen.dart.
+              Semantics(
+                button: true,
+                checked: todo.isDone,
+                label: l10n.todoMarkDone,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: InkWell(
+                    onTap: () => ref
+                        .read(todoControllerProvider)
+                        .toggle(todo.id, !todo.isDone),
+                    customBorder: const CircleBorder(),
+                    child: Center(
+                      child: Icon(
+                        todo.isDone
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        size: 20,
+                        color: todo.isDone
+                            ? palette.accent
+                            : isOverdue
+                            ? palette.danger
+                            : palette.inkFaint,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            if (priority.color(palette) != null) ...[
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: AppSpacing.xxs),
-                decoration: BoxDecoration(
-                  color: priority.color(palette),
-                  shape: BoxShape.circle,
+              const SizedBox(width: AppSpacing.xs),
+              if (priority.color(palette) != null) ...[
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: AppSpacing.xxs),
+                  decoration: BoxDecoration(
+                    color: priority.color(palette),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            todo.title.isEmpty ? '—' : todo.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: todo.isDone
+                                  ? palette.inkFaint
+                                  : palette.ink,
+                              decoration: todo.isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        if (todo.isPinned) ...[
+                          const SizedBox(width: AppSpacing.xxs),
+                          Icon(
+                            Icons.push_pin,
+                            size: 12,
+                            color: palette.inkFaint,
+                            semanticLabel: l10n.todoPinned,
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (tags.isNotEmpty)
+                      Text(
+                        tags.join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: palette.inkFaint,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                todo.hasTime
+                    ? '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)}'
+                    : Fmt.monthDay(todo.slotStart, locale),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: isOverdue ? palette.danger : palette.inkFaint,
+                  fontWeight: isOverdue ? FontWeight.w700 : null,
                 ),
               ),
             ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          todo.title.isEmpty ? '—' : todo.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: todo.isDone ? palette.inkFaint : palette.ink,
-                            decoration: todo.isDone
-                                ? TextDecoration.lineThrough
-                                : null,
-                          ),
-                        ),
-                      ),
-                      if (todo.isPinned) ...[
-                        const SizedBox(width: AppSpacing.xxs),
-                        Icon(
-                          Icons.push_pin,
-                          size: 12,
-                          color: palette.inkFaint,
-                          semanticLabel: l10n.todoPinned,
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (tags.isNotEmpty)
-                    Text(
-                      tags.join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: palette.inkFaint,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              todo.hasTime
-                  ? '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)}'
-                  : Fmt.monthDay(todo.slotStart, locale),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isOverdue ? palette.danger : palette.inkFaint,
-                fontWeight: isOverdue ? FontWeight.w700 : null,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

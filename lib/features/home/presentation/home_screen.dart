@@ -23,6 +23,7 @@ import '../../schedule/presentation/event_edit/event_editor_sheet.dart';
 import '../../schedule/presentation/event_edit/event_preview_sheet.dart';
 import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
+import '../../todo/domain/todo_delete_flow.dart';
 import '../../todo/domain/todo_overdue.dart';
 import '../../todo/presentation/quick_add_todo_sheet.dart';
 import '../../todo/presentation/todo_detail_sheet.dart';
@@ -121,9 +122,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if ((_kExpandedSheetSize - _sheetController.size).abs() < 0.02) return;
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final collapsedSheetSize = ((peekHeight + kFloatingNavBarClearance) /
-            screenHeight)
-        .clamp(0.12, 0.6);
+    final collapsedSheetSize =
+        ((peekHeight + kFloatingNavBarClearance) / screenHeight).clamp(
+          0.12,
+          0.6,
+        );
     final target =
         ((peekHeight + (expanded ? extra : 0) + kFloatingNavBarClearance) /
                 screenHeight)
@@ -644,73 +647,85 @@ class _FeedTodoTile extends ConsumerWidget {
                     '${Fmt.time(todo.slotStart, locale, use24Hour: use24Hour)}'
               : Fmt.monthDay(todo.slotStart, locale));
 
-    return GestureDetector(
-      onTap: () => showTodoDetailSheet(context, todo),
-      // See _UpcomingTile's own comment — isolates this tile's blur layer
-      // from the rest of the scrolling feed.
-      child: RepaintBoundary(
-        child: GlassSurface(
-          borderRadius: AppRadius.cardMd,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            children: [
-              // Same tap-target/color language as HourlyTodoList's own
-              // checkbox — accent when done, danger when overdue, faint
-              // otherwise. Forced up to the 44x44 accessibility floor via
-              // SizedBox, kept separate from the 22px icon's own visual size
-              // — same pattern as _TitleChevron in schedule_screen.dart.
-              Semantics(
-                button: true,
-                checked: todo.isDone,
-                label: AppL10n.of(context).todoMarkDone,
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: InkWell(
-                    onTap: () => ref
-                        .read(todoControllerProvider)
-                        .toggle(todo.id, !todo.isDone),
-                    customBorder: const CircleBorder(),
-                    child: Center(
-                      child: Icon(
-                        todo.isDone
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                        size: 22,
-                        color: todo.isDone
-                            ? palette.accent
-                            : (isOverdue ? palette.danger : palette.inkFaint),
+    return Dismissible(
+      key: ValueKey(todo.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppSpacing.md),
+        child: Icon(Icons.delete_outline, color: palette.danger),
+      ),
+      confirmDismiss: (_) => confirmAndDeleteTodo(context, ref, todo),
+      child: GestureDetector(
+        onTap: () => showTodoDetailSheet(context, todo),
+        // See _UpcomingTile's own comment — isolates this tile's blur layer
+        // from the rest of the scrolling feed.
+        child: RepaintBoundary(
+          child: GlassSurface(
+            borderRadius: AppRadius.cardMd,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                // Same tap-target/color language as HourlyTodoList's own
+                // checkbox — accent when done, danger when overdue, faint
+                // otherwise. Forced up to the 44x44 accessibility floor via
+                // SizedBox, kept separate from the 22px icon's own visual size
+                // — same pattern as _TitleChevron in schedule_screen.dart.
+                Semantics(
+                  button: true,
+                  checked: todo.isDone,
+                  label: AppL10n.of(context).todoMarkDone,
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: InkWell(
+                      onTap: () => ref
+                          .read(todoControllerProvider)
+                          .toggle(todo.id, !todo.isDone),
+                      customBorder: const CircleBorder(),
+                      child: Center(
+                        child: Icon(
+                          todo.isDone
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 22,
+                          color: todo.isDone
+                              ? palette.accent
+                              : (isOverdue ? palette.danger : palette.inkFaint),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  todo.title.isEmpty ? '—' : todo.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: todo.isDone ? palette.inkFaint : palette.ink,
-                    decoration: todo.isDone ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-              ),
-              if (trailing != null) ...[
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  trailing,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: isOverdue ? palette.danger : palette.inkFaint,
-                    fontWeight: isOverdue ? FontWeight.w700 : null,
+                Expanded(
+                  child: Text(
+                    todo.title.isEmpty ? '—' : todo.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: todo.isDone ? palette.inkFaint : palette.ink,
+                      decoration: todo.isDone
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
                   ),
                 ),
+                if (trailing != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    trailing,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: isOverdue ? palette.danger : palette.inkFaint,
+                      fontWeight: isOverdue ? FontWeight.w700 : null,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

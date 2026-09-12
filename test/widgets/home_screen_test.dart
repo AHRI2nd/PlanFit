@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,20 +16,25 @@ import 'package:planfit/design/tokens/app_colors.dart';
 import 'package:planfit/features/home/presentation/home_screen.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
+import 'package:planfit/features/schedule/domain/ports.dart';
 import 'package:planfit/features/todo/presentation/quick_add_todo_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'home_screen_test.mocks.dart';
 
-@GenerateMocks([EventRepository, TodoDao])
+@GenerateMocks([EventRepository, TodoDao, NotificationPort, RemindersPort])
 void main() {
   late MockEventRepository events;
   late MockTodoDao todos;
+  late MockNotificationPort notifications;
+  late MockRemindersPort reminders;
 
   setUp(() async {
     events = MockEventRepository();
     todos = MockTodoDao();
+    notifications = MockNotificationPort();
+    reminders = MockRemindersPort();
     SharedPreferences.setMockInitialValues({});
 
     // HomeScreen's empty-state cards only need these to resolve — every
@@ -50,6 +56,9 @@ void main() {
     when(
       todos.watchUpcomingNotOverdue(any, limit: anyNamed('limit')),
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    when(notifications.cancelForTodo(any)).thenAnswer((_) async {});
+    when(reminders.deleteTodo(any)).thenAnswer((_) async {});
+    when(reminders.isEnabled).thenReturn(false);
   });
 
   Future<void> pumpHome(
@@ -64,6 +73,8 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(prefs),
           eventRepositoryProvider.overrideWithValue(events),
           todoDaoProvider.overrideWithValue(todos),
+          notificationPortProvider.overrideWithValue(notifications),
+          remindersPortProvider.overrideWithValue(reminders),
           if (now != null)
             nowTickerProvider.overrideWith((_) => Stream.value(now)),
         ],
@@ -789,6 +800,73 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(TextField, 'Soon'), findsOneWidget);
+    });
+
+    group('swipe-to-delete', () {
+      // Regression coverage: this list used to have no way to delete a
+      // to-do at all — the tile was a plain GestureDetector with no
+      // Dismissible.
+      late TodoRow soon;
+
+      setUp(() {
+        final now = DateTime(2026, 3, 10, 12);
+        soon = todo(
+          id: 'upcoming-soon',
+          title: 'Soon',
+          slotStart: now.add(const Duration(hours: 2)),
+        );
+        when(
+          todos.watchUpcomingNotOverdue(any, limit: anyNamed('limit')),
+        ).thenAnswer((_) => Stream.value([soon]));
+        when(todos.findById(any)).thenAnswer((_) async => soon);
+        when(
+          todos.watchSubtasks(any),
+        ).thenAnswer((_) => Stream.value(const []));
+        when(todos.deleteById(any)).thenAnswer((_) async {});
+      });
+
+      testWidgets('swiping a one-off to-do deletes it immediately, no dialog', (
+        tester,
+      ) async {
+        final now = DateTime(2026, 3, 10, 12);
+        await pumpHome(tester, now: now);
+        await expandTodoSheet(tester);
+
+        await tester.drag(find.text('Soon'), const Offset(-500, 0));
+        await tester.pumpAndSettle();
+
+        expect(find.text('반복 할 일 삭제'), findsNothing);
+        verify(todos.deleteById('upcoming-soon')).called(1);
+        // showAutoDismissSnackBar arms its own real Timer — let it fire
+        // before the test tears down (see snackbar_x.dart).
+        await tester.pump(const Duration(seconds: 5));
+      });
+
+      testWidgets('swiping a recurring to-do asks this-only vs this-and-future '
+          'before deleting', (tester) async {
+        final now = DateTime(2026, 3, 10, 12);
+        soon = soon.copyWith(recurrenceGroupId: const Value('series-1'));
+        when(
+          todos.watchUpcomingNotOverdue(any, limit: anyNamed('limit')),
+        ).thenAnswer((_) => Stream.value([soon]));
+        when(
+          todos.seriesFrom(any, any),
+        ).thenAnswer((_) => Future.value([soon]));
+
+        await pumpHome(tester, now: now);
+        await expandTodoSheet(tester);
+
+        await tester.drag(find.text('Soon'), const Offset(-500, 0));
+        await tester.pumpAndSettle();
+
+        expect(find.text('이 항목만 삭제'), findsOneWidget);
+        await tester.tap(find.text('이 항목만 삭제'));
+        await tester.pumpAndSettle();
+
+        verify(todos.deleteById('upcoming-soon')).called(1);
+        verifyNever(todos.seriesFrom(any, any));
+        await tester.pump(const Duration(seconds: 5));
+      });
     });
   });
 }

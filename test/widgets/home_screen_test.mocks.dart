@@ -13,6 +13,7 @@ import 'package:planfit/core/db/app_database.dart' as _i2;
 import 'package:planfit/core/db/daos/todo_dao.dart' as _i5;
 import 'package:planfit/features/schedule/domain/event_input.dart' as _i8;
 import 'package:planfit/features/schedule/domain/event_repository.dart' as _i7;
+import 'package:planfit/features/schedule/domain/ports.dart' as _i10;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -1113,6 +1114,91 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
   _i6.Future<void> close() =>
       (super.noSuchMethod(
             Invocation.method(#close, []),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+}
+
+/// A class which mocks [NotificationPort].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockNotificationPort extends _i1.Mock implements _i10.NotificationPort {
+  MockNotificationPort() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i6.Future<void> scheduleForEvent(_i2.EventRow? event) =>
+      (super.noSuchMethod(
+            Invocation.method(#scheduleForEvent, [event]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  _i6.Future<void> cancelForEvent(String? eventId) =>
+      (super.noSuchMethod(
+            Invocation.method(#cancelForEvent, [eventId]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  _i6.Future<void> refillEvents(List<_i2.EventRow>? events) =>
+      (super.noSuchMethod(
+            Invocation.method(#refillEvents, [events]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  _i6.Future<void> scheduleForTodo(_i2.TodoRow? todo) =>
+      (super.noSuchMethod(
+            Invocation.method(#scheduleForTodo, [todo]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  _i6.Future<void> cancelForTodo(String? todoId) =>
+      (super.noSuchMethod(
+            Invocation.method(#cancelForTodo, [todoId]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+}
+
+/// A class which mocks [RemindersPort].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockRemindersPort extends _i1.Mock implements _i10.RemindersPort {
+  MockRemindersPort() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  bool get isEnabled =>
+      (super.noSuchMethod(Invocation.getter(#isEnabled), returnValue: false)
+          as bool);
+
+  @override
+  _i6.Future<String?> pushTodo(_i2.TodoRow? todo) =>
+      (super.noSuchMethod(
+            Invocation.method(#pushTodo, [todo]),
+            returnValue: _i6.Future<String?>.value(),
+          )
+          as _i6.Future<String?>);
+
+  @override
+  _i6.Future<void> deleteTodo(_i2.TodoRow? todo) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteTodo, [todo]),
             returnValue: _i6.Future<void>.value(),
             returnValueForMissingStub: _i6.Future<void>.value(),
           )

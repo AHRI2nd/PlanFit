@@ -8,6 +8,7 @@ import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../application/todo_providers.dart';
+import '../domain/todo_delete_flow.dart';
 import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
 import 'quick_add_todo_sheet.dart';
@@ -323,62 +324,6 @@ class _TodoTile extends ConsumerWidget {
         );
   }
 
-  /// Asks which scope to delete when [todo] is part of a recurring series;
-  /// for a one-off item this just confirms the swipe itself (always true).
-  /// Mirrors the event editor's own series-delete dialog. Either way, shows
-  /// an undo SnackBar afterward — the event swipe-delete's counterpart (see
-  /// day_view.dart's _EventCard._delete).
-  Future<bool> _confirmDismiss(BuildContext context, WidgetRef ref) async {
-    final l10n = AppL10n.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    final controller = ref.read(todoControllerProvider);
-
-    List<RemovedTodo> removed;
-    if (todo.recurrenceGroupId == null) {
-      removed = await controller.remove(todo.id);
-    } else {
-      final deleteSeries = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(l10n.todoDeleteSeriesTitle),
-          content: Text(l10n.todoDeleteSeriesBody),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(l10n.todoDeleteThisOnly),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: context.palette.danger,
-              ),
-              child: Text(l10n.todoDeleteThisAndFuture),
-            ),
-          ],
-        ),
-      );
-      if (deleteSeries == null) return false;
-      removed = deleteSeries
-          ? await controller.removeSeriesFrom(todo)
-          : await controller.remove(todo.id);
-    }
-
-    messenger.showAutoDismissSnackBar(
-      SnackBar(
-        content: Text(l10n.todoDeleted),
-        action: SnackBarAction(
-          label: l10n.eventUndo,
-          onPressed: () async {
-            for (final r in removed) {
-              await controller.restore(r);
-            }
-          },
-        ),
-      ),
-    );
-    return true;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
@@ -413,7 +358,7 @@ class _TodoTile extends ConsumerWidget {
         padding: const EdgeInsets.only(right: AppSpacing.md),
         child: Icon(Icons.delete_outline, color: palette.danger),
       ),
-      confirmDismiss: (_) => _confirmDismiss(context, ref),
+      confirmDismiss: (_) => confirmAndDeleteTodo(context, ref, todo),
       child: Container(
         color: selected ? palette.accent.withValues(alpha: 0.1) : null,
         child: Padding(
