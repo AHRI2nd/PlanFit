@@ -1,8 +1,20 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
+import 'package:mockito/mockito.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/sync_status.dart';
+import 'package:planfit/core/home_widget/home_widget_background.dart';
 import 'package:planfit/core/home_widget/home_widget_sync.dart';
+import 'package:planfit/core/notifications/notification_id_allocator.dart';
+import 'package:planfit/core/notifications/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'home_widget_sync_test.mocks.dart';
+
+@GenerateMocks([FlutterLocalNotificationsPlugin])
 void main() {
   EventRow event({required String title, required DateTime startAt}) {
     return EventRow(
@@ -158,6 +170,96 @@ void main() {
       );
 
       expect(snapshot['todo0_priority'], 3);
+    });
+  });
+
+  group('handleHomeWidgetUri', () {
+    // Regression coverage for a bug where a bare `NotificationService()`
+    // (no allocator) threw a StateError the moment a toggled to-do needed
+    // its reminder scheduled/cancelled — since syncTodoNotification only
+    // catches `on Exception` (StateError is an Error, not an Exception),
+    // that exception used to propagate out of this whole handler on every
+    // single "toggle-todo" tap, before ever reaching the widget-refresh
+    // push at the bottom.
+    late AppDatabase db;
+    late MockFlutterLocalNotificationsPlugin plugin;
+    late NotificationService notificationService;
+
+    setUp(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase(NativeDatabase.memory());
+      plugin = MockFlutterLocalNotificationsPlugin();
+      when(
+        plugin.initialize(
+          settings: anyNamed('settings'),
+          onDidReceiveNotificationResponse: anyNamed(
+            'onDidReceiveNotificationResponse',
+          ),
+          onDidReceiveBackgroundNotificationResponse: anyNamed(
+            'onDidReceiveBackgroundNotificationResponse',
+          ),
+        ),
+      ).thenAnswer((_) async => true);
+      when(plugin.cancel(id: anyNamed('id'))).thenAnswer((_) async {});
+      notificationService = NotificationService(
+        plugin: plugin,
+        notificationIdAllocator: NotificationIdAllocator(
+          await SharedPreferences.getInstance(),
+        ),
+      );
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('toggling a to-do via the widget completes without throwing, and '
+        "actually flips the row's isDone", () async {
+      final now = DateTime(2026, 3, 10, 9);
+      await db.todoDao.upsert(
+        TodoItemsCompanion.insert(
+          id: 't1',
+          title: const Value('Water the plants'),
+          slotStart: now,
+          hasTime: const Value(true),
+          notify: const Value(true),
+        ),
+      );
+
+      await handleHomeWidgetUri(
+        Uri.parse('planfit://toggle-todo?id=t1'),
+        db,
+        notificationService: notificationService,
+      );
+
+      final updated = await db.todoDao.findById('t1');
+      expect(updated!.isDone, isTrue);
+      // The to-do just became done, so its reminder (it had notify+hasTime
+      // set) must be cancelled, not scheduled — this call only succeeds
+      // at all because handleHomeWidgetUri now builds a NotificationService
+      // with a real allocator; before the fix, resolving this id threw a
+      // StateError that never reached this point.
+      verify(plugin.cancel(id: anyNamed('id'))).called(greaterThan(0));
+    });
+
+    test(
+      'an unknown/already-deleted id still refreshes without throwing',
+      () async {
+        await handleHomeWidgetUri(
+          Uri.parse('planfit://toggle-todo?id=nonexistent'),
+          db,
+          notificationService: notificationService,
+        );
+      },
+    );
+
+    test('refresh-widget completes without throwing', () async {
+      await handleHomeWidgetUri(
+        Uri.parse('planfit://refresh-widget'),
+        db,
+        notificationService: notificationService,
+      );
     });
   });
 
