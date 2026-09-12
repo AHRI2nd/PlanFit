@@ -16,6 +16,14 @@ class EventTemplateDao extends DatabaseAccessor<AppDatabase>
     )..orderBy([(t) => OrderingTerm(expression: t.createdAt)])).watch();
   }
 
+  /// One-shot equivalent of [watchAll] — [BackupService.buildJson] wants a
+  /// single snapshot, not a live subscription it would need to cancel.
+  Future<List<EventTemplateRow>> all() {
+    return (select(
+      eventTemplates,
+    )..orderBy([(t) => OrderingTerm(expression: t.createdAt)])).get();
+  }
+
   Future<void> upsert(EventTemplatesCompanion companion) =>
       into(eventTemplates).insertOnConflictUpdate(companion);
 

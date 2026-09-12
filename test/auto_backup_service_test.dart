@@ -54,6 +54,7 @@ void main() {
         calendar: calendar,
       ),
       todoDao: db.todoDao,
+      eventTemplateDao: db.eventTemplateDao,
       notifications: notifications,
     );
     autoBackupService = AutoBackupService(

@@ -83,6 +83,7 @@ void main() {
     final sourceBackup = BackupService(
       eventRepository: eventRepo,
       todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
       notifications: notifications,
     );
     final file = await sourceBackup.exportToFile();
@@ -98,6 +99,7 @@ void main() {
     final destBackup = BackupService(
       eventRepository: destEventRepo,
       todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
       notifications: notifications,
     );
     final summary = await destBackup.importFromFile(file.path);
@@ -140,6 +142,7 @@ void main() {
     final sourceBackup = BackupService(
       eventRepository: eventRepo,
       todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
       notifications: notifications,
     );
     final file = await sourceBackup.exportToFile();
@@ -153,6 +156,7 @@ void main() {
     final destBackup = BackupService(
       eventRepository: destEventRepo,
       todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
       notifications: notifications,
     );
     await destBackup.importFromFile(file.path);
@@ -189,6 +193,7 @@ void main() {
     final sourceBackup = BackupService(
       eventRepository: eventRepo,
       todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
       notifications: notifications,
     );
     final file = await sourceBackup.exportToFile();
@@ -202,6 +207,7 @@ void main() {
     final destBackup = BackupService(
       eventRepository: destEventRepo,
       todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
       notifications: notifications,
     );
     await destBackup.importFromFile(file.path);
@@ -256,6 +262,7 @@ void main() {
     final sourceBackup = BackupService(
       eventRepository: eventRepo,
       todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
       notifications: notifications,
     );
     final file = await sourceBackup.exportToFile();
@@ -269,6 +276,7 @@ void main() {
     final destBackup = BackupService(
       eventRepository: destEventRepo,
       todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
       notifications: notifications,
     );
     await destBackup.importFromFile(file.path);
@@ -292,243 +300,330 @@ void main() {
     await destDb.close();
   });
 
-  test(
-    "restoring onto an existing to-do that's already linked to a "
-    'Reminders-sync entry resets that link instead of leaving it '
-    'pointing at stale content — regression test: unlike events (whose '
-    'restore always resets osCalendarId/osEventId/syncStatus), the to-do '
-    'restore path used to leave osReminderId/reminderSyncStatus '
-    'completely untouched on an existing row (TodoDao.upsert is '
-    'insertOnConflictUpdate, which leaves absent companion fields alone), '
-    'so restoring a to-do back to an older title left it still marked '
-    "synced under the old reminder id — RemindersReconciler's next run "
-    'would then see the still-live OS reminder disagree with the '
-    "just-restored row and pull the *stale* OS content back over it, "
-    'silently undoing the restore',
-    () async {
-      final sourceDb = newDb();
-      final notifications = MockNotificationPort();
-      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
-      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+  test("restoring onto an existing to-do that's already linked to a "
+      'Reminders-sync entry resets that link instead of leaving it '
+      'pointing at stale content — regression test: unlike events (whose '
+      'restore always resets osCalendarId/osEventId/syncStatus), the to-do '
+      'restore path used to leave osReminderId/reminderSyncStatus '
+      'completely untouched on an existing row (TodoDao.upsert is '
+      'insertOnConflictUpdate, which leaves absent companion fields alone), '
+      'so restoring a to-do back to an older title left it still marked '
+      "synced under the old reminder id — RemindersReconciler's next run "
+      'would then see the still-live OS reminder disagree with the '
+      "just-restored row and pull the *stale* OS content back over it, "
+      'silently undoing the restore', () async {
+    final sourceDb = newDb();
+    final notifications = MockNotificationPort();
+    when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
 
-      await sourceDb.todoDao.upsert(
-        TodoItemsCompanion.insert(
-          id: 'todo1',
-          title: const Value('Buy milk'),
-          slotStart: DateTime(2026, 3, 10, 9),
+    await sourceDb.todoDao.upsert(
+      TodoItemsCompanion.insert(
+        id: 'todo1',
+        title: const Value('Buy milk'),
+        slotStart: DateTime(2026, 3, 10, 9),
+      ),
+    );
+
+    final eventRepo = EventRepositoryImpl(
+      dao: sourceDb.eventDao,
+      notifications: notifications,
+      calendar: disabledCalendar(),
+    );
+    final sourceBackup = BackupService(
+      eventRepository: eventRepo,
+      todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final file = await sourceBackup.exportToFile();
+
+    // Restore onto a database that already has the SAME to-do id,
+    // already synced to a (still-live, per this scenario) OS reminder —
+    // the in-place "restore from auto-backup" flow, not a fresh install.
+    final destDb = newDb();
+    await destDb.todoDao.upsert(
+      TodoItemsCompanion.insert(
+        id: 'todo1',
+        title: const Value('Buy milk and eggs'),
+        slotStart: DateTime(2026, 3, 10, 9),
+        osReminderId: const Value('os-reminder-1'),
+        osReminderListId: const Value('os-list-1'),
+        reminderSyncStatus: const Value(SyncStatus.synced),
+      ),
+    );
+    final destEventRepo = EventRepositoryImpl(
+      dao: destDb.eventDao,
+      notifications: notifications,
+      calendar: disabledCalendar(),
+    );
+    final destBackup = BackupService(
+      eventRepository: destEventRepo,
+      todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    await destBackup.importFromFile(file.path);
+
+    final restored = await destDb.todoDao.findById('todo1');
+    expect(restored!.title, 'Buy milk');
+    expect(
+      restored.reminderSyncStatus,
+      SyncStatus.pendingPush,
+      reason:
+          'must be re-pushed, not left "synced" against a reminder that '
+          'still holds the pre-restore title',
+    );
+    expect(restored.osReminderId, isNull);
+    expect(restored.osReminderListId, isNull);
+
+    await sourceDb.close();
+    await destDb.close();
+  });
+
+  test('a restore still succeeds even when scheduling a restored to-do\'s '
+      'notification throws — regression test: syncTodoNotification used to '
+      'have no error handling at all, so a real, known '
+      'flutter_local_notifications failure mode (a platform-channel '
+      'exception on some Android OEMs/versions) would have propagated out of '
+      'importFromFile and shown the user a generic "복원 실패" even though the '
+      'restore itself had already fully committed', () async {
+    final sourceDb = newDb();
+    final notifications = MockNotificationPort();
+    when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+    when(
+      notifications.scheduleForTodo(any),
+    ).thenThrow(Exception('platform channel unavailable'));
+
+    await sourceDb.todoDao.upsert(
+      TodoItemsCompanion.insert(
+        id: 'todo-throws',
+        title: const Value('Call dentist'),
+        slotStart: DateTime.now().add(const Duration(hours: 2)),
+      ),
+    );
+
+    final eventRepo = EventRepositoryImpl(
+      dao: sourceDb.eventDao,
+      notifications: notifications,
+      calendar: disabledCalendar(),
+    );
+    final sourceBackup = BackupService(
+      eventRepository: eventRepo,
+      todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final file = await sourceBackup.exportToFile();
+
+    final destDb = newDb();
+    final destEventRepo = EventRepositoryImpl(
+      dao: destDb.eventDao,
+      notifications: notifications,
+      calendar: disabledCalendar(),
+    );
+    final destBackup = BackupService(
+      eventRepository: destEventRepo,
+      todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
+      notifications: notifications,
+    );
+
+    final summary = await destBackup.importFromFile(file.path);
+
+    expect(summary.todoCount, 1);
+    expect((await destDb.todoDao.all()).single.title, 'Call dentist');
+
+    await sourceDb.close();
+    await destDb.close();
+  });
+
+  test('excludes events mirrored from a subscribed calendar (holidays '
+      'included) from the export — they are re-derived from their source, '
+      'not this device\'s data to carry around, and previously came back '
+      'from a restore looking PlanFit-owned and got pushed to the device '
+      'calendar', () async {
+    final sourceDb = newDb();
+    final notifications = MockNotificationPort();
+    when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+    final eventRepo = EventRepositoryImpl(
+      dao: sourceDb.eventDao,
+      notifications: notifications,
+      calendar: disabledCalendar(),
+    );
+    await eventRepo.save(
+      EventInput(
+        id: 'own-event',
+        title: 'My own plan',
+        startAt: DateTime.now().add(const Duration(days: 1)),
+        endAt: DateTime.now().add(const Duration(days: 1, hours: 1)),
+      ),
+    );
+    // A holiday-mirror row, written the way CalendarImportService does:
+    // straight through EventDao, never through EventRepository.save.
+    await sourceDb.eventDao.upsert(
+      EventsCompanion.insert(
+        id: 'holiday-event',
+        title: const Value('추석'),
+        startAt: DateTime.now().add(const Duration(days: 2)),
+        endAt: DateTime.now().add(const Duration(days: 3)),
+        isAllDay: const Value(true),
+        notify: const Value(false),
+        importSourceCalendarId: const Value(
+          'ko.south_korea#holiday@group.v.calendar.google.com',
         ),
-      );
+        importSourceEventId: const Value('holiday-src-1'),
+      ),
+    );
 
-      final eventRepo = EventRepositoryImpl(
-        dao: sourceDb.eventDao,
-        notifications: notifications,
-        calendar: disabledCalendar(),
-      );
-      final sourceBackup = BackupService(
-        eventRepository: eventRepo,
-        todoDao: sourceDb.todoDao,
-        notifications: notifications,
-      );
-      final file = await sourceBackup.exportToFile();
+    final backup = BackupService(
+      eventRepository: eventRepo,
+      todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final json = jsonDecode(await backup.buildJson()) as Map<String, dynamic>;
+    final exportedIds = (json['events'] as List)
+        .map((e) => (e as Map<String, dynamic>)['id'])
+        .toSet();
 
-      // Restore onto a database that already has the SAME to-do id,
-      // already synced to a (still-live, per this scenario) OS reminder —
-      // the in-place "restore from auto-backup" flow, not a fresh install.
-      final destDb = newDb();
-      await destDb.todoDao.upsert(
-        TodoItemsCompanion.insert(
-          id: 'todo1',
-          title: const Value('Buy milk and eggs'),
-          slotStart: DateTime(2026, 3, 10, 9),
-          osReminderId: const Value('os-reminder-1'),
-          osReminderListId: const Value('os-list-1'),
-          reminderSyncStatus: const Value(SyncStatus.synced),
-        ),
-      );
-      final destEventRepo = EventRepositoryImpl(
+    expect(exportedIds, {'own-event'});
+
+    await sourceDb.close();
+  });
+
+  test('a fresh export round-trips as legacyFormat: false', () async {
+    final sourceDb = newDb();
+    final notifications = MockNotificationPort();
+    when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+    final eventRepo = EventRepositoryImpl(
+      dao: sourceDb.eventDao,
+      notifications: notifications,
+      calendar: disabledCalendar(),
+    );
+    final backup = BackupService(
+      eventRepository: eventRepo,
+      todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final file = await backup.exportToFile();
+
+    final destDb = newDb();
+    final destBackup = BackupService(
+      eventRepository: EventRepositoryImpl(
         dao: destDb.eventDao,
         notifications: notifications,
         calendar: disabledCalendar(),
-      );
-      final destBackup = BackupService(
-        eventRepository: destEventRepo,
-        todoDao: destDb.todoDao,
-        notifications: notifications,
-      );
-      await destBackup.importFromFile(file.path);
+      ),
+      todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final summary = await destBackup.importFromFile(file.path);
 
-      final restored = await destDb.todoDao.findById('todo1');
-      expect(restored!.title, 'Buy milk');
-      expect(
-        restored.reminderSyncStatus,
-        SyncStatus.pendingPush,
-        reason:
-            'must be re-pushed, not left "synced" against a reminder that '
-            'still holds the pre-restore title',
-      );
-      expect(restored.osReminderId, isNull);
-      expect(restored.osReminderListId, isNull);
+    expect(summary.legacyFormat, isFalse);
 
-      await sourceDb.close();
-      await destDb.close();
-    },
-  );
+    await sourceDb.close();
+    await destDb.close();
+  });
 
-  test(
-    'a restore still succeeds even when scheduling a restored to-do\'s '
-    'notification throws — regression test: syncTodoNotification used to '
-    'have no error handling at all, so a real, known '
-    'flutter_local_notifications failure mode (a platform-channel '
-    'exception on some Android OEMs/versions) would have propagated out of '
-    'importFromFile and shown the user a generic "복원 실패" even though the '
-    'restore itself had already fully committed',
-    () async {
-      final sourceDb = newDb();
-      final notifications = MockNotificationPort();
-      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
-      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
-      when(
-        notifications.scheduleForTodo(any),
-      ).thenThrow(Exception('platform channel unavailable'));
+  test('round-trips an event template — regression test: buildJson used to '
+      'serialize only events/todos/todoSubtasks, so every saved template was '
+      'silently lost on a device-to-device restore', () async {
+    final sourceDb = newDb();
+    final notifications = MockNotificationPort();
+    when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
 
-      await sourceDb.todoDao.upsert(
-        TodoItemsCompanion.insert(
-          id: 'todo-throws',
-          title: const Value('Call dentist'),
-          slotStart: DateTime.now().add(const Duration(hours: 2)),
-        ),
-      );
+    await sourceDb.eventTemplateDao.upsert(
+      EventTemplatesCompanion.insert(
+        id: 'tmpl-1',
+        name: 'Gym',
+        title: const Value('Workout'),
+        durationMinutes: const Value(45),
+        colorTag: const Value('#3388CC'),
+      ),
+    );
 
-      final eventRepo = EventRepositoryImpl(
+    final backup = BackupService(
+      eventRepository: EventRepositoryImpl(
         dao: sourceDb.eventDao,
         notifications: notifications,
         calendar: disabledCalendar(),
-      );
-      final sourceBackup = BackupService(
-        eventRepository: eventRepo,
-        todoDao: sourceDb.todoDao,
-        notifications: notifications,
-      );
-      final file = await sourceBackup.exportToFile();
+      ),
+      todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final file = await backup.exportToFile();
 
-      final destDb = newDb();
-      final destEventRepo = EventRepositoryImpl(
+    final destDb = newDb();
+    final destBackup = BackupService(
+      eventRepository: EventRepositoryImpl(
         dao: destDb.eventDao,
         notifications: notifications,
         calendar: disabledCalendar(),
-      );
-      final destBackup = BackupService(
-        eventRepository: destEventRepo,
-        todoDao: destDb.todoDao,
-        notifications: notifications,
-      );
+      ),
+      todoDao: destDb.todoDao,
+      eventTemplateDao: destDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final summary = await destBackup.importFromFile(file.path);
 
-      final summary = await destBackup.importFromFile(file.path);
+    expect(summary.templateCount, 1);
+    final templates = await destDb.eventTemplateDao.all();
+    expect(templates, hasLength(1));
+    expect(templates.single.name, 'Gym');
+    expect(templates.single.title, 'Workout');
+    expect(templates.single.durationMinutes, 45);
+    expect(templates.single.colorTag, '#3388CC');
 
-      expect(summary.todoCount, 1);
-      expect((await destDb.todoDao.all()).single.title, 'Call dentist');
+    await sourceDb.close();
+    await destDb.close();
+  });
 
-      await sourceDb.close();
-      await destDb.close();
-    },
-  );
+  test('restoring a backup file with no eventTemplates field at all (made '
+      'before templates were ever included) still succeeds, with zero '
+      'templates restored rather than failing the whole import', () async {
+    final sourceDb = newDb();
+    final notifications = MockNotificationPort();
+    when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
 
-  test(
-    'excludes events mirrored from a subscribed calendar (holidays '
-    'included) from the export — they are re-derived from their source, '
-    'not this device\'s data to carry around, and previously came back '
-    'from a restore looking PlanFit-owned and got pushed to the device '
-    'calendar',
-    () async {
-      final sourceDb = newDb();
-      final notifications = MockNotificationPort();
-      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
-      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+    final legacyJson = {
+      'schemaVersion': 2,
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'events': [],
+      'todos': [],
+      'todoSubtasks': [],
+      // No 'eventTemplates' key at all.
+    };
+    final file = File('${tempDir.path}/legacy-no-templates.json');
+    await file.writeAsString(jsonEncode(legacyJson));
 
-      final eventRepo = EventRepositoryImpl(
+    final destBackup = BackupService(
+      eventRepository: EventRepositoryImpl(
         dao: sourceDb.eventDao,
         notifications: notifications,
         calendar: disabledCalendar(),
-      );
-      await eventRepo.save(
-        EventInput(
-          id: 'own-event',
-          title: 'My own plan',
-          startAt: DateTime.now().add(const Duration(days: 1)),
-          endAt: DateTime.now().add(const Duration(days: 1, hours: 1)),
-        ),
-      );
-      // A holiday-mirror row, written the way CalendarImportService does:
-      // straight through EventDao, never through EventRepository.save.
-      await sourceDb.eventDao.upsert(
-        EventsCompanion.insert(
-          id: 'holiday-event',
-          title: const Value('추석'),
-          startAt: DateTime.now().add(const Duration(days: 2)),
-          endAt: DateTime.now().add(const Duration(days: 3)),
-          isAllDay: const Value(true),
-          notify: const Value(false),
-          importSourceCalendarId: const Value(
-            'ko.south_korea#holiday@group.v.calendar.google.com',
-          ),
-          importSourceEventId: const Value('holiday-src-1'),
-        ),
-      );
+      ),
+      todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final summary = await destBackup.importFromFile(file.path);
 
-      final backup = BackupService(
-        eventRepository: eventRepo,
-        todoDao: sourceDb.todoDao,
-        notifications: notifications,
-      );
-      final json = jsonDecode(await backup.buildJson()) as Map<String, dynamic>;
-      final exportedIds = (json['events'] as List)
-          .map((e) => (e as Map<String, dynamic>)['id'])
-          .toSet();
+    expect(summary.templateCount, 0);
+    expect(summary.legacyFormat, isFalse);
 
-      expect(exportedIds, {'own-event'});
-
-      await sourceDb.close();
-    },
-  );
-
-  test(
-    'a fresh export round-trips as legacyFormat: false',
-    () async {
-      final sourceDb = newDb();
-      final notifications = MockNotificationPort();
-      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
-      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
-
-      final eventRepo = EventRepositoryImpl(
-        dao: sourceDb.eventDao,
-        notifications: notifications,
-        calendar: disabledCalendar(),
-      );
-      final backup = BackupService(
-        eventRepository: eventRepo,
-        todoDao: sourceDb.todoDao,
-        notifications: notifications,
-      );
-      final file = await backup.exportToFile();
-
-      final destDb = newDb();
-      final destBackup = BackupService(
-        eventRepository: EventRepositoryImpl(
-          dao: destDb.eventDao,
-          notifications: notifications,
-          calendar: disabledCalendar(),
-        ),
-        todoDao: destDb.todoDao,
-        notifications: notifications,
-      );
-      final summary = await destBackup.importFromFile(file.path);
-
-      expect(summary.legacyFormat, isFalse);
-
-      await sourceDb.close();
-      await destDb.close();
-    },
-  );
+    await sourceDb.close();
+  });
 
   test(
     'flags a pre-fix backup file as legacyFormat: true — regression test: '
@@ -552,10 +647,12 @@ void main() {
       final backup = BackupService(
         eventRepository: eventRepo,
         todoDao: sourceDb.todoDao,
+        eventTemplateDao: sourceDb.eventTemplateDao,
         notifications: notifications,
       );
       final file = await backup.exportToFile();
-      final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final json =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       json['schemaVersion'] = 1;
       await file.writeAsString(jsonEncode(json));
 
@@ -567,6 +664,7 @@ void main() {
           calendar: disabledCalendar(),
         ),
         todoDao: destDb.todoDao,
+        eventTemplateDao: destDb.eventTemplateDao,
         notifications: notifications,
       );
       final summary = await destBackup.importFromFile(file.path);
@@ -594,10 +692,12 @@ void main() {
       final backup = BackupService(
         eventRepository: eventRepo,
         todoDao: sourceDb.todoDao,
+        eventTemplateDao: sourceDb.eventTemplateDao,
         notifications: notifications,
       );
       final file = await backup.exportToFile();
-      final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final json =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       json.remove('schemaVersion');
       await file.writeAsString(jsonEncode(json));
 
@@ -609,6 +709,7 @@ void main() {
           calendar: disabledCalendar(),
         ),
         todoDao: destDb.todoDao,
+        eventTemplateDao: destDb.eventTemplateDao,
         notifications: notifications,
       );
       final summary = await destBackup.importFromFile(file.path);
@@ -656,6 +757,7 @@ void main() {
       final backup = BackupService(
         eventRepository: eventRepo,
         todoDao: sourceDb.todoDao,
+        eventTemplateDao: sourceDb.eventTemplateDao,
         notifications: notifications,
       );
       final file = await backup.exportToFile();
@@ -678,6 +780,7 @@ void main() {
       final destBackup = BackupService(
         eventRepository: destEventRepo,
         todoDao: destDb.todoDao,
+        eventTemplateDao: destDb.eventTemplateDao,
         notifications: notifications,
       );
       await destBackup.importFromFile(file.path);

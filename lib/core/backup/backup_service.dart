@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:path_provider/path_provider.dart';
 
 import '../db/app_database.dart';
+import '../db/daos/event_template_dao.dart';
 import '../db/daos/todo_dao.dart';
 import '../db/sync_status.dart';
 import '../../features/schedule/domain/event_repository.dart';
@@ -18,10 +19,12 @@ class BackupImportSummary {
   const BackupImportSummary({
     required this.eventCount,
     required this.todoCount,
+    required this.templateCount,
     required this.legacyFormat,
   });
   final int eventCount;
   final int todoCount;
+  final int templateCount;
 
   /// The file's own `schemaVersion` predates 2 — i.e. it was exported
   /// before [BackupService.buildJson] started excluding mirrored
@@ -69,11 +72,13 @@ class BackupService {
   BackupService({
     required this.eventRepository,
     required this.todoDao,
+    required this.eventTemplateDao,
     required this.notifications,
   });
 
   final EventRepository eventRepository;
   final TodoDao todoDao;
+  final EventTemplateDao eventTemplateDao;
   final NotificationPort notifications;
 
   // 2 marks the first version whose export excludes mirrored
@@ -102,6 +107,7 @@ class BackupService {
         .toList();
     final todos = await todoDao.all();
     final subtasks = await todoDao.allSubtasks();
+    final templates = await eventTemplateDao.all();
 
     final json = <String, dynamic>{
       'schemaVersion': _schemaVersion,
@@ -109,6 +115,7 @@ class BackupService {
       'events': events.map(_eventToJson).toList(),
       'todos': todos.map(_todoToJson).toList(),
       'todoSubtasks': subtasks.map(_subtaskToJson).toList(),
+      'eventTemplates': templates.map(_eventTemplateToJson).toList(),
     };
     return compute(_encodeBackupJson, json);
   }
@@ -136,6 +143,9 @@ class BackupService {
     final eventsJson = (json['events'] as List?) ?? const [];
     final todosJson = (json['todos'] as List?) ?? const [];
     final subtasksJson = (json['todoSubtasks'] as List?) ?? const [];
+    // Absent on any backup made before this field existed — restoring one
+    // of those must not fail, it just has no templates to bring back.
+    final templatesJson = (json['eventTemplates'] as List?) ?? const [];
     // Absent entirely (older than schemaVersion existing at all) also
     // counts as legacy, same as any value below 2 — see
     // BackupImportSummary.legacyFormat's own doc.
@@ -166,6 +176,10 @@ class BackupService {
         ))
           _subtaskFromJson(s),
     ];
+    final templateCompanions = [
+      for (final t in templatesJson)
+        _eventTemplateFromJson(t as Map<String, dynamic>),
+    ];
 
     await eventRepository.restoreEvents(events);
 
@@ -187,9 +201,14 @@ class BackupService {
       await syncTodoNotification(notifications, todo);
     }
 
+    for (final companion in templateCompanions) {
+      await eventTemplateDao.upsert(companion);
+    }
+
     return BackupImportSummary(
       eventCount: events.length,
       todoCount: todoCompanions.length,
+      templateCount: templateCompanions.length,
       legacyFormat: legacyFormat,
     );
   }
@@ -264,6 +283,37 @@ class BackupService {
     'sortOrder': s.sortOrder,
     'createdAt': s.createdAt.toUtc().toIso8601String(),
   };
+
+  Map<String, dynamic> _eventTemplateToJson(EventTemplateRow t) => {
+    'id': t.id,
+    'name': t.name,
+    'title': t.title,
+    'memo': t.memo,
+    'location': t.location,
+    'durationMinutes': t.durationMinutes,
+    'isAllDay': t.isAllDay,
+    'colorTag': t.colorTag,
+    'notify': t.notify,
+    'reminderMinutesBefore': t.reminderMinutesBefore,
+    'createdAt': t.createdAt.toUtc().toIso8601String(),
+  };
+
+  EventTemplatesCompanion _eventTemplateFromJson(Map<String, dynamic> j) =>
+      EventTemplatesCompanion(
+        id: Value(j['id'] as String),
+        name: Value(j['name'] as String? ?? ''),
+        title: Value(j['title'] as String? ?? ''),
+        memo: Value(j['memo'] as String?),
+        location: Value(j['location'] as String?),
+        durationMinutes: Value(j['durationMinutes'] as int? ?? 60),
+        isAllDay: Value(j['isAllDay'] as bool? ?? false),
+        colorTag: Value(j['colorTag'] as String?),
+        notify: Value(j['notify'] as bool? ?? true),
+        reminderMinutesBefore: Value(j['reminderMinutesBefore'] as int? ?? 0),
+        createdAt: Value(
+          DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+        ),
+      );
 
   TodoSubtasksCompanion _subtaskFromJson(Map<String, dynamic> j) =>
       TodoSubtasksCompanion(

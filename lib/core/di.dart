@@ -123,6 +123,7 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService(
     eventRepository: ref.watch(eventRepositoryProvider),
     todoDao: ref.watch(todoDaoProvider),
+    eventTemplateDao: ref.watch(eventTemplateDaoProvider),
     notifications: ref.watch(notificationPortProvider),
   );
 });
