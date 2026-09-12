@@ -91,6 +91,8 @@ class QuickAddTodoField extends ConsumerStatefulWidget {
     this.autofocus = false,
     this.focusNode,
     this.onAdded,
+    this.forceOptionsExpanded = false,
+    this.onOptionsExpandedChanged,
   });
 
   /// The day a new item lands on (and the reference the "added to another
@@ -110,6 +112,19 @@ class QuickAddTodoField extends ConsumerStatefulWidget {
   /// view, home) leaves it null — the field just clears itself and stays,
   /// ready for the next one.
   final VoidCallback? onAdded;
+
+  /// Starts (and stays) with the details panel expanded, with the tune
+  /// button itself made inert — for the home screen's offstage measurement
+  /// clone only (see `_HomeScreenState`'s own doc), so it can find out how
+  /// tall the real field gets once expanded, before the real one ever is.
+  final bool forceOptionsExpanded;
+
+  /// Fires whenever the details-panel toggle is pressed, with the panel's
+  /// new expanded state — the home screen uses this to grow/shrink its
+  /// pull-up bar by exactly the panel's own height in lockstep with this
+  /// field's own [AnimatedSize]. Unused by the other two call sites, which
+  /// have no surrounding sheet to resize.
+  final ValueChanged<bool>? onOptionsExpandedChanged;
 
   @override
   ConsumerState<QuickAddTodoField> createState() => _QuickAddTodoFieldState();
@@ -138,7 +153,7 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
   /// "quick" add row actually reads as quick. A display preference, not
   /// per-day data, so it's deliberately not reset on a [day] change — it
   /// stays as the user left it while paging days.
-  bool _addOptionsExpanded = false;
+  late bool _addOptionsExpanded = widget.forceOptionsExpanded;
 
   late DateTime _lastAnchorDay = _anchorDay;
 
@@ -407,8 +422,13 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                 tooltip: _addOptionsExpanded
                     ? l10n.todoFewerOptions
                     : l10n.todoMoreOptions,
-                onPressed: () =>
-                    setState(() => _addOptionsExpanded = !_addOptionsExpanded),
+                onPressed: widget.forceOptionsExpanded
+                    ? null
+                    : () {
+                        final next = !_addOptionsExpanded;
+                        setState(() => _addOptionsExpanded = next);
+                        widget.onOptionsExpandedChanged?.call(next);
+                      },
                 visualDensity: VisualDensity.compact,
                 icon: Icon(
                   _addOptionsExpanded ? Icons.expand_less : Icons.tune,

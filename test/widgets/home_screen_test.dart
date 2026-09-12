@@ -533,6 +533,61 @@ void main() {
   );
 
   testWidgets(
+    "the tune button grows the pull-up bar itself by the details panel's "
+    'own height, and shrinks it back by the same amount when tapped again '
+    "— the panel used to just grow inside a sheet that didn't move, "
+    'clipping/scrolling instead of the two animating together',
+    (tester) async {
+      await pumpHome(tester);
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final collapsedHeight = tester.getSize(surface).height;
+
+      await tester.tap(find.byIcon(Icons.tune));
+      // The sheet's own animateTo and the field's AnimatedSize both run on
+      // a 180ms timer — settle both before measuring.
+      await tester.pumpAndSettle();
+
+      final expandedHeight = tester.getSize(surface).height;
+      expect(expandedHeight, greaterThan(collapsedHeight));
+
+      await tester.tap(find.byIcon(Icons.expand_less));
+      await tester.pumpAndSettle();
+
+      final recollapsedHeight = tester.getSize(surface).height;
+      expect(recollapsedHeight, moreOrLessEquals(collapsedHeight, epsilon: 1));
+    },
+  );
+
+  testWidgets(
+    'toggling the tune button while the bar is already dragged all the way '
+    'up to browse 할 일 leaves it there — regression test: it used to force '
+    'the whole bar back down to the tune-driven collapsed size, fighting '
+    "the user's own drag, whichever way the toggle went",
+    (tester) async {
+      await pumpHome(tester);
+      await expandTodoSheet(tester);
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final fullyOpenHeight = tester.getSize(surface).height;
+
+      await tester.tap(find.byIcon(Icons.tune));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(fullyOpenHeight, epsilon: 1),
+      );
+
+      await tester.tap(find.byIcon(Icons.expand_less));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(fullyOpenHeight, epsilon: 1),
+      );
+    },
+  );
+
+  testWidgets(
     'the date and time chips default to the nearest upcoming top of the '
     "hour when nothing's been picked — no more hard-coded 9am",
     (tester) async {

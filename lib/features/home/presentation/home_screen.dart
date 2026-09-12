@@ -46,6 +46,17 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _peekKey = GlobalKey();
 
+  /// A permanently-offstage twin of the pull-up bar's collapsed content,
+  /// with its details panel forced open from the start — exists solely so
+  /// [_expandedExtraHeight] below can be measured without ever showing this
+  /// copy to anyone. Never swapped into the live tree the way [_peekKey]'s
+  /// widget is.
+  final _expandedProbeKey = GlobalKey();
+
+  final _sheetController = DraggableScrollableController();
+
+  static const _optionsAnimationDuration = Duration(milliseconds: 180);
+
   /// The pull-up bar's own collapsed content (drag handle + "할 일 추가"
   /// header + field) measured once, real pixels, rather than guessed —
   /// [DraggableScrollableSheet] takes its `minChildSize` as a fraction
@@ -58,16 +69,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// it never changes again for the rest of this State's lifetime.
   double? _peekHeight;
 
+  /// How much taller the field's own details panel (tags field + repeat/
+  /// priority/no-time buttons) makes the pull-up bar once expanded — measured
+  /// once, the same way as [_peekHeight], via [_expandedProbeKey]'s twin.
+  /// Drives [_onOptionsExpandedChanged] below: tapping the field's own
+  /// "tune" button grows/shrinks the *sheet itself* by exactly this many
+  /// pixels, in step with the field's own [AnimatedSize], rather than the
+  /// panel just growing inside a sheet that stays a fixed size.
+  double? _expandedExtraHeight;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(_measurePeek);
+    WidgetsBinding.instance.addPostFrameCallback(_measure);
   }
 
-  void _measurePeek(Duration _) {
-    final height = _peekKey.currentContext?.size?.height;
-    if (!mounted || height == null || height <= 0) return;
-    setState(() => _peekHeight = height);
+  @override
+  void dispose() {
+    _sheetController.dispose();
+    super.dispose();
+  }
+
+  void _measure(Duration _) {
+    if (!mounted) return;
+    final collapsed = _peekKey.currentContext?.size?.height;
+    final expanded = _expandedProbeKey.currentContext?.size?.height;
+    if (collapsed == null || collapsed <= 0) return;
+    setState(() {
+      _peekHeight = collapsed;
+      if (expanded != null && expanded > collapsed) {
+        _expandedExtraHeight = expanded - collapsed;
+      }
+    });
+  }
+
+  /// Fired by the live field's own "tune" button — animates the sheet up
+  /// (or back down) by [_expandedExtraHeight], in the same duration/curve as
+  /// the field's own details-panel [AnimatedSize], so the two grow together
+  /// instead of the panel appearing to fight a sheet that doesn't move.
+  ///
+  /// Skipped when the user has already dragged the bar all the way up to
+  /// browse 할 일 — there's already plenty of room there for the panel to
+  /// grow into, so forcing the whole sheet back down just because they
+  /// touched a toggle inside it would fight their own drag instead of
+  /// helping it.
+  void _onOptionsExpandedChanged(bool expanded) {
+    final peekHeight = _peekHeight;
+    final extra = _expandedExtraHeight;
+    if (peekHeight == null || extra == null || !_sheetController.isAttached) {
+      return;
+    }
+    if ((_kExpandedSheetSize - _sheetController.size).abs() < 0.02) return;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final collapsedSheetSize = ((peekHeight + kFloatingNavBarClearance) /
+            screenHeight)
+        .clamp(0.12, 0.6);
+    final target =
+        ((peekHeight + (expanded ? extra : 0) + kFloatingNavBarClearance) /
+                screenHeight)
+            .clamp(collapsedSheetSize, _kExpandedSheetSize);
+    _sheetController.animateTo(
+      target,
+      duration: _optionsAnimationDuration,
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -83,7 +148,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     final screenHeight = MediaQuery.sizeOf(context).height;
     final peekHeight = _peekHeight;
-    final peekContent = _TodoAddPeek(key: _peekKey, l10n: l10n);
+    final peekContent = _TodoAddPeek(
+      key: _peekKey,
+      l10n: l10n,
+      onOptionsExpandedChanged: _onOptionsExpandedChanged,
+    );
 
     return TimeGradientBackground(
       at: now,
@@ -120,11 +189,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _WeeklyStats(now: now, locale: locale, l10n: l10n),
               ],
             ),
+            // Never shown, never removed — see [_expandedExtraHeight]'s own
+            // doc for why this twin exists purely to be measured.
+            Offstage(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.gutter,
+                ),
+                child: _TodoAddPeek(
+                  key: _expandedProbeKey,
+                  l10n: l10n,
+                  forceOptionsExpanded: true,
+                ),
+              ),
+            ),
             if (peekHeight == null)
               // Laid out (so its real height can be measured) but never
               // painted or hit-tested — swapped for the real pull-up bar
-              // the moment _measurePeek's setState lands, which for a
-              // human eye is well within one imperceptible frame.
+              // the moment _measure's setState lands, which for a human
+              // eye is well within one imperceptible frame.
               Offstage(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -155,6 +238,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ((peekHeight + kFloatingNavBarClearance) / screenHeight)
                             .clamp(0.12, 0.6);
                     return DraggableScrollableSheet(
+                      controller: _sheetController,
                       initialChildSize: collapsedSheetSize,
                       minChildSize: collapsedSheetSize,
                       maxChildSize: _kExpandedSheetSize,
@@ -163,6 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       builder: (context, scrollController) {
                         final palette = context.palette;
                         return DecoratedBox(
+                          key: const ValueKey('homeTodoSheetSurface'),
                           decoration: BoxDecoration(
                             color: palette.surface,
                             borderRadius: const BorderRadius.vertical(
@@ -214,9 +299,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 /// (unlike HourlyTodoList's), so it falls back to today, no time, same as
 /// QuickAddTodoSheet's own field does for the smart-list screen.
 class _TodoAddPeek extends StatelessWidget {
-  const _TodoAddPeek({super.key, required this.l10n});
+  const _TodoAddPeek({
+    super.key,
+    required this.l10n,
+    this.forceOptionsExpanded = false,
+    this.onOptionsExpandedChanged,
+  });
 
   final AppL10n l10n;
+  final bool forceOptionsExpanded;
+  final ValueChanged<bool>? onOptionsExpandedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -239,7 +331,10 @@ class _TodoAddPeek extends StatelessWidget {
             ),
           ),
           SectionHeader(l10n.todoAdd),
-          const QuickAddTodoField(),
+          QuickAddTodoField(
+            forceOptionsExpanded: forceOptionsExpanded,
+            onOptionsExpandedChanged: onOptionsExpandedChanged,
+          ),
         ],
       ),
     );
