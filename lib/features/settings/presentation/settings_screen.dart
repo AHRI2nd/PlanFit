@@ -16,6 +16,8 @@ import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import '../../../design/widgets/section_card.dart';
 import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/snackbar_x.dart';
@@ -243,7 +245,7 @@ class SettingsScreen extends ConsumerWidget {
             AppSpacing.gutter,
             0,
             AppSpacing.gutter,
-            140,
+            kFloatingNavBarClearance,
           ),
           children: [
             SafeArea(

@@ -10,6 +10,8 @@ import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import 'package:planfit/features/schedule/domain/ports.dart';
 import 'package:planfit/features/todo/presentation/todo_smart_list_screen.dart';
 import 'package:planfit/l10n/app_localizations.dart';
@@ -153,6 +155,54 @@ void main() {
     expect(size.width, greaterThanOrEqualTo(44));
     expect(size.height, greaterThanOrEqualTo(44));
   });
+
+  testWidgets(
+    "the list's bottom padding, and the FAB's own bottom offset, clear the "
+    "floating glass nav bar — regression test: this screen (unlike "
+    "schedule_screen.dart) had neither, so both sat behind the nav bar "
+    'inside the same AppShell',
+    (tester) async {
+      final today = DateTime(2026, 3, 10);
+      when(todos.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          TodoRow(
+            id: 't1',
+            eventId: null,
+            title: 'Buy milk',
+            slotStart: today.add(const Duration(hours: 9)),
+            slotEnd: null,
+            hasTime: true,
+            isDone: false,
+            sortOrder: 0,
+            priority: 0,
+            tags: null,
+            notify: false,
+            isPinned: false,
+            recurrenceRule: null,
+            recurrenceGroupId: null,
+            reminderSyncStatus: SyncStatus.pendingPush,
+            createdAt: today,
+          ),
+        ]),
+      );
+      await pumpScreen(tester);
+
+      final list = tester.widget<ListView>(find.byType(ListView));
+      final padding = list.padding! as EdgeInsets;
+      expect(padding.bottom, kFloatingNavBarClearance);
+
+      final fabPadding = tester.widget<Padding>(
+        find.ancestor(
+          of: find.byType(FloatingActionButton),
+          matching: find.byType(Padding),
+        ),
+      );
+      expect(
+        (fabPadding.padding as EdgeInsets).bottom,
+        kFloatingNavBarClearance,
+      );
+    },
+  );
 
   group('swipe-to-delete', () {
     // Regression coverage: this screen used to have no way to delete a

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -119,7 +121,12 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
                 );
               }
               return ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                padding: const EdgeInsets.fromLTRB(
+                  0,
+                  AppSpacing.sm,
+                  0,
+                  kFloatingNavBarClearance,
+                ),
                 itemCount: calendars.length,
                 separatorBuilder: (_, _) =>
                     Divider(height: 1, color: palette.hairline),

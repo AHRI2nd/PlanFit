@@ -6,6 +6,8 @@ import '../../../core/calendar_sync/holiday_calendar_service.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/event_color_tag.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -213,7 +215,8 @@ class _HolidayCalendarSourceScreenState
     // swatches match its real hex, and the custom swatch itself never had
     // a selected state, so an actively-set color visually read as "nothing
     // chosen".
-    final customColor = currentHex != null && !quickPresetHexes.contains(currentHex)
+    final customColor =
+        currentHex != null && !quickPresetHexes.contains(currentHex)
         ? EventColorTag.parseHex(currentHex)
         : null;
     return showDialog<String>(
@@ -319,7 +322,12 @@ class _HolidayCalendarSourceScreenState
       body: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            padding: const EdgeInsets.fromLTRB(
+              0,
+              AppSpacing.sm,
+              0,
+              kFloatingNavBarClearance,
+            ),
             children: [
               for (final url in customUrls)
                 ListTile(

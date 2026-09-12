@@ -9,6 +9,8 @@ import '../../../core/lunar/lunar_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import '../../../design/widgets/swipe_navigation_detector.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../features/settings/application/settings_controller.dart';
@@ -76,9 +78,7 @@ class ScheduleScreen extends ConsumerWidget {
     // CalendarBuilders) — a day-level label belongs on the day it's for.
     String? lunarSubtitle;
     if (view == ScheduleView.day &&
-        ref.watch(
-          settingsControllerProvider.select((s) => s.showLunarDates),
-        )) {
+        ref.watch(settingsControllerProvider.select((s) => s.showLunarDates))) {
       final lunar = LunarDate.fromSolar(selected);
       if (lunar != null) lunarSubtitle = LunarFmt.short(l10n, lunar);
     }
@@ -91,7 +91,7 @@ class ScheduleScreen extends ConsumerWidget {
         // Lifted clear of the floating glass nav bar, which lives outside this
         // nested Scaffold (in AppShell) so it isn't reserved for automatically.
         floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 88),
+          padding: const EdgeInsets.only(bottom: kFloatingNavBarClearance),
           child: FloatingActionButton(
             onPressed: () => showEventEditor(context, initialDay: selected),
             child: const Icon(Icons.add),
@@ -239,7 +239,11 @@ class _SwipeableTitle extends StatelessWidget {
   final ValueChanged<DateTime> onNavigate;
 
   void _navigate(bool forward) {
-    final target = _swipeTarget(view: view, selected: selected, forward: forward);
+    final target = _swipeTarget(
+      view: view,
+      selected: selected,
+      forward: forward,
+    );
     if (target != null) onNavigate(target);
   }
 
@@ -327,8 +331,9 @@ class _SwipeableTitle extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         lunarSubtitle!,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: chevronColor),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelMedium?.copyWith(color: chevronColor),
                         maxLines: 1,
                       ),
                     ),
@@ -517,10 +522,7 @@ class _CompactHeaderIconButton extends StatelessWidget {
       child: InkResponse(
         onTap: onPressed,
         radius: 20,
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: Icon(icon),
-        ),
+        child: Padding(padding: const EdgeInsets.all(2), child: Icon(icon)),
       ),
     );
   }

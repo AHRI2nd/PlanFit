@@ -8,6 +8,8 @@ import '../../../core/format.dart';
 import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
 
@@ -44,7 +46,12 @@ class SyncLogScreen extends ConsumerWidget {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(AppSpacing.gutter),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.gutter,
+              AppSpacing.gutter,
+              AppSpacing.gutter,
+              kFloatingNavBarClearance,
+            ),
             itemCount: rows.length,
             separatorBuilder: (_, _) =>
                 Divider(color: palette.hairline, height: AppSpacing.lg),

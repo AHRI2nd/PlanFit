@@ -6,6 +6,8 @@ import '../../../core/format.dart';
 import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show dateOnly;
 import '../../settings/application/settings_controller.dart';
@@ -44,10 +46,16 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen> {
       // This screen (unlike the day view's own inline field) has no single
       // day to anchor a quick-add row to, so it gets the app's other
       // "add" affordance — a FAB opening a tiny quick-add sheet — instead.
-      floatingActionButton: FloatingActionButton(
-        tooltip: l10n.todoAdd,
-        onPressed: () => showQuickAddTodoSheet(context),
-        child: const Icon(Icons.add),
+      // Lifted clear of the floating glass nav bar, which lives outside this
+      // nested Scaffold (in AppShell) so it isn't reserved for automatically
+      // — same reasoning as schedule_screen.dart's own FAB.
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: kFloatingNavBarClearance),
+        child: FloatingActionButton(
+          tooltip: l10n.todoAdd,
+          onPressed: () => showQuickAddTodoSheet(context),
+          child: const Icon(Icons.add),
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -241,9 +249,11 @@ class _TodoListView extends ConsumerWidget {
           );
         }
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.gutter,
-            vertical: AppSpacing.xs,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.xs,
+            AppSpacing.gutter,
+            kFloatingNavBarClearance,
           ),
           itemCount: todos.length,
           itemBuilder: (context, i) => _SmartTodoTile(todo: todos[i]),
