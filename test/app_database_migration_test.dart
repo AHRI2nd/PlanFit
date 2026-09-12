@@ -132,18 +132,213 @@ void main() {
     }
   });
 
-  test(
-    'upgrading from schema v1 runs the full onUpgrade chain (v1->v16) '
-    'without touching existing data',
-    () async {
-      // Build a v1 database by hand — just the three tables/columns that
-      // existed at v1, before any of the later addColumn/createTable steps.
-      // Everything else (event_templates at v4, todo_subtasks at v10, every
-      // added column, the v16 indexes) must come from actually running every
-      // `if (from < N)` branch in AppDatabase's onUpgrade, not from onCreate,
-      // since a real install still on v1 goes through onUpgrade only.
-      final raw = sqlite3.sqlite3.openInMemory();
-      raw.execute('''
+  test('upgrading from schema v16 creates pending_calendar_deletions and adds '
+      "event_templates.location — regression test: the migration test suite "
+      'only covered up through v16 even though schemaVersion moved to 18 '
+      '(v17 added the table, v18 the column)', () async {
+    // v16's own columns are identical to v15's (v16 only added indexes,
+    // already covered by the v15 test above) — same raw schema, just a
+    // different userVersion.
+    final raw = sqlite3.sqlite3.openInMemory();
+    raw.execute('''
+          CREATE TABLE events (
+            id TEXT NOT NULL PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT '',
+            memo TEXT NULL,
+            location TEXT NULL,
+            start_at INTEGER NOT NULL,
+            end_at INTEGER NOT NULL,
+            is_all_day INTEGER NOT NULL DEFAULT 0,
+            color_tag TEXT NULL,
+            notify INTEGER NOT NULL DEFAULT 1,
+            reminder_minutes_before INTEGER NOT NULL DEFAULT 0,
+            additional_reminder_minutes TEXT NULL,
+            recurrence_rule TEXT NULL,
+            recurrence_group_id TEXT NULL,
+            os_calendar_id TEXT NULL,
+            os_event_id TEXT NULL,
+            os_last_known_modified INTEGER NULL,
+            sync_status TEXT NOT NULL DEFAULT 'pendingPush',
+            import_source_calendar_id TEXT NULL,
+            import_source_event_id TEXT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        ''');
+    raw.execute('''
+          CREATE TABLE todo_items (
+            id TEXT NOT NULL PRIMARY KEY,
+            event_id TEXT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            slot_start INTEGER NOT NULL,
+            slot_end INTEGER NULL,
+            has_time INTEGER NOT NULL DEFAULT 1,
+            is_done INTEGER NOT NULL DEFAULT 0,
+            completed_at INTEGER NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            priority INTEGER NOT NULL DEFAULT 0,
+            tags TEXT NULL,
+            notify INTEGER NOT NULL DEFAULT 0,
+            additional_reminder_minutes TEXT NULL,
+            recurrence_rule TEXT NULL,
+            recurrence_group_id TEXT NULL,
+            is_pinned INTEGER NOT NULL DEFAULT 0,
+            os_reminder_id TEXT NULL,
+            os_reminder_list_id TEXT NULL,
+            os_reminder_last_known_modified INTEGER NULL,
+            reminder_sync_status TEXT NOT NULL DEFAULT 'pendingPush',
+            created_at INTEGER NOT NULL
+          )
+        ''');
+    raw.execute(
+      'CREATE TABLE todo_subtasks ('
+      'id TEXT NOT NULL PRIMARY KEY, todo_id TEXT NOT NULL, '
+      "title TEXT NOT NULL DEFAULT '', is_done INTEGER NOT NULL DEFAULT 0, "
+      'sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)',
+    );
+    // No `location` column yet — that's exactly what v18 adds.
+    raw.execute(
+      'CREATE TABLE event_templates ('
+      "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', "
+      'memo TEXT NULL, duration_minutes INTEGER NOT NULL DEFAULT 60, '
+      'is_all_day INTEGER NOT NULL DEFAULT 0, color_tag TEXT NULL, '
+      'notify INTEGER NOT NULL DEFAULT 1, reminder_minutes_before INTEGER NOT NULL DEFAULT 0, '
+      'created_at INTEGER NOT NULL)',
+    );
+    raw.execute(
+      'CREATE TABLE sync_logs ('
+      'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, '
+      'event_title TEXT NULL, resolution TEXT NOT NULL, detail TEXT NULL)',
+    );
+    raw.execute(
+      "INSERT INTO event_templates (id, name, created_at) "
+      "VALUES ('tmpl-keep', 'Gym', 0)",
+    );
+    raw.userVersion = 16;
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    // Touching the database forces drift to run the v17/v18 migration
+    // steps.
+    final templates = await db.select(db.eventTemplates).get();
+    expect(templates, hasLength(1));
+    expect(templates.single.id, 'tmpl-keep');
+    // The addColumn's own declared default for a pre-existing row.
+    expect(templates.single.location, isNull);
+
+    // pending_calendar_deletions must exist and be usable, not just
+    // present as an empty shell.
+    await db
+        .into(db.pendingCalendarDeletions)
+        .insert(PendingCalendarDeletionsCompanion.insert(osEventId: 'os-1'));
+    final pending = await db.select(db.pendingCalendarDeletions).get();
+    expect(pending, hasLength(1));
+    expect(pending.single.osEventId, 'os-1');
+  });
+
+  test('upgrading from schema v17 (pending_calendar_deletions already exists) '
+      'just adds event_templates.location — the addColumn path an ordinary '
+      "already-mostly-current install actually takes (the v1 test below "
+      'separately covers the from<4 branch that must *skip* this addColumn '
+      'instead, since createTable already included the column there)', () async {
+    final raw = sqlite3.sqlite3.openInMemory();
+    raw.execute('''
+          CREATE TABLE events (
+            id TEXT NOT NULL PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT '',
+            memo TEXT NULL,
+            location TEXT NULL,
+            start_at INTEGER NOT NULL,
+            end_at INTEGER NOT NULL,
+            is_all_day INTEGER NOT NULL DEFAULT 0,
+            color_tag TEXT NULL,
+            notify INTEGER NOT NULL DEFAULT 1,
+            reminder_minutes_before INTEGER NOT NULL DEFAULT 0,
+            additional_reminder_minutes TEXT NULL,
+            recurrence_rule TEXT NULL,
+            recurrence_group_id TEXT NULL,
+            os_calendar_id TEXT NULL,
+            os_event_id TEXT NULL,
+            os_last_known_modified INTEGER NULL,
+            sync_status TEXT NOT NULL DEFAULT 'pendingPush',
+            import_source_calendar_id TEXT NULL,
+            import_source_event_id TEXT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        ''');
+    raw.execute('''
+          CREATE TABLE todo_items (
+            id TEXT NOT NULL PRIMARY KEY,
+            event_id TEXT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            slot_start INTEGER NOT NULL,
+            slot_end INTEGER NULL,
+            has_time INTEGER NOT NULL DEFAULT 1,
+            is_done INTEGER NOT NULL DEFAULT 0,
+            completed_at INTEGER NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            priority INTEGER NOT NULL DEFAULT 0,
+            tags TEXT NULL,
+            notify INTEGER NOT NULL DEFAULT 0,
+            additional_reminder_minutes TEXT NULL,
+            recurrence_rule TEXT NULL,
+            recurrence_group_id TEXT NULL,
+            is_pinned INTEGER NOT NULL DEFAULT 0,
+            os_reminder_id TEXT NULL,
+            os_reminder_list_id TEXT NULL,
+            os_reminder_last_known_modified INTEGER NULL,
+            reminder_sync_status TEXT NOT NULL DEFAULT 'pendingPush',
+            created_at INTEGER NOT NULL
+          )
+        ''');
+    raw.execute(
+      'CREATE TABLE todo_subtasks ('
+      'id TEXT NOT NULL PRIMARY KEY, todo_id TEXT NOT NULL, '
+      "title TEXT NOT NULL DEFAULT '', is_done INTEGER NOT NULL DEFAULT 0, "
+      'sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL)',
+    );
+    // Still no `location` — an already-v17 install hasn't run v18 yet.
+    raw.execute(
+      'CREATE TABLE event_templates ('
+      "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', "
+      'memo TEXT NULL, duration_minutes INTEGER NOT NULL DEFAULT 60, '
+      'is_all_day INTEGER NOT NULL DEFAULT 0, color_tag TEXT NULL, '
+      'notify INTEGER NOT NULL DEFAULT 1, reminder_minutes_before INTEGER NOT NULL DEFAULT 0, '
+      'created_at INTEGER NOT NULL)',
+    );
+    raw.execute(
+      'CREATE TABLE sync_logs ('
+      'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, '
+      'event_title TEXT NULL, resolution TEXT NOT NULL, detail TEXT NULL)',
+    );
+    // Already exists — v17's own createTable already ran on this install.
+    raw.execute(
+      'CREATE TABLE pending_calendar_deletions ('
+      'os_event_id TEXT NOT NULL PRIMARY KEY, created_at INTEGER NOT NULL)',
+    );
+    raw.userVersion = 17;
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    // Would throw a "duplicate column name" sqlite error if the
+    // from>=4 && from<18 guard regressed back to a bare from<18 check.
+    final templates = await db.select(db.eventTemplates).get();
+    expect(templates, isEmpty);
+  });
+
+  test('upgrading from schema v1 runs the full onUpgrade chain (v1->v16) '
+      'without touching existing data', () async {
+    // Build a v1 database by hand — just the three tables/columns that
+    // existed at v1, before any of the later addColumn/createTable steps.
+    // Everything else (event_templates at v4, todo_subtasks at v10, every
+    // added column, the v16 indexes) must come from actually running every
+    // `if (from < N)` branch in AppDatabase's onUpgrade, not from onCreate,
+    // since a real install still on v1 goes through onUpgrade only.
+    final raw = sqlite3.sqlite3.openInMemory();
+    raw.execute('''
           CREATE TABLE events (
             id TEXT NOT NULL PRIMARY KEY,
             title TEXT NOT NULL DEFAULT '',
@@ -162,7 +357,7 @@ void main() {
             updated_at INTEGER NOT NULL
           )
         ''');
-      raw.execute('''
+    raw.execute('''
           CREATE TABLE todo_items (
             id TEXT NOT NULL PRIMARY KEY,
             event_id TEXT NULL,
@@ -174,63 +369,62 @@ void main() {
             created_at INTEGER NOT NULL
           )
         ''');
-      raw.execute(
-        'CREATE TABLE sync_logs ('
-        'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, '
-        'event_title TEXT NULL, resolution TEXT NOT NULL, detail TEXT NULL)',
+    raw.execute(
+      'CREATE TABLE sync_logs ('
+      'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, '
+      'event_title TEXT NULL, resolution TEXT NOT NULL, detail TEXT NULL)',
+    );
+    raw.execute(
+      "INSERT INTO events (id, start_at, end_at, created_at, updated_at) "
+      "VALUES ('keep-event', 0, 3600, 0, 0)",
+    );
+    raw.execute(
+      "INSERT INTO todo_items (id, slot_start, created_at) "
+      "VALUES ('keep-todo', 0, 0)",
+    );
+    raw.userVersion = 1;
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    addTearDown(db.close);
+
+    // Touching the database forces drift to run every onUpgrade branch
+    // from v1 up to the current schemaVersion in one pass.
+    final events = await db.eventDao.all();
+    expect(events, hasLength(1));
+    expect(events.single.id, 'keep-event');
+    // Columns added after v1 (e.g. v9's additionalReminderMinutes) must
+    // come back with their declared default, not fail to read at all.
+    expect(events.single.additionalReminderMinutes, isNull);
+
+    final todos = await db.todoDao.all();
+    expect(todos, hasLength(1));
+    expect(todos.single.id, 'keep-todo');
+    // v7's hasTime default is `true` — confirms the addColumn actually ran
+    // rather than the column silently not existing.
+    expect(todos.single.hasTime, isTrue);
+
+    final names = await indexNames(db);
+    for (final name in expectedIndexes) {
+      expect(
+        names,
+        contains(name),
+        reason: '$name missing after v1->v16 upgrade',
       );
-      raw.execute(
-        "INSERT INTO events (id, start_at, end_at, created_at, updated_at) "
-        "VALUES ('keep-event', 0, 3600, 0, 0)",
-      );
-      raw.execute(
-        "INSERT INTO todo_items (id, slot_start, created_at) "
-        "VALUES ('keep-todo', 0, 0)",
-      );
-      raw.userVersion = 1;
+    }
 
-      final db = AppDatabase(NativeDatabase.opened(raw));
-      addTearDown(db.close);
+    // Tables created mid-chain (event_templates at v4, todo_subtasks at
+    // v10) must exist and be usable, not just present as empty shells.
+    await db.eventTemplateDao.upsert(
+      EventTemplatesCompanion.insert(id: 'tmpl-1', name: 'Gym'),
+    );
+    expect(await db.select(db.eventTemplates).get(), hasLength(1));
 
-      // Touching the database forces drift to run every onUpgrade branch
-      // from v1 up to the current schemaVersion in one pass.
-      final events = await db.eventDao.all();
-      expect(events, hasLength(1));
-      expect(events.single.id, 'keep-event');
-      // Columns added after v1 (e.g. v9's additionalReminderMinutes) must
-      // come back with their declared default, not fail to read at all.
-      expect(events.single.additionalReminderMinutes, isNull);
-
-      final todos = await db.todoDao.all();
-      expect(todos, hasLength(1));
-      expect(todos.single.id, 'keep-todo');
-      // v7's hasTime default is `true` — confirms the addColumn actually ran
-      // rather than the column silently not existing.
-      expect(todos.single.hasTime, isTrue);
-
-      final names = await indexNames(db);
-      for (final name in expectedIndexes) {
-        expect(
-          names,
-          contains(name),
-          reason: '$name missing after v1->v16 upgrade',
-        );
-      }
-
-      // Tables created mid-chain (event_templates at v4, todo_subtasks at
-      // v10) must exist and be usable, not just present as empty shells.
-      await db.eventTemplateDao.upsert(
-        EventTemplatesCompanion.insert(id: 'tmpl-1', name: 'Gym'),
-      );
-      expect(await db.select(db.eventTemplates).get(), hasLength(1));
-
-      await db.into(db.todoSubtasks).insert(
-        TodoSubtasksCompanion.insert(id: 'sub-1', todoId: 'keep-todo'),
-      );
-      final subtasks = await (db.select(
-        db.todoSubtasks,
-      )..where((t) => t.todoId.equals('keep-todo'))).get();
-      expect(subtasks, hasLength(1));
-    },
-  );
+    await db
+        .into(db.todoSubtasks)
+        .insert(TodoSubtasksCompanion.insert(id: 'sub-1', todoId: 'keep-todo'));
+    final subtasks = await (db.select(
+      db.todoSubtasks,
+    )..where((t) => t.todoId.equals('keep-todo'))).get();
+    expect(subtasks, hasLength(1));
+  });
 }
