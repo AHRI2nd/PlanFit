@@ -57,6 +57,8 @@
     }
   },
   "homeWeekEmpty": "이번 주는 아직 조용하네요",
+  "homeTodoListTitle": "할 일",
+  "homeTodoListEmpty": "처리할 할 일이 없어요",
 
   "scheduleTitle": "시간표",
   "scheduleTitlePrevious": "이전으로",

@@ -253,6 +253,30 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
         .watch();
   }
 
+  /// Not-done to-dos that aren't overdue — either no-time at all (see
+  /// [isTodoOverdue]'s own doc for why a no-time to-do can never be
+  /// "overdue"), or timed with a slot still at or after [asOf]. Soonest
+  /// first, capped at [limit] — the home screen's own to-do list pairs this
+  /// with [watchOverdue] (deliberately uncapped there — every overdue item
+  /// stays visible, however many there are) for the nearest handful of
+  /// what's still ahead. Not re-evaluated as time passes, same as
+  /// [watchOverdue].
+  Stream<List<TodoRow>> watchUpcomingNotOverdue(
+    DateTime asOf, {
+    int limit = 30,
+  }) {
+    return (select(todoItems)
+          ..where(
+            (t) =>
+                t.isDone.equals(false) &
+                (t.hasTime.equals(false) |
+                    t.slotStart.isBiggerOrEqualValue(asOf)),
+          )
+          ..orderBy([(t) => OrderingTerm(expression: t.slotStart)])
+          ..limit(limit))
+        .watch();
+  }
+
   /// Not-done to-dos at or above [minPriority] (see `TodoPriority`), soonest
   /// first — the "high priority" smart list.
   Stream<List<TodoRow>> watchByMinPriority(int minPriority) {

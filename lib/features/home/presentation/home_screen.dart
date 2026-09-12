@@ -78,6 +78,9 @@ class HomeScreen extends ConsumerWidget {
             // for the smart-list screen.
             SectionHeader(l10n.todoAdd),
             const QuickAddTodoField(),
+            const SizedBox(height: AppSpacing.xl),
+            SectionHeader(l10n.homeTodoListTitle),
+            _HomeTodoList(locale: locale, l10n: l10n, use24Hour: use24),
           ],
         ),
       ),
@@ -358,17 +361,35 @@ class _FeedTodoTile extends ConsumerWidget {
     required this.todo,
     required this.locale,
     required this.use24Hour,
+    this.showDate = false,
   });
 
   final TodoRow todo;
   final String locale;
   final bool use24Hour;
 
+  /// `_TodayFeed` (every to-do it shows is already today's) leaves this
+  /// off — just the time is enough there. `_HomeTodoList` turns it on:
+  /// unlike `_TodayFeed`, its to-dos can be from any day (overdue from
+  /// however long ago, or up to 30 days into the future), so a bare time
+  /// with no date would be genuinely ambiguous. Same "date, plus time if
+  /// timed" shape `todo_smart_list_screen.dart`'s own cross-day tile
+  /// already uses, for the same reason.
+  final bool showDate;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final theme = Theme.of(context);
     final isOverdue = isTodoOverdue(todo, DateTime.now());
+    final trailing = !showDate
+        ? (todo.hasTime
+              ? Fmt.time(todo.slotStart, locale, use24Hour: use24Hour)
+              : null)
+        : (todo.hasTime
+              ? '${Fmt.monthDay(todo.slotStart, locale)} '
+                    '${Fmt.time(todo.slotStart, locale, use24Hour: use24Hour)}'
+              : Fmt.monthDay(todo.slotStart, locale));
 
     return GestureDetector(
       onTap: () => showTodoDetailSheet(context, todo),
@@ -426,10 +447,10 @@ class _FeedTodoTile extends ConsumerWidget {
                   ),
                 ),
               ),
-              if (todo.hasTime) ...[
+              if (trailing != null) ...[
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  Fmt.time(todo.slotStart, locale, use24Hour: use24Hour),
+                  trailing,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: isOverdue ? palette.danger : palette.inkFaint,
                     fontWeight: isOverdue ? FontWeight.w700 : null,
@@ -439,6 +460,84 @@ class _FeedTodoTile extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The "할 일" list under the add-a-to-do field: every not-done to-do that's
+/// overdue, oldest due date first (see [overdueTodosProvider] — reversed
+/// here, since that provider's own most-recently-overdue-first order suits
+/// the smart list's "기한 지남" tab, its other caller, not this one), followed
+/// by the nearest [upcomingNotOverdueTodosProvider] (capped at 30, soonest
+/// first). Unlike [_TodayFeed] just above it on this same screen, this
+/// isn't scoped to today at all — a to-do overdue from last month, or one
+/// due three weeks out, both belong here; [_TodayFeed] and this list will
+/// naturally show the same to-do when it happens to be due today.
+///
+/// Two separate DB queries concatenated in order, not one query re-sorted
+/// client-side: a to-do with no time at all is never "overdue" (see
+/// [isTodoOverdue]'s own doc) regardless of how long ago its day was, so a
+/// single sort by [TodoRow.slotStart] would wrongly interleave a stale
+/// no-time to-do among genuinely overdue timed ones just because its
+/// midnight-normalized slot happens to be an earlier instant.
+class _HomeTodoList extends ConsumerWidget {
+  const _HomeTodoList({
+    required this.locale,
+    required this.l10n,
+    required this.use24Hour,
+  });
+
+  final String locale;
+  final AppL10n l10n;
+  final bool use24Hour;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final overdue =
+        ref.watch(overdueTodosProvider).asData?.value ?? const <TodoRow>[];
+    final upcoming =
+        ref.watch(upcomingNotOverdueTodosProvider).asData?.value ??
+        const <TodoRow>[];
+
+    if (overdue.isEmpty && upcoming.isEmpty) {
+      return _EmptyCard(
+        icon: Icons.checklist_rounded,
+        message: l10n.homeTodoListEmpty,
+      );
+    }
+
+    // overdueTodosProvider orders most-recently-overdue first (descending
+    // by slotStart) for its smart-list use — reversed to oldest-first here.
+    final oldestOverdueFirst = overdue.reversed;
+
+    return GlassSurface(
+      borderRadius: AppRadius.cardLg,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final todo in oldestOverdueFirst)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: _FeedTodoTile(
+                todo: todo,
+                locale: locale,
+                use24Hour: use24Hour,
+                showDate: true,
+              ),
+            ),
+          for (final todo in upcoming)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: _FeedTodoTile(
+                todo: todo,
+                locale: locale,
+                use24Hour: use24Hour,
+                showDate: true,
+              ),
+            ),
+        ],
       ),
     );
   }

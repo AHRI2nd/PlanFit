@@ -113,6 +113,12 @@ class AppL10nKo extends AppL10n {
   String get homeWeekEmpty => '이번 주는 아직 조용하네요';
 
   @override
+  String get homeTodoListTitle => '할 일';
+
+  @override
+  String get homeTodoListEmpty => '처리할 할 일이 없어요';
+
+  @override
   String get scheduleTitle => '시간표';
 
   @override

@@ -57,6 +57,8 @@
     }
   },
   "homeWeekEmpty": "Quiet week so far",
+  "homeTodoListTitle": "To-dos",
+  "homeTodoListEmpty": "Nothing left to take care of",
 
   "scheduleTitle": "Schedule",
   "scheduleTitlePrevious": "Previous",

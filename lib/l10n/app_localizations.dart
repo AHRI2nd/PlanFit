@@ -289,6 +289,18 @@ abstract class AppL10n {
   /// **'이번 주는 아직 조용하네요'**
   String get homeWeekEmpty;
 
+  /// No description provided for @homeTodoListTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일'**
+  String get homeTodoListTitle;
+
+  /// No description provided for @homeTodoListEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'처리할 할 일이 없어요'**
+  String get homeTodoListEmpty;
+
   /// No description provided for @scheduleTitle.
   ///
   /// In ko, this message translates to:

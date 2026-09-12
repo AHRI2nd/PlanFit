@@ -91,9 +91,19 @@ final todoSubtasksProvider = StreamProvider.autoDispose
       return ref.watch(todoDaoProvider).watchSubtasks(todoId);
     });
 
-/// The smart list screen's "기한 지남" (overdue) tab.
+/// The smart list screen's "기한 지남" (overdue) tab — also half of the home
+/// screen's own to-do list (see [upcomingNotOverdueTodosProvider] for the
+/// other half).
 final overdueTodosProvider = StreamProvider<List<TodoRow>>((ref) {
   return ref.watch(todoDaoProvider).watchOverdue(DateTime.now());
+});
+
+/// The home screen's to-do list's "not overdue yet" half — paired with
+/// [overdueTodosProvider] there (see `_HomeTodoList`'s own doc for how the
+/// two combine). No smart-list tab of its own; unlike every other provider
+/// here, this one exists solely for that one screen.
+final upcomingNotOverdueTodosProvider = StreamProvider<List<TodoRow>>((ref) {
+  return ref.watch(todoDaoProvider).watchUpcomingNotOverdue(DateTime.now());
 });
 
 /// The smart list screen's "우선순위 높음" (high priority) tab.

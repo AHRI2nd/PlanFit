@@ -613,6 +613,21 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
           as _i6.Stream<List<_i2.TodoRow>>);
 
   @override
+  _i6.Stream<List<_i2.TodoRow>> watchUpcomingNotOverdue(
+    DateTime? asOf, {
+    int? limit = 30,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #watchUpcomingNotOverdue,
+              [asOf],
+              {#limit: limit},
+            ),
+            returnValue: _i6.Stream<List<_i2.TodoRow>>.empty(),
+          )
+          as _i6.Stream<List<_i2.TodoRow>>);
+
+  @override
   _i6.Stream<List<_i2.TodoRow>> watchByMinPriority(int? minPriority) =>
       (super.noSuchMethod(
             Invocation.method(#watchByMinPriority, [minPriority]),

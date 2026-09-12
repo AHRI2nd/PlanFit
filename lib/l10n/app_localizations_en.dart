@@ -116,6 +116,12 @@ class AppL10nEn extends AppL10n {
   String get homeWeekEmpty => 'Quiet week so far';
 
   @override
+  String get homeTodoListTitle => 'To-dos';
+
+  @override
+  String get homeTodoListEmpty => 'Nothing left to take care of';
+
+  @override
   String get scheduleTitle => 'Schedule';
 
   @override

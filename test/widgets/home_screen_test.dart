@@ -44,6 +44,12 @@ void main() {
     when(
       todos.watchBetween(any, any),
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    when(
+      todos.watchOverdue(any),
+    ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    when(
+      todos.watchUpcomingNotOverdue(any, limit: anyNamed('limit')),
+    ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
   });
 
   Future<void> pumpHome(
@@ -98,6 +104,7 @@ void main() {
     // not the two separate ones the old _UpcomingList/_TodayTodos cards had.
     expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsOneWidget);
     expect(find.text('이번 주는 아직 조용하네요'), findsOneWidget);
+    expect(find.text('처리할 할 일이 없어요'), findsOneWidget);
   });
 
   testWidgets('renders an upcoming event\'s title once data arrives', (
@@ -583,4 +590,136 @@ void main() {
       expect(captured.title.value, '보고서');
     },
   );
+
+  group("the home screen's own to-do list (below the add field)", () {
+    TodoRow todo({
+      required String id,
+      required String title,
+      required DateTime slotStart,
+    }) {
+      return TodoRow(
+        id: id,
+        eventId: null,
+        title: title,
+        slotStart: slotStart,
+        slotEnd: null,
+        hasTime: true,
+        isDone: false,
+        sortOrder: 0,
+        priority: 0,
+        tags: null,
+        notify: false,
+        isPinned: false,
+        recurrenceRule: null,
+        recurrenceGroupId: null,
+        reminderSyncStatus: SyncStatus.pendingPush,
+        createdAt: slotStart,
+      );
+    }
+
+    testWidgets(
+      'places every overdue-and-not-done to-do above the upcoming ones — '
+      'oldest overdue first, then soonest-upcoming first — regardless of '
+      "watchOverdue's own most-recently-overdue-first order (that order "
+      "suits the smart list's 기한 지남 tab, its other caller, not this one)",
+      (tester) async {
+        final now = DateTime(2026, 3, 10, 12);
+        final oldOverdue = todo(
+          id: 'overdue-old',
+          title: 'Old overdue',
+          slotStart: now.subtract(const Duration(days: 5)),
+        );
+        final recentOverdue = todo(
+          id: 'overdue-recent',
+          title: 'Recent overdue',
+          slotStart: now.subtract(const Duration(hours: 1)),
+        );
+        final soonUpcoming = todo(
+          id: 'upcoming-soon',
+          title: 'Soon',
+          slotStart: now.add(const Duration(hours: 2)),
+        );
+        final laterUpcoming = todo(
+          id: 'upcoming-later',
+          title: 'Later',
+          slotStart: now.add(const Duration(days: 3)),
+        );
+        // Handed to the mock in watchOverdue's own real order (most recent
+        // first) — the widget under test is the one responsible for
+        // reversing it, not a lucky pass-through.
+        when(
+          todos.watchOverdue(any),
+        ).thenAnswer((_) => Stream.value([recentOverdue, oldOverdue]));
+        when(
+          todos.watchUpcomingNotOverdue(any, limit: anyNamed('limit')),
+        ).thenAnswer((_) => Stream.value([soonUpcoming, laterUpcoming]));
+
+        await pumpHome(tester, now: now);
+        // The list sits at the very bottom of the home screen, below the
+        // fold on the test surface — scroll it into view first, same as
+        // day_view_test.dart's own clock-legend test has to.
+        await tester.drag(find.byType(ListView), const Offset(0, -1000));
+        await tester.pump();
+
+        double topOf(String title) => tester.getTopLeft(find.text(title)).dy;
+
+        expect(topOf('Old overdue'), lessThan(topOf('Recent overdue')));
+        expect(topOf('Recent overdue'), lessThan(topOf('Soon')));
+        expect(topOf('Soon'), lessThan(topOf('Later')));
+      },
+    );
+
+    testWidgets(
+      'shows an overdue to-do in red/bold regardless of how many days ago '
+      'it was due, and shows its date (not just a time) since this list, '
+      "unlike _TodayFeed above it, isn't scoped to today",
+      (tester) async {
+        final now = DateTime(2026, 3, 10, 12);
+        final oldOverdue = todo(
+          id: 'overdue-old',
+          title: 'Old overdue',
+          slotStart: DateTime(2026, 3, 1, 9),
+        );
+        when(
+          todos.watchOverdue(any),
+        ).thenAnswer((_) => Stream.value([oldOverdue]));
+
+        await pumpHome(tester, now: now);
+        await tester.drag(find.byType(ListView), const Offset(0, -1000));
+        await tester.pump();
+
+        expect(find.text('Old overdue'), findsOneWidget);
+        expect(find.textContaining('3월 1일'), findsOneWidget);
+      },
+    );
+
+    testWidgets('tapping a to-do in this list opens its detail sheet', (
+      tester,
+    ) async {
+      final now = DateTime(2026, 3, 10, 12);
+      final soonUpcoming = todo(
+        id: 'upcoming-soon',
+        title: 'Soon',
+        slotStart: now.add(const Duration(hours: 2)),
+      );
+      when(
+        todos.watchUpcomingNotOverdue(any, limit: anyNamed('limit')),
+      ).thenAnswer((_) => Stream.value([soonUpcoming]));
+      when(
+        todos.findById('upcoming-soon'),
+      ).thenAnswer((_) async => soonUpcoming);
+      when(
+        todos.watchSubtasks('upcoming-soon'),
+      ).thenAnswer((_) => Stream.value(const []));
+
+      await pumpHome(tester, now: now);
+      await tester.drag(find.byType(ListView), const Offset(0, -1000));
+      await tester.pump();
+
+      await tester.tap(find.text('Soon'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextField, 'Soon'), findsOneWidget);
+    });
+  });
 }
