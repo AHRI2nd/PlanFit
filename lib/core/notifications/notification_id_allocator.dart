@@ -49,6 +49,14 @@ class NotificationIdAllocator {
 
   static const _keyPrefix = 'notifications.idAllocation.';
   static const _nextIdKey = 'notifications.idAllocationCounter';
+  static const _orderKey = 'notifications.idAllocationOrder';
+
+  /// Same spirit as `SyncLogDao`'s own 500-row cap: this mapping is never
+  /// pruned by anything else, so a long-lived install accumulates one entry
+  /// per event/to-do reminder it has *ever* held, forever. Kept generous —
+  /// well above what any real install's live reminder set looks like — so
+  /// pruning only ever reaches entries that are, in practice, long dead.
+  static const _maxTrackedIds = 5000;
 
   /// Returns [ownerKey]'s already-assigned id, or assigns and persists the
   /// next unused one if this is the first time it's been asked for. Always
@@ -77,6 +85,23 @@ class NotificationIdAllocator {
     // matters here.
     _prefs.setInt(_nextIdKey, next).ignore();
     _prefs.setInt(key, next).ignore();
+    _recordAllocationAndPrune(ownerKey);
     return next;
+  }
+
+  /// Appends [ownerKey] to the allocation-order list this class otherwise
+  /// has no record of, then — only once that list grows past
+  /// [_maxTrackedIds] — drops mappings for the oldest keys beyond the cap.
+  /// A key dropped this way isn't "freed" for reuse; asking for it again
+  /// later just allocates a fresh id, the same as any other new key — this
+  /// never reassigns an id still held by another owner key.
+  void _recordAllocationAndPrune(String ownerKey) {
+    final order = _prefs.getStringList(_orderKey) ?? <String>[];
+    order.add(ownerKey);
+    while (order.length > _maxTrackedIds) {
+      final oldest = order.removeAt(0);
+      _prefs.remove('$_keyPrefix$oldest').ignore();
+    }
+    _prefs.setStringList(_orderKey, order).ignore();
   }
 }
