@@ -31,12 +31,25 @@ import '../event_edit/event_preview_sheet.dart';
 /// header that the plain [ListView] version got from a separate spacer
 /// widget.
 class _AgendaRow {
-  const _AgendaRow.header(this.day) : entry = null, isLastInGroup = false;
-  const _AgendaRow.tile(this.entry, {required this.isLastInGroup}) : day = null;
+  const _AgendaRow.header(this.day)
+    : entry = null,
+      isLastInGroup = false,
+      groupDay = null;
+  const _AgendaRow.tile(
+    this.entry, {
+    required this.isLastInGroup,
+    required DateTime this.groupDay,
+  }) : day = null;
 
   final DateTime? day;
   final AgendaEntry? entry;
   final bool isLastInGroup;
+
+  /// The day header this tile sits under — distinct from an event's own
+  /// [AgendaEventEntry.event]`.startAt` day for a multi-day event appearing
+  /// on a *continuation* day (see [groupAgendaEntriesByDay]'s own doc).
+  /// Null only for a header row itself.
+  final DateTime? groupDay;
 }
 
 /// A flat, scrollable list of upcoming events grouped under date headers —
@@ -231,6 +244,7 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
               _AgendaRow.tile(
                 dayEntries[i],
                 isLastInGroup: i == dayEntries.length - 1,
+                groupDay: day,
               ),
           ],
         ];
@@ -302,6 +316,9 @@ class _AgendaViewState extends ConsumerState<AgendaView> {
                     child: switch (row.entry!) {
                       AgendaEventEntry(:final event) => _AgendaTile(
                         event: event,
+                        continuesFromEarlier: row.groupDay!.isAfter(
+                          dateOnly(event.startAt),
+                        ),
                         selectionMode: _selectionMode,
                         selected: _selectedIds.contains(event.id),
                         onToggleSelected: () => _toggleSelected(event.id),
@@ -447,12 +464,23 @@ class _DayHeader extends ConsumerWidget {
 class _AgendaTile extends ConsumerWidget {
   const _AgendaTile({
     required this.event,
+    required this.continuesFromEarlier,
     this.selectionMode = false,
     this.selected = false,
     this.onToggleSelected,
   });
 
   final EventRow event;
+
+  /// True for a multi-day event's row under any day after its own real
+  /// start day (see [groupAgendaEntriesByDay]'s own doc) — [event.startAt]
+  /// itself is still that *original* start day's time, which would read as
+  /// though the event starts all over again at that same clock time on
+  /// this later day too. Shown as "종일"/[AppL10n.eventAllDay] instead of a
+  /// specific time here, the same label an actually-all-day event already
+  /// gets, since from this day's own vantage point there genuinely isn't a
+  /// meaningful start time — the event just continues through it.
+  final bool continuesFromEarlier;
 
   /// Whether the agenda view is in multi-select mode — while true, tapping
   /// this tile toggles [selected] instead of opening the preview, and
@@ -508,7 +536,7 @@ class _AgendaTile extends ConsumerWidget {
               SizedBox(
                 width: 52,
                 child: Text(
-                  event.isAllDay
+                  event.isAllDay || continuesFromEarlier
                       ? l10n.eventAllDay
                       : Fmt.time(event.startAt, locale, use24Hour: use24),
                   style: theme.textTheme.labelMedium?.copyWith(

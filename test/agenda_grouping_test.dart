@@ -105,34 +105,53 @@ void main() {
       ]);
     });
 
-    test(
-      'many same-sortKey entries keep their original (insertion) order '
-      'instead of being reshuffled — regression test: a plain List.sort is '
-      'only stable below a small size threshold, above which Dart switches '
-      'to an unstable dual-pivot quicksort, so a day with enough identical-'
-      'time entries (e.g. several no-time to-dos, all pinned to midnight) '
-      'could have their relative order silently shuffled on every rebuild '
-      'even though nothing about the data changed. 40 was verified by '
-      'direct experiment to actually reorder pre-fix; smaller counts '
-      "(<=32) happen not to, which is exactly why this needs to be big "
-      'enough to catch it rather than assumed from a handful of entries',
-      () {
-        final noTimeTodos = [
-          for (var i = 0; i < 40; i++)
-            todo(
-              id: 't${i.toString().padLeft(2, '0')}',
-              slotStart: DateTime(2026, 3, 10),
-              hasTime: false,
-            ),
-        ];
+    test('many same-sortKey entries keep their original (insertion) order '
+        'instead of being reshuffled — regression test: a plain List.sort is '
+        'only stable below a small size threshold, above which Dart switches '
+        'to an unstable dual-pivot quicksort, so a day with enough identical-'
+        'time entries (e.g. several no-time to-dos, all pinned to midnight) '
+        'could have their relative order silently shuffled on every rebuild '
+        'even though nothing about the data changed. 40 was verified by '
+        'direct experiment to actually reorder pre-fix; smaller counts '
+        "(<=32) happen not to, which is exactly why this needs to be big "
+        'enough to catch it rather than assumed from a handful of entries', () {
+      final noTimeTodos = [
+        for (var i = 0; i < 40; i++)
+          todo(
+            id: 't${i.toString().padLeft(2, '0')}',
+            slotStart: DateTime(2026, 3, 10),
+            hasTime: false,
+          ),
+      ];
 
-        final groups = groupAgendaEntriesByDay(const [], noTimeTodos);
+      final groups = groupAgendaEntriesByDay(const [], noTimeTodos);
 
-        final ids = groups.single.$2
-            .map((e) => (e as AgendaTodoEntry).todo.id)
-            .toList();
-        expect(ids, noTimeTodos.map((t) => t.id).toList());
-      },
-    );
+      final ids = groups.single.$2
+          .map((e) => (e as AgendaTodoEntry).todo.id)
+          .toList();
+      expect(ids, noTimeTodos.map((t) => t.id).toList());
+    });
+
+    test('a multi-day event appears in every day group it spans, not just its '
+        'start day — regression test: it used to appear once, under its '
+        'start day only, so a 3-day trip vanished from this list entirely on '
+        'day 2 and day 3 even though month/week already showed it running', () {
+      final trip = event(
+        id: 'trip',
+        startAt: DateTime(2026, 3, 10, 9),
+        endAt: DateTime(2026, 3, 12, 17),
+      );
+
+      final groups = groupAgendaEntriesByDay([trip], const []);
+
+      expect(groups.map((g) => g.$1), [
+        DateTime(2026, 3, 10),
+        DateTime(2026, 3, 11),
+        DateTime(2026, 3, 12),
+      ]);
+      for (final (_, entries) in groups) {
+        expect((entries.single as AgendaEventEntry).event.id, 'trip');
+      }
+    });
   });
 }

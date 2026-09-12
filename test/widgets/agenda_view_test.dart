@@ -28,6 +28,7 @@ void main() {
     required String id,
     required String title,
     required DateTime startAt,
+    DateTime? endAt,
   }) {
     return EventRow(
       id: id,
@@ -35,7 +36,7 @@ void main() {
       memo: null,
       location: null,
       startAt: startAt,
-      endAt: startAt.add(const Duration(hours: 1)),
+      endAt: endAt ?? startAt.add(const Duration(hours: 1)),
       isAllDay: false,
       colorTag: null,
       notify: true,
@@ -131,6 +132,37 @@ void main() {
 
     expect(find.text('Standup'), findsOneWidget);
     expect(find.text('Buy milk'), findsOneWidget);
+  });
+
+  testWidgets('a multi-day event appears under every day it spans, showing 종일 '
+      "(not its original start time) on the days after its own start — "
+      'regression test: it used to appear once, under its start day only, '
+      'so a multi-day trip vanished from this list on the days it continued '
+      'through, even though month/week already showed it running there', (
+    tester,
+  ) async {
+    final anchor = DateTime(2026, 3, 10);
+    when(events.watchBetween(any, any)).thenAnswer(
+      (_) => Stream.value([
+        event(
+          id: 'trip',
+          title: 'Trip',
+          startAt: DateTime(2026, 3, 10, 9),
+          endAt: DateTime(2026, 3, 11, 17),
+        ),
+      ]),
+    );
+    when(
+      todos.watchBetween(any, any),
+    ).thenAnswer((_) => Stream.value(const []));
+
+    await pumpAgenda(tester, anchor);
+
+    // One tile under Mar 10's header, one under Mar 11's.
+    expect(find.text('Trip'), findsNWidgets(2));
+    // Only the continuation day (Mar 11) shows 종일 — Mar 10 still shows
+    // its own real start time.
+    expect(find.text('종일'), findsOneWidget);
   });
 
   testWidgets('opens scrolled to the anchor day, not the past week of entries '
