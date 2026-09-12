@@ -235,16 +235,6 @@ class AppL10nKo extends AppL10n {
   String get searchFilterDateRangeClear => '기간 필터 지우기';
 
   @override
-  String get socialTitle => '소셜';
-
-  @override
-  String get socialComingSoonTitle => '곧 만나요';
-
-  @override
-  String get socialComingSoonBody =>
-      '친구를 추가하고 일정을 나누는 기능을 준비하고 있어요. 지금은 나만의 시간에 집중해보세요.';
-
-  @override
   String get settingsTitle => '설정';
 
   @override

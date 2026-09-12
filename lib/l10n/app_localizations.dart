@@ -523,24 +523,6 @@ abstract class AppL10n {
   /// **'기간 필터 지우기'**
   String get searchFilterDateRangeClear;
 
-  /// No description provided for @socialTitle.
-  ///
-  /// In ko, this message translates to:
-  /// **'소셜'**
-  String get socialTitle;
-
-  /// No description provided for @socialComingSoonTitle.
-  ///
-  /// In ko, this message translates to:
-  /// **'곧 만나요'**
-  String get socialComingSoonTitle;
-
-  /// No description provided for @socialComingSoonBody.
-  ///
-  /// In ko, this message translates to:
-  /// **'친구를 추가하고 일정을 나누는 기능을 준비하고 있어요. 지금은 나만의 시간에 집중해보세요.'**
-  String get socialComingSoonBody;
-
   /// No description provided for @settingsTitle.
   ///
   /// In ko, this message translates to:

@@ -238,16 +238,6 @@ class AppL10nEn extends AppL10n {
   String get searchFilterDateRangeClear => 'Clear date range filter';
 
   @override
-  String get socialTitle => 'Social';
-
-  @override
-  String get socialComingSoonTitle => 'Coming soon';
-
-  @override
-  String get socialComingSoonBody =>
-      'Adding friends and sharing schedules is on the way. For now, focus on your own time.';
-
-  @override
   String get settingsTitle => 'Settings';
 
   @override
