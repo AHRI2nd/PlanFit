@@ -354,6 +354,16 @@ class MockEventTemplateDao extends _i1.Mock implements _i5.EventTemplateDao {
           as _i6.Stream<List<_i2.EventTemplateRow>>);
 
   @override
+  _i6.Future<List<_i2.EventTemplateRow>> all() =>
+      (super.noSuchMethod(
+            Invocation.method(#all, []),
+            returnValue: _i6.Future<List<_i2.EventTemplateRow>>.value(
+              <_i2.EventTemplateRow>[],
+            ),
+          )
+          as _i6.Future<List<_i2.EventTemplateRow>>);
+
+  @override
   _i6.Future<void> upsert(_i2.EventTemplatesCompanion? companion) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [companion]),
