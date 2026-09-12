@@ -833,7 +833,18 @@ class _HomeTodoList extends ConsumerWidget {
 
     // overdueTodosProvider orders most-recently-overdue first (descending
     // by slotStart) for its smart-list use — reversed to oldest-first here.
-    final oldestOverdueFirst = overdue.reversed;
+    final oldestOverdueFirst = overdue.reversed.toList();
+    // The query itself stays uncapped (its count feeds the badge above and
+    // _WeeklyStats' own overdue dots), but rendering every single one of a
+    // large backlog inline here — this Column has no lazy-building
+    // ListView.builder under it — would still get slow well before that
+    // count is remotely realistic; cap what actually renders and point the
+    // rest at the smart list's own scrollable overdue tab instead.
+    const overdueRenderCap = 50;
+    final shownOverdue = oldestOverdueFirst.length > overdueRenderCap
+        ? oldestOverdueFirst.sublist(0, overdueRenderCap)
+        : oldestOverdueFirst;
+    final hiddenOverdueCount = oldestOverdueFirst.length - shownOverdue.length;
 
     return GlassSurface(
       borderRadius: AppRadius.cardLg,
@@ -841,7 +852,7 @@ class _HomeTodoList extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final todo in oldestOverdueFirst)
+          for (final todo in shownOverdue)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: _FeedTodoTile(
@@ -849,6 +860,26 @@ class _HomeTodoList extends ConsumerWidget {
                 locale: locale,
                 use24Hour: use24Hour,
                 showDate: true,
+              ),
+            ),
+          if (hiddenOverdueCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: InkWell(
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(
+                    builder: (_) => const TodoSmartListScreen(
+                      initialTab: SmartListInitialTab.overdue,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  l10n.homeOverdueListMore(hiddenOverdueCount),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.palette.danger,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           for (final todo in upcoming)

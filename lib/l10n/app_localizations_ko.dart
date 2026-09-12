@@ -102,6 +102,11 @@ class AppL10nKo extends AppL10n {
   String get homeTodosViewAll => '할 일 전체 보기';
 
   @override
+  String homeOverdueListMore(int count) {
+    return '$count건 더 있음 — 스마트 리스트에서 보기';
+  }
+
+  @override
   String get homeWeekTitle => '이번 주';
 
   @override

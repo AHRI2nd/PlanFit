@@ -60,7 +60,10 @@ void main() {
     when(reminders.isEnabled).thenReturn(false);
   });
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    SmartListInitialTab initialTab = SmartListInitialTab.today,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
@@ -81,7 +84,7 @@ void main() {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppL10n.supportedLocales,
-          home: const TodoSmartListScreen(),
+          home: TodoSmartListScreen(initialTab: initialTab),
         ),
       ),
     );
@@ -397,4 +400,16 @@ void main() {
       verifyNever(todos.deleteById(any));
     });
   });
+
+  testWidgets(
+    'opening with initialTab: overdue lands directly on the 기한 지남 tab — '
+    "the home screen's overdue-backlog link relies on this to jump straight "
+    'there instead of opening on 오늘 and requiring an extra tap',
+    (tester) async {
+      await pumpScreen(tester, initialTab: SmartListInitialTab.overdue);
+
+      expect(find.text('기한 지난 할 일이 없어요'), findsOneWidget);
+      expect(find.text('오늘 할 일이 없어요'), findsNothing);
+    },
+  );
 }

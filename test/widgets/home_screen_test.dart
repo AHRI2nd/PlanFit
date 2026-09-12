@@ -19,6 +19,7 @@ import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/domain/ports.dart';
 import 'package:planfit/features/todo/domain/todo_priority.dart';
 import 'package:planfit/features/todo/presentation/quick_add_todo_sheet.dart';
+import 'package:planfit/features/todo/presentation/todo_smart_list_screen.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -921,5 +922,44 @@ void main() {
         await tester.pump(const Duration(seconds: 5));
       });
     });
+
+    testWidgets(
+      'a large overdue backlog renders only the first 50 tiles, with a '
+      "link to the rest instead — the underlying query stays uncapped (for "
+      "the badge/dots elsewhere), but this list has no lazy ListView.builder "
+      "under it, so rendering everything inline doesn't scale",
+      (tester) async {
+        final now = DateTime(2026, 3, 10, 12);
+        // watchOverdue's own order is most-recently-overdue-first —
+        // reproduced here so the reversal to oldest-first in the widget
+        // under test doesn't accidentally line up by coincidence.
+        final overdue = [
+          for (var i = 55; i >= 1; i--)
+            todo(
+              id: 'overdue-$i',
+              title: 'Overdue $i',
+              slotStart: DateTime(2026, 3, i.clamp(1, 9)),
+            ),
+        ];
+        when(todos.watchOverdue(any)).thenAnswer((_) => Stream.value(overdue));
+
+        await pumpHome(tester, now: now);
+        await expandTodoSheet(tester);
+
+        expect(find.byType(Dismissible), findsNWidgets(50));
+        final moreLink = find.text('5건 더 있음 — 스마트 리스트에서 보기');
+        expect(moreLink, findsOneWidget);
+
+        await tester.ensureVisible(moreLink);
+        await tester.pumpAndSettle();
+        await tester.tap(moreLink);
+        await tester.pumpAndSettle();
+
+        final smartList = tester.widget<TodoSmartListScreen>(
+          find.byType(TodoSmartListScreen),
+        );
+        expect(smartList.initialTab, SmartListInitialTab.overdue);
+      },
+    );
   });
 }

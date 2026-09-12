@@ -47,6 +47,10 @@
   },
   "homeNowLabel": "now",
   "homeTodosViewAll": "View all to-dos",
+  "homeOverdueListMore": "{count} more overdue — view in smart list",
+  "@homeOverdueListMore": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "homeWeekTitle": "This week",
   "homeWeekSummary": "{events} events · {done}/{total} to-dos done",
   "@homeWeekSummary": {

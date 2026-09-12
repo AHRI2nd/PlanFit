@@ -105,6 +105,11 @@ class AppL10nEn extends AppL10n {
   String get homeTodosViewAll => 'View all to-dos';
 
   @override
+  String homeOverdueListMore(int count) {
+    return '$count more overdue — view in smart list';
+  }
+
+  @override
   String get homeWeekTitle => 'This week';
 
   @override

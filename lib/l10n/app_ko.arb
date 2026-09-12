@@ -47,6 +47,10 @@
   },
   "homeNowLabel": "지금",
   "homeTodosViewAll": "할 일 전체 보기",
+  "homeOverdueListMore": "{count}건 더 있음 — 스마트 리스트에서 보기",
+  "@homeOverdueListMore": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "homeWeekTitle": "이번 주",
   "homeWeekSummary": "일정 {events}개 · 할 일 {done}/{total} 완료",
   "@homeWeekSummary": {

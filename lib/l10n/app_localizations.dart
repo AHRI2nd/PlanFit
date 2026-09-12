@@ -271,6 +271,12 @@ abstract class AppL10n {
   /// **'할 일 전체 보기'**
   String get homeTodosViewAll;
 
+  /// No description provided for @homeOverdueListMore.
+  ///
+  /// In ko, this message translates to:
+  /// **'{count}건 더 있음 — 스마트 리스트에서 보기'**
+  String homeOverdueListMore(int count);
+
   /// No description provided for @homeWeekTitle.
   ///
   /// In ko, this message translates to:

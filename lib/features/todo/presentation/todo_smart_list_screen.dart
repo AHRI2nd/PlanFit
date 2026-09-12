@@ -21,12 +21,23 @@ import 'todo_selection.dart';
 
 enum _SmartListTab { today, overdue, highPriority, pinned, byTag }
 
+/// Which tab [TodoSmartListScreen] opens on — only the tabs another screen
+/// actually has a reason to deep-link into (e.g. the home screen's overdue
+/// list linking to "see the rest here") are exposed; the others are only
+/// ever reached by tapping a chip inside this screen itself.
+enum SmartListInitialTab { today, overdue }
+
 /// A cross-day view of to-dos, filtered by one of a few fixed "smart list"
 /// criteria — the counterpart to the day/week/month views' own per-day
 /// framing, for questions like "what's overdue?" or "what's tagged 업무?"
 /// that don't have a single day to anchor on.
 class TodoSmartListScreen extends ConsumerStatefulWidget {
-  const TodoSmartListScreen({super.key});
+  const TodoSmartListScreen({
+    super.key,
+    this.initialTab = SmartListInitialTab.today,
+  });
+
+  final SmartListInitialTab initialTab;
 
   @override
   ConsumerState<TodoSmartListScreen> createState() =>
@@ -35,7 +46,10 @@ class TodoSmartListScreen extends ConsumerStatefulWidget {
 
 class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
     with TodoSelectionMixin<TodoSmartListScreen> {
-  _SmartListTab _tab = _SmartListTab.today;
+  late _SmartListTab _tab = switch (widget.initialTab) {
+    SmartListInitialTab.today => _SmartListTab.today,
+    SmartListInitialTab.overdue => _SmartListTab.overdue,
+  };
   String? _selectedTag;
 
   /// Switching tabs (or the selected tag, within the 태그별 tab) swaps the
