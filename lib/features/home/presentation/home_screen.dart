@@ -128,11 +128,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final collapsed = _peekKey.currentContext?.size?.height;
     final expanded = _expandedProbeKey.currentContext?.size?.height;
     if (collapsed == null || collapsed <= 0) return;
+    final newExtra = (expanded != null && expanded > collapsed)
+        ? expanded - collapsed
+        : _expandedExtraHeight;
+    // [didChangeMetrics] can fire several times with nothing actually
+    // different about this content's own size — e.g. the safe-area/
+    // keyboard-inset settling this class's own doc mentions around iOS app
+    // launch, or (worse) a rapid, spurious burst of it while the user is
+    // mid-drag on the sheet below. Rebuilding on every one of those without
+    // this guard fed a freshly-recomputed (if numerically identical)
+    // minChildSize/initialChildSize into DraggableScrollableSheet on every
+    // single rebuild — which the sheet's own initialChildSize doc warns
+    // resets its current extent back toward that value, exactly the
+    // "fights the user's own drag" failure this file's
+    // [_onOptionsExpandedChanged] doc already names for a different
+    // trigger. Skipping the setState entirely when nothing changed avoids
+    // ever handing the sheet a fresh set of size params mid-gesture.
+    if (_peekHeight == collapsed && _expandedExtraHeight == newExtra) return;
     setState(() {
       _peekHeight = collapsed;
-      if (expanded != null && expanded > collapsed) {
-        _expandedExtraHeight = expanded - collapsed;
-      }
+      _expandedExtraHeight = newExtra;
     });
   }
 

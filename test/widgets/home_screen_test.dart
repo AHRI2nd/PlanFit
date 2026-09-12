@@ -621,6 +621,43 @@ void main() {
   );
 
   testWidgets(
+    "a spurious didChangeMetrics mid-drag (nothing about the peek content's "
+    "own size actually changed) doesn't fight the user's own drag — "
+    'regression test: iOS fires didChangeMetrics several times in a row '
+    'around app launch and other unrelated moments as safe-area/keyboard '
+    'insets settle, with the same size measured every time; re-measuring '
+    'unconditionally still called setState on every one of those, handing '
+    'DraggableScrollableSheet a freshly-recomputed (if numerically '
+    'identical) minChildSize/initialChildSize mid-gesture, which reset the '
+    'sheet back toward its collapsed size out from under an in-progress '
+    'drag',
+    (tester) async {
+      await pumpHome(tester);
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('할 일 추가')),
+      );
+      // A burst of no-op metrics pings interleaved with every step of the
+      // drag — the peek content's measured size never actually changes —
+      // mirroring how densely iOS was observed firing didChangeMetrics
+      // around a single continuous touch, not just once.
+      for (var i = 0; i < 8; i++) {
+        await gesture.moveBy(const Offset(0, -75));
+        tester.binding.handleMetricsChanged();
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final screenHeight = tester.getSize(find.byType(HomeScreen)).height;
+      // Dragged up ~600 logical pixels total from its collapsed state —
+      // well past collapsed, whatever collapsed's own exact height is.
+      expect(tester.getSize(surface).height, greaterThan(screenHeight * 0.5));
+    },
+  );
+
+  testWidgets(
     'the date and time chips default to the nearest upcoming top of the '
     "hour when nothing's been picked — no more hard-coded 9am",
     (tester) async {
