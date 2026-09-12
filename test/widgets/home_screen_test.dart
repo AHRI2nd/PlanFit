@@ -97,6 +97,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   }
 
+  /// Drags the pull-up bar (collapsed by default) fully open — enough
+  /// distance that, combined with the sheet's own snap:true, it always
+  /// settles at its max size rather than somewhere in between. Dragged from
+  /// the "할 일 추가" header specifically: with two ListViews on screen now
+  /// (the background one behind the sheet, and the sheet's own), that
+  /// header is a point guaranteed to be inside just the sheet, at any size.
+  Future<void> expandTodoSheet(WidgetTester tester) async {
+    await tester.drag(find.text('할 일 추가'), const Offset(0, -600));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('shows every empty state when there is no data', (tester) async {
     await pumpHome(tester);
 
@@ -105,11 +116,8 @@ void main() {
     expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsOneWidget);
     expect(find.text('이번 주는 아직 조용하네요'), findsOneWidget);
 
-    // 할 일 sits below the fold now that the add-a-to-do field is its own
-    // fixed bar (shrinking the scrollable list's own viewport) — scroll it
-    // into view first.
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pump();
+    // 할 일 only shows once the pull-up bar is dragged open.
+    await expandTodoSheet(tester);
     expect(find.text('처리할 할 일이 없어요'), findsOneWidget);
   });
 
@@ -371,9 +379,11 @@ void main() {
     when(todos.watchBetween(any, any)).thenAnswer((_) => Stream.value([todo]));
 
     await pumpHome(tester, textScaler: const TextScaler.linear(1.3));
-    // 이번 주 sits below the fold at this text scale now that the fixed
-    // add-a-to-do bar shrinks the scrollable list's own viewport.
-    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    // 이번 주 sits below the fold at this text scale — scroll the
+    // background list (there are two ListViews on screen now: this one,
+    // and the pull-up bar's own; .first is the background one, since it's
+    // the first Stack child built).
+    await tester.drag(find.byType(ListView).first, const Offset(0, -200));
     await tester.pump();
 
     final labelFinder = find.text('0/1');
@@ -665,11 +675,7 @@ void main() {
         ).thenAnswer((_) => Stream.value([soonUpcoming, laterUpcoming]));
 
         await pumpHome(tester, now: now);
-        // The list sits at the very bottom of the home screen, below the
-        // fold on the test surface — scroll it into view first, same as
-        // day_view_test.dart's own clock-legend test has to.
-        await tester.drag(find.byType(ListView), const Offset(0, -1000));
-        await tester.pump();
+        await expandTodoSheet(tester);
 
         double topOf(String title) => tester.getTopLeft(find.text(title)).dy;
 
@@ -695,8 +701,7 @@ void main() {
         ).thenAnswer((_) => Stream.value([oldOverdue]));
 
         await pumpHome(tester, now: now);
-        await tester.drag(find.byType(ListView), const Offset(0, -1000));
-        await tester.pump();
+        await expandTodoSheet(tester);
 
         expect(find.text('Old overdue'), findsOneWidget);
         expect(find.textContaining('3월 1일'), findsOneWidget);
@@ -723,8 +728,7 @@ void main() {
       ).thenAnswer((_) => Stream.value(const []));
 
       await pumpHome(tester, now: now);
-      await tester.drag(find.byType(ListView), const Offset(0, -1000));
-      await tester.pump();
+      await expandTodoSheet(tester);
 
       await tester.tap(find.text('Soon'));
       await tester.pumpAndSettle();

@@ -28,14 +28,50 @@ import '../../todo/presentation/quick_add_todo_sheet.dart';
 import '../../todo/presentation/todo_detail_sheet.dart';
 import '../../todo/presentation/todo_smart_list_screen.dart';
 
+/// How much of the screen the pull-up bar covers once dragged (or tapped)
+/// open — short of the very top, so a sliver of the hero peeks through as a
+/// hint there's more screen above it.
+const double _kExpandedSheetSize = 0.92;
+
 /// The home hero: the current moment as a large clock over the day's gradient,
 /// what's coming up next, and today's to-do progress. The app's first
 /// impression — everything else stays quiet so this reads clearly.
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _peekKey = GlobalKey();
+
+  /// The pull-up bar's own collapsed content (drag handle + "할 일 추가"
+  /// header + field) measured once, real pixels, rather than guessed —
+  /// [DraggableScrollableSheet] takes its `minChildSize` as a fraction
+  /// decided *before* layout, with no way to ask "how tall does my content
+  /// actually want to be", and a guess here that undershoots doesn't just
+  /// clip: the sheet ends up short enough that 할 일's own header/first row
+  /// peeks into the same collapsed view, landing right behind (and, in
+  /// gaps around it, visibly poking out past) the app's floating tab bar.
+  /// Null until the post-frame measurement below runs once, at which point
+  /// it never changes again for the rest of this State's lifetime.
+  double? _peekHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(_measurePeek);
+  }
+
+  void _measurePeek(Duration _) {
+    final height = _peekKey.currentContext?.size?.height;
+    if (!mounted || height == null || height <= 0) return;
+    setState(() => _peekHeight = height);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
     final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
     final locale = Localizations.localeOf(context).toLanguageTag();
@@ -45,77 +81,166 @@ class HomeScreen extends ConsumerWidget {
       ),
       context,
     );
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final peekHeight = _peekHeight;
+    final peekContent = _TodoAddPeek(key: _peekKey, l10n: l10n);
 
     return TimeGradientBackground(
       at: now,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Column(
+        body: Stack(
           children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.gutter,
-                  0,
-                  AppSpacing.gutter,
-                  AppSpacing.sm,
+            ListView(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                0,
+                AppSpacing.gutter,
+                // The pull-up bar below is a Stack overlay, not part of
+                // this list — its own collapsed height (once known; a
+                // generous placeholder before that) is padded in here so
+                // 이번 주's card never renders underneath it.
+                (peekHeight ?? 220) + kFloatingNavBarClearance + AppSpacing.md,
+              ),
+              children: [
+                SafeArea(
+                  bottom: false,
+                  child: _Hero(now: now, l10n: l10n, use24Hour: use24),
                 ),
-                children: [
-                  SafeArea(
-                    bottom: false,
-                    child: _Hero(now: now, l10n: l10n, use24Hour: use24),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  SectionHeader(l10n.homeToday),
-                  _TodayFeed(
-                    now: now,
-                    locale: locale,
-                    l10n: l10n,
-                    use24Hour: use24,
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  SectionHeader(l10n.homeWeekTitle),
-                  _WeeklyStats(now: now, locale: locale, l10n: l10n),
-                  const SizedBox(height: AppSpacing.xl),
-                  SectionHeader(l10n.homeTodoListTitle),
-                  _HomeTodoList(locale: locale, l10n: l10n, use24Hour: use24),
-                ],
-              ),
+                const SizedBox(height: AppSpacing.xl),
+                SectionHeader(l10n.homeToday),
+                _TodayFeed(
+                  now: now,
+                  locale: locale,
+                  l10n: l10n,
+                  use24Hour: use24,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                SectionHeader(l10n.homeWeekTitle),
+                _WeeklyStats(now: now, locale: locale, l10n: l10n),
+              ],
             ),
-            // Pinned to the bottom of the screen, outside the scrollable
-            // list above — always reachable in one tap no matter how far
-            // that's scrolled, rather than drifting further away as
-            // 오늘/이번 주/할 일 grow. kFloatingNavBarClearance keeps it
-            // clear of the app's own floating tab bar, which this
-            // screen's body already renders underneath (same reason the
-            // list above needs it at its own natural end).
-            //
-            // The "+" in the field's own icon was mistaken for a moment
-            // for the FAB schedule_screen.dart's own "+" opens (that
-            // one's for events) — this is the day/week views' own
-            // convention instead: an always-visible inline add field, not
-            // a FAB hiding the affordance behind a modal sheet. Home has
-            // no single day of its own to scope the field's date/time
-            // defaults to (unlike HourlyTodoList's), so it falls back to
-            // today, no time, same as QuickAddTodoSheet's own field does
-            // for the smart-list screen.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                AppSpacing.sm,
-                AppSpacing.gutter,
-                kFloatingNavBarClearance,
+            if (peekHeight == null)
+              // Laid out (so its real height can be measured) but never
+              // painted or hit-tested — swapped for the real pull-up bar
+              // the moment _measurePeek's setState lands, which for a
+              // human eye is well within one imperceptible frame.
+              Offstage(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.gutter,
+                  ),
+                  child: peekContent,
+                ),
+              )
+            else
+              // The add field lives collapsed here, at the bottom, always
+              // reachable — drag (or fling) it up and it turns into a
+              // scrollable popup showing 할 일, the same list that used to
+              // sit fixed further down the page. snap:true means a
+              // partial drag always settles fully open or fully collapsed
+              // instead of stopping halfway.
+              //
+              // Positioned.fill, not a bare Stack child: without it, the
+              // sheet's own layout box silently claims the *entire* Stack
+              // area for hit-testing (matching Flutter's own canonical
+              // usage) even though it only *paints* its current fraction —
+              // an invisible pane over whatever "오늘"/"이번 주" render
+              // underneath, swallowing every tap there before it can ever
+              // reach them.
+              Positioned.fill(
+                child: Builder(
+                  builder: (context) {
+                    final collapsedSheetSize =
+                        ((peekHeight + kFloatingNavBarClearance) / screenHeight)
+                            .clamp(0.12, 0.6);
+                    return DraggableScrollableSheet(
+                      initialChildSize: collapsedSheetSize,
+                      minChildSize: collapsedSheetSize,
+                      maxChildSize: _kExpandedSheetSize,
+                      snap: true,
+                      snapSizes: [collapsedSheetSize, _kExpandedSheetSize],
+                      builder: (context, scrollController) {
+                        final palette = context.palette;
+                        return DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: palette.surface,
+                            borderRadius: const BorderRadius.vertical(
+                              top: AppRadius.lg,
+                            ),
+                          ),
+                          child: ListView(
+                            controller: scrollController,
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.gutter,
+                              0,
+                              AppSpacing.gutter,
+                              kFloatingNavBarClearance,
+                            ),
+                            children: [
+                              peekContent,
+                              const SizedBox(height: AppSpacing.xl),
+                              SectionHeader(l10n.homeTodoListTitle),
+                              _HomeTodoList(
+                                locale: locale,
+                                l10n: l10n,
+                                use24Hour: use24,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SectionHeader(l10n.todoAdd),
-                  const QuickAddTodoField(),
-                ],
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The pull-up bar's collapsed content: a drag handle, then the "할 일
+/// 추가" section exactly as it always rendered — see [_HomeScreenState]'s
+/// own doc for why this exists as its own widget (it's measured once,
+/// standalone, before the real sheet that reuses it ever mounts).
+///
+/// The "+" in the field's own icon was mistaken for a moment for the FAB
+/// schedule_screen.dart's own "+" opens (that one's for events) — this is
+/// the day/week views' own convention instead: an always-visible inline
+/// add field, not a FAB hiding the affordance behind a modal sheet. Home
+/// has no single day of its own to scope the field's date/time defaults to
+/// (unlike HourlyTodoList's), so it falls back to today, no time, same as
+/// QuickAddTodoSheet's own field does for the smart-list screen.
+class _TodoAddPeek extends StatelessWidget {
+  const _TodoAddPeek({super.key, required this.l10n});
+
+  final AppL10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: palette.hairline,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          SectionHeader(l10n.todoAdd),
+          const QuickAddTodoField(),
+        ],
       ),
     );
   }
