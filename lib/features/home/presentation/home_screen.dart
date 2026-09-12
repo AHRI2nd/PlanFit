@@ -11,6 +11,8 @@ import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/app_typography.dart';
 import '../../../design/tokens/event_color_tag.dart';
+import '../../../design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
@@ -48,39 +50,70 @@ class HomeScreen extends ConsumerWidget {
       at: now,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            0,
-            AppSpacing.gutter,
-            140,
-          ),
+        body: Column(
           children: [
-            SafeArea(
-              bottom: false,
-              child: _Hero(now: now, l10n: l10n, use24Hour: use24),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.gutter,
+                  0,
+                  AppSpacing.gutter,
+                  AppSpacing.sm,
+                ),
+                children: [
+                  SafeArea(
+                    bottom: false,
+                    child: _Hero(now: now, l10n: l10n, use24Hour: use24),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  SectionHeader(l10n.homeToday),
+                  _TodayFeed(
+                    now: now,
+                    locale: locale,
+                    l10n: l10n,
+                    use24Hour: use24,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  SectionHeader(l10n.homeWeekTitle),
+                  _WeeklyStats(now: now, locale: locale, l10n: l10n),
+                  const SizedBox(height: AppSpacing.xl),
+                  SectionHeader(l10n.homeTodoListTitle),
+                  _HomeTodoList(locale: locale, l10n: l10n, use24Hour: use24),
+                ],
+              ),
             ),
-            const SizedBox(height: AppSpacing.xl),
-            SectionHeader(l10n.homeToday),
-            _TodayFeed(now: now, locale: locale, l10n: l10n, use24Hour: use24),
-            const SizedBox(height: AppSpacing.xl),
-            SectionHeader(l10n.homeWeekTitle),
-            _WeeklyStats(now: now, locale: locale, l10n: l10n),
-            const SizedBox(height: AppSpacing.xl),
-            // The "+" here was mistaken for a moment for the FAB
-            // schedule_screen.dart's own "+" opens (that one's for
-            // events) — this is the day/week views' own convention
-            // instead: an always-visible inline add field, not a FAB
-            // hiding the affordance behind a modal sheet. Home has no
-            // single day of its own to scope the field's date/time
+            // Pinned to the bottom of the screen, outside the scrollable
+            // list above — always reachable in one tap no matter how far
+            // that's scrolled, rather than drifting further away as
+            // 오늘/이번 주/할 일 grow. kFloatingNavBarClearance keeps it
+            // clear of the app's own floating tab bar, which this
+            // screen's body already renders underneath (same reason the
+            // list above needs it at its own natural end).
+            //
+            // The "+" in the field's own icon was mistaken for a moment
+            // for the FAB schedule_screen.dart's own "+" opens (that
+            // one's for events) — this is the day/week views' own
+            // convention instead: an always-visible inline add field, not
+            // a FAB hiding the affordance behind a modal sheet. Home has
+            // no single day of its own to scope the field's date/time
             // defaults to (unlike HourlyTodoList's), so it falls back to
             // today, no time, same as QuickAddTodoSheet's own field does
             // for the smart-list screen.
-            SectionHeader(l10n.todoAdd),
-            const QuickAddTodoField(),
-            const SizedBox(height: AppSpacing.xl),
-            SectionHeader(l10n.homeTodoListTitle),
-            _HomeTodoList(locale: locale, l10n: l10n, use24Hour: use24),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                AppSpacing.sm,
+                AppSpacing.gutter,
+                kFloatingNavBarClearance,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SectionHeader(l10n.todoAdd),
+                  const QuickAddTodoField(),
+                ],
+              ),
+            ),
           ],
         ),
       ),

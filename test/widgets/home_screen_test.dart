@@ -104,6 +104,12 @@ void main() {
     // not the two separate ones the old _UpcomingList/_TodayTodos cards had.
     expect(find.text('오늘은 예정된 일정도, 할 일도 없어요'), findsOneWidget);
     expect(find.text('이번 주는 아직 조용하네요'), findsOneWidget);
+
+    // 할 일 sits below the fold now that the add-a-to-do field is its own
+    // fixed bar (shrinking the scrollable list's own viewport) — scroll it
+    // into view first.
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pump();
     expect(find.text('처리할 할 일이 없어요'), findsOneWidget);
   });
 
@@ -365,6 +371,10 @@ void main() {
     when(todos.watchBetween(any, any)).thenAnswer((_) => Stream.value([todo]));
 
     await pumpHome(tester, textScaler: const TextScaler.linear(1.3));
+    // 이번 주 sits below the fold at this text scale now that the fixed
+    // add-a-to-do bar shrinks the scrollable list's own viewport.
+    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    await tester.pump();
 
     final labelFinder = find.text('0/1');
     expect(labelFinder, findsOneWidget);
