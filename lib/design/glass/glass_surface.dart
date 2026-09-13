@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -34,19 +35,30 @@ class GlassSurface extends StatelessWidget {
     this.tint,
     this.showHighlight = true,
     this.border = true,
+    this.verticalBlurGradient = false,
   });
 
   final Widget child;
   final BorderRadius borderRadius;
   final EdgeInsetsGeometry padding;
 
-  /// Blur sigma. Defaults to the platform profile when null.
+  /// Blur sigma. Defaults to the platform profile when null. With
+  /// [verticalBlurGradient], this is the strength reached at the *bottom*
+  /// edge rather than a flat amount across the whole surface.
   final double? blur;
 
   /// Overrides the palette glass tint (e.g. to pick up the time accent).
   final Color? tint;
   final bool showHighlight;
   final bool border;
+
+  /// Fades the blur in from ~nothing at the top edge to full strength at
+  /// the bottom, instead of one flat amount everywhere — the "frosted
+  /// bottom bar" look most floating nav bars use, rather than a uniform
+  /// pane of glass. False everywhere except [GlassNavBar]'s own use of
+  /// this surface, since a flat blur is the right, cheaper default for a
+  /// card or sheet that isn't specifically a bottom-edge bar.
+  final bool verticalBlurGradient;
 
   bool get _isApplePlatform => !kIsWeb && (Platform.isIOS || Platform.isMacOS);
 
@@ -74,42 +86,130 @@ class GlassSurface extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: borderRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: effectiveBlur, sigmaY: effectiveBlur),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            color: tintColor,
-            border: border
-                ? Border.all(color: palette.glassBorder, width: 1)
-                : null,
-          ),
-          child: Stack(
-            children: [
-              if (showHighlight)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: borderRadius,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            highlightColor,
-                            Colors.white.withValues(alpha: 0),
-                            Colors.white.withValues(alpha: 0),
-                          ],
-                          stops: const [0.0, 0.5, 1.0],
+      child: Stack(
+        children: [
+          if (verticalBlurGradient)
+            _ProgressiveBlur(maxBlur: effectiveBlur)
+          else
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: effectiveBlur,
+                  sigmaY: effectiveBlur,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: borderRadius,
+              color: tintColor,
+              border: border
+                  ? Border.all(color: palette.glassBorder, width: 1)
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                if (showHighlight)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: borderRadius,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              highlightColor,
+                              Colors.white.withValues(alpha: 0),
+                              Colors.white.withValues(alpha: 0),
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              Padding(padding: padding, child: child),
-            ],
+                Padding(padding: padding, child: child),
+              ],
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Approximates a blur whose strength ramps from ~0 at the top edge to
+/// [maxBlur] at the bottom, for [GlassSurface.verticalBlurGradient].
+///
+/// [BackdropFilter] itself has no notion of "how much" per pixel — one
+/// filter, one sigma, applied flatly across its whole bounds. The standard
+/// way around that (the same one behind every "frosted edge" effect in
+/// native iOS/Android chrome) is to stack several equal, *flat* blurs, each
+/// clipped to its own band so lower bands sit under more of them than
+/// higher ones do.
+///
+/// A first attempt faded each layer in with a [ShaderMask] gradient instead
+/// of a hard [ClipRect] band, for a smoother ramp than this version's
+/// visible steps — and rendered as no blur at all (confirmed on a real
+/// device: text behind the bar stayed perfectly sharp all the way to the
+/// bottom edge). [ShaderMask] paints its child into its own offscreen layer
+/// before applying the shader, and a [BackdropFilter] inside that layer can
+/// only sample what's already been painted *within that same layer* — which
+/// for a freshly-opened offscreen buffer is nothing, not the real page
+/// content behind the whole bar. [ClipRect] doesn't have that problem: it
+/// constrains a [BackdropFilter]'s bounds without isolating it into a new
+/// layer, which is exactly what the outermost [ClipRRect] around this whole
+/// surface already relies on.
+///
+/// Each layer here spans from its own start band down to the bottom edge
+/// (not a slice of just its own band), so a later, lower-starting layer
+/// paints its own additional blur on top of a region every earlier layer
+/// already blurred — compounding toward the bottom rather than replacing
+/// what came before. Successive Gaussian blurs compound roughly as
+/// `sqrt(sum of each sigma²)`, so [_layerCount] equal-strength layers all
+/// active at the bottom need each sized at `maxBlur / sqrt(layerCount)` to
+/// land back on [maxBlur] there rather than `layerCount × maxBlur`. More
+/// layers reads as a smoother ramp (fewer, larger visible steps otherwise);
+/// this keeps to a handful since each one is its own [BackdropFilter] pass
+/// and this sits on a chrome element that's on-screen for the whole
+/// session, not a one-off.
+class _ProgressiveBlur extends StatelessWidget {
+  const _ProgressiveBlur({required this.maxBlur});
+
+  final double maxBlur;
+
+  static const _layerCount = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    final perLayer = maxBlur / math.sqrt(_layerCount);
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final height = constraints.maxHeight;
+          return Stack(
+            children: [
+              for (var i = 0; i < _layerCount; i++)
+                Positioned(
+                  top: height * i / _layerCount,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: perLayer,
+                        sigmaY: perLayer,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

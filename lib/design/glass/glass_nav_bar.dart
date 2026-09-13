@@ -106,6 +106,13 @@ class GlassNavBar extends StatelessWidget {
         child: GlassSurface(
           borderRadius: AppRadius.allPill,
           tint: palette.glassTint,
+          // The bar's whole point is marking the boundary between content
+          // and chrome — a flat blur reads as one uniform pane sitting on
+          // top, where a blur that's barely there at the top edge and
+          // fully frosted by the bottom reads instead as the content
+          // itself fading into the bar, the same "frosted edge" any native
+          // floating bottom bar uses.
+          verticalBlurGradient: true,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.xs,
             vertical: AppSpacing.xs,
