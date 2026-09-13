@@ -13,6 +13,8 @@ import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/app_colors.dart';
+import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart'
+    show kFloatingNavBarClearance;
 import 'package:planfit/features/home/presentation/home_screen.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
@@ -133,6 +135,29 @@ void main() {
     await expandTodoSheet(tester);
     expect(find.text('처리할 할 일이 없어요'), findsOneWidget);
   });
+
+  testWidgets(
+    "the gap between the add field and the 할 일 section is the floating "
+    "nav bar's own clearance, not a plain, much smaller spacing constant — "
+    'regression test: the collapsed sheet reserves kFloatingNavBarClearance '
+    "worth of extra height *specifically* so the floating nav bar has a "
+    'blank strip to sit over instead of the add field\'s own bottom edge, '
+    'but the gap right after the add field used to be a plain AppSpacing.xl '
+    '(32px, well short of the 96-120px the sheet\'s floor actually '
+    'reserves) — leaving the rest of that reserved strip filled by the '
+    "할 일 section's own header and empty state instead of staying blank, "
+    'so the floating nav bar sat over real (if faded) content rather than '
+    'empty space',
+    (tester) async {
+      await pumpHome(tester);
+      await tester.pumpAndSettle();
+
+      final gap = tester.getSize(
+        find.byKey(const ValueKey('homeTodoListClearanceGap')),
+      );
+      expect(gap.height, moreOrLessEquals(kFloatingNavBarClearance));
+    },
+  );
 
   testWidgets('renders an upcoming event\'s title once data arrives', (
     tester,

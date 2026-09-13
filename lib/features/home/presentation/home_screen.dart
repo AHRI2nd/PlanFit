@@ -372,7 +372,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             children: [
                               peekContent,
-                              const SizedBox(height: AppSpacing.xl),
+                              // Exactly [kFloatingNavBarClearance], not
+                              // AppSpacing.xl — [_sheetFloor] already backs
+                              // the collapsed sheet's own height with that
+                              // much room *specifically* so the floating
+                              // nav bar has a blank strip to sit over
+                              // instead of peekContent's own bottom edge.
+                              // At rest (scroll offset 0, viewport height
+                              // == that floor), whatever comes right after
+                              // peekContent fills that strip — a plain
+                              // AppSpacing.xl gap left the rest of it
+                              // showing this section's own header and empty
+                              // state peeking out from behind the bar.
+                              SizedBox(
+                                key: const ValueKey(
+                                  'homeTodoListClearanceGap',
+                                ),
+                                height: kFloatingNavBarClearance,
+                              ),
                               SectionHeader(l10n.homeTodoListTitle),
                               _HomeTodoList(
                                 locale: locale,
