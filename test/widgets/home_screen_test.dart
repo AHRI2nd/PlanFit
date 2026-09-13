@@ -601,6 +601,40 @@ void main() {
   );
 
   testWidgets(
+    'dragging the collapsed pull-up bar down while the tune options panel '
+    "is still open doesn't collapse past the panel's own height — "
+    'regression test: DraggableScrollableSheet\'s minChildSize stayed fixed '
+    "at the options-*closed* size regardless of the panel's own state, so "
+    'a manual drag down (as opposed to tapping the tune toggle itself, '
+    'which does account for it) snapped the sheet all the way to that '
+    'floor with the still-open repeat/priority row rendered off the '
+    "sheet's now-too-short bottom edge, behind the floating tab bar",
+    (tester) async {
+      await pumpHome(tester);
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final collapsedHeight = tester.getSize(surface).height;
+
+      await tester.tap(find.byIcon(Icons.tune));
+      await tester.pumpAndSettle();
+      final expandedHeight = tester.getSize(surface).height;
+      expect(expandedHeight, greaterThan(collapsedHeight));
+
+      // A firm drag down on the header — enough to have driven the sheet
+      // all the way to its (buggy, options-closed) floor under the old
+      // fixed minChildSize.
+      await tester.drag(find.text('할 일 추가'), const Offset(0, 300));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(expandedHeight, epsilon: 1),
+      );
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'a runtime text-scale change re-measures the pull-up bar instead of '
     'keeping its stale collapsed height — a rotation or an accessibility '
     'text-size change used to leave the sheet at its old size until the '

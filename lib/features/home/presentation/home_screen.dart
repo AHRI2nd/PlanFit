@@ -81,6 +81,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   /// panel just growing inside a sheet that stays a fixed size.
   double? _expandedExtraHeight;
 
+  /// Mirrors the live field's own "tune" toggle — [_onOptionsExpandedChanged]
+  /// only *animates* the sheet there via [_sheetController], which does
+  /// nothing to [DraggableScrollableSheet]'s own `minChildSize`/
+  /// `initialChildSize`. Without tracking this separately, a manual drag
+  /// down while the options panel was still open snapped the sheet all the
+  /// way to its options-*closed* collapsed size regardless — the field's
+  /// own [AnimatedSize] doesn't collapse just because the sheet around it
+  /// shrank, so the still-open options row ended up rendered below the
+  /// sheet's own (now too-short) bottom edge, behind the floating tab bar.
+  bool _optionsExpanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -162,27 +173,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   /// touched a toggle inside it would fight their own drag instead of
   /// helping it.
   void _onOptionsExpandedChanged(bool expanded) {
-    final peekHeight = _peekHeight;
-    final extra = _expandedExtraHeight;
-    if (peekHeight == null || extra == null || !_sheetController.isAttached) {
-      return;
-    }
-    if ((_kExpandedSheetSize - _sheetController.size).abs() < 0.02) return;
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final collapsedSheetSize =
-        ((peekHeight + kFloatingNavBarClearance) / screenHeight).clamp(
-          0.12,
-          0.6,
-        );
-    final target =
-        ((peekHeight + (expanded ? extra : 0) + kFloatingNavBarClearance) /
-                screenHeight)
-            .clamp(collapsedSheetSize, _kExpandedSheetSize);
-    _sheetController.animateTo(
-      target,
-      duration: _optionsAnimationDuration,
-      curve: Curves.easeOut,
-    );
+    // Tracked regardless of the early returns below — build()'s own
+    // minChildSize needs this even when there's nothing to animate here
+    // (not measured yet, or already fully expanded), so a later manual
+    // drag down still has the right floor to stop at.
+    //
+    // The animateTo call below has to wait for that setState's rebuild to
+    // actually land first: DraggableScrollableSheet.animateTo clamps its
+    // target into the sheet's *current* [minSize, maxSize] before
+    // animating — called synchronously right after setState (which only
+    // takes effect on the next build, not immediately), it would still
+    // see the old, larger minSize this same toggle is trying to shrink
+    // away from, silently clamping the shrink target right back up to
+    // that stale floor and making the "close" animation a no-op (confirmed
+    // via debug logging: the computed target was correct, but the sheet's
+    // rendered size never moved). Deferring the animateTo call to a
+    // post-frame callback lets minChildSize's own new value land first.
+    setState(() => _optionsExpanded = expanded);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final peekHeight = _peekHeight;
+      final extra = _expandedExtraHeight;
+      if (peekHeight == null ||
+          extra == null ||
+          !_sheetController.isAttached) {
+        return;
+      }
+      if ((_kExpandedSheetSize - _sheetController.size).abs() < 0.02) return;
+      final screenHeight = MediaQuery.sizeOf(context).height;
+      final collapsedSheetSize =
+          ((peekHeight + kFloatingNavBarClearance) / screenHeight).clamp(
+            0.12,
+            0.6,
+          );
+      final target =
+          ((peekHeight + (expanded ? extra : 0) + kFloatingNavBarClearance) /
+                  screenHeight)
+              .clamp(collapsedSheetSize, _kExpandedSheetSize);
+      _sheetController.animateTo(
+        target,
+        duration: _optionsAnimationDuration,
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -287,13 +320,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     final collapsedSheetSize =
                         ((peekHeight + kFloatingNavBarClearance) / screenHeight)
                             .clamp(0.12, 0.6);
+                    // _onOptionsExpandedChanged animates the sheet up when
+                    // the tune button opens the panel, but that's a one-off
+                    // animateTo — it doesn't touch minChildSize, so nothing
+                    // stopped a later manual drag down from sailing straight
+                    // past the (still-open) panel's own height, snapping to
+                    // the options-closed floor with the panel rendering
+                    // right off the sheet's now-too-short bottom edge,
+                    // behind the floating tab bar. Folding _optionsExpanded
+                    // into the floor itself means a drag simply can't go
+                    // lower than what the panel currently needs.
+                    final extra = _expandedExtraHeight;
+                    final effectiveSheetSize = _optionsExpanded && extra != null
+                        ? ((peekHeight + extra + kFloatingNavBarClearance) /
+                                  screenHeight)
+                              .clamp(collapsedSheetSize, _kExpandedSheetSize)
+                        : collapsedSheetSize;
                     return DraggableScrollableSheet(
                       controller: _sheetController,
-                      initialChildSize: collapsedSheetSize,
-                      minChildSize: collapsedSheetSize,
+                      initialChildSize: effectiveSheetSize,
+                      minChildSize: effectiveSheetSize,
                       maxChildSize: _kExpandedSheetSize,
                       snap: true,
-                      snapSizes: [collapsedSheetSize, _kExpandedSheetSize],
+                      snapSizes: [effectiveSheetSize, _kExpandedSheetSize],
                       builder: (context, scrollController) {
                         final palette = context.palette;
                         return DecoratedBox(
