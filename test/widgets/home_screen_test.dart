@@ -601,14 +601,107 @@ void main() {
   );
 
   testWidgets(
-    'dragging the collapsed pull-up bar down while the tune options panel '
-    "is still open doesn't collapse past the panel's own height — "
-    'regression test: DraggableScrollableSheet\'s minChildSize stayed fixed '
-    "at the options-*closed* size regardless of the panel's own state, so "
-    'a manual drag down (as opposed to tapping the tune toggle itself, '
-    'which does account for it) snapped the sheet all the way to that '
-    'floor with the still-open repeat/priority row rendered off the '
-    "sheet's now-too-short bottom edge, behind the floating tab bar",
+    'a firm drag down with the tune options panel open stops at the '
+    "options-open height and leaves the panel open — the sheet's floor is "
+    'raised by exactly the panel\'s own height while it is open, because '
+    "the panel renders inside the sheet's own scroll view: let the sheet "
+    'shrink to its options-closed height and the panel ends up below the '
+    "sheet's bottom edge, behind the floating tab bar (the original bug). "
+    'An earlier fix instead force-closed the panel to let the sheet keep '
+    'shrinking, which threw away the state the user had just opened',
+    (tester) async {
+      await pumpHome(tester);
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final collapsedHeight = tester.getSize(surface).height;
+
+      await tester.tap(find.byIcon(Icons.tune));
+      await tester.pumpAndSettle();
+      final optionsOpenHeight = tester.getSize(surface).height;
+      expect(optionsOpenHeight, greaterThan(collapsedHeight));
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+
+      // A firm drag down on the header — more than enough to have driven
+      // the sheet to its options-closed floor, were that still the floor.
+      await tester.drag(find.text('할 일 추가'), const Offset(0, 300));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(optionsOpenHeight, epsilon: 1),
+      );
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+
+      // And the floor drops back once the panel is closed by its own
+      // toggle — the only thing that should ever close it.
+      await tester.tap(find.byIcon(Icons.expand_less));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(collapsedHeight, epsilon: 1),
+      );
+    },
+  );
+
+  testWidgets(
+    'a re-measure that happens while the tune options panel is open does '
+    "not corrupt the bar's own collapsed height — the root cause behind a "
+    'whole family of wrong sheet heights. The collapsed height used to be '
+    'read off the *live* bar, which is exactly the widget whose height the '
+    'panel changes, so any re-measure taken while the panel was open '
+    'recorded peek+panel as the plain peek height. didChangeMetrics fires '
+    'on every keyboard show/hide and the tags field that raises the '
+    "keyboard lives inside that very panel, so this was the normal case, "
+    'not a corner one: from then on the sheet floor sat a whole '
+    "panel-height too tall and the toggle had nothing left to grow by",
+    (tester) async {
+      await pumpHome(tester);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final collapsedHeight = tester.getSize(surface).height;
+
+      await tester.tap(find.byIcon(Icons.tune));
+      await tester.pumpAndSettle();
+      final optionsOpenHeight = tester.getSize(surface).height;
+      expect(optionsOpenHeight, greaterThan(collapsedHeight));
+
+      // Same text scale as before — this is here purely to fire the
+      // re-measure, standing in for the keyboard appearing over the tags
+      // field inside the open panel.
+      tester.platformDispatcher.textScaleFactorTestValue = 1.0;
+      await tester.pumpAndSettle();
+
+      // The re-measure alone must not move a sheet nobody dragged.
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(optionsOpenHeight, epsilon: 1),
+      );
+
+      // And the heights it recorded must still be the real ones: closing
+      // the panel returns the bar to exactly where it started.
+      await tester.tap(find.byIcon(Icons.expand_less));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(collapsedHeight, epsilon: 1),
+      );
+    },
+  );
+
+  testWidgets(
+    'a short drag down on the collapsed bar with the tune options panel '
+    "open settles back at the options-open height instead of collapsing — "
+    'regression test: with only the collapsed and fully-expanded sizes as '
+    "snap targets, DraggableScrollableSheet's own snap-to-nearest had "
+    'nowhere else to resolve a drag from the (in-between) options-open '
+    'height *to* — any drag, however small, had to land on whichever '
+    'extreme it was closer to, which from there was almost always the '
+    'collapsed floor. Confirmed on a real device as casual/undecided '
+    'scrolling with the panel open fully collapsing the bar and closing '
+    'the panel with it. Giving the options-open height its own place in '
+    "the sheet's snapSizes gives a short drag somewhere to resolve back "
+    'to besides the two extremes',
     (tester) async {
       await pumpHome(tester);
 
@@ -619,16 +712,52 @@ void main() {
       await tester.pumpAndSettle();
       final expandedHeight = tester.getSize(surface).height;
       expect(expandedHeight, greaterThan(collapsedHeight));
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
 
-      // A firm drag down on the header — enough to have driven the sheet
-      // all the way to its (buggy, options-closed) floor under the old
-      // fixed minChildSize.
-      await tester.drag(find.text('할 일 추가'), const Offset(0, 300));
+      // A short, gentle nudge down — nowhere near the collapsed floor.
+      await tester.drag(find.text('할 일 추가'), const Offset(0, 30));
       await tester.pumpAndSettle();
 
       expect(
         tester.getSize(surface).height,
         moreOrLessEquals(expandedHeight, epsilon: 1),
+      );
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a short, slow drag down that springs back to full expansion instead '
+    "of actually collapsing doesn't close the tune options panel — "
+    'regression test: an earlier fix reacted the moment the sheet\'s live '
+    'size dipped any amount below its own peak, which happens on every '
+    "frame of a drag regardless of where it ends up. DraggableScrollableSheet"
+    " only has two snap targets (collapsed and fully expanded), so a short/"
+    'slow drag from the fully-expanded, options-open state can still '
+    "resolve back to full expansion via the sheet's own snap-to-nearest — "
+    'but the live dip during that drag was already enough to close the '
+    'panel, leaving a fully-expanded bar with no panel in it even though '
+    "the sheet never actually collapsed",
+    (tester) async {
+      await pumpHome(tester);
+      await expandTodoSheet(tester);
+
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final fullyOpenHeight = tester.getSize(surface).height;
+
+      await tester.tap(find.byIcon(Icons.tune));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+
+      // A short, gentle nudge down — nowhere near enough to cross toward
+      // the collapsed floor — that should spring straight back to full
+      // expansion rather than collapsing.
+      await tester.drag(find.text('할 일 추가'), const Offset(0, 30));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(surface).height,
+        moreOrLessEquals(fullyOpenHeight, epsilon: 1),
       );
       expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
     },

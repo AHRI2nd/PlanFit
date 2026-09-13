@@ -47,13 +47,25 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
-  final _peekKey = GlobalKey();
-
-  /// A permanently-offstage twin of the pull-up bar's collapsed content,
-  /// with its details panel forced open from the start — exists solely so
-  /// [_expandedExtraHeight] below can be measured without ever showing this
-  /// copy to anyone. Never swapped into the live tree the way [_peekKey]'s
-  /// widget is.
+  /// Both heights below are measured off permanently-offstage twins in a
+  /// *known* options state, never off the live bar — that distinction is
+  /// the whole reason this pair of probes exists rather than one key on the
+  /// real widget.
+  ///
+  /// Measuring the live bar instead (what this used to do) silently broke
+  /// every size this class computes, because the live bar is exactly the
+  /// thing whose height changes when the user opens the tune panel: any
+  /// [_measure] that happened to run while that panel was open recorded
+  /// `peek + panel` as [_peekHeight], and — since the expanded probe is
+  /// that same total — derived an [_expandedExtraHeight] of ~0 from it.
+  /// From then on the sheet's collapsed floor sat a whole panel-height too
+  /// tall (so 할 일's own section header showed below the add field, at a
+  /// height matching neither the real collapsed nor expanded size) and the
+  /// tune toggle had nothing left to grow by. [_remeasure]'s trigger makes
+  /// that the normal case rather than a rare one: [didChangeMetrics] fires
+  /// on every keyboard show/hide, and the tags field that brings the
+  /// keyboard up lives *inside* the options panel.
+  final _collapsedProbeKey = GlobalKey();
   final _expandedProbeKey = GlobalKey();
 
   final _sheetController = DraggableScrollableController();
@@ -81,15 +93,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   /// panel just growing inside a sheet that stays a fixed size.
   double? _expandedExtraHeight;
 
-  /// Mirrors the live field's own "tune" toggle — [_onOptionsExpandedChanged]
-  /// only *animates* the sheet there via [_sheetController], which does
-  /// nothing to [DraggableScrollableSheet]'s own `minChildSize`/
-  /// `initialChildSize`. Without tracking this separately, a manual drag
-  /// down while the options panel was still open snapped the sheet all the
-  /// way to its options-*closed* collapsed size regardless — the field's
-  /// own [AnimatedSize] doesn't collapse just because the sheet around it
-  /// shrank, so the still-open options row ended up rendered below the
-  /// sheet's own (now too-short) bottom edge, behind the floating tab bar.
+  /// Mirrors the live field's own "tune" toggle, kept in step by
+  /// [_onOptionsExpandedChanged], and the one thing [_sheetFloor] branches
+  /// on: an open panel needs the sheet to stop shrinking a panel-height
+  /// earlier than a closed one does, or it ends up rendered past the
+  /// sheet's own bottom edge, behind the floating tab bar.
   bool _optionsExpanded = false;
 
   @override
@@ -106,6 +114,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
+  /// How tall the sheet is allowed to get when dragged all the way open,
+  /// and how short it may shrink — the floor being the only one of the two
+  /// that depends on whether the tune options panel is open.
+  ///
+  /// The panel is a child of the sheet's own scroll view, so it renders
+  /// wherever the sheet's current height leaves room for it and nowhere
+  /// else: let the sheet shrink to its options-*closed* height while the
+  /// panel is open and the panel simply ends up below the sheet's bottom
+  /// edge, behind the floating tab bar. Raising the floor by exactly the
+  /// panel's own height is what keeps the two consistent, and it means a
+  /// drag down with the panel open settles *at* that floor with the panel
+  /// still open and fully visible, rather than the panel being force-closed
+  /// to let the sheet keep shrinking.
+  ///
+  /// Correctness here rests entirely on [_expandedExtraHeight] being the
+  /// panel's height and [_peekHeight] being the bar *without* it — see the
+  /// probe keys' own doc for how measuring the live bar instead used to
+  /// conflate the two and push this floor a whole panel-height too high.
+  double? get _sheetFloor {
+    final peekHeight = _peekHeight;
+    if (peekHeight == null) return null;
+    final extra = _optionsExpanded ? (_expandedExtraHeight ?? 0) : 0;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    return ((peekHeight + extra + kFloatingNavBarClearance) / screenHeight)
+        .clamp(0.12, _kExpandedSheetSize);
+  }
+
   /// Rotation, window resize, or a system text-scale change can all change
   /// how tall the pull-up bar's own content is — re-measure rather than
   /// keep stale [_peekHeight]/[_expandedExtraHeight] values.
@@ -118,11 +153,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   /// around app launch as the safe-area/keyboard insets settle, well
   /// before any actual rotation or text-scale change, so that swap
   /// visibly happened repeatedly and read as the whole bar flickering.
-  /// [_peekKey]'s widget stays mounted (inside the live sheet, not the
-  /// offstage probe) the whole time [_peekHeight] is already known, so
-  /// [_measure] can still re-read its current size in place — the sheet
-  /// just keeps rendering at its last-known height for the one frame
-  /// before that re-read lands, instead of disappearing.
+  /// Both probes stay mounted for this State's whole lifetime, so
+  /// [_measure] can re-read them in place — the sheet just keeps rendering
+  /// at its last-known height for the one frame before that re-read lands,
+  /// instead of disappearing.
   @override
   void didChangeMetrics() => _remeasure();
 
@@ -136,7 +170,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _measure(Duration _) {
     if (!mounted) return;
-    final collapsed = _peekKey.currentContext?.size?.height;
+    final collapsed = _collapsedProbeKey.currentContext?.size?.height;
     final expanded = _expandedProbeKey.currentContext?.size?.height;
     if (collapsed == null || collapsed <= 0) return;
     final newExtra = (expanded != null && expanded > collapsed)
@@ -162,10 +196,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
 
-  /// Fired by the live field's own "tune" button — animates the sheet up
-  /// (or back down) by [_expandedExtraHeight], in the same duration/curve as
-  /// the field's own details-panel [AnimatedSize], so the two grow together
-  /// instead of the panel appearing to fight a sheet that doesn't move.
+  /// Fired by the live field's own "tune" button — moves the sheet to the
+  /// height that panel state calls for, in the same duration/curve as the
+  /// field's own details-panel [AnimatedSize], so the two grow (or shrink)
+  /// together instead of the panel appearing to fight a sheet that doesn't
+  /// move.
   ///
   /// Skipped when the user has already dragged the bar all the way up to
   /// browse 할 일 — there's already plenty of room there for the panel to
@@ -173,45 +208,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   /// touched a toggle inside it would fight their own drag instead of
   /// helping it.
   void _onOptionsExpandedChanged(bool expanded) {
-    // Tracked regardless of the early returns below — build()'s own
-    // minChildSize needs this even when there's nothing to animate here
-    // (not measured yet, or already fully expanded), so a later manual
-    // drag down still has the right floor to stop at.
-    //
-    // The animateTo call below has to wait for that setState's rebuild to
-    // actually land first: DraggableScrollableSheet.animateTo clamps its
-    // target into the sheet's *current* [minSize, maxSize] before
-    // animating — called synchronously right after setState (which only
-    // takes effect on the next build, not immediately), it would still
-    // see the old, larger minSize this same toggle is trying to shrink
-    // away from, silently clamping the shrink target right back up to
-    // that stale floor and making the "close" animation a no-op (confirmed
-    // via debug logging: the computed target was correct, but the sheet's
-    // rendered size never moved). Deferring the animateTo call to a
-    // post-frame callback lets minChildSize's own new value land first.
+    // The animateTo below has to wait for this setState's rebuild to land
+    // first. DraggableScrollableSheet.animateTo clamps its target into the
+    // sheet's *current* [minSize, maxSize] before animating, and this same
+    // toggle is what changes minSize (via [_sheetFloor]) — called
+    // synchronously here, the shrink target would still be clamped back up
+    // to the stale, higher floor it is trying to leave, making the "close"
+    // animation a silent no-op (confirmed via debug logging: the computed
+    // target was right, the sheet's rendered size never moved). A
+    // post-frame callback lets the new floor take effect first.
     setState(() => _optionsExpanded = expanded);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final peekHeight = _peekHeight;
-      final extra = _expandedExtraHeight;
-      if (peekHeight == null ||
-          extra == null ||
-          !_sheetController.isAttached) {
-        return;
-      }
+      if (!mounted || !_sheetController.isAttached) return;
+      final floor = _sheetFloor;
+      if (floor == null) return;
       if ((_kExpandedSheetSize - _sheetController.size).abs() < 0.02) return;
-      final screenHeight = MediaQuery.sizeOf(context).height;
-      final collapsedSheetSize =
-          ((peekHeight + kFloatingNavBarClearance) / screenHeight).clamp(
-            0.12,
-            0.6,
-          );
-      final target =
-          ((peekHeight + (expanded ? extra : 0) + kFloatingNavBarClearance) /
-                  screenHeight)
-              .clamp(collapsedSheetSize, _kExpandedSheetSize);
       _sheetController.animateTo(
-        target,
+        floor,
         duration: _optionsAnimationDuration,
         curve: Curves.easeOut,
       );
@@ -229,10 +242,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       context,
     );
-    final screenHeight = MediaQuery.sizeOf(context).height;
     final peekHeight = _peekHeight;
+    // Deliberately un-keyed: its height varies with the user's own tune
+    // toggle, which is exactly what makes it useless to measure. Both
+    // heights this screen needs come off the fixed-state probes below.
     final peekContent = _TodoAddPeek(
-      key: _peekKey,
       l10n: l10n,
       onOptionsExpandedChanged: _onOptionsExpandedChanged,
     );
@@ -272,34 +286,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 _WeeklyStats(now: now, locale: locale, l10n: l10n),
               ],
             ),
-            // Never shown, never removed — see [_expandedExtraHeight]'s own
-            // doc for why this twin exists purely to be measured.
+            // Never shown, never removed, and — the part that matters —
+            // never toggled by the user: one twin pinned open, one pinned
+            // closed, so the difference between them is always exactly the
+            // options panel's own height. See the probe keys' own doc for
+            // what measuring the live, user-toggleable bar broke instead.
             Offstage(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.gutter,
                 ),
-                child: _TodoAddPeek(
-                  key: _expandedProbeKey,
-                  l10n: l10n,
-                  forceOptionsExpanded: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _TodoAddPeek(key: _collapsedProbeKey, l10n: l10n),
+                    _TodoAddPeek(
+                      key: _expandedProbeKey,
+                      l10n: l10n,
+                      forceOptionsExpanded: true,
+                    ),
+                  ],
                 ),
               ),
             ),
-            if (peekHeight == null)
-              // Laid out (so its real height can be measured) but never
-              // painted or hit-tested — swapped for the real pull-up bar
-              // the moment _measure's setState lands, which for a human
-              // eye is well within one imperceptible frame.
-              Offstage(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.gutter,
-                  ),
-                  child: peekContent,
-                ),
-              )
-            else
+            if (peekHeight != null)
               // The add field lives collapsed here, at the bottom, always
               // reachable — drag (or fling) it up and it turns into a
               // scrollable popup showing 할 일, the same list that used to
@@ -317,32 +327,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Positioned.fill(
                 child: Builder(
                   builder: (context) {
-                    final collapsedSheetSize =
-                        ((peekHeight + kFloatingNavBarClearance) / screenHeight)
-                            .clamp(0.12, 0.6);
-                    // _onOptionsExpandedChanged animates the sheet up when
-                    // the tune button opens the panel, but that's a one-off
-                    // animateTo — it doesn't touch minChildSize, so nothing
-                    // stopped a later manual drag down from sailing straight
-                    // past the (still-open) panel's own height, snapping to
-                    // the options-closed floor with the panel rendering
-                    // right off the sheet's now-too-short bottom edge,
-                    // behind the floating tab bar. Folding _optionsExpanded
-                    // into the floor itself means a drag simply can't go
-                    // lower than what the panel currently needs.
-                    final extra = _expandedExtraHeight;
-                    final effectiveSheetSize = _optionsExpanded && extra != null
-                        ? ((peekHeight + extra + kFloatingNavBarClearance) /
-                                  screenHeight)
-                              .clamp(collapsedSheetSize, _kExpandedSheetSize)
-                        : collapsedSheetSize;
+                    // The one number the whole interaction turns on: the
+                    // lowest the sheet may go, which is a panel-height
+                    // higher while the tune options are open so the panel
+                    // always has room to render inside the sheet rather
+                    // than below its bottom edge. See [_sheetFloor].
+                    final floor = _sheetFloor!;
                     return DraggableScrollableSheet(
                       controller: _sheetController,
-                      initialChildSize: effectiveSheetSize,
-                      minChildSize: effectiveSheetSize,
+                      // Only ever consulted on the sheet's very first
+                      // build; every later change to `floor` reaches the
+                      // live sheet through minChildSize (and the animateTo
+                      // in [_onOptionsExpandedChanged]) instead, which is
+                      // what keeps a rebuild from yanking the extent back
+                      // out from under an in-progress drag.
+                      initialChildSize: floor,
+                      minChildSize: floor,
                       maxChildSize: _kExpandedSheetSize,
                       snap: true,
-                      snapSizes: [effectiveSheetSize, _kExpandedSheetSize],
+                      // Exactly two resting places, both meaningful: the
+                      // floor (bar visible, panel included when open) and
+                      // fully open (browsing 할 일). Nothing in between is
+                      // a state worth stopping at, and keeping the list to
+                      // two keeps every drag's outcome predictable —
+                      // whichever of the two the release is nearer.
+                      snapSizes: [floor, _kExpandedSheetSize],
                       builder: (context, scrollController) {
                         final palette = context.palette;
                         return DecoratedBox(
