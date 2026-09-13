@@ -82,26 +82,48 @@ class GlassNavBar extends StatelessWidget {
         AppSpacing.gutter,
         AppSpacing.sm + MediaQuery.viewPaddingOf(context).bottom,
       ),
-      child: GlassSurface(
-        borderRadius: AppRadius.allPill,
-        tint: palette.glassTint,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.xs,
+      // GlassSurface's own default rim already draws a border, but it's
+      // palette.glassBorder — tuned to read as a subtle glass edge, not to
+      // separate this bar from the content scrolling underneath it. One
+      // plain black outline around the whole pill (not one per button —
+      // the individual tap targets are wide enough already, and a border
+      // is around the tune buttons too) gives it a clear edge.
+      //
+      // `position: foreground` matters here: DecoratedBox paints its
+      // decoration *behind* the child by default, and GlassSurface's own
+      // blurred, tinted fill is fully opaque-looking across its whole
+      // bounds — it painted right over a background-positioned border,
+      // hiding it completely (confirmed by sampling the rendered pixels:
+      // no border color anywhere along the pill's edge). Foreground paints
+      // this border after GlassSurface, on top of it, so it's actually
+      // visible tracing the exact shape of the blurred area underneath.
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: AppRadius.allPill,
+          border: Border.all(color: Colors.black.withValues(alpha: 0.35)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            for (var i = 0; i < items.length; i++)
-              Expanded(
-                child: _NavButton(
-                  item: items[i],
-                  selected: i == currentIndex,
-                  accent: accent,
-                  onTap: () => onTap(i),
+        child: GlassSurface(
+          borderRadius: AppRadius.allPill,
+          tint: palette.glassTint,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xs,
+            vertical: AppSpacing.xs,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Expanded(
+                  child: _NavButton(
+                    item: items[i],
+                    selected: i == currentIndex,
+                    accent: accent,
+                    onTap: () => onTap(i),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
