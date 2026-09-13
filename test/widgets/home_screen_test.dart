@@ -137,25 +137,43 @@ void main() {
   });
 
   testWidgets(
-    "the gap between the add field and the 할 일 section is the floating "
-    "nav bar's own clearance, not a plain, much smaller spacing constant — "
-    'regression test: the collapsed sheet reserves kFloatingNavBarClearance '
-    "worth of extra height *specifically* so the floating nav bar has a "
-    'blank strip to sit over instead of the add field\'s own bottom edge, '
-    'but the gap right after the add field used to be a plain AppSpacing.xl '
-    '(32px, well short of the 96-120px the sheet\'s floor actually '
-    'reserves) — leaving the rest of that reserved strip filled by the '
-    "할 일 section's own header and empty state instead of staying blank, "
-    'so the floating nav bar sat over real (if faded) content rather than '
-    'empty space',
+    "the floating nav bar's clearance sits below the scrollable list as "
+    'its own fixed strip, not as a spacer inside the list content — '
+    "regression test: a first fix put kFloatingNavBarClearance directly "
+    "between the add field and the 할 일 section inside the list, which "
+    "was correct for the collapsed floor but rendered as a conspicuously "
+    'large, useless gap there once the sheet was dragged open (confirmed '
+    "on a real device, worse on Android's 120px clearance than iOS's "
+    "96px) — nothing about that position needs guarding against the nav "
+    "bar once the sheet is no longer collapsed. Splitting the clearance "
+    'into a plain trailing strip below an Expanded list keeps the gap '
+    'between the add field and the 할 일 section a normal, small spacing '
+    "constant at every sheet size, while the list's own available height "
+    "still shrinks toward just the add field as the sheet collapses, the "
+    'same as the spacer approach did',
     (tester) async {
       await pumpHome(tester);
       await tester.pumpAndSettle();
 
-      final gap = tester.getSize(
-        find.byKey(const ValueKey('homeTodoListClearanceGap')),
+      // The clearance strip is always exactly this tall, regardless of
+      // sheet size — it's a sibling of the scrollable list, not part of
+      // its content.
+      final clearance = tester.getSize(
+        find.byKey(const ValueKey('homeTodoSheetNavBarClearance')),
       );
-      expect(gap.height, moreOrLessEquals(kFloatingNavBarClearance));
+      expect(clearance.height, moreOrLessEquals(kFloatingNavBarClearance));
+
+      // And the gap the user actually sees between the add field and the
+      // 할 일 list, once there's room to see both, is a normal small
+      // spacing constant — not that same large clearance value leaking
+      // into the middle of the content.
+      await expandTodoSheet(tester);
+      final addFieldBottom = tester.getBottomLeft(find.byIcon(Icons.tune)).dy;
+      final sectionTop = tester.getTopLeft(find.text('할 일')).dy;
+      expect(
+        sectionTop - addFieldBottom,
+        lessThan(kFloatingNavBarClearance / 2),
+      );
     },
   );
 
