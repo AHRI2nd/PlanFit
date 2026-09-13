@@ -30,7 +30,18 @@ const double kSheetMaxWidth = 480;
 /// element isn't already known to clear the tab bar. Sized generously
 /// rather than exactly, since the tab bar's real footprint isn't something
 /// a plain widget has a clean way to query.
-const double kFloatingNavBarClearance = 96;
+///
+/// On Android specifically, [GlassNavBar]'s own pill (64) plus its margin
+/// (`AppSpacing.sm`, 12) plus the device's own gesture/button-nav inset
+/// (`MediaQuery.viewPaddingOf(context).bottom` — 0 on an old hardware-back
+/// device, ~24 with gesture navigation, ~48 with the classic 3-button bar)
+/// can already exceed a 96 clearance on its own before even reaching the
+/// tab bar's edge, which showed up as the home screen's pull-up bar options
+/// panel visibly clipping into the tab bar on a real device. 120 comfortably
+/// covers gesture nav and sits close on 3-button nav; nothing here reads
+/// the inset directly since that would mean turning every one of this
+/// constant's call sites into something that needs a BuildContext.
+const double kFloatingNavBarClearance = 120;
 
 /// [showModalBottomSheet] wrapper used by every bottom sheet in the app
 /// (quick add, the event-template picker, the to-do detail sheet). Below
