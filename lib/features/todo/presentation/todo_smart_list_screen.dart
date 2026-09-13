@@ -86,7 +86,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
       // nested Scaffold (in AppShell) so it isn't reserved for automatically
       // — same reasoning as schedule_screen.dart's own FAB.
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: kFloatingNavBarClearance),
+        padding: EdgeInsets.only(bottom: kFloatingNavBarClearance),
         child: FloatingActionButton(
           tooltip: l10n.todoAdd,
           onPressed: () => showQuickAddTodoSheet(context),
@@ -345,7 +345,7 @@ class _TodoListView extends ConsumerWidget {
           );
         }
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppSpacing.gutter,
             AppSpacing.xs,
             AppSpacing.gutter,

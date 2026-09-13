@@ -91,7 +91,7 @@ class ScheduleScreen extends ConsumerWidget {
         // Lifted clear of the floating glass nav bar, which lives outside this
         // nested Scaffold (in AppShell) so it isn't reserved for automatically.
         floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: kFloatingNavBarClearance),
+          padding: EdgeInsets.only(bottom: kFloatingNavBarClearance),
           child: FloatingActionButton(
             onPressed: () => showEventEditor(context, initialDay: selected),
             child: const Icon(Icons.add),

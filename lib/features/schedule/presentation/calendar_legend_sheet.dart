@@ -30,7 +30,7 @@ class _CalendarLegendSheet extends StatelessWidget {
     return SingleChildScrollView(
       // See kFloatingNavBarClearance's own doc for why the bottom inset is
       // much larger than AppSpacing.lg alone.
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.gutter,
         AppSpacing.sm,
         AppSpacing.gutter,

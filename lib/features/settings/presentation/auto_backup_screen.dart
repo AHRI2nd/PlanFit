@@ -129,7 +129,7 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
                             ),
                           )
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(
+                            padding: EdgeInsets.fromLTRB(
                               AppSpacing.gutter,
                               0,
                               AppSpacing.gutter,

@@ -306,7 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                           child: ListView(
                             controller: scrollController,
-                            padding: const EdgeInsets.fromLTRB(
+                            padding: EdgeInsets.fromLTRB(
                               AppSpacing.gutter,
                               0,
                               AppSpacing.gutter,

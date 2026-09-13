@@ -121,7 +121,7 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
                 );
               }
               return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   0,
                   AppSpacing.sm,
                   0,

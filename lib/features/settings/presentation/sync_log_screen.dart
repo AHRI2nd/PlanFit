@@ -46,7 +46,7 @@ class SyncLogScreen extends ConsumerWidget {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
+            padding: EdgeInsets.fromLTRB(
               AppSpacing.gutter,
               AppSpacing.gutter,
               AppSpacing.gutter,

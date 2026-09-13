@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 /// Width above which the device is treated as tablet-sized for sheet
@@ -31,17 +34,24 @@ const double kSheetMaxWidth = 480;
 /// rather than exactly, since the tab bar's real footprint isn't something
 /// a plain widget has a clean way to query.
 ///
-/// On Android specifically, [GlassNavBar]'s own pill (64) plus its margin
-/// (`AppSpacing.sm`, 12) plus the device's own gesture/button-nav inset
-/// (`MediaQuery.viewPaddingOf(context).bottom` — 0 on an old hardware-back
-/// device, ~24 with gesture navigation, ~48 with the classic 3-button bar)
-/// can already exceed a 96 clearance on its own before even reaching the
-/// tab bar's edge, which showed up as the home screen's pull-up bar options
-/// panel visibly clipping into the tab bar on a real device. 120 comfortably
-/// covers gesture nav and sits close on 3-button nav; nothing here reads
-/// the inset directly since that would mean turning every one of this
-/// constant's call sites into something that needs a BuildContext.
-const double kFloatingNavBarClearance = 120;
+/// Not a flat constant: on Android, [GlassNavBar]'s own pill (64) plus its
+/// margin (`AppSpacing.sm`, 12) plus the device's own gesture/button-nav
+/// inset (`MediaQuery.viewPaddingOf(context).bottom` — 0 on an old
+/// hardware-back device, ~24 with gesture navigation, ~48 with the classic
+/// 3-button bar) can already exceed a 96 clearance on its own before even
+/// reaching the tab bar's edge — confirmed on a real Android emulator as
+/// the home screen's pull-up bar options panel visibly clipping into the
+/// tab bar. iOS's native Liquid Glass tab bar ([AppShell]'s
+/// `_IosGlassTabBar`) is a different, shorter component than [GlassNavBar]
+/// with its own safe-area handling — 96 already cleared it with room to
+/// spare, and iOS confirmed on-device that raising this bumped every one of
+/// its call sites' bottom padding up by an obviously excessive margin. 120
+/// on Android comfortably covers gesture nav and sits close on 3-button
+/// nav; nothing here reads the inset directly since that would mean
+/// turning every one of this constant's call sites into something that
+/// needs a BuildContext.
+double get kFloatingNavBarClearance =>
+    (!kIsWeb && Platform.isIOS) ? 96 : 120;
 
 /// [showModalBottomSheet] wrapper used by every bottom sheet in the app
 /// (quick add, the event-template picker, the to-do detail sheet). Below
