@@ -109,7 +109,10 @@ class _DayViewState extends ConsumerState<DayView> {
           AppSpacing.gutter,
           AppSpacing.xs,
           AppSpacing.gutter,
-          140,
+          // Just a breathing gap above MonthView's pinned add field, not
+          // nav-bar clearance: this list no longer runs to the bottom of the
+          // screen, so the field below it is what has to clear the bar.
+          AppSpacing.sm,
         ),
         children: [
           _DayContent(day: widget.day, compact: true),
@@ -128,6 +131,12 @@ class _DayViewState extends ConsumerState<DayView> {
             child: HourlyTodoList(
               day: widget.day,
               addFocusNode: _addTodoFocusNode,
+              // MonthView pins its own copy of this field to the bottom of
+              // the screen, where it stays reachable without scrolling this
+              // panel to its end — see there. This is the only DayView that
+              // is embedded rather than filling the screen, so it's the only
+              // one whose add field would otherwise be duplicated.
+              showQuickAdd: false,
             ),
           ),
         ],

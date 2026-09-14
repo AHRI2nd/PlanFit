@@ -23,7 +23,12 @@ import '../../settings/application/settings_controller.dart';
 /// [QuickAddTodoField] (day-scoped here) — see its doc for the time /
 /// priority / repeat controls and the [parseQuickAdd] phrase handling.
 class HourlyTodoList extends ConsumerStatefulWidget {
-  const HourlyTodoList({super.key, required this.day, this.addFocusNode});
+  const HourlyTodoList({
+    super.key,
+    required this.day,
+    this.addFocusNode,
+    this.showQuickAdd = true,
+  });
 
   final DateTime day;
 
@@ -32,6 +37,14 @@ class HourlyTodoList extends ConsumerStatefulWidget {
   /// disposed by whoever passes it in; when absent this widget creates and
   /// owns its own instead, so the field still works standalone.
   final FocusNode? addFocusNode;
+
+  /// Whether to render the inline add field at the end of the list.
+  ///
+  /// `MonthView` turns this off: it pins its own copy of the same field to
+  /// the bottom of the screen instead, and two of them on one screen — one
+  /// buried at the end of this list's scroll, one always visible — would be
+  /// the same control twice with no way to tell which does what.
+  final bool showQuickAdd;
 
   @override
   ConsumerState<HourlyTodoList> createState() => _HourlyTodoListState();
@@ -141,7 +154,8 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList>
           },
           orElse: () => const SizedBox.shrink(),
         ),
-        QuickAddTodoField(day: widget.day, focusNode: _addFocusNode),
+        if (widget.showQuickAdd)
+          QuickAddTodoField(day: widget.day, focusNode: _addFocusNode),
       ],
     );
   }
