@@ -56,4 +56,14 @@ Out of scope for now: accounts/server backend, friend/sharing features, student/
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE) — free for any noncommercial use (personal, research, education). Commercial use requires a separate license.
+`SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0`
+
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for any noncommercial use (personal, research, education). Commercial use requires a separate license from the licensor, Tsukimori Ahri (<https://ahri2nd.xyz>).
+
+GitHub's sidebar reports this repository's license as "Other", and its API as `NOASSERTION`. That is a limitation of GitHub's detector, which only names licenses carried in the [choosealicense.com](https://choosealicense.com) dataset — PolyForm isn't in it — and not a sign that the terms are unstated or unrecognized. `LICENSE` holds the full, unmodified PolyForm Noncommercial 1.0.0 text, and the SPDX identifier above is the machine-readable name for exactly those terms.
+
+Redistributing any part of this software means passing along those terms (or the URL at the top of `LICENSE`) together with the `Required Notice:` line naming the copyright holder — see the license's own Notices section.
+
+### Third-party licenses
+
+PlanFit builds on roughly 195 packages, nearly all BSD-3-Clause, MIT, or Apache-2.0. The app reproduces every one of their notices in-app under **설정 → 정보 → 오픈소스 라이선스**, collected at build time from each package's own license file rather than a list kept by hand. None of them are covered by PlanFit's own license above, and none of PlanFit's own restrictions apply to them.
