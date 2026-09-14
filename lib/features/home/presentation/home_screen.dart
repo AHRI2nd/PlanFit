@@ -804,9 +804,17 @@ class _FeedTodoTile extends ConsumerWidget {
         child: RepaintBoundary(
           child: GlassSurface(
             borderRadius: AppRadius.cardMd,
+            // Vertical padding is xs, not sm, to match `HourlyTodoList`'s
+            // and `_SmartTodoTile`'s own rows — this tile was the one
+            // outlier, standing 8 taller than the same to-do rendered on
+            // the day view or the smart list. Nothing here needs the extra
+            // room: the row's height is set by the 44 accessibility floor
+            // on the checkbox beside a single line of titleMedium, so the
+            // padding was purely additive on top of space the touch target
+            // already reserves.
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
+              vertical: AppSpacing.xs,
             ),
             child: Row(
               children: [

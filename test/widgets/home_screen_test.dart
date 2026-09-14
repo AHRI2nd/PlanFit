@@ -11,9 +11,11 @@ import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
+import 'package:planfit/design/glass/glass_nav_bar.dart';
+import 'package:planfit/design/glass/glass_surface.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/app_colors.dart';
-import 'package:planfit/design/glass/glass_nav_bar.dart';
+import 'package:planfit/design/tokens/app_spacing.dart';
 import 'package:planfit/features/home/presentation/home_screen.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
@@ -406,6 +408,22 @@ void main() {
     final size = tester.getSize(hitArea);
     expect(size.width, greaterThanOrEqualTo(44));
     expect(size.height, greaterThanOrEqualTo(44));
+
+    // ...and the row is that floor plus its own padding, nothing more.
+    // Reported as the rows simply looking too tall: this tile carried
+    // AppSpacing.sm vertically where the same to-do on the day view and
+    // the smart list carries xs, so it stood 8 taller than either for no
+    // reason — its height is set by the 44 hit box above beside a single
+    // line of text, so that padding was purely additive. Bounded rather
+    // than shrunk further, since anything below this starts eating the
+    // accessibility floor the first half of this test pins.
+    final tile = find
+        .ancestor(of: hitArea, matching: find.byType(GlassSurface))
+        .first;
+    expect(
+      tester.getSize(tile).height,
+      moreOrLessEquals(44 + AppSpacing.xs * 2, epsilon: 0.5),
+    );
   });
 
   testWidgets("the weekly stats bar's done/total label fits its own box at the "
