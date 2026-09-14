@@ -544,6 +544,14 @@ class _Hero extends StatelessWidget {
 sealed class _FeedEntry {
   const _FeedEntry();
   DateTime get sortKey;
+
+  /// Which of [orderCrossDayTodos]' groups this entry belongs to, so this
+  /// feed orders by the same rule the cross-day lists do — pinned first,
+  /// then overdue, then the rest by time. Scoped to today either way: both
+  /// of this card's providers are already a single day's window, so the
+  /// rule only reorders within today rather than pulling anything in from
+  /// another date.
+  int rank(DateTime now);
 }
 
 class _FeedEventEntry extends _FeedEntry {
@@ -551,6 +559,11 @@ class _FeedEventEntry extends _FeedEntry {
   final EventRow event;
   @override
   DateTime get sortKey => event.startAt;
+
+  /// An event is neither pinnable nor overdue, so it sorts among the rest
+  /// on its start time alone.
+  @override
+  int rank(DateTime now) => todoOrderRankRest;
 }
 
 class _FeedTodoEntry extends _FeedEntry {
@@ -558,6 +571,8 @@ class _FeedTodoEntry extends _FeedEntry {
   final TodoRow todo;
   @override
   DateTime get sortKey => todo.slotStart;
+  @override
+  int rank(DateTime now) => todoOrderRank(todo, now);
 }
 
 class _TodayFeed extends ConsumerWidget {
@@ -604,10 +619,26 @@ class _TodayFeed extends ConsumerWidget {
 
     final done = todos.where((t) => t.isDone).length;
     final overdue = todos.where((t) => isTodoOverdue(t, now)).length;
-    final entries = <_FeedEntry>[
+    // Same grouping the cross-day lists use — see orderCrossDayTodos — but
+    // over a single day's events and to-dos together. Decorated with the
+    // incoming index because `List.sort` is not stable and this feed is
+    // full of ties: every no-time to-do of the day sits at midnight, and an
+    // event starting on the hour shares its key with a to-do slotted there.
+    final unsorted = <_FeedEntry>[
       for (final e in events) _FeedEventEntry(e),
       for (final t in todos) _FeedTodoEntry(t),
-    ]..sort((a, b) => a.sortKey.compareTo(b.sortKey));
+    ];
+    final entries =
+        [
+          for (var i = 0; i < unsorted.length; i++)
+            (index: i, entry: unsorted[i]),
+        ]..sort((a, b) {
+          final byRank = a.entry.rank(now).compareTo(b.entry.rank(now));
+          if (byRank != 0) return byRank;
+          final byTime = a.entry.sortKey.compareTo(b.entry.sortKey);
+          if (byTime != 0) return byTime;
+          return a.index.compareTo(b.index);
+        });
 
     return GlassSurface(
       borderRadius: AppRadius.cardLg,
@@ -657,7 +688,7 @@ class _TodayFeed extends ConsumerWidget {
               ),
             const SizedBox(height: AppSpacing.sm),
           ],
-          for (final entry in entries)
+          for (final (entry: entry, index: _) in entries)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: switch (entry) {

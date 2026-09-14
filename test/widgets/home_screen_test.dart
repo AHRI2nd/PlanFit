@@ -337,6 +337,99 @@ void main() {
     },
   );
 
+  group("the 오늘 feed's order", () {
+    // The same grouping the cross-day lists use — pinned, then overdue,
+    // then the rest by time — but over one day's events and to-dos
+    // together. Both of this card's providers are already scoped to today,
+    // so the rule only reorders within today; nothing from another date can
+    // be lifted in.
+    final today = DateTime(2026, 3, 10);
+    final now = today.add(const Duration(hours: 12));
+
+    TodoRow feedTodo(
+      String title, {
+      required int hour,
+      bool pinned = false,
+      bool hasTime = true,
+    }) => TodoRow(
+      id: title,
+      eventId: null,
+      title: title,
+      slotStart: today.add(Duration(hours: hour)),
+      slotEnd: null,
+      hasTime: hasTime,
+      isDone: false,
+      sortOrder: 0,
+      priority: 0,
+      tags: null,
+      notify: false,
+      isPinned: pinned,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
+      createdAt: today,
+    );
+
+    /// Vertical positions of [titles] as rendered, so a test can assert the
+    /// order without depending on how the rows are built.
+    List<double> tops(WidgetTester tester, List<String> titles) => [
+      for (final t in titles) tester.getTopLeft(find.text(t)).dy,
+    ];
+
+    testWidgets('a pinned to-do leads, then an overdue one, then the rest '
+        'by time', (tester) async {
+      when(todos.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          feedTodo('rest-late', hour: 20),
+          feedTodo('overdue', hour: 9),
+          feedTodo('pinned', hour: 23, pinned: true),
+          feedTodo('rest-early', hour: 14),
+        ]),
+      );
+
+      await pumpHome(tester, now: now);
+
+      final ys = tops(tester, ['pinned', 'overdue', 'rest-early', 'rest-late']);
+      expect(ys, orderedEquals(<double>[...ys]..sort()));
+    });
+
+    testWidgets('an event sorts among the rest on its start time, since it '
+        'is neither pinnable nor overdue — an overdue to-do still leads it '
+        'even though the event starts earlier', (tester) async {
+      when(
+        todos.watchBetween(any, any),
+      ).thenAnswer((_) => Stream.value([feedTodo('overdue-todo', hour: 11)]));
+      when(events.watchBetween(any, any)).thenAnswer(
+        (_) => Stream.value([
+          EventRow(
+            id: 'e1',
+            title: 'Later meeting',
+            memo: null,
+            startAt: today.add(const Duration(hours: 15)),
+            endAt: today.add(const Duration(hours: 16)),
+            isAllDay: false,
+            notify: false,
+            reminderMinutesBefore: 0,
+            colorTag: null,
+            recurrenceRule: null,
+            recurrenceGroupId: null,
+            osCalendarId: null,
+            osEventId: null,
+            osLastKnownModified: null,
+            syncStatus: SyncStatus.pendingPush,
+            createdAt: today,
+            updatedAt: today,
+          ),
+        ]),
+      );
+
+      await pumpHome(tester, now: now);
+
+      final ys = tops(tester, ['overdue-todo', 'Later meeting']);
+      expect(ys.first, lessThan(ys.last));
+    });
+  });
+
   testWidgets(
     "renders today's to-do title once data arrives, interleaved with events",
     (tester) async {
@@ -664,48 +757,47 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a firm drag down with the tune options panel open stops at the '
-    "options-open height and leaves the panel open — the sheet's floor is "
-    'raised by exactly the panel\'s own height while it is open, because '
-    "the panel renders inside the sheet's own scroll view: let the sheet "
-    'shrink to its options-closed height and the panel ends up below the '
-    "sheet's bottom edge, behind the floating tab bar (the original bug). "
-    'An earlier fix instead force-closed the panel to let the sheet keep '
-    'shrinking, which threw away the state the user had just opened',
-    (tester) async {
-      await pumpHome(tester);
+  testWidgets('a firm drag down with the tune options panel open stops at the '
+      "options-open height and leaves the panel open — the sheet's floor is "
+      'raised by exactly the panel\'s own height while it is open, because '
+      "the panel renders inside the sheet's own scroll view: let the sheet "
+      'shrink to its options-closed height and the panel ends up below the '
+      "sheet's bottom edge, behind the floating tab bar (the original bug). "
+      'An earlier fix instead force-closed the panel to let the sheet keep '
+      'shrinking, which threw away the state the user had just opened', (
+    tester,
+  ) async {
+    await pumpHome(tester);
 
-      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
-      final collapsedHeight = tester.getSize(surface).height;
+    final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+    final collapsedHeight = tester.getSize(surface).height;
 
-      await tester.tap(find.byIcon(Icons.tune));
-      await tester.pumpAndSettle();
-      final optionsOpenHeight = tester.getSize(surface).height;
-      expect(optionsOpenHeight, greaterThan(collapsedHeight));
-      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.tune));
+    await tester.pumpAndSettle();
+    final optionsOpenHeight = tester.getSize(surface).height;
+    expect(optionsOpenHeight, greaterThan(collapsedHeight));
+    expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
 
-      // A firm drag down on the header — more than enough to have driven
-      // the sheet to its options-closed floor, were that still the floor.
-      await tester.drag(find.text('할 일 추가'), const Offset(0, 300));
-      await tester.pumpAndSettle();
+    // A firm drag down on the header — more than enough to have driven
+    // the sheet to its options-closed floor, were that still the floor.
+    await tester.drag(find.text('할 일 추가'), const Offset(0, 300));
+    await tester.pumpAndSettle();
 
-      expect(
-        tester.getSize(surface).height,
-        moreOrLessEquals(optionsOpenHeight, epsilon: 1),
-      );
-      expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
+    expect(
+      tester.getSize(surface).height,
+      moreOrLessEquals(optionsOpenHeight, epsilon: 1),
+    );
+    expect(find.byIcon(Icons.repeat_rounded), findsOneWidget);
 
-      // And the floor drops back once the panel is closed by its own
-      // toggle — the only thing that should ever close it.
-      await tester.tap(find.byIcon(Icons.expand_less));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getSize(surface).height,
-        moreOrLessEquals(collapsedHeight, epsilon: 1),
-      );
-    },
-  );
+    // And the floor drops back once the panel is closed by its own
+    // toggle — the only thing that should ever close it.
+    await tester.tap(find.byIcon(Icons.expand_less));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(surface).height,
+      moreOrLessEquals(collapsedHeight, epsilon: 1),
+    );
+  });
 
   testWidgets(
     'a re-measure that happens while the tune options panel is open does '

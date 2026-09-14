@@ -28,12 +28,24 @@ import 'todo_overdue.dart';
 /// duplicated per query, and "overdue" depends on the current time rather
 /// than on a column. One pure function over the assembled list keeps the
 /// rule in one readable place.
+/// The group [todo] sorts into — lower first. Pulled out of
+/// [orderCrossDayTodos] so the home screen's "오늘" feed, which interleaves
+/// events with to-dos and so can't take a `List<TodoRow>`, ranks its to-dos
+/// by exactly the same rule instead of a copy of it.
+int todoOrderRank(TodoRow todo, DateTime now) {
+  if (todo.isPinned) return 0;
+  if (isTodoOverdue(todo, now)) return 1;
+  return todoOrderRankRest;
+}
+
+/// The rank of everything that is neither pinned nor overdue — and of
+/// anything that isn't a to-do at all, which is how an event enters the
+/// "오늘" feed's ordering: it has neither property to be ranked on, so it
+/// sorts purely by its own start time among the rest.
+const int todoOrderRankRest = 2;
+
 List<TodoRow> orderCrossDayTodos(List<TodoRow> todos, {required DateTime now}) {
-  int rank(TodoRow t) {
-    if (t.isPinned) return 0;
-    if (isTodoOverdue(t, now)) return 1;
-    return 2;
-  }
+  int rank(TodoRow t) => todoOrderRank(t, now);
 
   // Decorated with the original index so the sort is stable: `List.sort` is
   // not, and two to-dos sharing a rank and a slot time (a whole day's
