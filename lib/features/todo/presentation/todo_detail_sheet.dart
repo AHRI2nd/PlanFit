@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
+import '../../../design/glass/glass_nav_bar.dart' show navBarVisibleHeight;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -375,29 +376,30 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
             ),
             Flexible(
               child: SingleChildScrollView(
-                // The keyboard inset, which this sheet has to add back
-                // itself: showAdaptiveBottomSheet's isScrollControlled:
-                // true bypasses Flutter's automatic viewInsets padding
-                // (bottom_sheet.dart never references viewInsets at all),
-                // so without this the tags/subtask fields sit behind the
-                // keyboard. Plus one ordinary gap, so the last field isn't
-                // flush against the sheet's own edge.
+                // Reserves the *visible* bar — the glass pill and the
+                // gap above it — not navBarControlClearance's whole widget
+                // footprint. The sheet's surface runs under the bar on
+                // purpose: that is what the bar's glass blurs, and why it
+                // reads white instead of picking the scrim up and turning
+                // grey. So what the content has to clear is only as far up
+                // as the pill. Reserving the full footprint, and stacking
+                // the home-indicator inset and a large gap on top of it,
+                // is what left a visible band of empty surface above the
+                // bar.
                 //
-                // No nav-bar clearance on top of that, which this used to
-                // add as well. The sheet is wrapped in a SafeArea and ends
-                // above the floating tab bar on its own — the clearance
-                // bought nothing and spent its whole height on blank space
-                // under the add-subtask field, reported twice as the sheet
-                // being abnormally tall. What keeps that field reachable
-                // is now asserted directly, against a host with a real bar
-                // in it, rather than by pinning this number.
+                // The keyboard inset is added because
+                // showAdaptiveBottomSheet's isScrollControlled: true
+                // bypasses Flutter's automatic viewInsets padding
+                // (bottom_sheet.dart never references viewInsets at all),
+                // so without it the tags/subtask fields sit behind the
+                // keyboard.
                 padding: EdgeInsets.fromLTRB(
                   AppSpacing.gutter,
                   0,
                   AppSpacing.gutter,
                   MediaQuery.of(context).viewInsets.bottom +
-                      MediaQuery.paddingOf(context).bottom +
-                      AppSpacing.lg,
+                      navBarVisibleHeight(context) +
+                      AppSpacing.sm,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -26,15 +26,6 @@ Future<T?> showAdaptiveBottomSheet<T>({
   final isTablet = MediaQuery.sizeOf(context).width >= kSheetTabletBreakpoint;
   return showModalBottomSheet<T>(
     context: context,
-    // Above the floating tab bar, not under it. AppShell draws that bar
-    // over its body, so a sheet pushed on the branch navigator came out
-    // underneath: the bar stayed on top of the sheet, tinting itself off
-    // whatever was behind it — reported as the bar turning grey the moment
-    // a sheet opened — and intercepting touches meant for whatever sat in
-    // the sheet's last rows. Every sheet here is a modal the rest of the
-    // app is inert behind anyway, so covering the bar is also what the
-    // platform's own sheets do.
-    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: backgroundColor,
     showDragHandle: showDragHandle,

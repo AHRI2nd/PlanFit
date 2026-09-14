@@ -561,10 +561,10 @@ void main() {
   });
 
   testWidgets(
-    'the sheet covers the floating tab bar rather than stopping above it, '
-    'so nothing is drawn over its last field — the bar is glass and would '
-    'otherwise both tint itself from whatever is behind it and swallow the '
-    'touches meant for that field',
+    "the sheet's surface runs all the way under the floating tab bar, "
+    'which is what the bar\'s glass blurs: stopping short leaves the modal '
+    'scrim behind the glass instead and the bar tints itself grey the '
+    'moment a sheet opens',
     (tester) async {
       late double barHeight;
       final prefs = await SharedPreferences.getInstance();
@@ -591,7 +591,10 @@ void main() {
               extendBody: true,
               bottomNavigationBar: Builder(
                 builder: (context) {
-                  barHeight = navBarControlClearance(context);
+                  // The pill's own height, which is what the content has
+                  // to clear — not the bar widget's whole footprint, which
+                  // the sheet deliberately runs under.
+                  barHeight = navBarVisibleHeight(context);
                   return SizedBox(
                     height: barHeight,
                     child: const ColoredBox(color: Color(0xFF000000)),
@@ -617,11 +620,23 @@ void main() {
       expect(
         tester.getRect(find.byType(SingleChildScrollView)).bottom,
         screenHeight,
-        reason:
-            'stopping short of the bottom is what left the bar visible '
-            'below the sheet, tinting itself grey off the scrim behind it',
+        reason: 'anything less puts scrim, not sheet, behind the glass',
       );
-      expect(barHeight, greaterThan(0), reason: 'the host really had a bar');
+
+      // ...while the *content* still stops above the bar's visible pill, so
+      // the last field isn't under it. Scrolled to the end first: an
+      // unscrolled field is laid out below the viewport, where getRect
+      // reports a position that says nothing about what covers it.
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -2000),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(TextField).last).bottom,
+        lessThanOrEqualTo(screenHeight - barHeight),
+        reason: 'the add-subtask field must clear the pill',
+      );
     },
   );
 
