@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +9,9 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 
 import '../../core/clock.dart';
 import '../../design/glass/glass_nav_bar.dart';
+import '../../design/glass/glass_surface.dart' show ProgressiveBlur;
 import '../../design/tokens/app_colors.dart';
+import '../../design/tokens/app_spacing.dart' show AppBlur;
 import '../../l10n/app_localizations.dart';
 import '../schedule/application/schedule_providers.dart';
 import '../todo/application/todo_providers.dart';
@@ -99,7 +101,7 @@ class AppShell extends ConsumerWidget {
       extendBody: true,
       body: navigationShell,
       bottomNavigationBar: _useNativeLiquidGlass
-          ? _IosGlassTabBar(
+          ? IosGlassTabBar(
               items: items,
               currentIndex: navigationShell.currentIndex,
               accent: accent,
@@ -116,9 +118,29 @@ class AppShell extends ConsumerWidget {
 }
 
 /// Wraps [GlassTabBar.bottom] with our [GlassNavItem] model so [AppShell]
-/// doesn't need two separate item lists.
-class _IosGlassTabBar extends StatelessWidget {
-  const _IosGlassTabBar({
+/// doesn't need two separate item lists, and adds the full-width backdrop
+/// blur ramp behind it.
+///
+/// The blur has to live here rather than come from the package:
+/// [GlassTabBar.bottom] exposes no blur parameter at all — its own
+/// back-blur is hardcoded to `blur: 3` internally (documented there as a
+/// "subtle frosted back-blur"), which is close enough to nothing that
+/// content scrolling under the bar stayed fully sharp on device. Every
+/// blur change made for Android went into [GlassNavBar], which iOS never
+/// builds, so iOS had no blur on any tab. Same [ProgressiveBlur] and same
+/// Stack shape as [GlassNavBar] uses, so both platforms share one
+/// top-to-bottom ramp; only the strength differs (heavier on iOS, where
+/// the glass pill itself is more transparent than our Android surface).
+///
+/// Public (rather than library-private like the rest of this file's helpers)
+/// only so a widget test can pump it directly: [AppShell] picks between this
+/// and [GlassNavBar] on `Platform.isIOS`, which flutter_test can't flip, so
+/// an iOS-only rendering regression is otherwise invisible to the suite —
+/// exactly how the missing blur above went unnoticed for several commits.
+@visibleForTesting
+class IosGlassTabBar extends StatelessWidget {
+  const IosGlassTabBar({
+    super.key,
     required this.items,
     required this.currentIndex,
     required this.accent,
@@ -133,7 +155,36 @@ class _IosGlassTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
+    return Stack(
+      children: [
+        Positioned(
+          // Starts at the *pill's* own top edge, not the widget's.
+          // GlassTabBar.bottom lays its pill out as a `barHeight`-tall box
+          // inside `EdgeInsets.symmetric(vertical: verticalPadding)`, so the
+          // widget this Stack is sized by stands [_barVerticalPadding]
+          // taller than anything visible. Filling the Stack instead started
+          // the ramp that far above the bar, blurring a strip of content
+          // sitting in plain open space above it.
+          top: _barVerticalPadding,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: IgnorePointer(child: ProgressiveBlur(maxBlur: AppBlur.heavy)),
+        ),
+        _tabBar(context, l10n),
+      ],
+    );
+  }
+
+  /// Passed to [GlassTabBar.bottom] explicitly rather than left to its own
+  /// identical default, because the blur above has to know it — a package
+  /// default that drifted in an upgrade would silently pull the ramp's top
+  /// edge off the pill's.
+  static const double _barVerticalPadding = 20;
+
+  Widget _tabBar(BuildContext context, AppL10n l10n) {
     return GlassTabBar.bottom(
+      verticalPadding: _barVerticalPadding,
       tabs: [
         for (final item in items)
           GlassTab(

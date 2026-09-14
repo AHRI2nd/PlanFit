@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../tokens/app_colors.dart';
@@ -67,8 +64,6 @@ class GlassNavBar extends StatelessWidget {
   /// The current time-of-day accent, driving the selected lozenge.
   final Color accent;
 
-  bool get _isApplePlatform => !kIsWeb && Platform.isIOS;
-
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -82,12 +77,13 @@ class GlassNavBar extends StatelessWidget {
         // A blur scoped to the pill alone left a sharp, un-blurred strip
         // on either side of it at the exact same height, which read as
         // the bar's "blur zone" not actually reaching its own edges.
+        //
+        // Not platform-branched: [AppShell] only ever builds this bar off
+        // iOS (iOS gets `_IosGlassTabBar`, which carries its own copy of
+        // this ramp at a heavier sigma), so a `Platform.isIOS ? heavy :
+        // regular` here could never pick `heavy`.
         Positioned.fill(
-          child: IgnorePointer(
-            child: ProgressiveBlur(
-              maxBlur: _isApplePlatform ? AppBlur.heavy : AppBlur.regular,
-            ),
-          ),
+          child: IgnorePointer(child: ProgressiveBlur(maxBlur: AppBlur.regular)),
         ),
         Padding(
           // The `* 0.0` this used to carry made the pill's bottom clearance

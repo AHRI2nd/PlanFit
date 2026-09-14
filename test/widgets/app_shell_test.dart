@@ -10,6 +10,7 @@ import 'package:planfit/core/notifications/notification_service.dart';
 import 'package:planfit/core/onboarding_prefs.dart';
 import 'package:planfit/core/routing/app_router.dart';
 import 'package:planfit/design/glass/glass_nav_bar.dart';
+import 'package:planfit/design/glass/glass_surface.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/shell/app_shell.dart';
@@ -152,6 +153,138 @@ void main() {
       );
     },
   );
+
+  group('nav bar backdrop blur', () {
+    // Both platforms' bars have to carry their own full-width ProgressiveBlur
+    // — neither gets one from anywhere else. iOS's GlassTabBar.bottom offers
+    // no blur parameter at all (hardcoded `blur: 3` internally, visually
+    // indistinguishable from none), and GlassNavBar's pill is drawn with
+    // `blur: 0` precisely because the ramp behind it is meant to do that
+    // work. The regression this guards is a one-platform fix: every blur
+    // change for months landed on GlassNavBar alone, and since
+    // `AppShell` picks between the two on `Platform.isIOS` — which
+    // flutter_test can't flip — nothing in the suite noticed iOS had no
+    // blur on any tab. Hence pumping each bar directly.
+    const items = [
+      GlassNavItem(
+        icon: Icons.wb_twilight_outlined,
+        activeIcon: Icons.wb_twilight,
+        label: '홈',
+      ),
+      GlassNavItem(
+        icon: Icons.calendar_today_outlined,
+        activeIcon: Icons.calendar_today,
+        label: '시간표',
+      ),
+    ];
+
+    Future<void> pumpBar(WidgetTester tester, Widget bar) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          locale: const Locale('ko'),
+          localizationsDelegates: const [
+            AppL10n.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppL10n.supportedLocales,
+          home: Scaffold(extendBody: true, bottomNavigationBar: bar),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    void expectFullWidthBlur(WidgetTester tester, Type barType) {
+      final blur = find.descendant(
+        of: find.byType(barType),
+        matching: find.byType(ProgressiveBlur),
+      );
+      expect(
+        blur,
+        findsOneWidget,
+        reason: '$barType must draw its own backdrop blur ramp',
+      );
+      expect(tester.widget<ProgressiveBlur>(blur).maxBlur, greaterThan(0));
+      // Full bar width, not just the pill's: content sliding past the pill's
+      // own side margins has to read as blurred too.
+      expect(
+        tester.getSize(blur).width,
+        tester.getSize(find.byType(barType)).width,
+      );
+      // ...and all the way down to the screen's own bottom edge.
+      expect(
+        tester.getRect(blur).bottom,
+        tester.getRect(find.byType(barType)).bottom,
+      );
+    }
+
+    testWidgets('the iOS Liquid Glass tab bar draws one across its full '
+        'width', (tester) async {
+      await pumpBar(
+        tester,
+        IosGlassTabBar(
+          items: items,
+          currentIndex: 0,
+          accent: Colors.blue,
+          onTap: (_) {},
+        ),
+      );
+
+      expectFullWidthBlur(tester, IosGlassTabBar);
+
+      // The ramp starts at the *pill's* top edge, not the widget's.
+      // GlassTabBar.bottom pads its pill vertically, so the widget stands
+      // taller than anything visible; a blur filling the whole widget
+      // blurred a strip of content sitting in open space above the bar.
+      final bar = tester.getRect(find.byType(IosGlassTabBar));
+      final blur = tester.getRect(
+        find.descendant(
+          of: find.byType(IosGlassTabBar),
+          matching: find.byType(ProgressiveBlur),
+        ),
+      );
+      expect(
+        blur.top,
+        greaterThan(bar.top),
+        reason: 'the ramp must not reach above the visible pill',
+      );
+      // Pinned to where the package actually lays the pill out — the
+      // `barHeight`-tall box inside its own vertical padding — rather than to
+      // our copy of that padding value, so the two drifting apart fails here.
+      final pill = find.descendant(
+        of: find.byType(IosGlassTabBar),
+        matching: find.byWidgetPredicate(
+          (w) => w is SizedBox && w.height == 64 && w.width == null,
+        ),
+      );
+      // The package nests a second box of the same height inside the outer
+      // one; `.first` is the outer, and they share an edge either way.
+      expect(pill, findsWidgets);
+      expect(
+        blur.top,
+        moreOrLessEquals(tester.getRect(pill.first).top, epsilon: 1),
+      );
+    });
+
+    testWidgets('the non-iOS nav bar draws one across its full width', (
+      tester,
+    ) async {
+      await pumpBar(
+        tester,
+        GlassNavBar(
+          items: items,
+          currentIndex: 0,
+          accent: Colors.blue,
+          onTap: (_) {},
+        ),
+      );
+
+      expectFullWidthBlur(tester, GlassNavBar);
+    });
+
+  });
 
   group('iosTabSemanticLabel', () {
     // liquid_glass_widgets' GlassTab wraps its icon (which carries the
