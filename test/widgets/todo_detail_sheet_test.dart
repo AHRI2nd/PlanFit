@@ -561,14 +561,11 @@ void main() {
   });
 
   testWidgets(
-    "the add-subtask field — this column's last element — stays clear of "
-    "AppShell's floating tab bar, which is drawn over the sheet rather "
-    'than above it, so a field under it is not merely hidden but '
-    'untappable: the bar consumes the touch',
+    'the sheet covers the floating tab bar rather than stopping above it, '
+    'so nothing is drawn over its last field — the bar is glass and would '
+    'otherwise both tint itself from whatever is behind it and swallow the '
+    'touches meant for that field',
     (tester) async {
-      // The bar is exactly as tall as what the sheet reserves for it, so
-      // this asserts the product's own contract rather than an arbitrary
-      // number that could pass or fail for reasons of its own.
       late double barHeight;
       final prefs = await SharedPreferences.getInstance();
       await tester.pumpWidget(
@@ -587,12 +584,9 @@ void main() {
               GlobalCupertinoLocalizations.delegate,
             ],
             supportedLocales: AppL10n.supportedLocales,
-            // Mirrors AppShell: extendBody so the bar floats over the body
-            // (and so over anything pushed inside it) instead of reserving
-            // space for it. Asserting the padding's own number instead —
-            // which is what this test used to do — passes just as happily
-            // when the number is doing nothing, which is how it came to be
-            // spending its whole height on blank space.
+            // Mirrors AppShell: extendBody so the bar floats over the body.
+            // The sheet goes to the root navigator, above this Scaffold
+            // entirely, which is what lets it cover the bar.
             home: Scaffold(
               extendBody: true,
               bottomNavigationBar: Builder(
@@ -619,17 +613,15 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      // The sheet's own scrollable region, not its last field: the field is
-      // laid out inside a scroll view and `getRect` happily reports a
-      // position below the viewport for one that hasn't been scrolled to,
-      // which says nothing about whether the bar covers it. If the region
-      // itself ends above the bar, everything inside it does.
       final screenHeight = tester.getSize(find.byType(MaterialApp)).height;
       expect(
         tester.getRect(find.byType(SingleChildScrollView)).bottom,
-        lessThanOrEqualTo(screenHeight - barHeight),
-        reason: "the sheet must end above where the bar begins",
+        screenHeight,
+        reason:
+            'stopping short of the bottom is what left the bar visible '
+            'below the sheet, tinting itself grey off the scrim behind it',
       );
+      expect(barHeight, greaterThan(0), reason: 'the host really had a bar');
     },
   );
 
