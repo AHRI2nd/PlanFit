@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -54,11 +55,31 @@ const double kIosNavBarVerticalPadding = 20;
 /// ranges from 0 on an old hardware-back device to ~48 with the classic
 /// three-button bar.
 ///
-double navBarClearance(BuildContext context) => useNativeLiquidGlassNavBar
-    ? kIosNavBarVerticalPadding * 2 + kNavBarPillHeight
-    : kNavBarPillHeight +
-          AppSpacing.sm +
-          MediaQuery.viewPaddingOf(context).bottom;
+/// That inset is read off the [FlutterView] rather than from this context's
+/// [MediaQuery], because the two disagree at exactly the call sites that
+/// matter. This is called from inside a screen's *body*, but it describes a
+/// bar that lives in the Scaffold's `bottomNavigationBar` slot — and
+/// `Scaffold` runs its body through `MediaQuery.removePadding`, which zeroes
+/// `viewPadding.bottom` there. So a body-side `MediaQuery.viewPaddingOf`
+/// reports 0 however the device is actually navigated, while [GlassNavBar]
+/// in the bar slot reads the real value and sizes itself with it — leaving
+/// every list short by exactly the inset. Caught on an Android emulator with
+/// gesture navigation as the settings list's last card still crossing under
+/// the bar despite "full" clearance: 76 reserved against a bar 100 tall.
+double navBarClearance(BuildContext context) {
+  if (useNativeLiquidGlassNavBar) {
+    return kIosNavBarVerticalPadding * 2 + kNavBarPillHeight;
+  }
+  final view = View.of(context);
+  final inset = math.max(
+    // Whichever context this is called from, one of these two is the real
+    // inset: the view's own value survives Scaffold's removePadding, and
+    // the MediaQuery read keeps this rebuilding when the metrics change.
+    MediaQuery.viewPaddingOf(context).bottom,
+    view.viewPadding.bottom / view.devicePixelRatio,
+  );
+  return kNavBarPillHeight + AppSpacing.sm + inset;
+}
 
 /// A single destination in the [GlassNavBar].
 class GlassNavItem {
