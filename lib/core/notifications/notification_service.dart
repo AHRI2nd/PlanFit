@@ -350,6 +350,35 @@ class NotificationService implements NotificationPort {
   /// in the row's own `reminderOffsets`.
   static const List<int> reminderOffsetOptions = [0, 5, 10, 30, 60, 1440];
 
+  /// How many event alerts [refillEvents] will hold pending at once.
+  ///
+  /// iOS caps an app at 64 pending local notifications and silently drops
+  /// whatever doesn't fit, which [notificationSchedulingWindow] alone does
+  /// *not* prevent: that window bounds how far ahead alerts are scheduled,
+  /// not how many land inside it. Recurrence is materialized one row per
+  /// occurrence, and every row schedules one alert per selected offset from
+  /// [reminderOffsetOptions] — so a single daily event with two reminders
+  /// is already 120 pending alerts across a 60-day window, before any
+  /// to-dos.
+  ///
+  /// Left unbounded, the overflow doesn't just get dropped once. A dropped
+  /// alert never comes back in `pendingNotificationRequests()`, so
+  /// [refillEvents]'s "already correctly scheduled" check reads it as
+  /// missing and re-issues it — on every single foreground resume, forever,
+  /// for an alert the OS will drop again every time. Capping what we ask
+  /// for both stops that churn and puts the app, rather than the OS, in
+  /// charge of which alerts survive: soonest first, since a reminder for
+  /// next week matters more than one for next month that a later refill
+  /// will pick up anyway.
+  ///
+  /// Split with [TodoController.refillNotifications]'s own budget rather
+  /// than shared, so neither surface can starve the other — the two refill
+  /// independently, on separate passes, with no visibility into what the
+  /// other just scheduled. The two together stay under 64 with headroom for
+  /// the handful of non-refill alerts (a snooze re-post, a just-saved
+  /// event) that can be scheduled between passes.
+  static const int maxPendingEventAlerts = 40;
+
   /// A ~2.1 billion-value hash of the event's uuid and which reminder
   /// offset this is. Used to be the *only* id scheme (see git history) —
   /// with enough distinct ids in play (every event a long-lived install has
@@ -543,18 +572,51 @@ class NotificationService implements NotificationPort {
       }
     }
 
-    final toApply = <Future<void>>[];
+    // Every (event, offset) slot this pass could touch, split into the ones
+    // that want an alert and the ones that want their id cleared. Collected
+    // first rather than applied inline so the wanted ones can be ranked
+    // against each other before anything is sent to the plugin — see
+    // [maxPendingEventAlerts] for why asking for all of them is worse than
+    // asking for the soonest few.
+    final wanted = <({int id, DateTime alertAt, EventRow event})>[];
+    final unwanted = <({int id, EventRow event})>[];
     for (final event in events) {
       for (final offset in reminderOffsetOptions) {
         final (:id, :alertAt) = _decideEvent(event, offset, now);
-        final alreadyCorrect = alertAt == null
-            ? !pendingAlertById.containsKey(id)
-            : pendingAlertById[id] == alertAt;
-        if (alreadyCorrect) continue;
-        toApply.add(
-          _applyEvent(id: id, alertAt: alertAt, event: event, mode: mode),
-        );
+        if (alertAt == null) {
+          unwanted.add((id: id, event: event));
+        } else {
+          wanted.add((id: id, alertAt: alertAt, event: event));
+        }
       }
+    }
+    wanted.sort((a, b) => a.alertAt.compareTo(b.alertAt));
+
+    final toApply = <Future<void>>[];
+    for (final (index, slot) in wanted.indexed) {
+      // Past the budget this stops being a request and becomes a cancel:
+      // the slot may well be pending from an earlier pass that had room for
+      // it, and leaving it there would spend one of the very slots this cap
+      // exists to protect.
+      final alertAt = index < maxPendingEventAlerts ? slot.alertAt : null;
+      final alreadyCorrect = alertAt == null
+          ? !pendingAlertById.containsKey(slot.id)
+          : pendingAlertById[slot.id] == alertAt;
+      if (alreadyCorrect) continue;
+      toApply.add(
+        _applyEvent(
+          id: slot.id,
+          alertAt: alertAt,
+          event: slot.event,
+          mode: mode,
+        ),
+      );
+    }
+    for (final slot in unwanted) {
+      if (!pendingAlertById.containsKey(slot.id)) continue;
+      toApply.add(
+        _applyEvent(id: slot.id, alertAt: null, event: slot.event, mode: mode),
+      );
     }
     await Future.wait(toApply);
   }

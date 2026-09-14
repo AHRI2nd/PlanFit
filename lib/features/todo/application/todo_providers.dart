@@ -438,6 +438,19 @@ class TodoController {
   /// `CalendarReconciler._maxLeadTime`.
   static const _maxLeadTime = Duration(days: 1);
 
+  /// How many to-do alerts [refillNotifications] will hold pending at once.
+  ///
+  /// The to-do half of the same iOS 64-pending-notification budget
+  /// [NotificationService.maxPendingEventAlerts] documents — see there for
+  /// why a time window alone doesn't bound the count, and why overflow is
+  /// worse than a cap (a dropped alert is re-requested on every resume and
+  /// dropped again every time).
+  ///
+  /// Smaller than the event budget because a to-do carries a single due
+  /// time rather than a whole recurring series' worth of rows, so the same
+  /// number of slots covers considerably more of a realistic backlog.
+  static const int maxPendingTodoAlerts = 20;
+
   /// (Re)schedules due-time alerts for to-dos whose slot has rolled inside
   /// [notificationSchedulingWindow] since they were last synced — the to-do
   /// equivalent of `CalendarReconciler`'s event-notification refill.
@@ -464,13 +477,29 @@ class TodoController {
     final now = DateTime.now();
     final windowEnd = now.add(notificationSchedulingWindow);
     final candidates = await dao.between(now, windowEnd.add(_maxLeadTime));
-    for (final row in candidates) {
-      if (!row.notify || !row.hasTime || row.isDone) continue;
+    // Soonest first, then capped — see [maxPendingTodoAlerts]. Sorted here
+    // rather than relying on the DAO's own order so the ranking this cap
+    // depends on can't change out from under it if that query's ordering
+    // ever does.
+    final eligible =
+        [
+          for (final row in candidates)
+            if (row.notify && row.hasTime && !row.isDone) row,
+        ]..sort((a, b) => a.slotStart.compareTo(b.slotStart));
+
+    for (final row in eligible.take(maxPendingTodoAlerts)) {
       final live = await dao.findById(row.id);
       if (live == null || !live.notify || !live.hasTime || live.isDone) {
         continue;
       }
       await notifications.scheduleForTodo(live);
+    }
+    // Anything past the cap must be actively cleared, not just skipped: an
+    // earlier pass (fewer to-dos in the window, or this one further out)
+    // may well have scheduled it, and leaving it pending spends one of the
+    // slots the cap exists to protect.
+    for (final row in eligible.skip(maxPendingTodoAlerts)) {
+      await notifications.cancelForTodo(row.id);
     }
   }
 
