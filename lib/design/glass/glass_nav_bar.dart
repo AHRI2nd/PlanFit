@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../tokens/app_colors.dart';
@@ -64,75 +67,94 @@ class GlassNavBar extends StatelessWidget {
   /// The current time-of-day accent, driving the selected lozenge.
   final Color accent;
 
+  bool get _isApplePlatform => !kIsWeb && Platform.isIOS;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Padding(
-      // The `* 0.0` this used to carry made the pill's bottom clearance a
-      // flat AppSpacing.sm regardless of the device's own gesture-nav inset
-      // — dead code since the very first commit, not a later regression.
-      // Scaffold's bottomNavigationBar slot doesn't strip that inset from
-      // MediaQuery (unlike its body slot with extendBody: true), so it's
-      // there to read; adding it back lifts the floating pill clear of a
-      // gesture-navigation bar on Android instead of sitting flush against
-      // it.
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.gutter,
-        0,
-        AppSpacing.gutter,
-        AppSpacing.sm + MediaQuery.viewPaddingOf(context).bottom,
-      ),
-      // GlassSurface's own default rim already draws a border, but it's
-      // palette.glassBorder — tuned to read as a subtle glass edge, not to
-      // separate this bar from the content scrolling underneath it. One
-      // plain black outline around the whole pill (not one per button —
-      // the individual tap targets are wide enough already, and a border
-      // is around the tune buttons too) gives it a clear edge.
-      //
-      // `position: foreground` matters here: DecoratedBox paints its
-      // decoration *behind* the child by default, and GlassSurface's own
-      // blurred, tinted fill is fully opaque-looking across its whole
-      // bounds — it painted right over a background-positioned border,
-      // hiding it completely (confirmed by sampling the rendered pixels:
-      // no border color anywhere along the pill's edge). Foreground paints
-      // this border after GlassSurface, on top of it, so it's actually
-      // visible tracing the exact shape of the blurred area underneath.
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.allPill,
-          border: Border.all(color: Colors.black.withValues(alpha: 0.35)),
-        ),
-        child: GlassSurface(
-          borderRadius: AppRadius.allPill,
-          tint: palette.glassTint,
-          // The bar's whole point is marking the boundary between content
-          // and chrome — a flat blur reads as one uniform pane sitting on
-          // top, where a blur that's barely there at the top edge and
-          // fully frosted by the bottom reads instead as the content
-          // itself fading into the bar, the same "frosted edge" any native
-          // floating bottom bar uses.
-          verticalBlurGradient: true,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xs,
-            vertical: AppSpacing.xs,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (var i = 0; i < items.length; i++)
-                Expanded(
-                  child: _NavButton(
-                    item: items[i],
-                    selected: i == currentIndex,
-                    accent: accent,
-                    onTap: () => onTap(i),
-                  ),
-                ),
-            ],
+    return Stack(
+      children: [
+        // Behind everything, full width: the same top-to-bottom blur ramp
+        // GlassSurface.verticalBlurGradient draws, but unclipped by the
+        // pill's own rounded shape — content sliding past the pill's own
+        // side margins (or below its rounded corners) reads as blurred
+        // too, not just whatever's directly behind the glass pill itself.
+        // A blur scoped to the pill alone left a sharp, un-blurred strip
+        // on either side of it at the exact same height, which read as
+        // the bar's "blur zone" not actually reaching its own edges.
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ProgressiveBlur(
+              maxBlur: _isApplePlatform ? AppBlur.heavy : AppBlur.regular,
+            ),
           ),
         ),
-      ),
+        Padding(
+          // The `* 0.0` this used to carry made the pill's bottom clearance
+          // a flat AppSpacing.sm regardless of the device's own gesture-nav
+          // inset — dead code since the very first commit, not a later
+          // regression. Scaffold's bottomNavigationBar slot doesn't strip
+          // that inset from MediaQuery (unlike its body slot with
+          // extendBody: true), so it's there to read; adding it back lifts
+          // the floating pill clear of a gesture-navigation bar on Android
+          // instead of sitting flush against it.
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            0,
+            AppSpacing.gutter,
+            AppSpacing.sm + MediaQuery.viewPaddingOf(context).bottom,
+          ),
+          // GlassSurface's own default rim already draws a border, but it's
+          // palette.glassBorder — tuned to read as a subtle glass edge, not to
+          // separate this bar from the content scrolling underneath it. One
+          // plain black outline around the whole pill (not one per button —
+          // the individual tap targets are wide enough already, and a border
+          // is around the tune buttons too) gives it a clear edge.
+          //
+          // `position: foreground` matters here: DecoratedBox paints its
+          // decoration *behind* the child by default, and GlassSurface's own
+          // blurred, tinted fill is fully opaque-looking across its whole
+          // bounds — it painted right over a background-positioned border,
+          // hiding it completely (confirmed by sampling the rendered pixels:
+          // no border color anywhere along the pill's edge). Foreground paints
+          // this border after GlassSurface, on top of it, so it's actually
+          // visible tracing the exact shape of the blurred area underneath.
+          child: DecoratedBox(
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.allPill,
+              border: Border.all(color: Colors.black.withValues(alpha: 0.35)),
+            ),
+            child: GlassSurface(
+              borderRadius: AppRadius.allPill,
+              tint: palette.glassTint,
+              // No blur of its own — the full-width ProgressiveBlur behind
+              // this whole Stack already blurs everything behind the bar,
+              // pill included, so this surface only needs to add its own
+              // tint/border/highlight glass look on top of that.
+              blur: 0,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xs,
+                vertical: AppSpacing.xs,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  for (var i = 0; i < items.length; i++)
+                    Expanded(
+                      child: _NavButton(
+                        item: items[i],
+                        selected: i == currentIndex,
+                        accent: accent,
+                        onTap: () => onTap(i),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -89,7 +89,7 @@ class GlassSurface extends StatelessWidget {
       child: Stack(
         children: [
           if (verticalBlurGradient)
-            _ProgressiveBlur(maxBlur: effectiveBlur)
+            Positioned.fill(child: ProgressiveBlur(maxBlur: effectiveBlur))
           else
             Positioned.fill(
               child: BackdropFilter(
@@ -141,7 +141,11 @@ class GlassSurface extends StatelessWidget {
 }
 
 /// Approximates a blur whose strength ramps from ~0 at the top edge to
-/// [maxBlur] at the bottom, for [GlassSurface.verticalBlurGradient].
+/// [maxBlur] at the bottom — used both by [GlassSurface.verticalBlurGradient]
+/// (clipped to one rounded surface's own bounds) and, unclipped, as
+/// [GlassNavBar]'s full-width backdrop behind the pill itself, so content
+/// sliding past the pill's own left/right margins reads as blurred too,
+/// not just whatever's directly behind the glass shape.
 ///
 /// [BackdropFilter] itself has no notion of "how much" per pixel — one
 /// filter, one sigma, applied flatly across its whole bounds. The standard
@@ -160,57 +164,56 @@ class GlassSurface extends StatelessWidget {
 /// for a freshly-opened offscreen buffer is nothing, not the real page
 /// content behind the whole bar. [ClipRect] doesn't have that problem: it
 /// constrains a [BackdropFilter]'s bounds without isolating it into a new
-/// layer, which is exactly what the outermost [ClipRRect] around this whole
-/// surface already relies on.
+/// layer, which is exactly what the outermost [ClipRRect] around
+/// [GlassSurface] already relies on — and which [GlassNavBar]'s own bounds
+/// (a plain rectangle, no rounding needed) provide just as well on their own.
 ///
 /// Each layer here spans from its own start band down to the bottom edge
 /// (not a slice of just its own band), so a later, lower-starting layer
 /// paints its own additional blur on top of a region every earlier layer
 /// already blurred — compounding toward the bottom rather than replacing
 /// what came before. Successive Gaussian blurs compound roughly as
-/// `sqrt(sum of each sigma²)`, so [_layerCount] equal-strength layers all
+/// `sqrt(sum of each sigma²)`, so [layerCount] equal-strength layers all
 /// active at the bottom need each sized at `maxBlur / sqrt(layerCount)` to
 /// land back on [maxBlur] there rather than `layerCount × maxBlur`. More
 /// layers reads as a smoother ramp (fewer, larger visible steps otherwise);
 /// this keeps to a handful since each one is its own [BackdropFilter] pass
 /// and this sits on a chrome element that's on-screen for the whole
 /// session, not a one-off.
-class _ProgressiveBlur extends StatelessWidget {
-  const _ProgressiveBlur({required this.maxBlur});
+class ProgressiveBlur extends StatelessWidget {
+  const ProgressiveBlur({super.key, required this.maxBlur});
 
   final double maxBlur;
 
-  static const _layerCount = 6;
+  static const layerCount = 6;
 
   @override
   Widget build(BuildContext context) {
-    final perLayer = maxBlur / math.sqrt(_layerCount);
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final height = constraints.maxHeight;
-          return Stack(
-            children: [
-              for (var i = 0; i < _layerCount; i++)
-                Positioned(
-                  top: height * i / _layerCount,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: ClipRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: perLayer,
-                        sigmaY: perLayer,
-                      ),
-                      child: const SizedBox.expand(),
+    final perLayer = maxBlur / math.sqrt(layerCount);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        return Stack(
+          children: [
+            for (var i = 0; i < layerCount; i++)
+              Positioned(
+                top: height * i / layerCount,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: perLayer,
+                      sigmaY: perLayer,
                     ),
+                    child: const SizedBox.expand(),
                   ),
                 ),
-            ],
-          );
-        },
-      ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
