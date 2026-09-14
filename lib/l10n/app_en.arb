@@ -386,6 +386,9 @@
   },
 
   "todoEditTitle": "Edit to-do",
+  "todoDateLabel": "Date",
+  "todoTimeLabel": "Time",
+  "todoClearTime": "Remove time",
   "todoTitleLabel": "Title",
   "todoReminderAdditional": "Additional reminders (pick any number)",
   "todoPriorityLabel": "Priority",

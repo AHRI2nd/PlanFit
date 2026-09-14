@@ -1789,6 +1789,24 @@ abstract class AppL10n {
   /// **'할 일 편집'**
   String get todoEditTitle;
 
+  /// No description provided for @todoDateLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'날짜'**
+  String get todoDateLabel;
+
+  /// No description provided for @todoTimeLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간'**
+  String get todoTimeLabel;
+
+  /// No description provided for @todoClearTime.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간 없애기'**
+  String get todoClearTime;
+
   /// No description provided for @todoTitleLabel.
   ///
   /// In ko, this message translates to:

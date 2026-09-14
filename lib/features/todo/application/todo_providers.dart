@@ -254,6 +254,15 @@ class TodoController {
     await _syncReminder(id);
   }
 
+  /// Moves [id] to a different day, keeping its time-of-day and whether it
+  /// has one — see [TodoDao.updateSlotDate] for why that isn't [updateTime]
+  /// with a recomposed date.
+  Future<void> updateDate(String id, DateTime day) async {
+    await _ref.read(todoDaoProvider).updateSlotDate(id, day);
+    await _syncNotification(id);
+    await _syncReminder(id);
+  }
+
   Future<void> clearTime(String id) async {
     await _ref.read(todoDaoProvider).clearTime(id);
     await _syncNotification(id);

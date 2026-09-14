@@ -386,6 +386,9 @@
   },
 
   "todoEditTitle": "할 일 편집",
+  "todoDateLabel": "날짜",
+  "todoTimeLabel": "시간",
+  "todoClearTime": "시간 없애기",
   "todoTitleLabel": "제목",
   "todoReminderAdditional": "추가 알림 (여러 개 선택 가능)",
   "todoPriorityLabel": "우선순위",

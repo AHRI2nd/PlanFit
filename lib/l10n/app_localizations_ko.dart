@@ -909,6 +909,15 @@ class AppL10nKo extends AppL10n {
   String get todoEditTitle => '할 일 편집';
 
   @override
+  String get todoDateLabel => '날짜';
+
+  @override
+  String get todoTimeLabel => '시간';
+
+  @override
+  String get todoClearTime => '시간 없애기';
+
+  @override
   String get todoTitleLabel => '제목';
 
   @override

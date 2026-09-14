@@ -4,14 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
-import '../../../design/glass/glass_nav_bar.dart'
-    show navBarControlClearance;
+import '../../../design/glass/glass_nav_bar.dart' show navBarControlClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
 import '../../../design/widgets/multi_chip_row.dart';
 import '../../../design/widgets/snackbar_x.dart';
+import '../../../core/format.dart';
+import '../../../core/time_format.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../settings/application/settings_controller.dart';
 import '../application/todo_providers.dart';
 import '../domain/todo_priority.dart';
 
@@ -88,7 +90,89 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   /// set (mirrors the event editor's primary/additional reminder split).
   late Set<int> _additionalReminders;
 
+  /// This sheet is handed a [TodoRow] snapshot rather than watching the
+  /// row, so — like `_priority`, `_notify` and `_pinned` — the slot is
+  /// mirrored here and updated optimistically. Without it, changing the date
+  /// would write to the database and leave the row on screen showing the old
+  /// one.
+  late DateTime _slotStart;
+  late bool _hasTime;
+
   static const List<int> _leadTimeOptions = [0, 5, 10, 30, 60, 1440];
+
+  /// Runs [write], reverting nothing but surfacing a failure the same way
+  /// every other edit on this sheet does.
+  Future<void> _guard(Future<void> Function() write, VoidCallback apply) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppL10n.of(context);
+    try {
+      await write();
+      if (!mounted) return;
+      setState(apply);
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.todoUpdateFailed)),
+      );
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _slotStart,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    await _guard(
+      () => ref.read(todoControllerProvider).updateDate(widget.todo.id, picked),
+      () => _slotStart = _hasTime
+          ? DateTime(
+              picked.year,
+              picked.month,
+              picked.day,
+              _slotStart.hour,
+              _slotStart.minute,
+            )
+          : DateTime(picked.year, picked.month, picked.day),
+    );
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showAppTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_slotStart),
+      dialFormat: ref.read(
+        settingsControllerProvider.select((s) => s.dialTimeFormatPreference),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final next = DateTime(
+      _slotStart.year,
+      _slotStart.month,
+      _slotStart.day,
+      picked.hour,
+      picked.minute,
+    );
+    await _guard(
+      () => ref.read(todoControllerProvider).updateTime(widget.todo.id, next),
+      () {
+        // updateTime turns a no-time to-do back into a timed one — picking a
+        // time is exactly how a user opts back in (TodoDao.updateSlotStart).
+        _slotStart = next;
+        _hasTime = true;
+      },
+    );
+  }
+
+  Future<void> _clearTime() => _guard(
+    () => ref.read(todoControllerProvider).clearTime(widget.todo.id),
+    () {
+      _hasTime = false;
+      _slotStart = DateTime(_slotStart.year, _slotStart.month, _slotStart.day);
+    },
+  );
 
   @override
   void initState() {
@@ -97,6 +181,8 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     _lastSavedTitle = _title.text;
     _tags = TextEditingController(text: widget.todo.tags ?? '');
     _lastSavedTags = _tags.text;
+    _slotStart = widget.todo.slotStart;
+    _hasTime = widget.todo.hasTime;
     _priority = TodoPriority.fromValue(widget.todo.priority);
     _notify = widget.todo.notify;
     _pinned = widget.todo.isPinned;
@@ -209,6 +295,13 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final use24Hour = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
     final subtasksAsync = ref.watch(todoSubtasksProvider(widget.todo.id));
 
     return PopScope(
@@ -311,7 +404,63 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                         onSubmitted: (_) => _commitTitle(),
                         onTapOutside: (_) => _commitTitle(),
                       ),
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.xs),
+                      // Date and time, which this sheet had no way to change
+                      // at all: the time was only editable from the day
+                      // list's own trailing chip, and the date from nowhere
+                      // — a to-do put on the wrong day could be deleted and
+                      // retyped, but not moved.
+                      //
+                      // Both on one row rather than a labelled row each.
+                      // This sheet is already tall enough that its last
+                      // field sits near the bottom of the screen, and a
+                      // second full row buys nothing: the two values are
+                      // read together and the time's own "시간 없음" state
+                      // labels itself.
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l10n.todoDateLabel,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _pickDate,
+                            child: Text(Fmt.monthDay(_slotStart, locale)),
+                          ),
+                          TextButton(
+                            onPressed: _pickTime,
+                            child: Text(
+                              _hasTime
+                                  ? Fmt.time(
+                                      _slotStart,
+                                      locale,
+                                      use24Hour: use24Hour,
+                                    )
+                                  : l10n.todoNoTime,
+                            ),
+                          ),
+                          // Only offered once there is a time to remove. The
+                          // day list clears one by long-pressing its chip,
+                          // fine as a shortcut on a row but not as the only
+                          // way to reach it.
+                          if (_hasTime)
+                            IconButton(
+                              tooltip: l10n.todoClearTime,
+                              onPressed: _clearTime,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              icon: Icon(
+                                Icons.close,
+                                size: 18,
+                                color: palette.inkFaint,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
                       Row(
                         children: [
                           Expanded(
@@ -422,9 +571,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                                 final myRequestId = ++_priorityRequestId;
                                 final previous = _priority;
                                 setState(() => _priority = p);
-                                final messenger = ScaffoldMessenger.of(
-                                  context,
-                                );
+                                final messenger = ScaffoldMessenger.of(context);
                                 try {
                                   await ref
                                       .read(todoControllerProvider)

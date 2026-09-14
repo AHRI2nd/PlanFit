@@ -950,6 +950,15 @@ class AppL10nEn extends AppL10n {
   String get todoEditTitle => 'Edit to-do';
 
   @override
+  String get todoDateLabel => 'Date';
+
+  @override
+  String get todoTimeLabel => 'Time';
+
+  @override
+  String get todoClearTime => 'Remove time';
+
+  @override
   String get todoTitleLabel => 'Title';
 
   @override

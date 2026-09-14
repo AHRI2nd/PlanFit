@@ -96,6 +96,39 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
         ),
       );
 
+  /// Moves [id] onto [day], keeping both its time-of-day and whether it has
+  /// one at all.
+  ///
+  /// Deliberately not [updateSlotStart] with a recomposed DateTime: that one
+  /// forces `hasTime` on, because the only way it was ever reached was a
+  /// user picking a time. Changing just the date has to leave a no-time
+  /// to-do a no-time to-do, or editing "sometime on Tuesday" silently gives
+  /// it a time of whatever midnight-adjacent value its row happened to
+  /// hold.
+  ///
+  /// A no-time to-do is normalized to [day]'s own midnight, for the same
+  /// reason [clearTime] does it — see there.
+  Future<void> updateSlotDate(String id, DateTime day) async {
+    final existing = await findById(id);
+    if (existing == null) return;
+    final s = existing.slotStart;
+    final moved = existing.hasTime
+        ? DateTime(
+            day.year,
+            day.month,
+            day.day,
+            s.hour,
+            s.minute,
+            s.second,
+            s.millisecond,
+            s.microsecond,
+          )
+        : DateTime(day.year, day.month, day.day);
+    await (update(todoItems)..where((t) => t.id.equals(id))).write(
+      TodoItemsCompanion(slotStart: Value(moved)),
+    );
+  }
+
   /// Clears the time-of-day, keeping the to-do on the same day but moving it
   /// into that day's "no time" group — and normalizes [TodoItems.slotStart]
   /// down to that day's midnight rather than leaving whatever clock time it

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:planfit/core/date_math.dart';
 import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
@@ -598,6 +599,72 @@ void main() {
         expect(await db.todoDao.all(), isEmpty);
       },
     );
+  });
+
+  /// Changing a to-do's date had no path at all before this — the day
+  /// list's trailing chip edits the time and nothing edited the day, so a
+  /// to-do on the wrong date could only be deleted and retyped.
+  group('updateDate', () {
+    test(
+      'moves a timed to-do to another day, keeping its time of day',
+      () async {
+        await controller().add(
+          title: 'Call dentist',
+          slotStart: DateTime(2026, 3, 10, 14, 30),
+        );
+        final row = (await db.todoDao.all()).single;
+
+        await controller().updateDate(row.id, DateTime(2026, 4, 2));
+
+        final moved = (await db.todoDao.all()).single;
+        expect(moved.slotStart, DateTime(2026, 4, 2, 14, 30));
+        expect(moved.hasTime, isTrue);
+      },
+    );
+
+    test('leaves a no-time to-do without a time — the trap that makes this '
+        'its own method rather than updateTime with a recomposed date, '
+        'since updateSlotStart forces hasTime on', () async {
+      await controller().add(
+        title: 'Sometime Tuesday',
+        slotStart: DateTime(2026, 3, 10),
+        hasTime: false,
+      );
+      final row = (await db.todoDao.all()).single;
+      expect(row.hasTime, isFalse);
+
+      await controller().updateDate(row.id, DateTime(2026, 4, 2));
+
+      final moved = (await db.todoDao.all()).single;
+      expect(moved.hasTime, isFalse);
+      expect(
+        moved.slotStart,
+        DateTime(2026, 4, 2),
+        reason:
+            "a no-time to-do normalizes to the new day's midnight, the same "
+            'as clearTime does, or its stale clock time becomes an invisible '
+            'sort key ahead of sortOrder',
+      );
+    });
+
+    test(
+      're-syncs the reminder, so a moved to-do alerts on its new day',
+      () async {
+        final soon = DateTime.now().add(const Duration(hours: 2));
+        await controller().add(title: 'Call dentist', slotStart: soon);
+        final row = (await db.todoDao.all()).single;
+        clearInteractions(notifications);
+
+        await controller().updateDate(row.id, addCalendarDays(soon, 1));
+
+        verify(notifications.scheduleForTodo(any)).called(1);
+      },
+    );
+
+    test('does nothing for an id that no longer exists', () async {
+      await controller().updateDate('gone', DateTime(2026, 4, 2));
+      expect(await db.todoDao.all(), isEmpty);
+    });
   });
 
   group('remove / restore', () {
