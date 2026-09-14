@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../tokens/app_spacing.dart';
+
 /// Width above which the device is treated as tablet-sized for sheet
 /// presentation — Material's own compact/medium window-size-class cutoff.
 const double kSheetTabletBreakpoint = 600;
@@ -52,6 +54,32 @@ const double kSheetMaxWidth = 480;
 /// needs a BuildContext.
 double get kFloatingNavBarClearance =>
     (!kIsWeb && Platform.isIOS) ? 96 : 120;
+
+/// Bottom padding for a plain scrollable *list's* own trailing end — the
+/// settings list, a to-do list, sync log, and similar screens whose last
+/// row is scrolled-away content, not a persistent control someone needs to
+/// reliably see or tap. Deliberately much smaller than
+/// [kFloatingNavBarClearance]: [GlassNavBar] fades its own backdrop blur in
+/// from nothing at its own top edge to full strength at the screen's
+/// bottom, so a list scrolled all the way down is *meant* to slide its last
+/// row into that fade rather than stop short of it — confirmed on a real
+/// device as the alternative to this (a full [kFloatingNavBarClearance]
+/// gap here too) leaving a conspicuous blank strip with nothing in it to
+/// blur, since the list's own last row never reaches anywhere near the bar.
+///
+/// Kept as a small, non-zero gap rather than 0 for two reasons: some
+/// breathing room reads as intentional design rather than content simply
+/// running out, and it means a list's last row still starts inside the
+/// fade's lightly-blurred top few pixels instead of immediately at its own
+/// fully-blurred bottom edge — legible-but-softened rather than essentially
+/// gone the moment it's reachable at all.
+///
+/// Not for a screen's own persistent controls sitting *below* a scrollable
+/// region (a save button, a FAB, a text field) — those still need
+/// [kFloatingNavBarClearance]'s full gap, since a control that's merely
+/// blurred is still one a floating bar's own hit-testing sits in front of,
+/// not something safe to rely on tapping through.
+double get kListBottomFade => AppSpacing.xl;
 
 /// [showModalBottomSheet] wrapper used by every bottom sheet in the app
 /// (quick add, the event-template picker, the to-do detail sheet). Below

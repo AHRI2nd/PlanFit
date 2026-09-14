@@ -7,7 +7,7 @@ import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/event_color_tag.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance;
+    show kListBottomFade;
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -326,7 +326,7 @@ class _HolidayCalendarSourceScreenState
               0,
               AppSpacing.sm,
               0,
-              kFloatingNavBarClearance,
+              kListBottomFade,
             ),
             children: [
               for (final url in customUrls)

@@ -7,7 +7,7 @@ import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance;
+    show kFloatingNavBarClearance, kListBottomFade;
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show dateOnly;
 import '../../settings/application/settings_controller.dart';
@@ -349,7 +349,7 @@ class _TodoListView extends ConsumerWidget {
             AppSpacing.gutter,
             AppSpacing.xs,
             AppSpacing.gutter,
-            kFloatingNavBarClearance,
+            kListBottomFade,
           ),
           itemCount: todos.length,
           itemBuilder: (context, i) => _SmartTodoTile(

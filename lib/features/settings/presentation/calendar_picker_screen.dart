@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance;
+    show kListBottomFade;
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
 
@@ -38,7 +38,7 @@ class CalendarPickerScreen extends ConsumerWidget {
               0,
               AppSpacing.sm,
               0,
-              kFloatingNavBarClearance,
+              kListBottomFade,
             ),
             itemCount: calendars.length,
             separatorBuilder: (_, _) =>

@@ -11,7 +11,7 @@ import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance;
+    show kFloatingNavBarClearance, kListBottomFade;
 import 'package:planfit/features/schedule/domain/ports.dart';
 import 'package:planfit/features/todo/presentation/todo_smart_list_screen.dart';
 import 'package:planfit/l10n/app_localizations.dart';
@@ -160,10 +160,12 @@ void main() {
   });
 
   testWidgets(
-    "the list's bottom padding, and the FAB's own bottom offset, clear the "
-    "floating glass nav bar — regression test: this screen (unlike "
-    "schedule_screen.dart) had neither, so both sat behind the nav bar "
-    'inside the same AppShell',
+    "the list's bottom padding is the smaller list-tail fade rather than "
+    "the FAB's own full nav-bar clearance — regression test: this screen "
+    "(unlike schedule_screen.dart) originally had neither, so both sat "
+    'behind the nav bar inside the same AppShell; giving the list the '
+    "FAB's own full kFloatingNavBarClearance next left a conspicuous blank "
+    'gap where the fade-behind-the-bar effect had nothing left to blur',
     (tester) async {
       final today = DateTime(2026, 3, 10);
       when(todos.watchBetween(any, any)).thenAnswer(
@@ -192,7 +194,7 @@ void main() {
 
       final list = tester.widget<ListView>(find.byType(ListView));
       final padding = list.padding! as EdgeInsets;
-      expect(padding.bottom, kFloatingNavBarClearance);
+      expect(padding.bottom, kListBottomFade);
 
       final fabPadding = tester.widget<Padding>(
         find.ancestor(

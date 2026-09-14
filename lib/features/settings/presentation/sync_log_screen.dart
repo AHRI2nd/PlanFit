@@ -9,7 +9,7 @@ import '../../../core/time_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance;
+    show kListBottomFade;
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
 
@@ -50,7 +50,7 @@ class SyncLogScreen extends ConsumerWidget {
               AppSpacing.gutter,
               AppSpacing.gutter,
               AppSpacing.gutter,
-              kFloatingNavBarClearance,
+              kListBottomFade,
             ),
             itemCount: rows.length,
             separatorBuilder: (_, _) =>
