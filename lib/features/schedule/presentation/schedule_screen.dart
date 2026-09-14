@@ -6,8 +6,6 @@ import '../../../core/date_math.dart';
 import '../../../core/format.dart';
 import '../../../core/lunar/lunar_date.dart';
 import '../../../core/lunar/lunar_format.dart';
-import '../../../design/glass/glass_nav_bar.dart'
-    show navBarControlClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
@@ -19,6 +17,7 @@ import '../application/schedule_providers.dart';
 import 'agenda_view/agenda_view.dart';
 import 'calendar_legend_sheet.dart';
 import 'day_view/day_view.dart';
+import 'draggable_add_button.dart';
 import 'event_edit/event_editor_sheet.dart';
 import 'event_edit/quick_add_sheet.dart';
 import 'month_view/month_view.dart';
@@ -88,15 +87,6 @@ class ScheduleScreen extends ConsumerWidget {
       intensity: 0.7,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        // Lifted clear of the floating glass nav bar, which lives outside this
-        // nested Scaffold (in AppShell) so it isn't reserved for automatically.
-        floatingActionButton: Padding(
-          padding: EdgeInsets.only(bottom: navBarControlClearance(context)),
-          child: FloatingActionButton(
-            onPressed: () => showEventEditor(context, initialDay: selected),
-            child: const Icon(Icons.add),
-          ),
-        ),
         body: SafeArea(
           bottom: false,
           child: Column(
@@ -182,22 +172,40 @@ class ScheduleScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Expanded(
-                child: switch (view) {
-                  ScheduleView.day => DayView(day: selected),
-                  ScheduleView.week => WeekView(anchor: selected),
-                  ScheduleView.month => const MonthView(),
-                  ScheduleView.year => const YearView(),
-                  // Always "now", not `selected` — the list tab reads as
-                  // "what's coming up", not "what's around whatever day
-                  // some other tab last left selected". Doesn't lose any
-                  // real navigability: agenda is the one view _swipeTarget
-                  // never wires a swipe to (see its own switch above), so
-                  // `selected` was never something the user could actually
-                  // steer while already on this tab anyway.
-                  ScheduleView.agenda => AgendaView(
-                    anchor: dateOnly(DateTime.now()),
-                  ),
-                },
+                // The add button is stacked over the view rather than put in
+                // Scaffold.floatingActionButton, because the user can drag it
+                // and that slot owns its child's position. This Stack is
+                // exactly the area it may be moved within: the view content,
+                // below the header and switcher, so a parked button can never
+                // cover the controls needed to get back from wherever it was
+                // dragged to. Its own clearance from the floating nav bar is
+                // handled inside it, since only it knows how tall it is.
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: switch (view) {
+                        ScheduleView.day => DayView(day: selected),
+                        ScheduleView.week => WeekView(anchor: selected),
+                        ScheduleView.month => const MonthView(),
+                        ScheduleView.year => const YearView(),
+                        // Always "now", not `selected` — the list tab reads as
+                        // "what's coming up", not "what's around whatever day
+                        // some other tab last left selected". Doesn't lose any
+                        // real navigability: agenda is the one view _swipeTarget
+                        // never wires a swipe to (see its own switch above), so
+                        // `selected` was never something the user could actually
+                        // steer while already on this tab anyway.
+                        ScheduleView.agenda => AgendaView(
+                          anchor: dateOnly(DateTime.now()),
+                        ),
+                      },
+                    ),
+                    DraggableAddButton(
+                      onPressed: () =>
+                          showEventEditor(context, initialDay: selected),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
