@@ -358,62 +358,89 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       snapSizes: [floor, _kExpandedSheetSize],
                       builder: (context, scrollController) {
                         final palette = context.palette;
-                        return DecoratedBox(
-                          key: const ValueKey('homeTodoSheetSurface'),
-                          decoration: BoxDecoration(
-                            color: palette.surface,
-                            borderRadius: const BorderRadius.vertical(
-                              top: AppRadius.lg,
-                            ),
+                        return CustomPaint(
+                          // Outlines just this sheet's top edge — the two
+                          // rounded corners and the straight run between
+                          // them. A foreground painter rather than a
+                          // Border: BoxDecoration can only carry a uniform
+                          // border alongside a borderRadius, so asking for
+                          // one would draw the sides and bottom too, and
+                          // those run off the bottom of the screen where
+                          // there is no edge to mark.
+                          foregroundPainter: _SheetTopEdge(
+                            // palette.ink rather than a literal black: in
+                            // the light theme ink *is* near-black
+                            // (0xFF1A1D24), so this is the black edge the
+                            // request asked for, but it flips to near-white
+                            // in the dark theme instead of vanishing — a
+                            // hard-coded black line was invisible there,
+                            // confirmed on the simulator, since the sheet
+                            // and the gradient behind it are both dark.
+                            //
+                            // Not palette.hairline, which at 8% is a
+                            // divider weight and reads as nothing against
+                            // that gradient. This edge is the only thing
+                            // marking where the sheet begins.
+                            color: palette.ink.withValues(alpha: 0.55),
+                            radius: AppRadius.lg.x,
                           ),
-                          // One plain scroll view filling the whole sheet,
-                          // exactly like every other list screen behind the
-                          // nav bar — content scrolls right down past the
-                          // bar's own top edge and the bar's backdrop blur
-                          // does the rest, fading it out as it goes.
-                          //
-                          // Two earlier attempts at keeping the 할 일
-                          // section clear of the bar are deliberately gone:
-                          // a nav-bar-sized spacer between
-                          // the add field and 할 일 (which then rendered as
-                          // a conspicuous gap there at every sheet size),
-                          // and after that a Column of
-                          // `Expanded(list) + SizedBox(clearance)`. That
-                          // second one is what this whole screen's
-                          // "the bar is a solid block, not glass" report
-                          // turned out to be: the SizedBox sits inside this
-                          // DecoratedBox's own opaque `palette.surface`
-                          // fill, so the bar's blur had nothing behind it
-                          // but a flat 120px slab of that colour — and
-                          // Expanded's own bottom edge hard-clipped the
-                          // list mid-glyph right above it. Only the home
-                          // tab had that structure, which is exactly why
-                          // only the home tab showed the problem.
-                          //
-                          // Nothing here needs to reserve the bar's height
-                          // any more: [_sheetFloor] already sizes the
-                          // *sheet* as peekHeight + navBarControlClearance
-                          // so the add field itself always clears the bar,
-                          // and everything past it is meant to slide under
-                          // the glass rather than stop short of it.
-                          child: ListView(
-                            controller: scrollController,
-                            padding: EdgeInsets.fromLTRB(
-                              AppSpacing.gutter,
-                              0,
-                              AppSpacing.gutter,
-                              navBarClearance(context),
-                            ),
-                            children: [
-                              peekContent,
-                              const SizedBox(height: AppSpacing.xl),
-                              SectionHeader(l10n.homeTodoListTitle),
-                              _HomeTodoList(
-                                locale: locale,
-                                l10n: l10n,
-                                use24Hour: use24,
+                          child: DecoratedBox(
+                            key: const ValueKey('homeTodoSheetSurface'),
+                            decoration: BoxDecoration(
+                              color: palette.surface,
+                              borderRadius: const BorderRadius.vertical(
+                                top: AppRadius.lg,
                               ),
-                            ],
+                            ),
+                            // One plain scroll view filling the whole sheet,
+                            // exactly like every other list screen behind the
+                            // nav bar — content scrolls right down past the
+                            // bar's own top edge and the bar's backdrop blur
+                            // does the rest, fading it out as it goes.
+                            //
+                            // Two earlier attempts at keeping the 할 일
+                            // section clear of the bar are deliberately gone:
+                            // a nav-bar-sized spacer between
+                            // the add field and 할 일 (which then rendered as
+                            // a conspicuous gap there at every sheet size),
+                            // and after that a Column of
+                            // `Expanded(list) + SizedBox(clearance)`. That
+                            // second one is what this whole screen's
+                            // "the bar is a solid block, not glass" report
+                            // turned out to be: the SizedBox sits inside this
+                            // DecoratedBox's own opaque `palette.surface`
+                            // fill, so the bar's blur had nothing behind it
+                            // but a flat 120px slab of that colour — and
+                            // Expanded's own bottom edge hard-clipped the
+                            // list mid-glyph right above it. Only the home
+                            // tab had that structure, which is exactly why
+                            // only the home tab showed the problem.
+                            //
+                            // Nothing here needs to reserve the bar's height
+                            // any more: [_sheetFloor] already sizes the
+                            // *sheet* as peekHeight + navBarControlClearance
+                            // so the add field itself always clears the bar,
+                            // and everything past it is meant to slide under
+                            // the glass rather than stop short of it.
+                            child: ListView(
+                              controller: scrollController,
+                              padding: EdgeInsets.fromLTRB(
+                                AppSpacing.gutter,
+                                0,
+                                AppSpacing.gutter,
+                                navBarClearance(context),
+                              ),
+                              children: [
+                                peekContent,
+                                const SizedBox(height: AppSpacing.xl),
+                                SectionHeader(l10n.homeTodoListTitle),
+                                _HomeTodoList(
+                                  locale: locale,
+                                  l10n: l10n,
+                                  use24Hour: use24,
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -426,6 +453,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     );
   }
+}
+
+/// Strokes the top edge of the pull-up sheet — the left rounded corner, the
+/// straight run across, and the right rounded corner — and nothing else.
+///
+/// The sheet's own surface is the same colour family as the gradient behind
+/// it, so at rest the only thing announcing where it begins is the drag
+/// handle. This gives it a real edge.
+class _SheetTopEdge extends CustomPainter {
+  const _SheetTopEdge({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  static const double _strokeWidth = 1.5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Inset by half the stroke: a path drawn on the surface's own boundary
+    // would straddle it and lose its outer half to the clip, rendering at
+    // half the weight asked for.
+    const inset = _strokeWidth / 2;
+    final cornerRadius = radius - inset;
+    final path = Path()
+      ..moveTo(inset, radius)
+      ..arcToPoint(Offset(radius, inset), radius: Radius.circular(cornerRadius))
+      ..lineTo(size.width - radius, inset)
+      ..arcToPoint(
+        Offset(size.width - inset, radius),
+        radius: Radius.circular(cornerRadius),
+      );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _strokeWidth
+        ..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SheetTopEdge oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }
 
 /// The pull-up bar's collapsed content: a drag handle, then the "할 일
