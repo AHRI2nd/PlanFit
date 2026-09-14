@@ -25,6 +25,7 @@ import '../../settings/application/settings_controller.dart';
 import '../../todo/application/todo_providers.dart';
 import '../../todo/domain/todo_delete_flow.dart';
 import '../../todo/domain/todo_overdue.dart';
+import '../../todo/domain/todo_ordering.dart';
 import '../../todo/domain/todo_priority.dart';
 import '../../todo/presentation/quick_add_todo_sheet.dart';
 import '../../todo/presentation/todo_detail_sheet.dart';
@@ -955,20 +956,31 @@ class _HomeTodoList extends ConsumerWidget {
       );
     }
 
-    // overdueTodosProvider orders most-recently-overdue first (descending
-    // by slotStart) for its smart-list use — reversed to oldest-first here.
-    final oldestOverdueFirst = overdue.reversed.toList();
-    // The query itself stays uncapped (its count feeds the badge above and
-    // _WeeklyStats' own overdue dots), but rendering every single one of a
-    // large backlog inline here — this Column has no lazy-building
-    // ListView.builder under it — would still get slow well before that
-    // count is remotely realistic; cap what actually renders and point the
-    // rest at the smart list's own scrollable overdue tab instead.
-    const overdueRenderCap = 50;
-    final shownOverdue = oldestOverdueFirst.length > overdueRenderCap
-        ? oldestOverdueFirst.sublist(0, overdueRenderCap)
-        : oldestOverdueFirst;
-    final hiddenOverdueCount = oldestOverdueFirst.length - shownOverdue.length;
+    // Pinned to the top, then overdue, then the rest — see
+    // orderCrossDayTodos. Applied to the two queries together rather than
+    // each on its own: a pinned to-do that isn't overdue comes back in
+    // `upcoming`, and has to end up above every overdue one.
+    //
+    // This also supplies the oldest-overdue-first order this list used to
+    // build by reversing `overdue` by hand (overdueTodosProvider sorts
+    // most-recently-overdue first, for the smart list's own tab).
+    final ordered = orderCrossDayTodos([
+      ...overdue,
+      ...upcoming,
+    ], now: DateTime.now());
+    // The queries themselves stay uncapped (the overdue count feeds the
+    // badge above and _WeeklyStats' own dots), but rendering a large
+    // backlog inline here — this Column has no lazy-building
+    // ListView.builder under it — gets slow well before that count is
+    // remotely realistic; cap what actually renders and point the rest at
+    // the smart list's own scrollable tabs instead. Applied after the
+    // ordering, not before, so the cap can never drop a pinned to-do in
+    // favour of an unpinned one that merely sorted earlier.
+    const renderCap = 50;
+    final shown = ordered.length > renderCap
+        ? ordered.sublist(0, renderCap)
+        : ordered;
+    final hiddenCount = ordered.length - shown.length;
 
     return GlassSurface(
       borderRadius: AppRadius.cardLg,
@@ -976,7 +988,7 @@ class _HomeTodoList extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final todo in shownOverdue)
+          for (final todo in shown)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: _FeedTodoTile(
@@ -986,7 +998,7 @@ class _HomeTodoList extends ConsumerWidget {
                 showDate: true,
               ),
             ),
-          if (hiddenOverdueCount > 0)
+          if (hiddenCount > 0)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: InkWell(
@@ -998,22 +1010,12 @@ class _HomeTodoList extends ConsumerWidget {
                   ),
                 ),
                 child: Text(
-                  l10n.homeOverdueListMore(hiddenOverdueCount),
+                  l10n.homeOverdueListMore(hiddenCount),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: context.palette.danger,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-            ),
-          for (final todo in upcoming)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: _FeedTodoTile(
-                todo: todo,
-                locale: locale,
-                use24Hour: use24Hour,
-                showDate: true,
               ),
             ),
         ],

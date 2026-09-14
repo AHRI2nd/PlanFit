@@ -14,6 +14,7 @@ import '../../settings/application/settings_controller.dart';
 import '../application/todo_providers.dart';
 import '../domain/todo_delete_flow.dart';
 import '../domain/todo_overdue.dart';
+import '../domain/todo_ordering.dart';
 import '../domain/todo_priority.dart';
 import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
@@ -333,7 +334,14 @@ class _TodoListView extends ConsumerWidget {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('$e')),
-      data: (todos) {
+      data: (unordered) {
+        // Every tab here is a cross-day list, so all of them get the same
+        // pinned-then-overdue-then-the-rest order — see orderCrossDayTodos.
+        // Applied once, here, rather than in each tab's own query: two of
+        // them ("기한 지남", "고정됨") are already filtered down to a single
+        // group, where this only settles the order *within* it, and the
+        // rest would otherwise each need the same clause repeated.
+        final todos = orderCrossDayTodos(unordered, now: DateTime.now());
         if (todos.isEmpty) {
           return Center(
             child: Text(

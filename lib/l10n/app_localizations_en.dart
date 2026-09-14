@@ -106,7 +106,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String homeOverdueListMore(int count) {
-    return '$count more overdue — view in smart list';
+    return '$count more — view in smart list';
   }
 
   @override
