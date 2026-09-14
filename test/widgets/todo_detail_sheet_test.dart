@@ -12,7 +12,6 @@ import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/glass/glass_nav_bar.dart';
 import 'package:planfit/design/theme/app_theme.dart';
-import 'package:planfit/design/tokens/app_spacing.dart';
 import 'package:planfit/features/todo/domain/todo_priority.dart';
 import 'package:planfit/features/todo/presentation/todo_detail_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
@@ -181,8 +180,7 @@ void main() {
       expect(
         captured,
         hasLength(2),
-        reason:
-            'the revert-back-to-original edit never reached patch() at all',
+        reason: 'the revert-back-to-original edit never reached patch() at all',
       );
       expect(captured[0].title.value, 'Buy milk and eggs');
       expect(captured[1].title.value, 'Buy milk');
@@ -205,33 +203,30 @@ void main() {
       verify(todos.setPinned(t.id, true)).called(1);
     });
 
-    testWidgets(
-      'reverts the icon and shows a SnackBar when the save fails',
-      (tester) async {
-        final t = todo();
-        when(
-          todos.setPinned(any, any),
-        ).thenThrow(Exception('disk full'));
-        await pumpSheetHost(tester, t);
-        expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+    testWidgets('reverts the icon and shows a SnackBar when the save fails', (
+      tester,
+    ) async {
+      final t = todo();
+      when(todos.setPinned(any, any)).thenThrow(Exception('disk full'));
+      await pumpSheetHost(tester, t);
+      expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
 
-        await tester.tap(find.byIcon(Icons.push_pin_outlined));
-        // One pump for the optimistic setState, a second for the
-        // catch block's revert setState to land.
-        await tester.pump();
-        await tester.pump();
+      await tester.tap(find.byIcon(Icons.push_pin_outlined));
+      // One pump for the optimistic setState, a second for the
+      // catch block's revert setState to land.
+      await tester.pump();
+      await tester.pump();
 
-        // Reverted back to the pre-tap (unpinned) icon, not left showing
-        // the optimistic (pinned) one the DB write never actually made.
-        expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
-        expect(find.byIcon(Icons.push_pin), findsNothing);
-        expect(find.text(failureMessage), findsOneWidget);
-        // Flush showAutoDismissSnackBar's own real Timer — flutter_test
-        // fails a test that ends with one still pending (see
-        // holiday_calendar_source_screen_test.dart for the same pattern).
-        await tester.pump(const Duration(seconds: 5));
-      },
-    );
+      // Reverted back to the pre-tap (unpinned) icon, not left showing
+      // the optimistic (pinned) one the DB write never actually made.
+      expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.push_pin), findsNothing);
+      expect(find.text(failureMessage), findsOneWidget);
+      // Flush showAutoDismissSnackBar's own real Timer — flutter_test
+      // fails a test that ends with one still pending (see
+      // holiday_calendar_source_screen_test.dart for the same pattern).
+      await tester.pump(const Duration(seconds: 5));
+    });
 
     testWidgets(
       "a later tap that already succeeded isn't clobbered by an earlier "
@@ -304,9 +299,7 @@ void main() {
       'fails',
       (tester) async {
         final t = todo();
-        when(
-          todos.setPriority(any, any),
-        ).thenThrow(Exception('disk full'));
+        when(todos.setPriority(any, any)).thenThrow(Exception('disk full'));
         await pumpSheetHost(tester, t);
 
         // Fixture starts at priority 0 ("없음") — select "높음" instead.
@@ -396,31 +389,28 @@ void main() {
       verify(todos.setNotify(t.id, true)).called(1);
     });
 
-    testWidgets(
-      'reverts and shows a SnackBar when the save fails — regression '
-      'test: this switch used to fire setNotify with no try/catch or '
-      'await at all, so a failed write left the switch stuck showing the '
-      'toggled value forever (until the sheet was closed and reopened), '
-      'with no error surfaced and no revert, unlike every other control '
-      'in this sheet',
-      (tester) async {
-        final t = todo();
-        when(todos.setNotify(any, any)).thenThrow(Exception('disk full'));
-        await pumpSheetHost(tester, t);
+    testWidgets('reverts and shows a SnackBar when the save fails — regression '
+        'test: this switch used to fire setNotify with no try/catch or '
+        'await at all, so a failed write left the switch stuck showing the '
+        'toggled value forever (until the sheet was closed and reopened), '
+        'with no error surfaced and no revert, unlike every other control '
+        'in this sheet', (tester) async {
+      final t = todo();
+      when(todos.setNotify(any, any)).thenThrow(Exception('disk full'));
+      await pumpSheetHost(tester, t);
 
-        await tester.tap(find.byType(Switch));
-        await tester.pump();
-        await tester.pump();
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      await tester.pump();
 
-        expect(
-          tester.widget<Switch>(find.byType(Switch)).value,
-          isFalse,
-          reason: 'a failed save must revert the optimistic flip',
-        );
-        expect(find.text(failureMessage), findsOneWidget);
-        await tester.pump(const Duration(seconds: 5));
-      },
-    );
+      expect(
+        tester.widget<Switch>(find.byType(Switch)).value,
+        isFalse,
+        reason: 'a failed save must revert the optimistic flip',
+      );
+      expect(find.text(failureMessage), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+    });
 
     testWidgets(
       "a later, successful toggle isn't clobbered by an earlier toggle's "
@@ -480,44 +470,41 @@ void main() {
       await tester.pump();
 
       expect(
-        tester.widget<ChoiceChip>(
-          find.widgetWithText(ChoiceChip, '5분 전'),
-        ).selected,
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '5분 전'))
+            .selected,
         isTrue,
       );
       expect(find.text(failureMessage), findsNothing);
       verify(todos.setAdditionalReminders(t.id, '5')).called(1);
     });
 
-    testWidgets(
-      'reverts and shows a SnackBar when the save fails — regression '
-      'test: this chip used to fire setAdditionalReminders with no '
-      'try/catch or await at all, leaving the chip stuck showing the '
-      'toggled selection forever on a failed write, with no error '
-      'surfaced and no revert',
-      (tester) async {
-        final t = todo();
-        when(
-          todos.setAdditionalReminders(any, any),
-        ).thenThrow(Exception('disk full'));
-        await pumpSheetHost(tester, t);
-        await enableNotify(tester);
+    testWidgets('reverts and shows a SnackBar when the save fails — regression '
+        'test: this chip used to fire setAdditionalReminders with no '
+        'try/catch or await at all, leaving the chip stuck showing the '
+        'toggled selection forever on a failed write, with no error '
+        'surfaced and no revert', (tester) async {
+      final t = todo();
+      when(
+        todos.setAdditionalReminders(any, any),
+      ).thenThrow(Exception('disk full'));
+      await pumpSheetHost(tester, t);
+      await enableNotify(tester);
 
-        await tester.tap(find.widgetWithText(ChoiceChip, '5분 전'));
-        await tester.pump();
-        await tester.pump();
+      await tester.tap(find.widgetWithText(ChoiceChip, '5분 전'));
+      await tester.pump();
+      await tester.pump();
 
-        expect(
-          tester.widget<ChoiceChip>(
-            find.widgetWithText(ChoiceChip, '5분 전'),
-          ).selected,
-          isFalse,
-          reason: 'a failed save must revert the optimistic toggle',
-        );
-        expect(find.text(failureMessage), findsOneWidget);
-        await tester.pump(const Duration(seconds: 5));
-      },
-    );
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '5분 전'))
+            .selected,
+        isFalse,
+        reason: 'a failed save must revert the optimistic toggle',
+      );
+      expect(find.text(failureMessage), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+    });
   });
 
   group('add subtask', () {
@@ -526,9 +513,7 @@ void main() {
       'fails',
       (tester) async {
         final t = todo();
-        when(
-          todos.upsertSubtask(any),
-        ).thenThrow(Exception('disk full'));
+        when(todos.upsertSubtask(any)).thenThrow(Exception('disk full'));
         await pumpSheetHost(tester, t);
 
         final subtaskField = find.byType(TextField).last;
@@ -559,9 +544,7 @@ void main() {
       when(
         todos.watchSubtasks(t.id),
       ).thenAnswer((_) => Stream.value([subtask]));
-      when(
-        todos.deleteSubtask(any),
-      ).thenThrow(Exception('disk full'));
+      when(todos.deleteSubtask(any)).thenThrow(Exception('disk full'));
       await pumpSheetHost(tester, t);
       expect(find.text('Buy eggs'), findsOneWidget);
 
@@ -578,24 +561,74 @@ void main() {
   });
 
   testWidgets(
-    "the scrollable content clears AppShell's floating tab bar at the "
-    'bottom — regression test: unlike the quick-add sheet and the calendar '
-    "legend sheet (this sheet's siblings under the same "
-    'showAdaptiveBottomSheet helper), this one never added '
-    "navBarControlClearance to its bottom padding, so the add-subtask "
-    "field — this column's last element — sat directly behind the tab bar, "
-    'not just visually hidden but literally untappable since the tab bar '
-    'itself still consumed the touch',
+    "the add-subtask field — this column's last element — stays clear of "
+    "AppShell's floating tab bar, which is drawn over the sheet rather "
+    'than above it, so a field under it is not merely hidden but '
+    'untappable: the bar consumes the touch',
     (tester) async {
-      final t = todo();
-      await pumpSheetHost(tester, t);
+      // The bar is exactly as tall as what the sheet reserves for it, so
+      // this asserts the product's own contract rather than an arbitrary
+      // number that could pass or fail for reasons of its own.
+      late double barHeight;
+      final prefs = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            todoDaoProvider.overrideWithValue(todos),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            locale: const Locale('ko'),
+            localizationsDelegates: const [
+              AppL10n.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppL10n.supportedLocales,
+            // Mirrors AppShell: extendBody so the bar floats over the body
+            // (and so over anything pushed inside it) instead of reserving
+            // space for it. Asserting the padding's own number instead —
+            // which is what this test used to do — passes just as happily
+            // when the number is doing nothing, which is how it came to be
+            // spending its whole height on blank space.
+            home: Scaffold(
+              extendBody: true,
+              bottomNavigationBar: Builder(
+                builder: (context) {
+                  barHeight = navBarControlClearance(context);
+                  return SizedBox(
+                    height: barHeight,
+                    child: const ColoredBox(color: Color(0xFF000000)),
+                  );
+                },
+              ),
+              body: Builder(
+                builder: (context) => Center(
+                  child: ElevatedButton(
+                    onPressed: () => showTodoDetailSheet(context, todo()),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
 
-      final finder = find.byType(SingleChildScrollView);
-      final padding =
-          tester.widget<SingleChildScrollView>(finder).padding! as EdgeInsets;
+      // The sheet's own scrollable region, not its last field: the field is
+      // laid out inside a scroll view and `getRect` happily reports a
+      // position below the viewport for one that hasn't been scrolled to,
+      // which says nothing about whether the bar covers it. If the region
+      // itself ends above the bar, everything inside it does.
+      final screenHeight = tester.getSize(find.byType(MaterialApp)).height;
       expect(
-        padding.bottom,
-        AppSpacing.lg + navBarControlClearance(tester.element(finder)),
+        tester.getRect(find.byType(SingleChildScrollView)).bottom,
+        lessThanOrEqualTo(screenHeight - barHeight),
+        reason: "the sheet must end above where the bar begins",
       );
     },
   );
@@ -616,19 +649,22 @@ void main() {
       final t = todo();
       await pumpSheetHost(tester, t);
 
+      final finder = find.byType(SingleChildScrollView);
+      double bottomPadding() =>
+          (tester.widget<SingleChildScrollView>(finder).padding! as EdgeInsets)
+              .bottom;
+      final before = bottomPadding();
+
       // Simulate the keyboard coming up after the sheet is already open —
       // same as what actually happens when the user taps a field.
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       addTearDown(tester.view.resetViewInsets);
       await tester.pump();
 
-      final finder = find.byType(SingleChildScrollView);
-      final padding =
-          tester.widget<SingleChildScrollView>(finder).padding! as EdgeInsets;
-      expect(
-        padding.bottom,
-        300 + AppSpacing.lg + navBarControlClearance(tester.element(finder)),
-      );
+      // The delta, not the absolute value: what this guards is that the
+      // keyboard inset is added at all, which stays true however the rest
+      // of the padding is composed.
+      expect(bottomPadding() - before, 300);
     },
   );
 }
