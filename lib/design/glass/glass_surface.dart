@@ -1,5 +1,4 @@
 import 'dart:io' show Platform;
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -150,9 +149,8 @@ class GlassSurface extends StatelessWidget {
 /// [BackdropFilter] itself has no notion of "how much" per pixel — one
 /// filter, one sigma, applied flatly across its whole bounds. The standard
 /// way around that (the same one behind every "frosted edge" effect in
-/// native iOS/Android chrome) is to stack several equal, *flat* blurs, each
-/// clipped to its own band so lower bands sit under more of them than
-/// higher ones do.
+/// native iOS/Android chrome) is to stack several flat blurs, each clipped
+/// to its own horizontal band, and step the sigma up band by band.
 ///
 /// A first attempt faded each layer in with a [ShaderMask] gradient instead
 /// of a hard [ClipRect] band, for a smoother ramp than this version's
@@ -168,44 +166,66 @@ class GlassSurface extends StatelessWidget {
 /// [GlassSurface] already relies on — and which [GlassNavBar]'s own bounds
 /// (a plain rectangle, no rounding needed) provide just as well on their own.
 ///
-/// Each layer here spans from its own start band down to the bottom edge
-/// (not a slice of just its own band), so a later, lower-starting layer
-/// paints its own additional blur on top of a region every earlier layer
-/// already blurred — compounding toward the bottom rather than replacing
-/// what came before. Successive Gaussian blurs compound roughly as
-/// `sqrt(sum of each sigma²)`, so [layerCount] equal-strength layers all
-/// active at the bottom need each sized at `maxBlur / sqrt(layerCount)` to
-/// land back on [maxBlur] there rather than `layerCount × maxBlur`. More
-/// layers reads as a smoother ramp (fewer, larger visible steps otherwise);
-/// this keeps to a handful since each one is its own [BackdropFilter] pass
-/// and this sits on a chrome element that's on-screen for the whole
-/// session, not a one-off.
+/// The bands here are **disjoint** — band `i` covers only its own slice of
+/// the height and carries its own explicit sigma, ramping linearly from
+/// `maxBlur / layerCount` at the top to [maxBlur] at the bottom. That's the
+/// one property this has to get right, and an earlier version got it wrong
+/// in a way worth recording, since the broken version looks perfectly
+/// reasonable on paper:
+///
+/// It stacked [layerCount] *overlapping* bands, each spanning from its own
+/// start down to the bottom edge and each carrying the same, weaker sigma,
+/// on the theory that a lower band sits under more of them and so ends up
+/// blurrier — with each sized at `maxBlur / sqrt(layerCount)`, since
+/// successive Gaussian blurs compound as `sqrt(sum of each sigma²)`. That
+/// reasoning holds only if each [BackdropFilter] samples the output of the
+/// ones painted before it. On Impeller (so: every iOS device) they instead
+/// all sample the *same* original backdrop, so nothing compounds and the
+/// whole bar renders one flat blur at the weakened per-layer sigma.
+///
+/// Measured on an iPhone 17 Pro simulator against a 4-on/4-off striped test
+/// pattern, reading per-row contrast down the bar: the overlapping version
+/// went from 127.5 (fully sharp) to 0.94 (fully flat) across 8 logical
+/// pixels and then stayed there — a hard edge and a uniform slab, not a
+/// ramp. Disjoint bands with explicit sigmas don't depend on that
+/// compounding behaviour at all, so they ramp identically on both renderers.
+///
+/// [layerCount] trades smoothness against cost: the sigma step between
+/// adjacent bands is `maxBlur / layerCount`, and each band is its own
+/// [BackdropFilter] pass on a chrome element that's on screen for the whole
+/// session. Twelve keeps the step small enough that the seams don't read as
+/// banding at either [AppBlur.regular] or [AppBlur.heavy].
 class ProgressiveBlur extends StatelessWidget {
   const ProgressiveBlur({super.key, required this.maxBlur});
 
+  /// The blur sigma at the very bottom edge. The top edge gets
+  /// `maxBlur / layerCount` — near-sharp, so the ramp starts from nothing.
   final double maxBlur;
 
-  static const layerCount = 6;
+  static const layerCount = 12;
 
   @override
   Widget build(BuildContext context) {
-    final perLayer = maxBlur / math.sqrt(layerCount);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final height = constraints.maxHeight;
+        final bandHeight = constraints.maxHeight / layerCount;
         return Stack(
           children: [
             for (var i = 0; i < layerCount; i++)
               Positioned(
-                top: height * i / layerCount,
+                top: bandHeight * i,
                 left: 0,
                 right: 0,
-                bottom: 0,
+                // Half a pixel of overlap onto the next band: adjacent bands
+                // laid out edge-to-edge can leave a hairline of unfiltered
+                // backdrop between them once fractional band heights are
+                // rounded to device pixels.
+                height: bandHeight + 0.5,
                 child: ClipRect(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(
-                      sigmaX: perLayer,
-                      sigmaY: perLayer,
+                      sigmaX: maxBlur * (i + 1) / layerCount,
+                      sigmaY: maxBlur * (i + 1) / layerCount,
                     ),
                     child: const SizedBox.expand(),
                   ),

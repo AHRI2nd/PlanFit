@@ -220,6 +220,32 @@ void main() {
       );
     }
 
+    /// The blur sigma of every band in the ramp, ordered top to bottom.
+    ///
+    /// [ImageFilter] keeps its sigma private, but its `toString` is a stable,
+    /// documented part of `dart:ui` (`ImageFilter.blur(2.5, 2.5, clamp)`) and
+    /// Flutter's own framework tests read filters back the same way.
+    List<double> bandSigmas(WidgetTester tester, Type barType) {
+      final filters = find.descendant(
+        of: find.descendant(
+          of: find.byType(barType),
+          matching: find.byType(ProgressiveBlur),
+        ),
+        matching: find.byType(BackdropFilter),
+      );
+      final bands = <({double top, double sigma})>[];
+      for (var i = 0; i < filters.evaluate().length; i++) {
+        final text = tester.widget<BackdropFilter>(filters.at(i)).filter
+            .toString();
+        final sigma = double.parse(
+          RegExp(r'blur\(([\d.]+)').firstMatch(text)!.group(1)!,
+        );
+        bands.add((top: tester.getRect(filters.at(i)).top, sigma: sigma));
+      }
+      bands.sort((a, b) => a.top.compareTo(b.top));
+      return [for (final b in bands) b.sigma];
+    }
+
     testWidgets('the iOS Liquid Glass tab bar draws one across its full '
         'width', (tester) async {
       await pumpBar(
@@ -284,6 +310,56 @@ void main() {
       expectFullWidthBlur(tester, GlassNavBar);
     });
 
+    for (final (name, bar) in [
+      ('the iOS Liquid Glass tab bar', IosGlassTabBar),
+      ('the non-iOS nav bar', GlassNavBar),
+    ]) {
+      testWidgets('$name ramps its blur up band by band instead of applying '
+          'one flat sigma', (tester) async {
+        await pumpBar(
+          tester,
+          bar == IosGlassTabBar
+              ? IosGlassTabBar(
+                  items: items,
+                  currentIndex: 0,
+                  accent: Colors.blue,
+                  onTap: (_) {},
+                )
+              : GlassNavBar(
+                  items: items,
+                  currentIndex: 0,
+                  accent: Colors.blue,
+                  onTap: (_) {},
+                ),
+        );
+
+        final sigmas = bandSigmas(tester, bar);
+        expect(sigmas, hasLength(ProgressiveBlur.layerCount));
+        // Strictly increasing top to bottom. The version this replaced gave
+        // every band the *same* sigma and relied on each BackdropFilter
+        // sampling the one painted before it to compound toward the bottom —
+        // which Impeller doesn't do, so every iOS device rendered one flat
+        // slab of blur with a hard edge at the top instead of a ramp.
+        for (var i = 1; i < sigmas.length; i++) {
+          expect(
+            sigmas[i],
+            greaterThan(sigmas[i - 1]),
+            reason: 'band $i must be blurrier than band ${i - 1}, got $sigmas',
+          );
+        }
+        // Starts from near-nothing and reaches full strength at the bottom.
+        final maxBlur = tester
+            .widget<ProgressiveBlur>(
+              find.descendant(
+                of: find.byType(bar),
+                matching: find.byType(ProgressiveBlur),
+              ),
+            )
+            .maxBlur;
+        expect(sigmas.first, lessThan(maxBlur / 4));
+        expect(sigmas.last, moreOrLessEquals(maxBlur, epsilon: 0.01));
+      });
+    }
   });
 
   group('iosTabSemanticLabel', () {
