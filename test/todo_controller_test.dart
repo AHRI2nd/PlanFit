@@ -78,33 +78,30 @@ void main() {
       },
     );
 
-    test(
-      'a yearly-repeating to-do with no explicit end date still repeats '
-      'when its default window crosses a leap day — regression test: the '
-      'old flat "start + 365 days" default landed exactly one day short '
-      'of a leap-year anniversary, materializing only the original row '
-      "and silently never repeating at all",
-      () async {
-        // 2028 is a leap year (Feb 29 falls between this start and its
-        // 2028-06-15 anniversary), making the true gap 366 days.
-        final slot = DateTime(2027, 6, 15, 9);
-        await controller().add(
-          title: 'Anniversary',
-          slotStart: slot,
-          frequency: RecurrenceFrequency.yearly,
-        );
+    test('a yearly-repeating to-do with no explicit end date still repeats '
+        'when its default window crosses a leap day — regression test: the '
+        'old flat "start + 365 days" default landed exactly one day short '
+        'of a leap-year anniversary, materializing only the original row '
+        "and silently never repeating at all", () async {
+      // 2028 is a leap year (Feb 29 falls between this start and its
+      // 2028-06-15 anniversary), making the true gap 366 days.
+      final slot = DateTime(2027, 6, 15, 9);
+      await controller().add(
+        title: 'Anniversary',
+        slotStart: slot,
+        frequency: RecurrenceFrequency.yearly,
+      );
 
-        final rows = await db.todoDao.all();
-        expect(rows, hasLength(2));
-        expect(
-          rows.map((r) => r.slotStart).toSet(),
-          {DateTime(2027, 6, 15, 9), DateTime(2028, 6, 15, 9)},
-        );
-        // Both rows share one recurrenceGroupId — same materialized-series
-        // convention as recurring events.
-        expect(rows.map((r) => r.recurrenceGroupId).toSet(), hasLength(1));
-      },
-    );
+      final rows = await db.todoDao.all();
+      expect(rows, hasLength(2));
+      expect(rows.map((r) => r.slotStart).toSet(), {
+        DateTime(2027, 6, 15, 9),
+        DateTime(2028, 6, 15, 9),
+      });
+      // Both rows share one recurrenceGroupId — same materialized-series
+      // convention as recurring events.
+      expect(rows.map((r) => r.recurrenceGroupId).toSet(), hasLength(1));
+    });
   });
 
   group('toggle', () {
@@ -140,37 +137,31 @@ void main() {
     // mode of flutter_local_notifications on some Android OEMs/versions)
     // would have propagated out of these calls uncaught, even though the
     // to-do's own data write had already committed successfully.
-    test(
-      'toggle still commits the done state even if cancelling the '
-      'notification throws',
-      () async {
-        final slot = DateTime.now().add(const Duration(hours: 2));
-        await controller().add(title: 'Call dentist', slotStart: slot);
-        final row = (await db.todoDao.all()).single;
-        when(
-          notifications.cancelForTodo(row.id),
-        ).thenThrow(Exception('platform channel unavailable'));
+    test('toggle still commits the done state even if cancelling the '
+        'notification throws', () async {
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await controller().add(title: 'Call dentist', slotStart: slot);
+      final row = (await db.todoDao.all()).single;
+      when(
+        notifications.cancelForTodo(row.id),
+      ).thenThrow(Exception('platform channel unavailable'));
 
-        await controller().toggle(row.id, true);
+      await controller().toggle(row.id, true);
 
-        expect((await db.todoDao.findById(row.id))?.isDone, isTrue);
-      },
-    );
+      expect((await db.todoDao.findById(row.id))?.isDone, isTrue);
+    });
 
-    test(
-      'add still creates the to-do even if scheduling its notification '
-      'throws',
-      () async {
-        when(
-          notifications.scheduleForTodo(any),
-        ).thenThrow(Exception('platform channel unavailable'));
-        final slot = DateTime.now().add(const Duration(hours: 2));
+    test('add still creates the to-do even if scheduling its notification '
+        'throws', () async {
+      when(
+        notifications.scheduleForTodo(any),
+      ).thenThrow(Exception('platform channel unavailable'));
+      final slot = DateTime.now().add(const Duration(hours: 2));
 
-        await controller().add(title: 'Call dentist', slotStart: slot);
+      await controller().add(title: 'Call dentist', slotStart: slot);
 
-        expect((await db.todoDao.all()).single.title, 'Call dentist');
-      },
-    );
+      expect((await db.todoDao.all()).single.title, 'Call dentist');
+    });
   });
 
   group('setNotify', () {
@@ -324,113 +315,97 @@ void main() {
       expect(byId[b.id]?.sortOrder, lessThan(byId[a.id]!.sortOrder));
     });
 
-    test(
-      'two reorders driven from the same pre-drag snapshot never leave two '
-      'items sharing a sortOrder — regression test: onReorderItem is a '
-      'bare, non-awaited callback, so a second drag firing before the '
-      "first's writes land (and the widget rebuilds with fresh data) "
-      'calls reorder() with the same stale list both times; the old '
-      "implementation only wrote an item's sortOrder when it differed "
-      "from that (possibly stale) snapshot's own value, which could skip "
-      "a write and leave an earlier call's leftover value in place — "
-      'producing a genuine duplicate even with the two calls fully '
-      'sequential (not interleaved)',
-      () async {
-        final slot = DateTime.now().add(const Duration(hours: 2));
-        await controller().add(title: 'A', slotStart: slot, hasTime: false);
-        await controller().add(title: 'B', slotStart: slot, hasTime: false);
-        await controller().add(title: 'C', slotStart: slot, hasTime: false);
-        final rows = await db.todoDao.all();
-        final a = rows.firstWhere((r) => r.title == 'A'); // sortOrder 0
-        final b = rows.firstWhere((r) => r.title == 'B'); // sortOrder 1
-        final c = rows.firstWhere((r) => r.title == 'C'); // sortOrder 2
-        final staleSnapshot = [a, b, c];
+    test('two reorders driven from the same pre-drag snapshot never leave two '
+        'items sharing a sortOrder — regression test: onReorderItem is a '
+        'bare, non-awaited callback, so a second drag firing before the '
+        "first's writes land (and the widget rebuilds with fresh data) "
+        'calls reorder() with the same stale list both times; the old '
+        "implementation only wrote an item's sortOrder when it differed "
+        "from that (possibly stale) snapshot's own value, which could skip "
+        "a write and leave an earlier call's leftover value in place — "
+        'producing a genuine duplicate even with the two calls fully '
+        'sequential (not interleaved)', () async {
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await controller().add(title: 'A', slotStart: slot, hasTime: false);
+      await controller().add(title: 'B', slotStart: slot, hasTime: false);
+      await controller().add(title: 'C', slotStart: slot, hasTime: false);
+      final rows = await db.todoDao.all();
+      final a = rows.firstWhere((r) => r.title == 'A'); // sortOrder 0
+      final b = rows.firstWhere((r) => r.title == 'B'); // sortOrder 1
+      final c = rows.firstWhere((r) => r.title == 'C'); // sortOrder 2
+      final staleSnapshot = [a, b, c];
 
-        // Both calls see the identical pre-drag snapshot — exactly what
-        // happens when a second drag starts before the first's rebuild.
-        await controller().reorder(staleSnapshot, 1, 2);
-        await controller().reorder(staleSnapshot, 0, 1);
+      // Both calls see the identical pre-drag snapshot — exactly what
+      // happens when a second drag starts before the first's rebuild.
+      await controller().reorder(staleSnapshot, 1, 2);
+      await controller().reorder(staleSnapshot, 0, 1);
 
-        final finalRows = await db.todoDao.all();
-        final sortOrders = finalRows.map((r) => r.sortOrder).toList();
-        expect(
-          sortOrders.toSet(),
-          hasLength(sortOrders.length),
-          reason:
-              'two to-dos ended up sharing the same sortOrder: '
-              '${finalRows.map((r) => (r.title, r.sortOrder))}',
-        );
-      },
-    );
+      final finalRows = await db.todoDao.all();
+      final sortOrders = finalRows.map((r) => r.sortOrder).toList();
+      expect(
+        sortOrders.toSet(),
+        hasLength(sortOrders.length),
+        reason:
+            'two to-dos ended up sharing the same sortOrder: '
+            '${finalRows.map((r) => (r.title, r.sortOrder))}',
+      );
+    });
 
-    test(
-      'two overlapping (unawaited) reorder calls are serialized, never '
-      "interleaving each other's writes",
-      () async {
-        final slot = DateTime.now().add(const Duration(hours: 2));
-        await controller().add(title: 'A', slotStart: slot, hasTime: false);
-        await controller().add(title: 'B', slotStart: slot, hasTime: false);
-        await controller().add(title: 'C', slotStart: slot, hasTime: false);
-        final rows = await db.todoDao.all();
-        final a = rows.firstWhere((r) => r.title == 'A');
-        final b = rows.firstWhere((r) => r.title == 'B');
-        final c = rows.firstWhere((r) => r.title == 'C');
-        final snapshot = [a, b, c];
+    test('two overlapping (unawaited) reorder calls are serialized, never '
+        "interleaving each other's writes", () async {
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await controller().add(title: 'A', slotStart: slot, hasTime: false);
+      await controller().add(title: 'B', slotStart: slot, hasTime: false);
+      await controller().add(title: 'C', slotStart: slot, hasTime: false);
+      final rows = await db.todoDao.all();
+      final a = rows.firstWhere((r) => r.title == 'A');
+      final b = rows.firstWhere((r) => r.title == 'B');
+      final c = rows.firstWhere((r) => r.title == 'C');
+      final snapshot = [a, b, c];
 
-        // Fire both without awaiting between them — mirrors
-        // ReorderableListView.onReorderItem's own fire-and-forget shape.
-        final first = controller().reorder(snapshot, 1, 2);
-        final second = controller().reorder(snapshot, 0, 1);
-        await Future.wait([first, second]);
+      // Fire both without awaiting between them — mirrors
+      // ReorderableListView.onReorderItem's own fire-and-forget shape.
+      final first = controller().reorder(snapshot, 1, 2);
+      final second = controller().reorder(snapshot, 0, 1);
+      await Future.wait([first, second]);
 
-        final finalRows = await db.todoDao.all();
-        final sortOrders = finalRows.map((r) => r.sortOrder).toList();
-        expect(sortOrders.toSet(), hasLength(sortOrders.length));
-      },
-    );
+      final finalRows = await db.todoDao.all();
+      final sortOrders = finalRows.map((r) => r.sortOrder).toList();
+      expect(sortOrders.toSet(), hasLength(sortOrders.length));
+    });
   });
 
   group('todoTagsProvider invalidation', () {
-    test(
-      'setTags makes a brand-new tag show up in the picker without a '
-      'restart — regression test: todoTagsProvider is a plain '
-      'FutureProvider that computes once and never refreshes; nothing '
-      'invalidated it, so a newly-typed tag never appeared in the tag '
-      'picker for the rest of the session',
-      () async {
-        final slot = DateTime.now().add(const Duration(hours: 2));
-        await controller().add(title: 'A', slotStart: slot, hasTime: false);
-        final a = (await db.todoDao.all()).single;
+    test('setTags makes a brand-new tag show up in the picker without a '
+        'restart — regression test: todoTagsProvider is a plain '
+        'FutureProvider that computes once and never refreshes; nothing '
+        'invalidated it, so a newly-typed tag never appeared in the tag '
+        'picker for the rest of the session', () async {
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await controller().add(title: 'A', slotStart: slot, hasTime: false);
+      final a = (await db.todoDao.all()).single;
 
-        // Read once to seed the FutureProvider's cache, the same way the
-        // real tag-picker UI's first build would.
-        expect(await container.read(todoTagsProvider.future), isEmpty);
+      // Read once to seed the FutureProvider's cache, the same way the
+      // real tag-picker UI's first build would.
+      expect(await container.read(todoTagsProvider.future), isEmpty);
 
-        await controller().setTags(a.id, 'urgent');
+      await controller().setTags(a.id, 'urgent');
 
-        expect(await container.read(todoTagsProvider.future), ['urgent']);
-      },
-    );
+      expect(await container.read(todoTagsProvider.future), ['urgent']);
+    });
 
-    test(
-      "a tag whose only to-do is deleted stops showing up — same "
-      'invalidation, the removal side',
-      () async {
-        final slot = DateTime.now().add(const Duration(hours: 2));
-        await controller().add(
-          title: 'A',
-          slotStart: slot,
-          hasTime: false,
-        );
-        final a = (await db.todoDao.all()).single;
-        await controller().setTags(a.id, 'urgent');
-        expect(await container.read(todoTagsProvider.future), ['urgent']);
+    test("a tag whose only to-do is deleted stops showing up — same "
+        'invalidation, the removal side', () async {
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await controller().add(title: 'A', slotStart: slot, hasTime: false);
+      final a = (await db.todoDao.all()).single;
+      await controller().setTags(a.id, 'urgent');
+      expect(await container.read(todoTagsProvider.future), ['urgent']);
 
-        await controller().remove(a.id);
+      await controller().remove(a.id);
 
-        expect(await container.read(todoTagsProvider.future), isEmpty);
-      },
-    );
+      expect(await container.read(todoTagsProvider.future), isEmpty);
+    });
 
     test('a tag set at creation time is picked up immediately too', () async {
       expect(await container.read(todoTagsProvider.future), isEmpty);
@@ -500,6 +475,129 @@ void main() {
 
       expect(count, 0);
     });
+  });
+
+  /// `removeSeriesFrom` — "delete this occurrence and every future one" —
+  /// had no test anywhere in the suite at any level, despite being the most
+  /// destructive action the app offers and the one whose blast radius the
+  /// user can't see before confirming it. `confirmAndDeleteTodo` routes
+  /// every swipe-to-delete in the app into it.
+  group('removeSeriesFrom', () {
+    /// A daily series plus, deliberately, two things it must not touch: an
+    /// unrelated series and a one-off on the same days.
+    Future<List<TodoRow>> seedSeries() async {
+      await controller().add(
+        title: 'Standup',
+        slotStart: DateTime(2026, 3, 10, 9),
+        frequency: RecurrenceFrequency.daily,
+        recurrenceUntil: DateTime(2026, 3, 14),
+      );
+      await controller().add(
+        title: 'Other series',
+        slotStart: DateTime(2026, 3, 10, 15),
+        frequency: RecurrenceFrequency.daily,
+        recurrenceUntil: DateTime(2026, 3, 14),
+      );
+      await controller().add(
+        title: 'One-off',
+        slotStart: DateTime(2026, 3, 12, 11),
+      );
+      final standup =
+          (await db.todoDao.all()).where((t) => t.title == 'Standup').toList()
+            ..sort((a, b) => a.slotStart.compareTo(b.slotStart));
+      expect(standup.length, greaterThan(2), reason: 'need a tail to cut');
+      return standup;
+    }
+
+    test('removes the given occurrence and every later one in its series, '
+        'and nothing before it', () async {
+      final standup = await seedSeries();
+
+      await controller().removeSeriesFrom(standup[1]);
+
+      final left = (await db.todoDao.all()).map((t) => t.id).toSet();
+      expect(left, contains(standup.first.id));
+      for (final gone in standup.skip(1)) {
+        expect(left, isNot(contains(gone.id)));
+      }
+    });
+
+    test('leaves other series and one-off to-dos on the same days alone — '
+        'the cut is scoped by recurrenceGroupId, not by date', () async {
+      final standup = await seedSeries();
+      final untouched = (await db.todoDao.all())
+          .where((t) => t.title != 'Standup')
+          .map((t) => t.id)
+          .toSet();
+
+      await controller().removeSeriesFrom(standup[1]);
+
+      final left = (await db.todoDao.all()).map((t) => t.id).toSet();
+      expect(left.containsAll(untouched), isTrue);
+    });
+
+    test('returns every row it removed, so undo can restore the whole tail '
+        'rather than only the occurrence that was swiped', () async {
+      final standup = await seedSeries();
+      final cut = standup.skip(1).map((t) => t.id).toSet();
+
+      final removed = await controller().removeSeriesFrom(standup[1]);
+
+      expect(removed.map((r) => r.todo.id).toSet(), cut);
+
+      for (final r in removed) {
+        await controller().restore(r);
+      }
+      final left = (await db.todoDao.all()).map((t) => t.id).toSet();
+      expect(left.containsAll(standup.map((t) => t.id)), isTrue);
+    });
+
+    test("carries each removed row's subtasks, which cascade on delete and "
+        'would otherwise be gone for good the moment undo ran', () async {
+      final standup = await seedSeries();
+      await controller().addSubtask(standup[1].id, 'Prep notes');
+      await controller().addSubtask(standup[1].id, 'Send agenda');
+
+      final removed = await controller().removeSeriesFrom(standup[1]);
+      expect(
+        (await db.todoDao.allSubtasks()).where(
+          (s) => s.todoId == standup[1].id,
+        ),
+        isEmpty,
+      );
+
+      final bundle = removed.firstWhere((r) => r.todo.id == standup[1].id);
+      expect(bundle.subtasks.map((s) => s.title), [
+        'Prep notes',
+        'Send agenda',
+      ]);
+
+      for (final r in removed) {
+        await controller().restore(r);
+      }
+      expect(
+        (await db.todoDao.allSubtasks())
+            .where((s) => s.todoId == standup[1].id)
+            .map((s) => s.title),
+        ['Prep notes', 'Send agenda'],
+      );
+    });
+
+    test(
+      'falls back to a single-row delete for a to-do with no series',
+      () async {
+        await controller().add(
+          title: 'One-off',
+          slotStart: DateTime(2026, 3, 12, 11),
+        );
+        final row = (await db.todoDao.all()).single;
+
+        final removed = await controller().removeSeriesFrom(row);
+
+        expect(removed.map((r) => r.todo.id), [row.id]);
+        expect(await db.todoDao.all(), isEmpty);
+      },
+    );
   });
 
   group('remove / restore', () {
@@ -606,8 +704,7 @@ void main() {
       remDb.close();
     });
 
-    TodoController remController() =>
-        remContainer.read(todoControllerProvider);
+    TodoController remController() => remContainer.read(todoControllerProvider);
 
     Future<String> addAndSync() async {
       when(reminders.pushTodo(any)).thenAnswer((_) async => 'os-1');
@@ -635,19 +732,16 @@ void main() {
       },
     );
 
-    test(
-      'a re-push throwing on an already-synced row reverts it to '
-      'pendingPush the same way',
-      () async {
-        final id = await addAndSync();
+    test('a re-push throwing on an already-synced row reverts it to '
+        'pendingPush the same way', () async {
+      final id = await addAndSync();
 
-        when(reminders.pushTodo(any)).thenThrow(Exception('EventKit error'));
-        await remController().toggle(id, true);
+      when(reminders.pushTodo(any)).thenThrow(Exception('EventKit error'));
+      await remController().toggle(id, true);
 
-        final row = await remDb.todoDao.findById(id);
-        expect(row?.reminderSyncStatus, SyncStatus.pendingPush);
-      },
-    );
+      final row = await remDb.todoDao.findById(id);
+      expect(row?.reminderSyncStatus, SyncStatus.pendingPush);
+    });
 
     test(
       "a fresh row's first push failing stays pendingPush (no spurious "
