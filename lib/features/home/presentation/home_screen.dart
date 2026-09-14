@@ -12,7 +12,7 @@ import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/app_typography.dart';
 import '../../../design/tokens/event_color_tag.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance;
+    show kFloatingNavBarClearance, kListBottomFade;
 import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
@@ -362,59 +362,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               top: AppRadius.lg,
                             ),
                           ),
-                          // A first fix for the collapsed-state bug below
-                          // put kFloatingNavBarClearance directly in the
-                          // ListView's own children, right after
-                          // peekContent — correct for the collapsed floor,
-                          // but that same fixed-position gap is *also* what
-                          // renders between the add field and 할 일 when
-                          // the sheet is dragged open, where nothing needs
-                          // guarding against the nav bar at all (confirmed
-                          // on a real device: a conspicuously large,
-                          // useless gap there on Android's 120px clearance
-                          // specifically, since iOS's smaller 96px reads as
-                          // less obviously wrong). The clearance only ever
-                          // needs to sit at the sheet's *own current bottom
-                          // edge* — wherever that is — not at one fixed
-                          // spot in the scrollable content. Splitting it
-                          // into its own non-scrolling Column child below
-                          // the (now Expanded, plainly-spaced) list gets
-                          // that for free from ordinary layout, at every
-                          // sheet size, with no listener or rebuild-on-drag
-                          // needed: shrink the sheet and Expanded simply
-                          // hands the list less room, collapsing it toward
-                          // showing just peekContent, exactly as the fixed
-                          // spacer did — but the fixed clearance strip
-                          // below it never has to grow past its own
-                          // height to do that.
-                          child: Column(
+                          // One plain scroll view filling the whole sheet,
+                          // exactly like every other list screen behind the
+                          // nav bar — content scrolls right down past the
+                          // bar's own top edge and the bar's backdrop blur
+                          // does the rest, fading it out as it goes.
+                          //
+                          // Two earlier attempts at keeping the 할 일
+                          // section clear of the bar are deliberately gone:
+                          // a kFloatingNavBarClearance-sized spacer between
+                          // the add field and 할 일 (which then rendered as
+                          // a conspicuous gap there at every sheet size),
+                          // and after that a Column of
+                          // `Expanded(list) + SizedBox(clearance)`. That
+                          // second one is what this whole screen's
+                          // "the bar is a solid block, not glass" report
+                          // turned out to be: the SizedBox sits inside this
+                          // DecoratedBox's own opaque `palette.surface`
+                          // fill, so the bar's blur had nothing behind it
+                          // but a flat 120px slab of that colour — and
+                          // Expanded's own bottom edge hard-clipped the
+                          // list mid-glyph right above it. Only the home
+                          // tab had that structure, which is exactly why
+                          // only the home tab showed the problem.
+                          //
+                          // Nothing here needs to reserve the bar's height
+                          // any more: [_sheetFloor] already sizes the
+                          // *sheet* as peekHeight + kFloatingNavBarClearance
+                          // so the add field itself always clears the bar,
+                          // and everything past it is meant to slide under
+                          // the glass rather than stop short of it.
+                          child: ListView(
+                            controller: scrollController,
+                            padding: EdgeInsets.fromLTRB(
+                              AppSpacing.gutter,
+                              0,
+                              AppSpacing.gutter,
+                              kListBottomFade,
+                            ),
                             children: [
-                              Expanded(
-                                child: ListView(
-                                  controller: scrollController,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    AppSpacing.gutter,
-                                    0,
-                                    AppSpacing.gutter,
-                                    AppSpacing.lg,
-                                  ),
-                                  children: [
-                                    peekContent,
-                                    const SizedBox(height: AppSpacing.xl),
-                                    SectionHeader(l10n.homeTodoListTitle),
-                                    _HomeTodoList(
-                                      locale: locale,
-                                      l10n: l10n,
-                                      use24Hour: use24,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(
-                                key: const ValueKey(
-                                  'homeTodoSheetNavBarClearance',
-                                ),
-                                height: kFloatingNavBarClearance,
+                              peekContent,
+                              const SizedBox(height: AppSpacing.xl),
+                              SectionHeader(l10n.homeTodoListTitle),
+                              _HomeTodoList(
+                                locale: locale,
+                                l10n: l10n,
+                                use24Hour: use24,
                               ),
                             ],
                           ),

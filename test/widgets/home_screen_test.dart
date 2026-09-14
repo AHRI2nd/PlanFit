@@ -137,36 +137,36 @@ void main() {
   });
 
   testWidgets(
-    "the floating nav bar's clearance sits below the scrollable list as "
-    'its own fixed strip, not as a spacer inside the list content — '
-    "regression test: a first fix put kFloatingNavBarClearance directly "
-    "between the add field and the 할 일 section inside the list, which "
-    "was correct for the collapsed floor but rendered as a conspicuously "
-    'large, useless gap there once the sheet was dragged open (confirmed '
-    "on a real device, worse on Android's 120px clearance than iOS's "
-    "96px) — nothing about that position needs guarding against the nav "
-    "bar once the sheet is no longer collapsed. Splitting the clearance "
-    'into a plain trailing strip below an Expanded list keeps the gap '
-    'between the add field and the 할 일 section a normal, small spacing '
-    "constant at every sheet size, while the list's own available height "
-    "still shrinks toward just the add field as the sheet collapses, the "
-    'same as the spacer approach did',
+    "the sheet's own scroll view reaches its bottom edge, so what sits "
+    "behind the floating nav bar is real content for the bar's blur to "
+    'soften — regression test: this screen once wrapped the list in a '
+    '`Column[Expanded(list), SizedBox(kFloatingNavBarClearance)]` to keep '
+    'the 할 일 section clear of the bar. That strip sits inside the '
+    "sheet's own opaque surface fill, so the bar's backdrop blur had "
+    'nothing behind it but a flat slab of that colour (reported from a '
+    'real device as "the bar is a solid block, not glass"), and '
+    "Expanded's own bottom edge hard-clipped the list mid-glyph right "
+    'above it. Only the home tab had that structure, which is exactly '
+    'why only the home tab showed it',
     (tester) async {
       await pumpHome(tester);
       await tester.pumpAndSettle();
 
-      // The clearance strip is always exactly this tall, regardless of
-      // sheet size — it's a sibling of the scrollable list, not part of
-      // its content.
-      final clearance = tester.getSize(
-        find.byKey(const ValueKey('homeTodoSheetNavBarClearance')),
+      final surface = find.byKey(const ValueKey('homeTodoSheetSurface'));
+      final sheetList = find.descendant(
+        of: surface,
+        matching: find.byType(ListView),
       );
-      expect(clearance.height, moreOrLessEquals(kFloatingNavBarClearance));
+      expect(
+        tester.getBottomLeft(sheetList).dy,
+        moreOrLessEquals(tester.getBottomLeft(surface).dy, epsilon: 1),
+      );
 
       // And the gap the user actually sees between the add field and the
       // 할 일 list, once there's room to see both, is a normal small
-      // spacing constant — not that same large clearance value leaking
-      // into the middle of the content.
+      // spacing constant — not a nav-bar-sized one leaking into the
+      // middle of the content, which is what the spacer before that
+      // Column did.
       await expandTodoSheet(tester);
       final addFieldBottom = tester.getBottomLeft(find.byIcon(Icons.tune)).dy;
       final sectionTop = tester.getTopLeft(find.text('할 일')).dy;
