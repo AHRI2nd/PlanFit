@@ -792,4 +792,66 @@ void main() {
       await destDb.close();
     },
   );
+
+  test(
+    'a file whose last record is malformed writes nothing at all — the '
+    'parse-everything-before-writing pass is what makes that true, and it '
+    'is the whole reason importFromFile builds its companions up front '
+    'instead of writing as it reads: without it the rows before the bad '
+    'one would already be merged into the destination, silently, behind a '
+    'generic failure message that gives no hint a partial write happened',
+    () async {
+      final destDb = newDb();
+      final notifications = MockNotificationPort();
+      when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+      when(notifications.scheduleForTodo(any)).thenAnswer((_) async {});
+      when(notifications.cancelForTodo(any)).thenAnswer((_) async {});
+      addTearDown(destDb.close);
+
+      final service = BackupService(
+        eventRepository: EventRepositoryImpl(
+          dao: destDb.eventDao,
+          notifications: notifications,
+          calendar: disabledCalendar(),
+        ),
+        todoDao: destDb.todoDao,
+        eventTemplateDao: destDb.eventTemplateDao,
+        notifications: notifications,
+      );
+
+      // Two perfectly good events, then one whose startAt isn't a date at
+      // all — the shape a hand-edited or truncated backup actually takes.
+      String event(String id, String startAt) => jsonEncode({
+        'id': id,
+        'title': 'Event $id',
+        'memo': null,
+        'location': null,
+        'startAt': startAt,
+        'endAt': '2026-01-01T10:00:00.000',
+        'isAllDay': false,
+        'colorTag': null,
+        'notify': false,
+        'reminderOffsets': <int>[],
+      });
+      final raw =
+          '{"schemaVersion":2,"events":['
+          '${event('a', '2026-01-01T09:00:00.000')},'
+          '${event('b', '2026-01-02T09:00:00.000')},'
+          '${event('c', 'not-a-date')}'
+          '],"todos":[],"todoSubtasks":[]}';
+      final file = File('${tempDir.path}/malformed.json');
+      await file.writeAsString(raw);
+
+      await expectLater(service.importFromFile(file.path), throwsA(anything));
+
+      expect(
+        await destDb.eventDao.all(),
+        isEmpty,
+        reason:
+            'the two valid events ahead of the bad one must not have been '
+            'written either — all-or-nothing is the point',
+      );
+    },
+  );
 }

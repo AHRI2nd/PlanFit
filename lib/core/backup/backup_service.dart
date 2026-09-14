@@ -157,6 +157,18 @@ class BackupService {
     // through the write loops below, leaving some rows already overwritten
     // in the DB and others not, silently merged into existing data behind a
     // generic "복원 실패" toast that gives no hint a partial write happened.
+    //
+    // That covers bad *data*, which is the realistic failure here and the
+    // one this can fully prevent. It does not make the whole restore one
+    // atomic unit: the writes below run as two transactions (events, then
+    // to-dos and subtasks), because each half deliberately keeps its own
+    // platform-channel side effects outside its transaction rather than
+    // holding the database open across hundreds of them — see
+    // `EventRepositoryImpl.restoreEvents`. A database-level failure landing
+    // between the two therefore can leave events restored and to-dos not.
+    // Re-running the import is the recovery, and it's a complete one: every
+    // write here is an upsert keyed by the row's own id, so repeating a
+    // restore converges on the same result rather than duplicating anything.
     final events = [
       for (final e in eventsJson) _eventFromJson(e as Map<String, dynamic>),
     ];
