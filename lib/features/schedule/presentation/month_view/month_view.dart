@@ -8,15 +8,12 @@ import '../../../../core/date_math.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/lunar/lunar_date.dart';
 import '../../../../core/lunar/lunar_format.dart';
-import '../../../../design/glass/glass_nav_bar.dart'
-    show navBarControlClearance;
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
-import '../../../todo/presentation/quick_add_todo_sheet.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/calendar_dot.dart';
 import '../../domain/event_span.dart';
@@ -54,39 +51,19 @@ const double _monthHandleHeight = 32.0;
 
 // Floor reserved for [DayView] below the handle, so it's never squeezed to
 // nothing even at the calendar's tallest allowed rowHeight.
-const double monthMinDayViewHeight = 96.0;
-
-/// [QuickAddTodoField]'s height with its details panel closed, which is how
-/// the pinned field at the bottom of this view spends nearly all its time.
-///
-/// Measured, not guessed: 58 collapsed, 150 with the panel open. Only the
-/// collapsed height is reserved, so the month grid keeps its full size in
-/// the state the field is almost always in; opening the panel borrows the
-/// extra 92 from [monthMinDayViewHeight]'s 96 instead, which is both the
-/// right thing to give up at that moment (the user is typing a to-do, not
-/// reading the day) and — being under 96 — cannot overflow the Column.
-const double monthPinnedQuickAddHeight = 58.0;
+const double _monthMinDayViewHeight = 96.0;
 
 /// The tallest [MonthCalendarRowHeight] can go without the grid + handle
 /// pushing [DayView] (and the handle itself) out of the viewport — see the
 /// doc on [_MonthSplitHandle] for why an unbounded rowHeight let the handle
 /// scroll itself below the visible area with no way back.
-///
-/// [reservedBelow] is anything pinned under [DayView] that the grid must
-/// also leave room for — the add field and its nav-bar clearance. Without
-/// it the grid is free to claim that space too and the Column overflows,
-/// which is exactly what adding the pinned field first did.
 double maxMonthRowHeight({
   required double availableHeight,
   required int rowCount,
-  double reservedBelow = 0,
 }) {
   if (rowCount <= 0) return MonthCalendarRowHeight.min;
   final reserved =
-      _monthDowHeight +
-      _monthHandleHeight +
-      monthMinDayViewHeight +
-      reservedBelow;
+      _monthDowHeight + _monthHandleHeight + _monthMinDayViewHeight;
   final forRows = availableHeight - reserved;
   if (forRows <= 0) return MonthCalendarRowHeight.min;
   return (forRows / rowCount).clamp(
@@ -308,8 +285,6 @@ class MonthView extends ConsumerWidget {
         final maxRowHeight = maxMonthRowHeight(
           availableHeight: constraints.maxHeight,
           rowCount: rowCount,
-          reservedBelow:
-              monthPinnedQuickAddHeight + navBarControlClearance(context),
         );
         final effectiveRowHeight = rowHeight.clamp(
           MonthCalendarRowHeight.min,
@@ -773,23 +748,6 @@ class MonthView extends ConsumerWidget {
             // always the timeline layout regardless of the layout-mode
             // preference, per DayView's own doc on `compact`.
             Expanded(child: DayView(day: selected, compact: true)),
-            // Pinned rather than left at the end of the panel above, which
-            // is where this field used to live (inside that DayView's own
-            // HourlyTodoList, now told not to draw it). The panel is short —
-            // the month grid takes most of the screen and the split handle
-            // can shrink it further — so its own scroll end is somewhere the
-            // user has to go looking for. Adding a to-do to the day they
-            // just tapped is the point of this view, so the field for it
-            // stays put.
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                0,
-                AppSpacing.gutter,
-                navBarControlClearance(context),
-              ),
-              child: QuickAddTodoField(day: selected),
-            ),
           ],
         );
       },

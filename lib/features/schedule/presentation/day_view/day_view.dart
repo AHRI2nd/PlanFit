@@ -9,6 +9,8 @@ import '../../../../core/format.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/glass/glass_surface.dart';
 import '../../../../design/tokens/app_colors.dart';
+import '../../../../design/glass/glass_nav_bar.dart'
+    show navBarControlClearance;
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
@@ -105,14 +107,16 @@ class _DayViewState extends ConsumerState<DayView> {
       // own, and don't share a selectedDateProvider swipe convention with
       // anything else on screen.
       return ListView(
-        padding: const EdgeInsets.fromLTRB(
+        // The trailing gap is the floating nav bar's own height, not a
+        // round number picked to clear it — 140 overshot it by enough that
+        // this list's last element, the inline add field, stopped well
+        // short of the bottom of a panel that is already short. Scrolled to
+        // the end, the field now sits directly above the bar.
+        padding: EdgeInsets.fromLTRB(
           AppSpacing.gutter,
           AppSpacing.xs,
           AppSpacing.gutter,
-          // Just a breathing gap above MonthView's pinned add field, not
-          // nav-bar clearance: this list no longer runs to the bottom of the
-          // screen, so the field below it is what has to clear the bar.
-          AppSpacing.sm,
+          navBarControlClearance(context),
         ),
         children: [
           _DayContent(day: widget.day, compact: true),
@@ -131,12 +135,6 @@ class _DayViewState extends ConsumerState<DayView> {
             child: HourlyTodoList(
               day: widget.day,
               addFocusNode: _addTodoFocusNode,
-              // MonthView pins its own copy of this field to the bottom of
-              // the screen, where it stays reachable without scrolling this
-              // panel to its end — see there. This is the only DayView that
-              // is embedded rather than filling the screen, so it's the only
-              // one whose add field would otherwise be duplicated.
-              showQuickAdd: false,
             ),
           ),
         ],
@@ -180,11 +178,13 @@ class _DayViewState extends ConsumerState<DayView> {
         : DayView._hourHeight * 24 + DayView._endOfDayHeight + allDayReserve;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
+      // See the compact branch above on why this is the bar's own height
+      // rather than a round number over it.
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.gutter,
         AppSpacing.xs,
         AppSpacing.gutter,
-        140,
+        navBarControlClearance(context),
       ),
       children: [
         SizedBox(
