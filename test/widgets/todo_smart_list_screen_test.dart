@@ -194,20 +194,31 @@ void main() {
       );
       await pumpScreen(tester);
 
-      final clearance = navBarClearance(
-        tester.element(find.byType(FloatingActionButton)),
-      );
+      final context = tester.element(find.byType(FloatingActionButton));
 
+      // The list's trailing end only has to clear the bar's footprint —
+      // its last row is scrolled-away content, and landing exactly where
+      // the blur ramp starts is the intent.
       final list = tester.widget<ListView>(find.byType(ListView));
-      expect((list.padding! as EdgeInsets).bottom, clearance);
+      expect((list.padding! as EdgeInsets).bottom, navBarClearance(context));
 
+      // The FAB is a persistent control, so it clears the *pill* with room
+      // to spare rather than stopping at the widget's footprint — which on
+      // Android would dock it straight onto the bar's rim.
       final fabPadding = tester.widget<Padding>(
         find.ancestor(
           of: find.byType(FloatingActionButton),
           matching: find.byType(Padding),
         ),
       );
-      expect((fabPadding.padding as EdgeInsets).bottom, clearance);
+      expect(
+        (fabPadding.padding as EdgeInsets).bottom,
+        navBarControlClearance(context),
+      );
+      expect(
+        navBarControlClearance(context),
+        greaterThan(navBarClearance(context)),
+      );
     },
   );
 

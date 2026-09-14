@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarControlClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -36,7 +36,7 @@ class _CalendarLegendSheet extends StatelessWidget {
         AppSpacing.gutter,
         AppSpacing.sm,
         AppSpacing.gutter,
-        AppSpacing.lg + navBarClearance(context),
+        AppSpacing.lg + navBarControlClearance(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

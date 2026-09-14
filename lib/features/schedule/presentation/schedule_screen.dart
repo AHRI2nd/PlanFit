@@ -7,7 +7,7 @@ import '../../../core/format.dart';
 import '../../../core/lunar/lunar_date.dart';
 import '../../../core/lunar/lunar_format.dart';
 import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarControlClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
@@ -91,7 +91,7 @@ class ScheduleScreen extends ConsumerWidget {
         // Lifted clear of the floating glass nav bar, which lives outside this
         // nested Scaffold (in AppShell) so it isn't reserved for automatically.
         floatingActionButton: Padding(
-          padding: EdgeInsets.only(bottom: navBarClearance(context)),
+          padding: EdgeInsets.only(bottom: navBarControlClearance(context)),
           child: FloatingActionButton(
             onPressed: () => showEventEditor(context, initialDay: selected),
             child: const Icon(Icons.add),

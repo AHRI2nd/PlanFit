@@ -245,7 +245,7 @@ void main() {
         screenHeight -
             topInset -
             AppSpacing.xl -
-            navBarClearance(tester.element(find.byType(EventPreviewSheet))),
+            navBarControlClearance(tester.element(find.byType(EventPreviewSheet))),
       );
     },
   );
@@ -302,7 +302,7 @@ void main() {
       expect(
         screenHeight - cardBottom,
         greaterThanOrEqualTo(
-          navBarClearance(tester.element(find.byType(EventPreviewSheet))),
+          navBarControlClearance(tester.element(find.byType(EventPreviewSheet))),
         ),
       );
     },

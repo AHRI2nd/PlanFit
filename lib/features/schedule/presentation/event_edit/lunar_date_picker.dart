@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/lunar/lunar_date.dart';
 import '../../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarControlClearance;
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -201,7 +201,7 @@ class _LunarDatePickerSheetState extends State<_LunarDatePickerSheet> {
         bottom:
             MediaQuery.of(context).viewInsets.bottom +
             AppSpacing.lg +
-            navBarClearance(context),
+            navBarControlClearance(context),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

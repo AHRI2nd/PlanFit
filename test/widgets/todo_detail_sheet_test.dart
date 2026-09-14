@@ -582,7 +582,7 @@ void main() {
     'bottom — regression test: unlike the quick-add sheet and the calendar '
     "legend sheet (this sheet's siblings under the same "
     'showAdaptiveBottomSheet helper), this one never added '
-    "navBarClearance to its bottom padding, so the add-subtask "
+    "navBarControlClearance to its bottom padding, so the add-subtask "
     "field — this column's last element — sat directly behind the tab bar, "
     'not just visually hidden but literally untappable since the tab bar '
     'itself still consumed the touch',
@@ -595,7 +595,7 @@ void main() {
           tester.widget<SingleChildScrollView>(finder).padding! as EdgeInsets;
       expect(
         padding.bottom,
-        AppSpacing.lg + navBarClearance(tester.element(finder)),
+        AppSpacing.lg + navBarControlClearance(tester.element(finder)),
       );
     },
   );
@@ -627,7 +627,7 @@ void main() {
           tester.widget<SingleChildScrollView>(finder).padding! as EdgeInsets;
       expect(
         padding.bottom,
-        300 + AppSpacing.lg + navBarClearance(tester.element(finder)),
+        300 + AppSpacing.lg + navBarControlClearance(tester.element(finder)),
       );
     },
   );

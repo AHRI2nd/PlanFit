@@ -7,7 +7,7 @@ import '../../../../core/quick_add/quick_add_parser.dart';
 import '../../../../core/time_format.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarControlClearance;
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -121,7 +121,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
         bottom:
             MediaQuery.of(context).viewInsets.bottom +
             AppSpacing.lg +
-            navBarClearance(context),
+            navBarControlClearance(context),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

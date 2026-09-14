@@ -7,7 +7,7 @@ import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
 import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarClearance, navBarControlClearance;
 import '../../../design/glass/glass_surface.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
@@ -137,7 +137,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (peekHeight == null) return null;
     final extra = _optionsExpanded ? (_expandedExtraHeight ?? 0) : 0;
     final screenHeight = MediaQuery.sizeOf(context).height;
-    return ((peekHeight + extra + navBarClearance(context)) / screenHeight)
+    return ((peekHeight + extra + navBarControlClearance(context)) /
+            screenHeight)
         .clamp(0.12, _kExpandedSheetSize);
   }
 
@@ -266,7 +267,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 // this list — its own collapsed height (once known; a
                 // generous placeholder before that) is padded in here so
                 // 이번 주's card never renders underneath it.
-                (peekHeight ?? 220) + navBarClearance(context) + AppSpacing.md,
+                (peekHeight ?? 220) +
+                    navBarControlClearance(context) +
+                    AppSpacing.md,
               ),
               children: [
                 SafeArea(
@@ -370,7 +373,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           //
                           // Two earlier attempts at keeping the 할 일
                           // section clear of the bar are deliberately gone:
-                          // a navBarClearance-sized spacer between
+                          // a nav-bar-sized spacer between
                           // the add field and 할 일 (which then rendered as
                           // a conspicuous gap there at every sheet size),
                           // and after that a Column of
@@ -388,7 +391,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           //
                           // Nothing here needs to reserve the bar's height
                           // any more: [_sheetFloor] already sizes the
-                          // *sheet* as peekHeight + navBarClearance
+                          // *sheet* as peekHeight + navBarControlClearance
                           // so the add field itself always clears the bar,
                           // and everything past it is meant to slide under
                           // the glass rather than stop short of it.

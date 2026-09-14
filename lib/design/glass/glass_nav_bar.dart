@@ -66,9 +66,20 @@ const double kIosNavBarVerticalPadding = 20;
 /// every list short by exactly the inset. Caught on an Android emulator with
 /// gesture navigation as the settings list's last card still crossing under
 /// the bar despite "full" clearance: 76 reserved against a bar 100 tall.
-double navBarClearance(BuildContext context) {
+double navBarClearance(BuildContext context) =>
+    navBarVisibleHeight(context) +
+    // The one place the two bars' footprints differ from their pills:
+    // GlassTabBar.bottom pads above its pill as well as below, so its
+    // widget stands this much taller than anything it draws. GlassNavBar
+    // pads only below, so its pill starts at its widget's own top edge.
+    (useNativeLiquidGlassNavBar ? kIosNavBarVerticalPadding : 0);
+
+/// Distance from the bottom of the screen to the top of the bar's visible
+/// glass pill — what content has to clear to be *seen*, as opposed to
+/// [navBarClearance]'s whole-widget footprint.
+double navBarVisibleHeight(BuildContext context) {
   if (useNativeLiquidGlassNavBar) {
-    return kIosNavBarVerticalPadding * 2 + kNavBarPillHeight;
+    return kNavBarPillHeight + kIosNavBarVerticalPadding;
   }
   final view = View.of(context);
   final inset = math.max(
@@ -80,6 +91,33 @@ double navBarClearance(BuildContext context) {
   );
   return kNavBarPillHeight + AppSpacing.sm + inset;
 }
+
+/// The breathing room a persistent control keeps above the bar's pill, so
+/// it reads as sitting above the bar rather than docked onto it.
+const double kNavBarControlGap = 20;
+
+/// Bottom clearance for a screen's own persistent, always-interactive
+/// controls — a FAB, a save button, the home pull-up bar's add field —
+/// rather than a scrollable's trailing end.
+///
+/// [navBarClearance] is the wrong measure for these. It describes the bar
+/// *widget's* footprint, which is the right thing for a list tail (the last
+/// row lands exactly where the bar's blur ramp starts), but on iOS that
+/// footprint happens to include [kIosNavBarVerticalPadding] of empty space
+/// above the pill, and on Android it doesn't — GlassNavBar's pill starts at
+/// its widget's own top edge. So sizing a control by it left iOS with an
+/// incidental 20 of breathing room and Android with exactly none.
+///
+/// Reported on an Android emulator as the home pull-up bar's add field
+/// looking short: measured with uiautomator, the field's bottom edge and
+/// the pill's top edge were on the same pixel (2692), so the bar's rim sat
+/// directly on the field's. iOS, sized by the same call, was fine.
+///
+/// Measuring from the pill instead and adding one explicit gap makes the
+/// two agree: iOS lands on the same 104 it already used, and Android goes
+/// back to the 120 it had before any of this was unified.
+double navBarControlClearance(BuildContext context) =>
+    navBarVisibleHeight(context) + kNavBarControlGap;
 
 /// A single destination in the [GlassNavBar].
 class GlassNavItem {

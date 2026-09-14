@@ -15,10 +15,8 @@ import 'package:planfit/design/glass/glass_nav_bar.dart';
 /// inset — caught on an emulator with gesture navigation (24) as the settings
 /// list's last card still crossing under the bar despite "full" clearance.
 void main() {
-  Future<({double body, double bar})> clearances(
-    WidgetTester tester,
-    double inset,
-  ) async {
+  Future<({double body, double bar, double visible, double control})>
+  clearances(WidgetTester tester, double inset) async {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetDevicePixelRatio);
     tester.view.viewPadding = FakeViewPadding(bottom: inset);
@@ -28,6 +26,8 @@ void main() {
 
     late double fromBody;
     late double fromBar;
+    late double visible;
+    late double control;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -35,6 +35,8 @@ void main() {
           body: Builder(
             builder: (context) {
               fromBody = navBarClearance(context);
+              visible = navBarVisibleHeight(context);
+              control = navBarControlClearance(context);
               return const SizedBox.expand();
             },
           ),
@@ -47,7 +49,7 @@ void main() {
         ),
       ),
     );
-    return (body: fromBody, bar: fromBar);
+    return (body: fromBody, bar: fromBar, visible: visible, control: control);
   }
 
   testWidgets('reports the same clearance from a screen body as from the '
@@ -62,6 +64,24 @@ void main() {
           'a list in the body must reserve the height the bar actually '
           'occupies, not a short one computed from a stripped MediaQuery',
     );
+  });
+
+  testWidgets('keeps a persistent control clear of the pill itself, not just '
+      "of the bar widget's footprint", (tester) async {
+    final measured = await clearances(tester, 24);
+
+    // The bug this pins: navBarClearance is the bar *widget's* height, and
+    // only GlassTabBar.bottom pads above its own pill — so on iOS that
+    // measure happens to leave a gap above the glass, and on Android it
+    // leaves exactly none. Reported from an emulator as the home pull-up
+    // bar's add field looking short, with its bottom edge and the pill's
+    // top edge landing on the same pixel.
+    expect(
+      measured.control,
+      greaterThan(measured.visible),
+      reason: 'a control must not sit flush against the pill',
+    );
+    expect(measured.control, measured.visible + kNavBarControlGap);
   });
 
   testWidgets("grows with the device's own navigation inset", (tester) async {

@@ -5,7 +5,7 @@ import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
 import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarClearance, navBarControlClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
@@ -86,7 +86,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
       // nested Scaffold (in AppShell) so it isn't reserved for automatically
       // — same reasoning as schedule_screen.dart's own FAB.
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: navBarClearance(context)),
+        padding: EdgeInsets.only(bottom: navBarControlClearance(context)),
         child: FloatingActionButton(
           tooltip: l10n.todoAdd,
           onPressed: () => showQuickAddTodoSheet(context),

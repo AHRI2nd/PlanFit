@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarControlClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -296,7 +296,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                     AppSpacing.gutter,
                     MediaQuery.of(context).viewInsets.bottom +
                         AppSpacing.lg +
-                        navBarClearance(context),
+                        navBarControlClearance(context),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

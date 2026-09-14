@@ -10,7 +10,7 @@ import '../../../../core/format.dart';
 import '../../../../core/maps_launcher.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+    show navBarControlClearance;
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
@@ -250,7 +250,7 @@ class EventPreviewSheet extends ConsumerWidget {
     // turns it into an ordinary "floating card has room around it" look
     // instead of a dead rectangle glued to the card's own bottom edge.
     final bottomMargin =
-        MediaQuery.viewInsetsOf(context).bottom + navBarClearance(context);
+        MediaQuery.viewInsetsOf(context).bottom + navBarControlClearance(context);
     // A flat percentage of screen height (e.g. 0.85) ignores the top inset
     // entirely — on a tall enough sheet that cap alone let the sheet's top
     // edge land right under (or straddling) the notch/Dynamic Island
