@@ -116,4 +116,47 @@ void main() {
     final files = await autoBackupService.listBackups();
     expect(files.first.path.contains('2026-01-02'), isTrue);
   });
+
+  test('a second resume landing mid-backup does not start a second one — '
+      'lastRunAt is only written once the file is safely on disk, so for the '
+      'whole span of buildJson() plus the write it still reads as the '
+      'previous run and cannot itself keep the two apart', () async {
+    // Both calls are started before either is awaited, which is exactly
+    // what two AppLifecycleState.resumed events in quick succession do.
+    //
+    // Milliseconds apart rather than on the same instant: the backup
+    // filename is built from `now`, so two runs sharing a timestamp write
+    // the same path and the second silently overwrites the first — which
+    // hides the overlap behind a name collision and lets this pass even
+    // unguarded. Real resumes never land on the same millisecond.
+    final at = DateTime(2026, 1, 1);
+    final first = autoBackupService.runIfDue(now: at);
+    final second = autoBackupService.runIfDue(
+      now: at.add(const Duration(milliseconds: 5)),
+    );
+    await Future.wait([first, second]);
+
+    expect(
+      await autoBackupService.listBackups(),
+      hasLength(1),
+      reason:
+          'two backups of one moment spend two of the maxRetained slots, '
+          'silently halving how far back the rolling history reaches',
+    );
+  });
+
+  test('still backs up on the next resume after an overlapping pair — the '
+      'guard must not latch', () async {
+    final at = DateTime(2026, 1, 1);
+    await Future.wait([
+      autoBackupService.runIfDue(now: at),
+      autoBackupService.runIfDue(now: at.add(const Duration(milliseconds: 5))),
+    ]);
+
+    await autoBackupService.runIfDue(
+      now: DateTime(2026, 1, 1).add(AutoBackupService.minInterval),
+    );
+
+    expect(await autoBackupService.listBackups(), hasLength(2));
+  });
 }

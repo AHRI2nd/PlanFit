@@ -29,6 +29,29 @@ class AutoBackupService {
   /// How many rolling backups to keep around at once.
   static const int maxRetained = 7;
 
+  /// Guards against two overlapping [runIfDue] runs — the same protection
+  /// [CalendarReconciler.reconcile] carries, for the same trigger: `app.dart`
+  /// calls both on every `AppLifecycleState.resumed`, and that can fire twice
+  /// in quick succession (an incoming call, a fast app-switch gesture, a
+  /// permission dialog dismissing).
+  ///
+  /// The "is one due?" check can't stand in for this. [_kLastRunAt] is
+  /// deliberately written only *after* a backup is safely on disk — recording
+  /// it up front would let a failed write suppress retries for a whole
+  /// [minInterval] — so for the entire span of `buildJson()` plus the file
+  /// write, which is the whole database serialized and is the slowest thing
+  /// this app does, the stored timestamp still reads as the *previous* run.
+  /// A second call landing in that window sees the same overdue timestamp the
+  /// first one did and starts its own backup alongside it. Both then write,
+  /// and both run [_prune] against a directory the other is still changing.
+  ///
+  /// The damage is quiet rather than dramatic, which is exactly why it needed
+  /// finding deliberately: [runIfDue] swallows its own failures by design, so
+  /// a prune racing another prune surfaces nothing, and the duplicate backups
+  /// simply spend two of the [maxRetained] slots on one moment in time —
+  /// silently halving how far back the rolling history actually reaches.
+  bool _running = false;
+
   DateTime? get lastRunAt {
     final iso = prefs.getString(_kLastRunAt);
     return iso == null ? null : DateTime.tryParse(iso);
@@ -47,10 +70,12 @@ class AutoBackupService {
   /// sync, ...) — a failure here must never surface to the user or block
   /// anything else.
   Future<void> runIfDue({DateTime? now}) async {
+    if (_running) return;
     final at = now ?? DateTime.now();
     final last = lastRunAt;
     if (last != null && at.difference(last) < minInterval) return;
 
+    _running = true;
     try {
       final dir = await _dir();
       final stamp = at.toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
@@ -60,6 +85,8 @@ class AutoBackupService {
       await _prune();
     } catch (_) {
       // Best-effort — see doc comment above.
+    } finally {
+      _running = false;
     }
   }
 
