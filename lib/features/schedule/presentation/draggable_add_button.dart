@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show LongPressGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,21 @@ class DraggableAddButton extends ConsumerStatefulWidget {
   /// Gap kept between the button and the region's edges, so a parked button
   /// reads as floating over the content rather than jammed into a corner.
   static const double edgeInset = AppSpacing.md;
+
+  /// How long the button has to be held before it can be dragged.
+  ///
+  /// Shorter than the platform's own `kLongPressTimeout` (500ms), which is
+  /// what a plain [GestureDetector] would use and what every other long
+  /// press in the app runs at. Moving a button the user has already decided
+  /// to move is not a destructive action the way the others behind a long
+  /// press are (multi-select, delete), so it can afford to feel quicker;
+  /// the cost is a slightly narrower window in which a press that was meant
+  /// to become a tap is read as a pick-up instead.
+  ///
+  /// Requires [RawGestureDetector] below: [GestureDetector] constructs its
+  /// [LongPressGestureRecognizer] without a `duration` and so is fixed at
+  /// the platform default.
+  static const Duration pickUpDelay = Duration(milliseconds: 300);
 
   @override
   ConsumerState<DraggableAddButton> createState() => _DraggableAddButtonState();
@@ -157,12 +173,31 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
                 top: topLeft.dy,
                 width: DraggableAddButton.size,
                 height: DraggableAddButton.size,
-                child: GestureDetector(
-                  onLongPressStart: (_) => _onLongPressStart(topLeft),
-                  onLongPressMoveUpdate: (details) =>
-                      _onLongPressMove(details.offsetFromOrigin, regionSize),
-                  onLongPressEnd: (_) => _onLongPressEnd(regionSize),
-                  onLongPressCancel: () => setState(() => _dragTopLeft = null),
+                child: RawGestureDetector(
+                  gestures: {
+                    LongPressGestureRecognizer:
+                        GestureRecognizerFactoryWithHandlers<
+                          LongPressGestureRecognizer
+                        >(
+                          () => LongPressGestureRecognizer(
+                            duration: DraggableAddButton.pickUpDelay,
+                            debugOwner: this,
+                          ),
+                          (instance) {
+                            instance.onLongPressStart = (_) =>
+                                _onLongPressStart(topLeft);
+                            instance.onLongPressMoveUpdate = (details) =>
+                                _onLongPressMove(
+                                  details.offsetFromOrigin,
+                                  regionSize,
+                                );
+                            instance.onLongPressEnd = (_) =>
+                                _onLongPressEnd(regionSize);
+                            instance.onLongPressCancel = () =>
+                                setState(() => _dragTopLeft = null);
+                          },
+                        ),
+                  },
                   child: AnimatedScale(
                     scale: _dragging ? 1.1 : 1,
                     duration: context.motionDuration(
