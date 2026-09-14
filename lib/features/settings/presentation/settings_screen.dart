@@ -14,8 +14,7 @@ import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
-import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+import '../../../design/glass/glass_nav_bar.dart' show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/section_card.dart';
@@ -495,6 +494,46 @@ class SettingsScreen extends ConsumerWidget {
                         data: (info) => '${info.version}+${info.buildNumber}',
                       ),
                 ),
+                const _RowDivider(),
+                // PlanFit ships ~195 resolved packages, and the permissive
+                // licenses nearly all of them carry (BSD-3-Clause across
+                // the Flutter/Dart team's own packages, MIT and Apache-2.0
+                // across the rest) require their copyright notice and
+                // license text to travel with the distributed binary — not
+                // just with the source. Nothing surfaced them before this,
+                // so the only license a user could reach was PlanFit's own,
+                // in the repository.
+                //
+                // Flutter's own page rather than a hand-maintained list:
+                // LicenseRegistry collects entries from every package's
+                // LICENSE at build time, so a dependency added or dropped
+                // later can't leave this stale the way a literal would.
+                _NavRow(
+                  title: l10n.settingsOpenSourceLicenses,
+                  // Pushed on the root navigator, unlike every other screen
+                  // reached from here. Those are branch routes that keep
+                  // the floating tab bar visible and pad themselves clear
+                  // of it with navBarClearance; [LicensePage] is Flutter's
+                  // own and takes no such padding, so inside the shell its
+                  // list ran under the bar with its last rows unreadable
+                  // (confirmed on the simulator). Covering the bar outright
+                  // is both the fix and the right shape for a terminal,
+                  // read-only page with nowhere else to navigate.
+                  onTap: () => Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => LicensePage(
+                        applicationName: 'PlanFit',
+                        applicationVersion: ref
+                            .read(appPackageInfoProvider)
+                            .whenOrNull(
+                              data: (info) =>
+                                  '${info.version}+${info.buildNumber}',
+                            ),
+                        applicationLegalese: _appLegalese,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -503,6 +542,20 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 }
+
+/// Shown at the top of [showLicensePage], above the per-package list.
+///
+/// PlanFit itself is *not* open source — it ships under PolyForm
+/// Noncommercial 1.0.0 — so it contributes no LicenseRegistry entry of its
+/// own and would otherwise be the one piece of software on that screen with
+/// no stated terms at all. Kept to the notice and a pointer rather than the
+/// full text: the license's own Notices section requires the Required
+/// Notice line and either the terms or their URL to travel with the
+/// software, and the URL is what fits a phone screen.
+const String _appLegalese =
+    'Copyright Tsukimori Ahri (https://ahri2nd.xyz)\n'
+    'PolyForm Noncommercial 1.0.0 — '
+    'https://polyformproject.org/licenses/noncommercial/1.0.0';
 
 class _RowDivider extends StatelessWidget {
   const _RowDivider();

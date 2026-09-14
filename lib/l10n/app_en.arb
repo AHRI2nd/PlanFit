@@ -222,6 +222,7 @@
   },
   "settingsAbout": "About",
   "settingsVersion": "Version",
+  "settingsOpenSourceLicenses": "Open-source licenses",
 
   "settingsData": "Data",
   "settingsDataBackupSection": "Backup",

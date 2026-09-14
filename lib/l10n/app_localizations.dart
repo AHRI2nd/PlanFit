@@ -1063,6 +1063,12 @@ abstract class AppL10n {
   /// **'버전'**
   String get settingsVersion;
 
+  /// No description provided for @settingsOpenSourceLicenses.
+  ///
+  /// In ko, this message translates to:
+  /// **'오픈소스 라이선스'**
+  String get settingsOpenSourceLicenses;
+
   /// No description provided for @settingsData.
   ///
   /// In ko, this message translates to:

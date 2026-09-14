@@ -522,6 +522,9 @@ class AppL10nKo extends AppL10n {
   String get settingsVersion => '버전';
 
   @override
+  String get settingsOpenSourceLicenses => '오픈소스 라이선스';
+
+  @override
   String get settingsData => '데이터';
 
   @override
