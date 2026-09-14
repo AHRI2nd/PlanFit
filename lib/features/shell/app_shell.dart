@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,8 +16,8 @@ import '../todo/application/todo_providers.dart';
 /// The screen-reader label for [item] on the iOS Liquid Glass tab bar —
 /// pulled out as its own pure, top-level function purely so it's directly
 /// unit-testable without needing `Platform.isIOS` to actually be true (see
-/// [AppShell.build]'s own `_useNativeLiquidGlass` gate, which this label is
-/// only ever used behind).
+/// [useNativeLiquidGlassNavBar], the gate this label is only ever used
+/// behind).
 ///
 /// `liquid_glass_widgets`' own [GlassTab] wraps a tab's icon in
 /// `ExcludeSemantics` and otherwise falls back to plain `label` — so a
@@ -47,8 +44,6 @@ class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
-
-  static bool get _useNativeLiquidGlass => !kIsWeb && Platform.isIOS;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -100,7 +95,7 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       extendBody: true,
       body: navigationShell,
-      bottomNavigationBar: _useNativeLiquidGlass
+      bottomNavigationBar: useNativeLiquidGlassNavBar
           ? IosGlassTabBar(
               items: items,
               currentIndex: navigationShell.currentIndex,
@@ -161,11 +156,11 @@ class IosGlassTabBar extends StatelessWidget {
           // Starts at the *pill's* own top edge, not the widget's.
           // GlassTabBar.bottom lays its pill out as a `barHeight`-tall box
           // inside `EdgeInsets.symmetric(vertical: verticalPadding)`, so the
-          // widget this Stack is sized by stands [_barVerticalPadding]
+          // widget this Stack is sized by stands [kIosNavBarVerticalPadding]
           // taller than anything visible. Filling the Stack instead started
           // the ramp that far above the bar, blurring a strip of content
           // sitting in plain open space above it.
-          top: _barVerticalPadding,
+          top: kIosNavBarVerticalPadding,
           left: 0,
           right: 0,
           bottom: 0,
@@ -176,15 +171,10 @@ class IosGlassTabBar extends StatelessWidget {
     );
   }
 
-  /// Passed to [GlassTabBar.bottom] explicitly rather than left to its own
-  /// identical default, because the blur above has to know it — a package
-  /// default that drifted in an upgrade would silently pull the ramp's top
-  /// edge off the pill's.
-  static const double _barVerticalPadding = 20;
-
   Widget _tabBar(BuildContext context, AppL10n l10n) {
     return GlassTabBar.bottom(
-      verticalPadding: _barVerticalPadding,
+      verticalPadding: kIosNavBarVerticalPadding,
+      barHeight: kNavBarPillHeight,
       tabs: [
         for (final item in items)
           GlassTab(

@@ -10,9 +10,9 @@ import 'package:planfit/core/db/app_database.dart';
 import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
+import 'package:planfit/design/glass/glass_nav_bar.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/app_spacing.dart';
-import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart';
 import 'package:planfit/features/todo/domain/todo_priority.dart';
 import 'package:planfit/features/todo/presentation/todo_detail_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
@@ -582,7 +582,7 @@ void main() {
     'bottom — regression test: unlike the quick-add sheet and the calendar '
     "legend sheet (this sheet's siblings under the same "
     'showAdaptiveBottomSheet helper), this one never added '
-    "kFloatingNavBarClearance to its bottom padding, so the add-subtask "
+    "navBarClearance to its bottom padding, so the add-subtask "
     "field — this column's last element — sat directly behind the tab bar, "
     'not just visually hidden but literally untappable since the tab bar '
     'itself still consumed the touch',
@@ -590,11 +590,13 @@ void main() {
       final t = todo();
       await pumpSheetHost(tester, t);
 
-      final scrollView = tester.widget<SingleChildScrollView>(
-        find.byType(SingleChildScrollView),
+      final finder = find.byType(SingleChildScrollView);
+      final padding =
+          tester.widget<SingleChildScrollView>(finder).padding! as EdgeInsets;
+      expect(
+        padding.bottom,
+        AppSpacing.lg + navBarClearance(tester.element(finder)),
       );
-      final padding = scrollView.padding! as EdgeInsets;
-      expect(padding.bottom, AppSpacing.lg + kFloatingNavBarClearance);
     },
   );
 
@@ -620,11 +622,13 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pump();
 
-      final scrollView = tester.widget<SingleChildScrollView>(
-        find.byType(SingleChildScrollView),
+      final finder = find.byType(SingleChildScrollView);
+      final padding =
+          tester.widget<SingleChildScrollView>(finder).padding! as EdgeInsets;
+      expect(
+        padding.bottom,
+        300 + AppSpacing.lg + navBarClearance(tester.element(finder)),
       );
-      final padding = scrollView.padding! as EdgeInsets;
-      expect(padding.bottom, 300 + AppSpacing.lg + kFloatingNavBarClearance);
     },
   );
 }

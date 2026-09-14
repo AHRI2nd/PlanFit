@@ -1,9 +1,64 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../tokens/app_colors.dart';
 import '../tokens/app_motion.dart';
 import '../tokens/app_spacing.dart';
 import 'glass_surface.dart';
+
+/// Whether the app renders the native iOS Liquid Glass tab bar
+/// (`GlassTabBar.bottom`) rather than [GlassNavBar]. [AppShell] branches on
+/// this; [navBarClearance] has to branch the same way, since the two bars
+/// are different heights.
+bool get useNativeLiquidGlassNavBar => !kIsWeb && Platform.isIOS;
+
+/// The height of the glass pill itself, shared by both bars: a
+/// [AppSpacing.touchTarget]-tall row of destinations inside
+/// [AppSpacing.xs] of glass padding above and below.
+const double kNavBarPillHeight = AppSpacing.touchTarget + AppSpacing.xs * 2;
+
+/// The padding `GlassTabBar.bottom` puts above *and* below its pill. Passed
+/// to it explicitly rather than left to its own identical default, so an
+/// upgrade can't quietly change the bar's height out from under
+/// [navBarClearance].
+const double kIosNavBarVerticalPadding = 20;
+
+/// Bottom padding a scrollable needs so its last row clears the floating nav
+/// bar completely — visible *and* tappable, not merely blurred.
+///
+/// [AppShell] runs its Scaffold with `extendBody: true` so the bar floats
+/// over the content it blurs instead of reserving space for it, which means
+/// nothing reserves that space automatically: every scrollable that can
+/// reach its own bottom edge has to add this itself.
+///
+/// This is the bar's *real* height, computed from the same tokens the bars
+/// lay themselves out with rather than estimated. Both predecessors got it
+/// wrong in the same direction, and both were only visible once the bar's
+/// backdrop blur actually worked — the last row was hidden behind a bar you
+/// could see straight through:
+///
+/// - A flat `96` for iOS, against a bar that measures
+///   `20 + 64 + 20 = 104` — eight points short, so the last row sat under
+///   the bar's bottom edge.
+/// - A much smaller `kListBottomFade` (32) for plain list tails, on the
+///   theory that a list scrolled to its end *should* slide into the blur
+///   rather than stop short of it. It does read better, but it buries the
+///   last row entirely, and a floating bar's own hit-testing sits in front
+///   of whatever it's blurring — so that row wasn't just hard to read, it
+///   couldn't be tapped at all.
+///
+/// Context-dependent because Android's bar isn't a fixed height: it lifts
+/// its pill clear of the device's own gesture/button-nav inset, which
+/// ranges from 0 on an old hardware-back device to ~48 with the classic
+/// three-button bar.
+///
+double navBarClearance(BuildContext context) => useNativeLiquidGlassNavBar
+    ? kIosNavBarVerticalPadding * 2 + kNavBarPillHeight
+    : kNavBarPillHeight +
+          AppSpacing.sm +
+          MediaQuery.viewPaddingOf(context).bottom;
 
 /// A single destination in the [GlassNavBar].
 class GlassNavItem {

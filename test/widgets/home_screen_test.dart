@@ -13,8 +13,7 @@ import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/app_colors.dart';
-import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance;
+import 'package:planfit/design/glass/glass_nav_bar.dart';
 import 'package:planfit/features/home/presentation/home_screen.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
@@ -140,7 +139,7 @@ void main() {
     "the sheet's own scroll view reaches its bottom edge, so what sits "
     "behind the floating nav bar is real content for the bar's blur to "
     'soften — regression test: this screen once wrapped the list in a '
-    '`Column[Expanded(list), SizedBox(kFloatingNavBarClearance)]` to keep '
+    '`Column[Expanded(list), SizedBox(navBarClearance)]` to keep '
     'the 할 일 section clear of the bar. That strip sits inside the '
     "sheet's own opaque surface fill, so the bar's backdrop blur had "
     'nothing behind it but a flat slab of that colour (reported from a '
@@ -169,10 +168,14 @@ void main() {
       // Column did.
       await expandTodoSheet(tester);
       final addFieldBottom = tester.getBottomLeft(find.byIcon(Icons.tune)).dy;
-      final sectionTop = tester.getTopLeft(find.text('할 일')).dy;
+      final sectionTitle = find.text('할 일');
+      final sectionTop = tester.getTopLeft(sectionTitle).dy;
+      // Comparing against the clearance itself rather than a literal: the
+      // bug put a whole nav-bar-sized spacer here, so re-introducing it
+      // would push this gap past the clearance on its own.
       expect(
         sectionTop - addFieldBottom,
-        lessThan(kFloatingNavBarClearance / 2),
+        lessThan(navBarClearance(tester.element(sectionTitle))),
       );
     },
   );

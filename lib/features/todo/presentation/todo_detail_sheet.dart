@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
+import '../../../design/glass/glass_nav_bar.dart'
+    show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -278,14 +280,14 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                 child: SingleChildScrollView(
                   // The keyboard inset (when it's up, dwarfing the tab bar
                   // clearance below) plus enough to clear the floating tab
-                  // bar when it isn't — see kFloatingNavBarClearance's own
+                  // bar when it isn't — see navBarClearance's own
                   // doc, and quick_add_sheet.dart's identical padding for
                   // the same reason (showAdaptiveBottomSheet's
                   // isScrollControlled: true bypasses Flutter's automatic
                   // viewInsets padding, so every caller with a text field
                   // needs to add it back itself). Without the viewInsets
                   // term, the tags/subtask fields could sit behind the
-                  // keyboard; without kFloatingNavBarClearance, the
+                  // keyboard; without navBarClearance, the
                   // add-subtask field (this column's last element) sat
                   // behind AppShell's floating tab bar instead.
                   padding: EdgeInsets.fromLTRB(
@@ -294,7 +296,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                     AppSpacing.gutter,
                     MediaQuery.of(context).viewInsets.bottom +
                         AppSpacing.lg +
-                        kFloatingNavBarClearance,
+                        navBarClearance(context),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

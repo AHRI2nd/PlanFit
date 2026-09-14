@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
+import '../../../design/glass/glass_nav_bar.dart'
+    show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
-import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kListBottomFade;
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -133,7 +133,7 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
                               AppSpacing.gutter,
                               0,
                               AppSpacing.gutter,
-                              kListBottomFade,
+                              navBarClearance(context),
                             ),
                             itemCount: files.length,
                             separatorBuilder: (_, _) =>

@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
+import '../../../design/glass/glass_nav_bar.dart'
+    show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
-import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance, kListBottomFade;
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show dateOnly;
 import '../../settings/application/settings_controller.dart';
@@ -86,7 +86,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
       // nested Scaffold (in AppShell) so it isn't reserved for automatically
       // — same reasoning as schedule_screen.dart's own FAB.
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: kFloatingNavBarClearance),
+        padding: EdgeInsets.only(bottom: navBarClearance(context)),
         child: FloatingActionButton(
           tooltip: l10n.todoAdd,
           onPressed: () => showQuickAddTodoSheet(context),
@@ -349,7 +349,7 @@ class _TodoListView extends ConsumerWidget {
             AppSpacing.gutter,
             AppSpacing.xs,
             AppSpacing.gutter,
-            kListBottomFade,
+            navBarClearance(context),
           ),
           itemCount: todos.length,
           itemBuilder: (context, i) => _SmartTodoTile(

@@ -1,9 +1,4 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-
-import '../tokens/app_spacing.dart';
 
 /// Width above which the device is treated as tablet-sized for sheet
 /// presentation — Material's own compact/medium window-size-class cutoff.
@@ -13,73 +8,6 @@ const double kSheetTabletBreakpoint = 600;
 /// rather than stretched edge-to-edge — a form built for a phone-width
 /// column reads poorly spread across a 13" iPad.
 const double kSheetMaxWidth = 480;
-
-/// Extra bottom clearance a sheet's own content should add on top of
-/// whatever margin it already uses, whenever that content's last element
-/// could otherwise land at the sheet's natural bottom edge — [AppShell] runs
-/// its Scaffold with `extendBody: true` so the floating Liquid-Glass tab bar
-/// paints *above* body content instead of reserving space for it, and a
-/// modal sheet inherits that same unreserved height. Content that reaches a
-/// sheet's natural bottom edge without accounting for this renders
-/// underneath the tab bar instead of above it — invisible/untappable even
-/// though it's "there." First caught in the calendar legend sheet's closing
-/// info box (invisible on a real device, since flutter_test's default
-/// 800x600 surface never reproduced it), found again in the quick-add
-/// sheet's Save button (unreachable, not just invisible, since it sat
-/// directly behind the tab bar). Not applied automatically by
-/// [showAdaptiveBottomSheet] itself — sheets with their own bounded-height
-/// container (e.g. one capped to a fraction of the screen and internally
-/// scrollable) may already sit clear of this without needing it, and
-/// wrapping every sheet unconditionally would add a visible gap below ones
-/// that don't. Add this to a sheet's own bottom padding whenever its last
-/// element isn't already known to clear the tab bar. Sized generously
-/// rather than exactly, since the tab bar's real footprint isn't something
-/// a plain widget has a clean way to query.
-///
-/// Not a flat constant: on Android, [GlassNavBar]'s own pill (64) plus its
-/// margin (`AppSpacing.sm`, 12) plus the device's own gesture/button-nav
-/// inset (`MediaQuery.viewPaddingOf(context).bottom` — 0 on an old
-/// hardware-back device, ~24 with gesture navigation, ~48 with the classic
-/// 3-button bar) can already exceed a 96 clearance on its own before even
-/// reaching the tab bar's edge — confirmed on a real Android emulator as
-/// the home screen's pull-up bar options panel visibly clipping into the
-/// tab bar. iOS's native Liquid Glass tab bar ([AppShell]'s
-/// `_IosGlassTabBar`) is a different, shorter component than [GlassNavBar]
-/// with its own safe-area handling — 96 already cleared it with room to
-/// spare, and iOS confirmed on-device that raising this bumped every one of
-/// its call sites' bottom padding up by an obviously excessive margin. 120
-/// on Android comfortably covers gesture nav and sits close on 3-button
-/// nav; nothing here reads the inset directly since that would mean
-/// turning every one of this constant's call sites into something that
-/// needs a BuildContext.
-double get kFloatingNavBarClearance =>
-    (!kIsWeb && Platform.isIOS) ? 96 : 120;
-
-/// Bottom padding for a plain scrollable *list's* own trailing end — the
-/// settings list, a to-do list, sync log, and similar screens whose last
-/// row is scrolled-away content, not a persistent control someone needs to
-/// reliably see or tap. Deliberately much smaller than
-/// [kFloatingNavBarClearance]: [GlassNavBar] fades its own backdrop blur in
-/// from nothing at its own top edge to full strength at the screen's
-/// bottom, so a list scrolled all the way down is *meant* to slide its last
-/// row into that fade rather than stop short of it — confirmed on a real
-/// device as the alternative to this (a full [kFloatingNavBarClearance]
-/// gap here too) leaving a conspicuous blank strip with nothing in it to
-/// blur, since the list's own last row never reaches anywhere near the bar.
-///
-/// Kept as a small, non-zero gap rather than 0 for two reasons: some
-/// breathing room reads as intentional design rather than content simply
-/// running out, and it means a list's last row still starts inside the
-/// fade's lightly-blurred top few pixels instead of immediately at its own
-/// fully-blurred bottom edge — legible-but-softened rather than essentially
-/// gone the moment it's reachable at all.
-///
-/// Not for a screen's own persistent controls sitting *below* a scrollable
-/// region (a save button, a FAB, a text field) — those still need
-/// [kFloatingNavBarClearance]'s full gap, since a control that's merely
-/// blurred is still one a floating bar's own hit-testing sits in front of,
-/// not something safe to rely on tapping through.
-double get kListBottomFade => AppSpacing.xl;
 
 /// [showModalBottomSheet] wrapper used by every bottom sheet in the app
 /// (quick add, the event-template picker, the to-do detail sheet). Below

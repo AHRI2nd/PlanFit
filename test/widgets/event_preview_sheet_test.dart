@@ -9,8 +9,8 @@ import 'package:planfit/core/db/daos/event_template_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/glass/glass_surface.dart';
+import 'package:planfit/design/glass/glass_nav_bar.dart';
 import 'package:planfit/design/theme/app_theme.dart';
-import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart';
 import 'package:planfit/design/tokens/app_spacing.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
 import 'package:planfit/features/schedule/presentation/event_edit/event_editor_sheet.dart';
@@ -242,7 +242,10 @@ void main() {
       // bar's own clearance.
       expect(
         root.constraints!.maxHeight,
-        screenHeight - topInset - AppSpacing.xl - kFloatingNavBarClearance,
+        screenHeight -
+            topInset -
+            AppSpacing.xl -
+            navBarClearance(tester.element(find.byType(EventPreviewSheet))),
       );
     },
   );
@@ -298,7 +301,9 @@ void main() {
           tester.view.physicalSize.height / tester.view.devicePixelRatio;
       expect(
         screenHeight - cardBottom,
-        greaterThanOrEqualTo(kFloatingNavBarClearance),
+        greaterThanOrEqualTo(
+          navBarClearance(tester.element(find.byType(EventPreviewSheet))),
+        ),
       );
     },
   );

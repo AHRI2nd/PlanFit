@@ -10,8 +10,7 @@ import 'package:planfit/core/db/daos/todo_dao.dart';
 import 'package:planfit/core/db/sync_status.dart';
 import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
-import 'package:planfit/design/widgets/adaptive_bottom_sheet.dart'
-    show kFloatingNavBarClearance, kListBottomFade;
+import 'package:planfit/design/glass/glass_nav_bar.dart';
 import 'package:planfit/features/schedule/domain/ports.dart';
 import 'package:planfit/features/todo/presentation/todo_smart_list_screen.dart';
 import 'package:planfit/l10n/app_localizations.dart';
@@ -160,12 +159,15 @@ void main() {
   });
 
   testWidgets(
-    "the list's bottom padding is the smaller list-tail fade rather than "
-    "the FAB's own full nav-bar clearance — regression test: this screen "
-    "(unlike schedule_screen.dart) originally had neither, so both sat "
-    'behind the nav bar inside the same AppShell; giving the list the '
-    "FAB's own full kFloatingNavBarClearance next left a conspicuous blank "
-    'gap where the fade-behind-the-bar effect had nothing left to blur',
+    "the list and the FAB both clear the floating nav bar by its full "
+    'height — regression test: this screen (unlike schedule_screen.dart) '
+    'originally had neither, so both sat behind the nav bar inside the '
+    'same AppShell. A later attempt gave the list a deliberately smaller '
+    'list-tail fade instead, so its last row would slide into the bar\'s '
+    'backdrop blur rather than stop short of it; that reads better but '
+    'buries the row completely, and the floating bar\'s own hit-testing '
+    "sits in front of whatever it blurs — so the last to-do wasn't just "
+    'hard to read, it was untappable',
     (tester) async {
       final today = DateTime(2026, 3, 10);
       when(todos.watchBetween(any, any)).thenAnswer(
@@ -192,9 +194,12 @@ void main() {
       );
       await pumpScreen(tester);
 
+      final clearance = navBarClearance(
+        tester.element(find.byType(FloatingActionButton)),
+      );
+
       final list = tester.widget<ListView>(find.byType(ListView));
-      final padding = list.padding! as EdgeInsets;
-      expect(padding.bottom, kListBottomFade);
+      expect((list.padding! as EdgeInsets).bottom, clearance);
 
       final fabPadding = tester.widget<Padding>(
         find.ancestor(
@@ -202,10 +207,7 @@ void main() {
           matching: find.byType(Padding),
         ),
       );
-      expect(
-        (fabPadding.padding as EdgeInsets).bottom,
-        kFloatingNavBarClearance,
-      );
+      expect((fabPadding.padding as EdgeInsets).bottom, clearance);
     },
   );
 

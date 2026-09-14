@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../design/glass/glass_nav_bar.dart'
+    show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -28,13 +30,13 @@ class _CalendarLegendSheet extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
-      // See kFloatingNavBarClearance's own doc for why the bottom inset is
+      // See navBarClearance's own doc for why the bottom inset is
       // much larger than AppSpacing.lg alone.
       padding: EdgeInsets.fromLTRB(
         AppSpacing.gutter,
         AppSpacing.sm,
         AppSpacing.gutter,
-        AppSpacing.lg + kFloatingNavBarClearance,
+        AppSpacing.lg + navBarClearance(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

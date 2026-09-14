@@ -14,10 +14,10 @@ import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
+import '../../../design/glass/glass_nav_bar.dart'
+    show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
-import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kListBottomFade;
 import '../../../design/widgets/section_card.dart';
 import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/snackbar_x.dart';
@@ -245,7 +245,7 @@ class SettingsScreen extends ConsumerWidget {
             AppSpacing.gutter,
             0,
             AppSpacing.gutter,
-            kListBottomFade,
+            navBarClearance(context),
           ),
           children: [
             SafeArea(

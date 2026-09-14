@@ -3,11 +3,11 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/calendar_sync/holiday_calendar_service.dart';
+import '../../../design/glass/glass_nav_bar.dart'
+    show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/event_color_tag.dart';
-import '../../../design/widgets/adaptive_bottom_sheet.dart'
-    show kListBottomFade;
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -326,7 +326,7 @@ class _HolidayCalendarSourceScreenState
               0,
               AppSpacing.sm,
               0,
-              kListBottomFade,
+              navBarClearance(context),
             ),
             children: [
               for (final url in customUrls)

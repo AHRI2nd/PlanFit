@@ -6,6 +6,8 @@ import '../../../../core/format.dart';
 import '../../../../core/quick_add/quick_add_parser.dart';
 import '../../../../core/time_format.dart';
 import '../../../settings/application/settings_controller.dart';
+import '../../../../design/glass/glass_nav_bar.dart'
+    show navBarClearance;
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/widgets/adaptive_bottom_sheet.dart';
@@ -111,7 +113,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
         top: AppSpacing.sm,
         // The keyboard inset (when it's up, dwarfing the tab bar clearance
         // below) plus enough to clear the floating tab bar when it isn't —
-        // see kFloatingNavBarClearance's own doc. Without this, the Save
+        // see navBarClearance's own doc. Without this, the Save
         // button (this column's last element) sat directly behind the tab
         // bar with the keyboard down — not just visually hidden but
         // literally untappable, since the tab bar itself still consumed the
@@ -119,7 +121,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
         bottom:
             MediaQuery.of(context).viewInsets.bottom +
             AppSpacing.lg +
-            kFloatingNavBarClearance,
+            navBarClearance(context),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
