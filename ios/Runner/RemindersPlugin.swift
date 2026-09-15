@@ -7,7 +7,29 @@ import Flutter
 /// this is hand-written the same way PlanFitWidgetProvider.kt is on Android.
 /// iOS-only by construction: there's nothing to register on Android.
 public class RemindersPlugin: NSObject, FlutterPlugin {
-  private let store = EKEventStore()
+  // EventKit documents that a store created before access is granted does
+  // not contain calendars for that entity type. The store then announces a
+  // change notification after access changes; rebuild it so the first
+  // resolve immediately after the permission prompt sees the new lists.
+  private var store = EKEventStore()
+  private var storeChangedObserver: NSObjectProtocol?
+
+  override init() {
+    super.init()
+    storeChangedObserver = NotificationCenter.default.addObserver(
+      forName: .EKEventStoreChanged,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.store = EKEventStore()
+    }
+  }
+
+  deinit {
+    if let observer = storeChangedObserver {
+      NotificationCenter.default.removeObserver(observer)
+    }
+  }
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
