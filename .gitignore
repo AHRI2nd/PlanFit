@@ -62,6 +62,12 @@ app.*.map.json
 # to this machine) — not meant for the public repo either.
 /COMMAND.md
 
+# Hand-off notes carried between working sessions: what was just done, which
+# toolchain versions the machine is on, and what to be careful of next time.
+# Local by nature — it describes this machine's state at a moment, not the
+# project, and it goes stale the moment either changes.
+/Transfer.md
+
 # Secrets and machine-local config — never commit these. android/.gitignore
 # already covers local.properties/key.properties/*.keystore/*.jks for the
 # Android module specifically; these are broader, defense-in-depth patterns
