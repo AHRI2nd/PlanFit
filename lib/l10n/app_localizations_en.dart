@@ -457,6 +457,10 @@ class AppL10nEn extends AppL10n {
       'Permission is denied — allow it in your device settings.';
 
   @override
+  String get settingsSyncSetupFailed =>
+      'Can\'t turn sync on right now. Restart the app and try again.';
+
+  @override
   String get settingsOpenAppSettings => 'Open Settings';
 
   @override

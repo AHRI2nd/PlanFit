@@ -48,6 +48,22 @@ class SettingsScreen extends ConsumerWidget {
       );
     }
 
+    /// Access was granted and there is still nowhere to sync into.
+    ///
+    /// Deliberately worded for both ways that happens, since the toggle
+    /// cannot tell them apart: the device genuinely has no writable
+    /// calendar, or — far more often, and on iOS every first time — the
+    /// platform's calendar store was built before the grant and has not
+    /// picked it up yet, so the very next read is refused (see
+    /// CalendarService.\_doResolveTargetCalendarId). The second clears on
+    /// the next launch. Without this the switch simply sprang back with
+    /// nothing said, which reads as the app ignoring the tap.
+    void showSyncSetupFailedSnackBar() {
+      ScaffoldMessenger.of(context).showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.settingsSyncSetupFailed)),
+      );
+    }
+
     Future<void> toggleSync(bool value) async {
       if (value) {
         final granted = await ref.read(calendarServiceProvider).requestAccess();
@@ -65,7 +81,8 @@ class SettingsScreen extends ConsumerWidget {
         if (calendarId == null) {
           // Nothing to sync into (creation failed and no writable calendar
           // exists either) — leave the toggle off rather than claiming sync
-          // is on with no target.
+          // is on with no target, and say so.
+          showSyncSetupFailedSnackBar();
           return;
         }
         await controller.setTargetCalendar(calendarId);
@@ -87,7 +104,13 @@ class SettingsScreen extends ConsumerWidget {
         final listId = await ref
             .read(remindersServiceProvider)
             .resolveTargetListId();
-        if (listId == null) return;
+        if (listId == null) {
+          // Same shape as the calendar toggle above, reached the same two
+          // ways — the plugin here answers null rather than throwing, so
+          // this branch already existed; it just never said anything.
+          showSyncSetupFailedSnackBar();
+          return;
+        }
       }
       await controller.setRemindersSyncEnabled(value);
     }

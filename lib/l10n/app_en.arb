@@ -192,6 +192,7 @@
   "settingsPermissionGranted": "Granted",
   "settingsPermissionDenied": "Not granted",
   "settingsPermissionDeniedMessage": "Permission is denied — allow it in your device settings.",
+  "settingsSyncSetupFailed": "Can't turn sync on right now. Restart the app and try again.",
   "settingsOpenAppSettings": "Open Settings",
   "settingsGrant": "Grant",
   "settingsAppearance": "Appearance",

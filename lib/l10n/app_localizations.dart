@@ -901,6 +901,12 @@ abstract class AppL10n {
   /// **'권한이 거부되어 있어요. 기기 설정에서 허용해 주세요.'**
   String get settingsPermissionDeniedMessage;
 
+  /// No description provided for @settingsSyncSetupFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'지금은 동기화를 켤 수 없어요. 앱을 다시 시작한 뒤 다시 시도해 주세요.'**
+  String get settingsSyncSetupFailed;
+
   /// No description provided for @settingsOpenAppSettings.
   ///
   /// In ko, this message translates to:
