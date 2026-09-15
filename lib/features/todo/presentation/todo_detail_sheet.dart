@@ -310,13 +310,15 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _flushPendingSaves();
       },
-      // No SafeArea around the box: the sheet is pushed on the root
-      // navigator and so sits over the floating tab bar, and it has to run
-      // all the way to the bottom of the screen to actually cover it —
-      // inset by the home indicator, it left the bar's pill peeking out
-      // below its own rounded edge. The inset is applied to the scrolling
-      // content instead, where it keeps the last field clear of the
-      // indicator without shortening the surface.
+      // No SafeArea around the box: the sheet's surface has to run all the
+      // way to the bottom of the screen so its glass blurs the page rather
+      // than the barrier scrim behind the floating tab bar — inset by the
+      // home indicator, it left the bar's pill peeking out below its own
+      // rounded edge. The inset is applied to the scrolling content
+      // instead, where it keeps the last field clear of the indicator
+      // without shortening the surface. (The sheet itself stays on the
+      // branch navigator, so the tab bar remains visible and live while
+      // it is open.)
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(context).height * 0.85,
