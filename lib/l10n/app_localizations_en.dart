@@ -179,6 +179,12 @@ class AppL10nEn extends AppL10n {
   String get monthSplitHandleLabel => 'Adjust calendar size';
 
   @override
+  String get monthTabCalendar => 'Calendar';
+
+  @override
+  String get monthTabTimeline => 'That day';
+
+  @override
   String get dayEmpty => 'This day is still empty';
 
   @override

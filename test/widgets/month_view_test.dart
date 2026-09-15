@@ -15,6 +15,7 @@ import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/design/tokens/event_color_tag.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
+import 'package:planfit/features/schedule/presentation/day_view/day_view.dart';
 import 'package:planfit/features/schedule/presentation/month_view/month_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:planfit/l10n/app_localizations_ko.dart';
@@ -695,5 +696,115 @@ void main() {
     // matched invocations, so this has to be one single check covering
     // the whole test rather than a verify after each selection.)
     verify(events.watchBetween(marchWindow.$1, marchWindow.$2)).called(1);
+  });
+
+  group('short viewports fall back to the tabbed layout', () {
+    /// A phone in landscape, minus the schedule chrome the real screen puts
+    /// above MonthView — the viewport that used to collapse the timeline to
+    /// nothing and push the split handle off the bottom edge.
+    void useLandscapePhone(WidgetTester tester) {
+      tester.view.physicalSize = const Size(852, 393 - 148);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    void usePortraitPhone(WidgetTester tester) {
+      tester.view.physicalSize = const Size(393, 852 - 148);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    // August 2026 spans six calendar weeks — the worst case, and the one
+    // every iPhone in landscape failed on.
+    final sixRowMonth = DateTime(2026, 8, 15);
+
+    testWidgets('a phone in landscape lays out without overflowing', (
+      tester,
+    ) async {
+      useLandscapePhone(tester);
+      await pumpMonth(tester, sixRowMonth);
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'the split layout used to overflow by 64px here',
+      );
+    });
+
+    testWidgets('it shows the switcher instead of the split handle, since '
+        'there is no longer a boundary to drag', (tester) async {
+      useLandscapePhone(tester);
+      await pumpMonth(tester, sixRowMonth);
+
+      expect(find.byKey(const Key('monthTabBar')), findsOneWidget);
+      expect(find.byType(DayView), findsNothing);
+    });
+
+    testWidgets('a phone in portrait keeps both halves and no switcher', (
+      tester,
+    ) async {
+      usePortraitPhone(tester);
+      await pumpMonth(tester, sixRowMonth);
+
+      expect(find.byKey(const Key('monthTabBar')), findsNothing);
+      expect(find.byType(DayView), findsOneWidget);
+    });
+
+    testWidgets('tapping a day brings its timeline forward — otherwise '
+        'picking a date appears to do nothing', (tester) async {
+      useLandscapePhone(tester);
+      await pumpMonth(tester, sixRowMonth);
+      expect(find.byType(DayView), findsNothing);
+
+      await tester.tap(find.text('20').first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DayView), findsOneWidget);
+    });
+
+    testWidgets('the switcher goes back to the grid', (tester) async {
+      useLandscapePhone(tester);
+      await pumpMonth(tester, sixRowMonth);
+      await tester.tap(find.text('20').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(DayView), findsOneWidget);
+
+      await tester.tap(find.text(AppL10nKo().monthTabCalendar));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DayView), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a viewport that grows back returns to the split layout '
+        'rather than staying on whichever tab was open', (tester) async {
+      useLandscapePhone(tester);
+      await pumpMonth(tester, sixRowMonth);
+      await tester.tap(find.text('20').first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('monthTabBar')), findsOneWidget);
+
+      tester.view.physicalSize = const Size(393, 852 - 148);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('monthTabBar')), findsNothing);
+      expect(find.byType(DayView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the grid scrolls rather than overflowing when even the row '
+        'floor outgrows the viewport', (tester) async {
+      useLandscapePhone(tester);
+      await pumpMonth(tester, sixRowMonth);
+
+      // Six rows at the floor plus the switcher exceed a landscape phone,
+      // so this is the case the scroll view exists for.
+      expect(find.byType(Scrollable), findsWidgets);
+      await tester.drag(find.text('20').first, const Offset(0, -60));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
   });
 }

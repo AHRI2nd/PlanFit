@@ -409,6 +409,18 @@ abstract class AppL10n {
   /// **'달력 크기 조절'**
   String get monthSplitHandleLabel;
 
+  /// No description provided for @monthTabCalendar.
+  ///
+  /// In ko, this message translates to:
+  /// **'달력'**
+  String get monthTabCalendar;
+
+  /// No description provided for @monthTabTimeline.
+  ///
+  /// In ko, this message translates to:
+  /// **'그날 일정'**
+  String get monthTabTimeline;
+
   /// No description provided for @dayEmpty.
   ///
   /// In ko, this message translates to:

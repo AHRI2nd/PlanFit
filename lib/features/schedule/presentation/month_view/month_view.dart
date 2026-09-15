@@ -9,6 +9,7 @@ import '../../../../core/db/app_database.dart';
 import '../../../../core/lunar/lunar_date.dart';
 import '../../../../core/lunar/lunar_format.dart';
 import '../../../../design/tokens/app_colors.dart';
+import '../../../../design/tokens/app_motion.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -259,11 +260,27 @@ const double monthCollapsedDotSize = _monthCollapsedDotSize;
 
 /// Month grid with per-day event dots. Tapping a day selects it and reveals
 /// that day's detail below, so month and day stay one continuous surface.
-class MonthView extends ConsumerWidget {
+class MonthView extends ConsumerStatefulWidget {
   const MonthView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MonthView> createState() => _MonthViewState();
+}
+
+class _MonthViewState extends ConsumerState<MonthView> {
+  /// Which half of [MonthLayoutMode.tabbed] is on screen. Ignored entirely
+  /// in [MonthLayoutMode.split], where both are.
+  ///
+  /// Local rather than a provider: it describes what this widget is showing
+  /// right now, not anything the app remembers. A viewport that grows back
+  /// (a rotation, a fold opening, a split-view divider dragged wider) goes
+  /// straight back to showing both halves, and coming back to a tall
+  /// window should not still be remembering a choice that only existed
+  /// because the window was short.
+  bool _showTimeline = false;
+
+  @override
+  Widget build(BuildContext context) {
     final palette = context.palette;
     final theme = Theme.of(context);
     final l10n = AppL10n.of(context);
@@ -333,10 +350,31 @@ class MonthView extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxRowHeight = maxMonthRowHeight(
+        final mode = monthLayoutMode(
           availableHeight: constraints.maxHeight,
           rowCount: rowCount,
         );
+        // The split layout has to leave room below the grid for the handle
+        // and the timeline; the tabbed one hands the grid everything except
+        // its own switcher, so the two cap the rows differently. Either way
+        // MonthCalendarRowHeight.min is the floor — see maxMonthRowHeight.
+        final maxRowHeight = switch (mode) {
+          MonthLayoutMode.split => maxMonthRowHeight(
+            availableHeight: constraints.maxHeight,
+            rowCount: rowCount,
+          ),
+          MonthLayoutMode.tabbed =>
+            rowCount <= 0
+                ? MonthCalendarRowHeight.min
+                : ((constraints.maxHeight -
+                              _monthTabBarHeight -
+                              _monthDowHeight) /
+                          rowCount)
+                      .clamp(
+                        MonthCalendarRowHeight.min,
+                        MonthCalendarRowHeight.max,
+                      ),
+        };
         final effectiveRowHeight = rowHeight.clamp(
           MonthCalendarRowHeight.min,
           maxRowHeight,
@@ -354,454 +392,559 @@ class MonthView extends ConsumerWidget {
           textScaler: MediaQuery.textScalerOf(context),
         );
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.gutter,
+        final calendar = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+          child: TableCalendar<EventRow>(
+            locale: locale,
+            firstDay: DateTime(2000),
+            lastDay: DateTime(2100),
+            focusedDay: selected,
+            currentDay: DateTime.now(),
+            rowHeight: effectiveRowHeight,
+            selectedDayPredicate: (d) => dateOnly(d) == dateOnly(selected),
+            eventLoader: (d) => byDay[dateOnly(d)] ?? const [],
+            startingDayOfWeek: weekStartsMonday
+                ? StartingDayOfWeek.monday
+                : StartingDayOfWeek.sunday,
+            availableGestures: AvailableGestures.horizontalSwipe,
+            // Collapsed to zero height (formatButton already off,
+            // both chevrons hidden, headerTitleBuilder below returns
+            // nothing, padding zeroed) rather than left showing its
+            // own "‹ 2026년 9월 ›" — schedule_screen.dart's shared
+            // title row directly above already shows the same month/
+            // year and is itself swipeable, so this was a second,
+            // redundant copy of the same text a few hundred pixels
+            // away. See maxMonthRowHeight's own doc: the space this
+            // used to reserve for the header is no longer subtracted,
+            // freeing it for the grid/day view below instead.
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              leftChevronVisible: false,
+              rightChevronVisible: false,
+              headerPadding: EdgeInsets.zero,
+            ),
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: theme.textTheme.labelMedium!.copyWith(
+                color: palette.inkFaint,
               ),
-              child: TableCalendar<EventRow>(
-                locale: locale,
-                firstDay: DateTime(2000),
-                lastDay: DateTime(2100),
-                focusedDay: selected,
-                currentDay: DateTime.now(),
-                rowHeight: effectiveRowHeight,
-                selectedDayPredicate: (d) => dateOnly(d) == dateOnly(selected),
-                eventLoader: (d) => byDay[dateOnly(d)] ?? const [],
-                startingDayOfWeek: weekStartsMonday
-                    ? StartingDayOfWeek.monday
-                    : StartingDayOfWeek.sunday,
-                availableGestures: AvailableGestures.horizontalSwipe,
-                // Collapsed to zero height (formatButton already off,
-                // both chevrons hidden, headerTitleBuilder below returns
-                // nothing, padding zeroed) rather than left showing its
-                // own "‹ 2026년 9월 ›" — schedule_screen.dart's shared
-                // title row directly above already shows the same month/
-                // year and is itself swipeable, so this was a second,
-                // redundant copy of the same text a few hundred pixels
-                // away. See maxMonthRowHeight's own doc: the space this
-                // used to reserve for the header is no longer subtracted,
-                // freeing it for the grid/day view below instead.
-                headerStyle: const HeaderStyle(
-                  formatButtonVisible: false,
-                  leftChevronVisible: false,
-                  rightChevronVisible: false,
-                  headerPadding: EdgeInsets.zero,
-                ),
-                daysOfWeekStyle: DaysOfWeekStyle(
-                  weekdayStyle: theme.textTheme.labelMedium!.copyWith(
-                    color: palette.inkFaint,
-                  ),
-                  weekendStyle: theme.textTheme.labelMedium!.copyWith(
-                    color: palette.inkFaint,
-                  ),
-                ),
-                calendarBuilders: CalendarBuilders<EventRow>(
-                  headerTitleBuilder: (context, day) => const SizedBox.shrink(),
-                  markerBuilder: (context, day, events) {
-                    final d = dateOnly(day);
-                    // eventLoader only buckets an event under its *start* day, so a
-                    // multi-day event touching a later day never shows up in
-                    // `events` for that day — check `multiDay` against every day
-                    // it actually spans instead (see eventDaysInRange's doc).
-                    final spanning = multiDay
-                        .where(
-                          (e) => eventDaysInRange(
-                            e,
-                            monthStart,
-                            monthEnd,
-                          ).contains(d),
-                        )
-                        .toList();
-                    final dots = events
-                        .where((e) => !multiDay.contains(e))
-                        .toList();
-                    final hasOverdueTodo = overdueDays.contains(d);
-                    final hasTodo = todoDays.contains(d);
-                    final lunar = showLunarDates
-                        ? LunarDate.fromSolar(d)
-                        : null;
-                    if (spanning.isEmpty &&
-                        dots.isEmpty &&
-                        !hasOverdueTodo &&
-                        !hasTodo &&
-                        lunar == null) {
-                      return null;
-                    }
+              weekendStyle: theme.textTheme.labelMedium!.copyWith(
+                color: palette.inkFaint,
+              ),
+            ),
+            calendarBuilders: CalendarBuilders<EventRow>(
+              headerTitleBuilder: (context, day) => const SizedBox.shrink(),
+              markerBuilder: (context, day, events) {
+                final d = dateOnly(day);
+                // eventLoader only buckets an event under its *start* day, so a
+                // multi-day event touching a later day never shows up in
+                // `events` for that day — check `multiDay` against every day
+                // it actually spans instead (see eventDaysInRange's doc).
+                final spanning = multiDay
+                    .where(
+                      (e) =>
+                          eventDaysInRange(e, monthStart, monthEnd).contains(d),
+                    )
+                    .toList();
+                final dots = events
+                    .where((e) => !multiDay.contains(e))
+                    .toList();
+                final hasOverdueTodo = overdueDays.contains(d);
+                final hasTodo = todoDays.contains(d);
+                final lunar = showLunarDates ? LunarDate.fromSolar(d) : null;
+                if (spanning.isEmpty &&
+                    dots.isEmpty &&
+                    !hasOverdueTodo &&
+                    !hasTodo &&
+                    lunar == null) {
+                  return null;
+                }
 
-                    Widget spanBar({required bool asListRow}) {
-                      // Only the first spanning event gets a bar — a packed
-                      // month cell has no room for more than one, and
-                      // stacking several would crowd the day number.
-                      final e = spanning.first;
-                      final span = eventDaysInRange(e, monthStart, monthEnd);
-                      final isFirst = span.first == d;
-                      final isLast = span.last == d;
-                      final color = EventColorTag.resolve(
-                        e.colorTag,
-                        e.startAt,
-                      );
-                      final bar = Container(
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.horizontal(
-                            left: isFirst
-                                ? const Radius.circular(2)
-                                : Radius.zero,
-                            right: isLast
-                                ? const Radius.circular(2)
-                                : Radius.zero,
-                          ),
-                        ),
-                      );
-                      if (!asListRow) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: bar,
-                        );
-                      }
-                      // In the expanded list, every row (this bar included)
-                      // gets the same fixed height so the list's own
-                      // capacity math (monthEventListCapacity) stays exact.
-                      return SizedBox(
-                        height: monthEventRowHeight(
-                          textScaler: MediaQuery.textScalerOf(context),
-                        ),
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: bar,
-                          ),
-                        ),
-                      );
-                    }
+                Widget spanBar({required bool asListRow}) {
+                  // Only the first spanning event gets a bar — a packed
+                  // month cell has no room for more than one, and
+                  // stacking several would crowd the day number.
+                  final e = spanning.first;
+                  final span = eventDaysInRange(e, monthStart, monthEnd);
+                  final isFirst = span.first == d;
+                  final isLast = span.last == d;
+                  final color = EventColorTag.resolve(e.colorTag, e.startAt);
+                  final bar = Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.horizontal(
+                        left: isFirst ? const Radius.circular(2) : Radius.zero,
+                        right: isLast ? const Radius.circular(2) : Radius.zero,
+                      ),
+                    ),
+                  );
+                  if (!asListRow) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: bar,
+                    );
+                  }
+                  // In the expanded list, every row (this bar included)
+                  // gets the same fixed height so the list's own
+                  // capacity math (monthEventListCapacity) stays exact.
+                  return SizedBox(
+                    height: monthEventRowHeight(
+                      textScaler: MediaQuery.textScalerOf(context),
+                    ),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: bar,
+                      ),
+                    ),
+                  );
+                }
 
-                    // Where the day-number circle's own bottom edge actually
-                    // lands — shared by both branches below so the marker
-                    // always starts right under it, never overlapping it.
-                    // monthMarkerTop is the single source of truth for
-                    // this (also used by monthEventListCapacity's own
-                    // arithmetic, and by cellMargin below, so all three
-                    // agree on exactly where the circle sits) — see its
-                    // own doc for why this no longer depends on rowHeight.
-                    final markerTop = monthMarkerTop(columnWidth: columnWidth);
-                    final availableForMarker =
-                        effectiveRowHeight - markerTop - _monthMarkerBottomPad;
-                    final lunarRowHeight =
-                        monthEventRowHeight(
-                          textScaler: MediaQuery.textScalerOf(context),
-                        ) +
-                        1;
+                // Where the day-number circle's own bottom edge actually
+                // lands — shared by both branches below so the marker
+                // always starts right under it, never overlapping it.
+                // monthMarkerTop is the single source of truth for
+                // this (also used by monthEventListCapacity's own
+                // arithmetic, and by cellMargin below, so all three
+                // agree on exactly where the circle sits) — see its
+                // own doc for why this no longer depends on rowHeight.
+                final markerTop = monthMarkerTop(columnWidth: columnWidth);
+                final availableForMarker =
+                    effectiveRowHeight - markerTop - _monthMarkerBottomPad;
+                final lunarRowHeight =
+                    monthEventRowHeight(
+                      textScaler: MediaQuery.textScalerOf(context),
+                    ) +
+                    1;
 
-                    // A per-day, content-aware decision (not a flat setting
-                    // toggle alone) — a busy day's dots/list already fill
-                    // most of the marker area at the default row height, so
-                    // showing the lunar label there too would either
-                    // overflow the cell or force a whole extra row's worth
-                    // of budget cut from monthEventListCapacity's own,
-                    // already carefully-tuned arithmetic (which every other
-                    // cell in the grid shares, uniformly, regardless of that
-                    // one day's own content). Computed per-branch below,
-                    // against each branch's own real content height, so a
-                    // quiet day still gets its lunar label even while a busy
-                    // one doesn't at the same row height — the same kind of
-                    // graceful degradation monthEventListCapacity itself
-                    // already does for the list/dot switch.
-                    // Always centered — the expanded-list branch's own
-                    // Column stretches every child to the cell's full width
-                    // (crossAxisAlignment.stretch, matching its event rows),
-                    // so this needs textAlign.center to actually land in the
-                    // middle rather than just sitting flush left inside that
-                    // now-full-width box; the collapsed branch's Column
-                    // isn't stretched, so its lunar label is already exactly
-                    // as wide as its own text either way — centering it too
-                    // is a no-op there, not a conflicting need.
-                    Widget lunarLabel() {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 1),
-                        child: Text(
-                          LunarFmt.cell(l10n, lunar!),
-                          textAlign: TextAlign.center,
-                          // Left at _monthEventRowTextStyle's own 9px rather
-                          // than shrinking it further — that's also the
-                          // exact size monthEventRowHeight()/lunarRowHeight
-                          // already measure against, and what week_view.dart's
-                          // own lunar label uses, so this reads no smaller
-                          // than either the list rows sharing this same cell
-                          // or the same label anywhere else in the app.
-                          style: _monthEventRowTextStyle.copyWith(
-                            color: palette.inkFaint,
-                          ),
-                        ),
-                      );
-                    }
+                // A per-day, content-aware decision (not a flat setting
+                // toggle alone) — a busy day's dots/list already fill
+                // most of the marker area at the default row height, so
+                // showing the lunar label there too would either
+                // overflow the cell or force a whole extra row's worth
+                // of budget cut from monthEventListCapacity's own,
+                // already carefully-tuned arithmetic (which every other
+                // cell in the grid shares, uniformly, regardless of that
+                // one day's own content). Computed per-branch below,
+                // against each branch's own real content height, so a
+                // quiet day still gets its lunar label even while a busy
+                // one doesn't at the same row height — the same kind of
+                // graceful degradation monthEventListCapacity itself
+                // already does for the list/dot switch.
+                // Always centered — the expanded-list branch's own
+                // Column stretches every child to the cell's full width
+                // (crossAxisAlignment.stretch, matching its event rows),
+                // so this needs textAlign.center to actually land in the
+                // middle rather than just sitting flush left inside that
+                // now-full-width box; the collapsed branch's Column
+                // isn't stretched, so its lunar label is already exactly
+                // as wide as its own text either way — centering it too
+                // is a no-op there, not a conflicting need.
+                Widget lunarLabel() {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Text(
+                      LunarFmt.cell(l10n, lunar!),
+                      textAlign: TextAlign.center,
+                      // Left at _monthEventRowTextStyle's own 9px rather
+                      // than shrinking it further — that's also the
+                      // exact size monthEventRowHeight()/lunarRowHeight
+                      // already measure against, and what week_view.dart's
+                      // own lunar label uses, so this reads no smaller
+                      // than either the list rows sharing this same cell
+                      // or the same label anywhere else in the app.
+                      style: _monthEventRowTextStyle.copyWith(
+                        color: palette.inkFaint,
+                      ),
+                    ),
+                  );
+                }
 
-                    // Below monthEventListCapacity's own threshold: the
-                    // compact dot/bar summary. One dot per single-day
-                    // event/to-do entry, each in its own real color (up to
-                    // _monthCollapsedMaxDots), so the count is actually
-                    // visible at a glance instead of collapsing straight to
-                    // one generic "something's here" dot; beyond that, a
-                    // "+N" count instead — mirrors _MonthMoreRow's own
-                    // overflow style in the expanded list, just centered
-                    // under the date here rather than left-aligned in a
-                    // list row.
-                    final entryColors = <Color>[
-                      for (final e in dots)
-                        EventColorTag.resolve(e.colorTag, e.startAt),
-                      if (hasOverdueTodo || hasTodo)
-                        calendarDotColor(
-                          palette: palette,
-                          hasEvent: false,
-                          hasTodo: hasTodo,
-                          hasOverdueTodo: hasOverdueTodo,
-                        )!,
-                    ];
-                    if (listCapacity <= 0) {
-                      final collapsedContentHeight =
-                          (spanning.isNotEmpty ? 6.0 : 0.0) +
-                          (entryColors.isNotEmpty
-                              ? _monthCollapsedDotSize
-                              : 0.0);
-                      final showLunarHere =
-                          lunar != null &&
-                          availableForMarker - collapsedContentHeight >=
-                              lunarRowHeight;
-                      return Positioned(
-                        left: 0,
-                        right: 0,
-                        top: markerTop,
-                        bottom: _monthMarkerBottomPad,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (showLunarHere) lunarLabel(),
-                            if (spanning.isNotEmpty) spanBar(asListRow: false),
-                            if (entryColors.isNotEmpty)
-                              if (entryColors.length <= _monthCollapsedMaxDots)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    for (final color in entryColors)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 1,
-                                        ),
-                                        child: Container(
-                                          width: _monthCollapsedDotSize,
-                                          height: _monthCollapsedDotSize,
-                                          decoration: BoxDecoration(
-                                            color: color,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                )
-                              else
-                                // Flexible+FittedBox, not a bare Text: a
-                                // pure safety net for some unusual device/
-                                // text-scale combination, not the normal
-                                // path — the style below (fontSize 7,
-                                // height: 1.0) was deliberately measured to
-                                // a natural rendered height of exactly 7px
-                                // (verified via TextPainter), matching the
-                                // shortest allowed row height's own real
-                                // budget of 7px here (MonthCalendarRowHeight
-                                // .min minus the day-number circle's margin
-                                // and the marker's own bottom padding —
-                                // see monthMarkerTop's doc). The original
-                                // fontSize 9 needed FittedBox to shrink it
-                                // to ~78% at that floor on every normal
-                                // device, which read as a jarring, much
-                                // smaller "+N" than the same label at any
-                                // taller row height — this keeps it a
-                                // stable, legible size at every height
-                                // instead, only ever asking FittedBox to
-                                // step in for a genuinely narrower-than-
-                                // typical device.
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      '+${entryColors.length}',
-                                      style: TextStyle(
-                                        fontSize: 7,
-                                        height: 1.0,
-                                        fontWeight: FontWeight.w700,
-                                        color: palette.inkFaint,
+                // Below monthEventListCapacity's own threshold: the
+                // compact dot/bar summary. One dot per single-day
+                // event/to-do entry, each in its own real color (up to
+                // _monthCollapsedMaxDots), so the count is actually
+                // visible at a glance instead of collapsing straight to
+                // one generic "something's here" dot; beyond that, a
+                // "+N" count instead — mirrors _MonthMoreRow's own
+                // overflow style in the expanded list, just centered
+                // under the date here rather than left-aligned in a
+                // list row.
+                final entryColors = <Color>[
+                  for (final e in dots)
+                    EventColorTag.resolve(e.colorTag, e.startAt),
+                  if (hasOverdueTodo || hasTodo)
+                    calendarDotColor(
+                      palette: palette,
+                      hasEvent: false,
+                      hasTodo: hasTodo,
+                      hasOverdueTodo: hasOverdueTodo,
+                    )!,
+                ];
+                if (listCapacity <= 0) {
+                  final collapsedContentHeight =
+                      (spanning.isNotEmpty ? 6.0 : 0.0) +
+                      (entryColors.isNotEmpty ? _monthCollapsedDotSize : 0.0);
+                  final showLunarHere =
+                      lunar != null &&
+                      availableForMarker - collapsedContentHeight >=
+                          lunarRowHeight;
+                  return Positioned(
+                    left: 0,
+                    right: 0,
+                    top: markerTop,
+                    bottom: _monthMarkerBottomPad,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (showLunarHere) lunarLabel(),
+                        if (spanning.isNotEmpty) spanBar(asListRow: false),
+                        if (entryColors.isNotEmpty)
+                          if (entryColors.length <= _monthCollapsedMaxDots)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final color in entryColors)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 1,
+                                    ),
+                                    child: Container(
+                                      width: _monthCollapsedDotSize,
+                                      height: _monthCollapsedDotSize,
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        shape: BoxShape.circle,
                                       ),
                                     ),
                                   ),
+                              ],
+                            )
+                          else
+                            // Flexible+FittedBox, not a bare Text: a
+                            // pure safety net for some unusual device/
+                            // text-scale combination, not the normal
+                            // path — the style below (fontSize 7,
+                            // height: 1.0) was deliberately measured to
+                            // a natural rendered height of exactly 7px
+                            // (verified via TextPainter), matching the
+                            // shortest allowed row height's own real
+                            // budget of 7px here (MonthCalendarRowHeight
+                            // .min minus the day-number circle's margin
+                            // and the marker's own bottom padding —
+                            // see monthMarkerTop's doc). The original
+                            // fontSize 9 needed FittedBox to shrink it
+                            // to ~78% at that floor on every normal
+                            // device, which read as a jarring, much
+                            // smaller "+N" than the same label at any
+                            // taller row height — this keeps it a
+                            // stable, legible size at every height
+                            // instead, only ever asking FittedBox to
+                            // step in for a genuinely narrower-than-
+                            // typical device.
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  '+${entryColors.length}',
+                                  style: TextStyle(
+                                    fontSize: 7,
+                                    height: 1.0,
+                                    fontWeight: FontWeight.w700,
+                                    color: palette.inkFaint,
+                                  ),
                                 ),
-                          ],
-                        ),
-                      );
-                    }
+                              ),
+                            ),
+                      ],
+                    ),
+                  );
+                }
 
-                    // Room for a real list — show each event's own title
-                    // (and its own color) instead of a single generic dot,
-                    // with a to-do row appended when there's a pending one.
-                    final items = <Widget>[
-                      if (spanning.isNotEmpty) spanBar(asListRow: true),
-                      for (final e in dots)
-                        _MonthEventListRow(
-                          color: EventColorTag.resolve(e.colorTag, e.startAt),
-                          label: e.title.isEmpty ? '—' : e.title,
-                          onTap: () => showEventPreview(context, event: e),
-                          onLongPress: () =>
-                              showEventEditor(context, existing: e),
-                        ),
-                      if (hasOverdueTodo || hasTodo)
-                        _MonthEventListRow(
-                          color: calendarDotColor(
-                            palette: palette,
-                            hasEvent: false,
-                            hasTodo: hasTodo,
-                            hasOverdueTodo: hasOverdueTodo,
-                          )!,
-                          label: l10n.todosSectionTitle,
-                        ),
-                    ];
-                    // A "+N" hint on its own dedicated row always costs
-                    // exactly the row it could otherwise have shown one
-                    // more real item in — so reserving a whole row the
-                    // moment items overflow listCapacity always inflates
-                    // the count by 1 versus what's truly left over past
-                    // what's shown (e.g. exactly 1 item left over still
-                    // showed "+2", never "+1"), and growing the row
-                    // taller used to jump straight from that "+2" to
-                    // everything shown, revealing 2 items at once instead
-                    // of one. Fixed by never reserving a whole row for
-                    // the hint at all: show every item that fits
-                    // (listCapacity of them — using every row for real
-                    // content) and attach the count to the *last* shown
-                    // row's own line instead of a separate one below it.
-                    // That costs no extra vertical space, stays exactly
-                    // accurate at any overflow amount, and reveals one
-                    // more real title each time the row grows by one
-                    // capacity step — "+3" → "+2" → "+1" → nothing, in
-                    // lockstep with listCapacity itself.
-                    List<Widget> visible;
-                    if (items.length <= listCapacity) {
-                      visible = items;
-                    } else {
-                      final shown = items.take(listCapacity).toList();
-                      final hint = items.length - listCapacity;
-                      final last = shown.removeLast();
-                      shown.add(
-                        // The spanning bar (always item 0, if present) can
-                        // only ever land here if listCapacity is 1, which
-                        // monthEventListCapacity never actually returns
-                        // (it requires room for at least 2 rows) — this
-                        // fallback exists purely so that invariant
-                        // changing elsewhere couldn't silently drop items
-                        // with no trace, not because it's expected to run.
-                        last is _MonthEventListRow
-                            ? _MonthEventListRow(
-                                color: last.color,
-                                label: last.label,
-                                trailingHint: hint,
-                                onTap: last.onTap,
-                                onLongPress: last.onLongPress,
-                              )
-                            : _MonthMoreRow(count: hint),
-                      );
-                      visible = shown;
-                    }
+                // Room for a real list — show each event's own title
+                // (and its own color) instead of a single generic dot,
+                // with a to-do row appended when there's a pending one.
+                final items = <Widget>[
+                  if (spanning.isNotEmpty) spanBar(asListRow: true),
+                  for (final e in dots)
+                    _MonthEventListRow(
+                      color: EventColorTag.resolve(e.colorTag, e.startAt),
+                      label: e.title.isEmpty ? '—' : e.title,
+                      onTap: () => showEventPreview(context, event: e),
+                      onLongPress: () => showEventEditor(context, existing: e),
+                    ),
+                  if (hasOverdueTodo || hasTodo)
+                    _MonthEventListRow(
+                      color: calendarDotColor(
+                        palette: palette,
+                        hasEvent: false,
+                        hasTodo: hasTodo,
+                        hasOverdueTodo: hasOverdueTodo,
+                      )!,
+                      label: l10n.todosSectionTitle,
+                    ),
+                ];
+                // A "+N" hint on its own dedicated row always costs
+                // exactly the row it could otherwise have shown one
+                // more real item in — so reserving a whole row the
+                // moment items overflow listCapacity always inflates
+                // the count by 1 versus what's truly left over past
+                // what's shown (e.g. exactly 1 item left over still
+                // showed "+2", never "+1"), and growing the row
+                // taller used to jump straight from that "+2" to
+                // everything shown, revealing 2 items at once instead
+                // of one. Fixed by never reserving a whole row for
+                // the hint at all: show every item that fits
+                // (listCapacity of them — using every row for real
+                // content) and attach the count to the *last* shown
+                // row's own line instead of a separate one below it.
+                // That costs no extra vertical space, stays exactly
+                // accurate at any overflow amount, and reveals one
+                // more real title each time the row grows by one
+                // capacity step — "+3" → "+2" → "+1" → nothing, in
+                // lockstep with listCapacity itself.
+                List<Widget> visible;
+                if (items.length <= listCapacity) {
+                  visible = items;
+                } else {
+                  final shown = items.take(listCapacity).toList();
+                  final hint = items.length - listCapacity;
+                  final last = shown.removeLast();
+                  shown.add(
+                    // The spanning bar (always item 0, if present) can
+                    // only ever land here if listCapacity is 1, which
+                    // monthEventListCapacity never actually returns
+                    // (it requires room for at least 2 rows) — this
+                    // fallback exists purely so that invariant
+                    // changing elsewhere couldn't silently drop items
+                    // with no trace, not because it's expected to run.
+                    last is _MonthEventListRow
+                        ? _MonthEventListRow(
+                            color: last.color,
+                            label: last.label,
+                            trailingHint: hint,
+                            onTap: last.onTap,
+                            onLongPress: last.onLongPress,
+                          )
+                        : _MonthMoreRow(count: hint),
+                  );
+                  visible = shown;
+                }
 
-                    // Same content-aware check as the collapsed branch
-                    // above, against this branch's own real content height
-                    // — a day whose events already fill every one of
-                    // listCapacity's rows leaves no slack for the label
-                    // (same as it would for one more real event row), while
-                    // a quieter day under capacity still gets it.
-                    final showLunarHere =
-                        lunar != null &&
-                        availableForMarker -
-                                visible.length *
-                                    monthEventRowHeight(
-                                      textScaler: MediaQuery.textScalerOf(
-                                        context,
-                                      ),
-                                    ) >=
-                            lunarRowHeight;
+                // Same content-aware check as the collapsed branch
+                // above, against this branch's own real content height
+                // — a day whose events already fill every one of
+                // listCapacity's rows leaves no slack for the label
+                // (same as it would for one more real event row), while
+                // a quieter day under capacity still gets it.
+                final showLunarHere =
+                    lunar != null &&
+                    availableForMarker -
+                            visible.length *
+                                monthEventRowHeight(
+                                  textScaler: MediaQuery.textScalerOf(context),
+                                ) >=
+                        lunarRowHeight;
 
-                    return Positioned(
-                      left: 0,
-                      right: 0,
-                      top: markerTop,
-                      bottom: _monthMarkerBottomPad,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [if (showLunarHere) lunarLabel(), ...visible],
-                      ),
-                    );
-                  },
-                ),
-                calendarStyle: CalendarStyle(
-                  outsideDaysVisible: false,
-                  // table_calendar's CellContent sizes the day-number
-                  // circle's own box to whatever's left after this margin
-                  // is subtracted from the cell (a flat margin either let
-                  // the circle change size with rowHeight, or — the
-                  // now-fixed numberDiameter — wasted an ever-growing
-                  // chunk of a taller row as blank space just centering
-                  // it). Asymmetric on purpose: a small fixed top margin
-                  // (matching monthMarkerTop's own _monthNumberTopMargin,
-                  // so the circle and the marker below it agree on where
-                  // it sits) and a bottom margin that absorbs the rest —
-                  // BoxDecoration's circle painting uses a box's *shorter*
-                  // side for the circle's own diameter regardless of the
-                  // box's aspect ratio, so an asymmetric (non-square) box
-                  // doesn't risk distorting it, as long as this bottom
-                  // margin still leaves the box's own height exactly
-                  // matching numberDiameter (which it does, by
-                  // construction, below).
-                  cellMargin: EdgeInsets.fromLTRB(
-                    6,
-                    _monthNumberTopMargin,
-                    6,
-                    effectiveRowHeight - _monthNumberTopMargin - numberDiameter,
+                return Positioned(
+                  left: 0,
+                  right: 0,
+                  top: markerTop,
+                  bottom: _monthMarkerBottomPad,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [if (showLunarHere) lunarLabel(), ...visible],
                   ),
-                  defaultTextStyle: theme.textTheme.bodyLarge!,
-                  weekendTextStyle: theme.textTheme.bodyLarge!,
-                  todayDecoration: BoxDecoration(
-                    color: palette.accent.withValues(alpha: 0.16),
-                    shape: BoxShape.circle,
-                  ),
-                  todayTextStyle: theme.textTheme.bodyLarge!.copyWith(
-                    color: palette.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  selectedDecoration: BoxDecoration(
-                    color: palette.accent,
-                    shape: BoxShape.circle,
-                  ),
-                  selectedTextStyle: theme.textTheme.bodyLarge!.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                onDaySelected: (selectedDay, focusedDay) {
-                  ref.read(selectedDateProvider.notifier).select(selectedDay);
-                },
-                onPageChanged: (focusedDay) {
-                  ref.read(selectedDateProvider.notifier).select(focusedDay);
-                },
+                );
+              },
+            ),
+            calendarStyle: CalendarStyle(
+              outsideDaysVisible: false,
+              // table_calendar's CellContent sizes the day-number
+              // circle's own box to whatever's left after this margin
+              // is subtracted from the cell (a flat margin either let
+              // the circle change size with rowHeight, or — the
+              // now-fixed numberDiameter — wasted an ever-growing
+              // chunk of a taller row as blank space just centering
+              // it). Asymmetric on purpose: a small fixed top margin
+              // (matching monthMarkerTop's own _monthNumberTopMargin,
+              // so the circle and the marker below it agree on where
+              // it sits) and a bottom margin that absorbs the rest —
+              // BoxDecoration's circle painting uses a box's *shorter*
+              // side for the circle's own diameter regardless of the
+              // box's aspect ratio, so an asymmetric (non-square) box
+              // doesn't risk distorting it, as long as this bottom
+              // margin still leaves the box's own height exactly
+              // matching numberDiameter (which it does, by
+              // construction, below).
+              cellMargin: EdgeInsets.fromLTRB(
+                6,
+                _monthNumberTopMargin,
+                6,
+                effectiveRowHeight - _monthNumberTopMargin - numberDiameter,
+              ),
+              defaultTextStyle: theme.textTheme.bodyLarge!,
+              weekendTextStyle: theme.textTheme.bodyLarge!,
+              todayDecoration: BoxDecoration(
+                color: palette.accent.withValues(alpha: 0.16),
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: theme.textTheme.bodyLarge!.copyWith(
+                color: palette.accent,
+                fontWeight: FontWeight.w700,
+              ),
+              selectedDecoration: BoxDecoration(
+                color: palette.accent,
+                shape: BoxShape.circle,
+              ),
+              selectedTextStyle: theme.textTheme.bodyLarge!.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            _MonthSplitHandle(rowCount: rowCount, maxRowHeight: maxRowHeight),
-            // Selected day's timeline flows directly below the month grid —
-            // always the timeline layout regardless of the layout-mode
-            // preference, per DayView's own doc on `compact`.
-            Expanded(child: DayView(day: selected, compact: true)),
+            onDaySelected: (selectedDay, focusedDay) {
+              ref.read(selectedDateProvider.notifier).select(selectedDay);
+              // Tapping a day means "show me this day". In the split layout
+              // it already does, in the panel below. Tabbed, the same tap
+              // has to bring that panel forward or picking a date appears
+              // to do nothing at all.
+              if (mode == MonthLayoutMode.tabbed && !_showTimeline) {
+                setState(() => _showTimeline = true);
+              }
+            },
+            onPageChanged: (focusedDay) {
+              ref.read(selectedDateProvider.notifier).select(focusedDay);
+            },
+          ),
+        );
+
+        // Always the timeline layout regardless of the layout-mode
+        // preference, per DayView's own doc on `compact`.
+        final timeline = DayView(day: selected, compact: true);
+
+        if (mode == MonthLayoutMode.split) {
+          return Column(
+            children: [
+              calendar,
+              _MonthSplitHandle(rowCount: rowCount, maxRowHeight: maxRowHeight),
+              Expanded(child: timeline),
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            _MonthTabBar(
+              key: const Key('monthTabBar'),
+              showTimeline: _showTimeline,
+              accent: palette.accent,
+              calendarLabel: l10n.monthTabCalendar,
+              timelineLabel: l10n.monthTabTimeline,
+              onChanged: (v) => setState(() => _showTimeline = v),
+            ),
+            Expanded(
+              child: _showTimeline
+                  ? timeline
+                  // Even at the row-height floor a six-week month outgrows
+                  // a phone-landscape viewport, so the grid scrolls rather
+                  // than overflowing — the failure this whole layout exists
+                  // to end. On anything roomier the grid is shorter than
+                  // the viewport and this never scrolls at all.
+                  : SingleChildScrollView(child: calendar),
+            ),
           ],
         );
       },
+    );
+  }
+}
+
+/// Height [_MonthTabBar] occupies, reserved out of the grid's own budget
+/// before [maxMonthRowHeight]'s floor is applied.
+const double _monthTabBarHeight = 44.0;
+
+/// The two-way switcher [MonthLayoutMode.tabbed] puts above the month grid.
+///
+/// Deliberately the same pill shape as the schedule header's own view
+/// switcher rather than a Material TabBar: this sits directly beneath that
+/// control, and two adjacent switchers in two different idioms read as two
+/// unrelated mechanisms.
+class _MonthTabBar extends StatelessWidget {
+  const _MonthTabBar({
+    super.key,
+    required this.showTimeline,
+    required this.accent,
+    required this.calendarLabel,
+    required this.timelineLabel,
+    required this.onChanged,
+  });
+
+  final bool showTimeline;
+  final Color accent;
+  final String calendarLabel;
+  final String timelineLabel;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        0,
+        AppSpacing.gutter,
+        AppSpacing.xs,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: AppRadius.allPill,
+          border: Border.all(color: palette.hairline),
+        ),
+        child: Row(
+          children: [
+            for (final (isTimeline, label) in [
+              (false, calendarLabel),
+              (true, timelineLabel),
+            ])
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onChanged(isTimeline),
+                  child: AnimatedContainer(
+                    duration: context.motionDuration(
+                      const Duration(milliseconds: 220),
+                    ),
+                    curve: Curves.easeOut,
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isTimeline == showTimeline
+                          ? accent
+                          : Colors.transparent,
+                      borderRadius: AppRadius.allPill,
+                    ),
+                    alignment: Alignment.center,
+                    // Same reasoning as the header switcher's own labels:
+                    // scaling to fit reads correctly at any width, where
+                    // truncating or wrapping does not.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: isTimeline == showTimeline
+                              ? Colors.white
+                              : palette.inkSoft,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

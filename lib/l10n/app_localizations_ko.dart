@@ -176,6 +176,12 @@ class AppL10nKo extends AppL10n {
   String get monthSplitHandleLabel => '달력 크기 조절';
 
   @override
+  String get monthTabCalendar => '달력';
+
+  @override
+  String get monthTabTimeline => '그날 일정';
+
+  @override
   String get dayEmpty => '이 날은 아직 비어 있어요';
 
   @override
