@@ -358,6 +358,15 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
           as _i6.Future<void>);
 
   @override
+  _i6.Future<void> updateSlotDate(String? id, DateTime? day) =>
+      (super.noSuchMethod(
+            Invocation.method(#updateSlotDate, [id, day]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
   _i6.Future<void> clearTime(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#clearTime, [id]),
