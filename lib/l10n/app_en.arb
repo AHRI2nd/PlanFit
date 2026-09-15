@@ -374,6 +374,7 @@
       "day": {"type": "String"}
     }
   },
+  "todoQuickAddDateNotPlaced": "Couldn't place that date, so it was added without one.",
 
   "todoSelectionCount": "{count} selected",
   "@todoSelectionCount": {

@@ -1765,6 +1765,12 @@ abstract class AppL10n {
   /// **'{day}에 추가했어요'**
   String todoQuickAddAddedToOtherDay(String day);
 
+  /// No description provided for @todoQuickAddDateNotPlaced.
+  ///
+  /// In ko, this message translates to:
+  /// **'그 날짜를 찾지 못해 날짜 없이 추가했어요.'**
+  String get todoQuickAddDateNotPlaced;
+
   /// No description provided for @todoSelectionCount.
   ///
   /// In ko, this message translates to:

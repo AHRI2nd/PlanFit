@@ -935,6 +935,10 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get todoQuickAddDateNotPlaced =>
+      'Couldn\'t place that date, so it was added without one.';
+
+  @override
   String todoSelectionCount(int count) {
     return '$count selected';
   }

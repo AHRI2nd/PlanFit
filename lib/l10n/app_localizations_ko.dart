@@ -894,6 +894,9 @@ class AppL10nKo extends AppL10n {
   }
 
   @override
+  String get todoQuickAddDateNotPlaced => '그 날짜를 찾지 못해 날짜 없이 추가했어요.';
+
+  @override
   String todoSelectionCount(int count) {
     return '$count개 선택됨';
   }

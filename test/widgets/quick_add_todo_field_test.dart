@@ -11,6 +11,7 @@ import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/domain/ports.dart';
 import 'package:planfit/features/todo/presentation/quick_add_todo_sheet.dart';
 import 'package:planfit/l10n/app_localizations.dart';
+import 'package:planfit/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'quick_add_todo_field_test.mocks.dart';
@@ -100,39 +101,32 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a "내일 오후 3시" phrase in the title overrides the date/time chips, '
-    'and only the remaining text becomes the title',
-    (tester) async {
-      final now = DateTime.now();
-      await pumpField(tester);
+  testWidgets('a "내일 오후 3시" phrase in the title overrides the date/time chips, '
+      'and only the remaining text becomes the title', (tester) async {
+    final now = DateTime.now();
+    await pumpField(tester);
 
-      await tester.enterText(
-        find.byType(TextField).first,
-        '내일 오후 3시 병원',
-      );
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '내일 오후 3시 병원');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
 
-      final captured =
-          verify(todos.upsert(captureAny)).captured.single
-              as TodoItemsCompanion;
-      expect(captured.title.value, '병원');
-      final slotStart = captured.slotStart.value;
-      // "내일" is relative to whenever the test actually runs (parseQuickAdd
-      // reads DateTime.now() itself) — pin down just the parsed time-of-day,
-      // which is what this test is actually about, rather than the date.
-      expect(slotStart.hour, 15);
-      expect(slotStart.minute, 0);
-      // Sanity: still resolves to a day after "now" was captured above,
-      // not today.
-      expect(slotStart.isAfter(now), isTrue);
-      // No day was given, so the parsed date differs from the auto
-      // "today" anchor and _submit's own snackbar fires — let its real
-      // Timer run out before the test tears down (see snackbar_x.dart).
-      await tester.pump(const Duration(seconds: 5));
-    },
-  );
+    final captured =
+        verify(todos.upsert(captureAny)).captured.single as TodoItemsCompanion;
+    expect(captured.title.value, '병원');
+    final slotStart = captured.slotStart.value;
+    // "내일" is relative to whenever the test actually runs (parseQuickAdd
+    // reads DateTime.now() itself) — pin down just the parsed time-of-day,
+    // which is what this test is actually about, rather than the date.
+    expect(slotStart.hour, 15);
+    expect(slotStart.minute, 0);
+    // Sanity: still resolves to a day after "now" was captured above,
+    // not today.
+    expect(slotStart.isAfter(now), isTrue);
+    // No day was given, so the parsed date differs from the auto
+    // "today" anchor and _submit's own snackbar fires — let its real
+    // Timer run out before the test tears down (see snackbar_x.dart).
+    await tester.pump(const Duration(seconds: 5));
+  });
 
   testWidgets(
     'when a day is given, no date chip renders — the day itself is that '
@@ -160,6 +154,39 @@ void main() {
       await tester.pump();
 
       expect(find.textContaining('에 추가했어요'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+    },
+  );
+
+  testWidgets(
+    'a date phrase that could not be placed says so, instead of adding the '
+    'to-do with the phrase still in its title and no word about why',
+    (tester) async {
+      await pumpField(tester);
+
+      // April has no 31st, so the phrase resolves to nothing and is left in
+      // the title. The to-do is still created, on the day already in
+      // context — the point here is that the user is told.
+      await tester.enterText(find.byType(TextField).first, '4월 31일 회의');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(find.text(AppL10nKo().todoQuickAddDateNotPlaced), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+    },
+  );
+
+  testWidgets(
+    'an ordinary add stays quiet — this message must not start appearing on '
+    'every to-do that simply has no date phrase in it',
+    (tester) async {
+      await pumpField(tester);
+
+      await tester.enterText(find.byType(TextField).first, '회의');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(find.text(AppL10nKo().todoQuickAddDateNotPlaced), findsNothing);
       await tester.pump(const Duration(seconds: 5));
     },
   );

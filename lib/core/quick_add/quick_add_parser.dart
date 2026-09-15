@@ -7,18 +7,30 @@ import '../date_math.dart';
 /// same key here, since the regex's own `(?:...)?` optional suffixes are
 /// what actually distinguish "mar" from "march" at match time.
 const Map<String, int> _englishMonths = {
-  'jan': 1, 'january': 1,
-  'feb': 2, 'february': 2,
-  'mar': 3, 'march': 3,
-  'apr': 4, 'april': 4,
+  'jan': 1,
+  'january': 1,
+  'feb': 2,
+  'february': 2,
+  'mar': 3,
+  'march': 3,
+  'apr': 4,
+  'april': 4,
   'may': 5,
-  'jun': 6, 'june': 6,
-  'jul': 7, 'july': 7,
-  'aug': 8, 'august': 8,
-  'sep': 9, 'sept': 9, 'september': 9,
-  'oct': 10, 'october': 10,
-  'nov': 11, 'november': 11,
-  'dec': 12, 'december': 12,
+  'jun': 6,
+  'june': 6,
+  'jul': 7,
+  'july': 7,
+  'aug': 8,
+  'august': 8,
+  'sep': 9,
+  'sept': 9,
+  'september': 9,
+  'oct': 10,
+  'october': 10,
+  'nov': 11,
+  'november': 11,
+  'dec': 12,
+  'december': 12,
 };
 
 /// What [parseQuickAdd] pulled out of a free-text line like "내일 오후 3시
@@ -31,6 +43,7 @@ class QuickAddResult {
     this.time,
     this.priority,
     this.tags = const [],
+    this.hasUnplacedDatePhrase = false,
   });
 
   final String title;
@@ -40,6 +53,23 @@ class QuickAddResult {
   /// if none was recognized — the caller should fall back to whatever day
   /// was already in context (today, or the day view currently open).
   final DateTime? date;
+
+  /// A month/day phrase was recognized and then could not be placed on a
+  /// calendar, so [date] is null and the phrase is still in [title].
+  ///
+  /// Two ways that happens, and they are not the same thing. "4월 31일" and
+  /// "2월 30일" name a day that no year has. "2월 29일" names one that some
+  /// years do have, just not either of the two this parser will consider —
+  /// see `resolveExplicitDate`, which only ever looks at this year and next,
+  /// the same window every other date phrase here resolves within.
+  ///
+  /// Either way the caller ends up adding the item on whatever day it would
+  /// have used anyway, with the phrase left sitting in the title. That is
+  /// the right *behaviour* — guessing at a date the user did not type would
+  /// be worse — but on its own it is indistinguishable from the parser
+  /// simply not having understood, so a caller that can say something
+  /// should. Ignoring this field leaves the old behaviour exactly as it was.
+  final bool hasUnplacedDatePhrase;
 
   /// A time-of-day, populated **only** when the phrase was unambiguous —
   /// carried an AM/PM marker (오전/오후/아침/저녁/밤, 午前/午後/朝/夜/晩,
@@ -76,6 +106,11 @@ class QuickAddResult {
 QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
   var text = input.trim();
   DateTime? date;
+  // Set by either explicit-date branch when the phrase named a month and
+  // day in range that still resolved to nothing — see
+  // QuickAddResult.hasUnplacedDatePhrase. Declared out here with [date]
+  // because the branches that set it live in a nested block.
+  var sawUnplaceable = false;
   TimeOfDay? time;
 
   DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -118,7 +153,12 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
   // --- Weekday: (다음주 )?(월|화|수|목|금|토|일)요일,
   // (来週)?(月|火|水|木|金|土|日)曜日, (next )?monday..sunday ---
   if (date == null) {
-    void applyWeekday(RegExpMatch m, List<String> order, String letter, bool nextWeek) {
+    void applyWeekday(
+      RegExpMatch m,
+      List<String> order,
+      String letter,
+      bool nextWeek,
+    ) {
       final target = order.indexOf(letter) + 1; // 1=Mon..7=Sun
       date = _nextWeekday(dateOnly(now), target, forceNextWeek: nextWeek);
       text = strip(m);
@@ -144,9 +184,19 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
     ).firstMatch(text);
 
     if (koWeekday != null) {
-      applyWeekday(koWeekday, koOrder, koWeekday.group(2)!, koWeekday.group(1) != null);
+      applyWeekday(
+        koWeekday,
+        koOrder,
+        koWeekday.group(2)!,
+        koWeekday.group(1) != null,
+      );
     } else if (jaWeekday != null) {
-      applyWeekday(jaWeekday, jaOrder, jaWeekday.group(2)!, jaWeekday.group(1) != null);
+      applyWeekday(
+        jaWeekday,
+        jaOrder,
+        jaWeekday.group(2)!,
+        jaWeekday.group(1) != null,
+      );
     } else if (enWeekday != null) {
       applyWeekday(
         enWeekday,
@@ -204,6 +254,8 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
         if (resolved != null) {
           date = resolved;
           text = strip(koJaExplicit);
+        } else {
+          sawUnplaceable = true;
         }
       }
     }
@@ -235,6 +287,8 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
           if (resolved != null) {
             date = resolved;
             text = strip(enExplicit);
+          } else {
+            sawUnplaceable = true;
           }
         }
       }
@@ -283,10 +337,7 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
       // but blindly applying that same +12 to 밤/저녁's "12" silently
       // produced noon instead of the midnight the phrase actually means.
       final isNightMarker =
-          marker == '저녁' ||
-          marker == '밤' ||
-          marker == '夜' ||
-          marker == '晩';
+          marker == '저녁' || marker == '밤' || marker == '夜' || marker == '晩';
       var hour = int.parse(koJaTime.group(2)!) % 12;
       final meansExactMidnight = isNightMarker && hour == 0;
       if (isPm && !meansExactMidnight) hour += 12;
@@ -364,6 +415,7 @@ QuickAddResult parseQuickAdd(String input, {required DateTime now}) {
     time: time,
     priority: priority,
     tags: tags,
+    hasUnplacedDatePhrase: sawUnplaceable,
   );
 }
 

@@ -307,7 +307,18 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
     });
     widget.onAdded?.call();
 
-    if (parsed.date != null &&
+    if (parsed.hasUnplacedDatePhrase) {
+      // The phrase named a day the parser could not place — "4월 31일", or
+      // "2월 29일" outside its two-year window. The to-do was still added,
+      // on whatever day was already in context, with the phrase left in its
+      // title. Saying so is the whole point: without it this is
+      // indistinguishable from the parser not having understood at all,
+      // and the "added to {day}" line below cannot cover it, since that one
+      // only fires when a date *was* placed.
+      messenger.showAutoDismissSnackBar(
+        SnackBar(content: Text(l10n.todoQuickAddDateNotPlaced)),
+      );
+    } else if (parsed.date != null &&
         !dateOnly(base).isAtSameMomentAs(snackbarAnchor)) {
       messenger.showAutoDismissSnackBar(
         SnackBar(

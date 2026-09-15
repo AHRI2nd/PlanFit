@@ -120,38 +120,95 @@ void main() {
       expect(r.title, 'deadline');
     });
 
-    test(
-      'a day that does not exist in that month is left unparsed (null), not '
-      'silently rolled into the next month — regression test: only a flat '
-      "1..31 range was checked before, so Dart's DateTime constructor "
-      'quietly normalized the overflow (e.g. "2월 29일" outside a leap '
-      'year silently became March 1) instead of the phrase failing to '
-      'parse the way every other ambiguous case in this file does',
-      () {
-        // April never has a 31st.
-        expect(parseQuickAdd('4월 31일 회의', now: now).date, isNull);
-        expect(parseQuickAdd('Apr 31 meeting', now: now).date, isNull);
-        // 2026 and 2027 (the two candidate years from `now`) are both
-        // non-leap, so Feb 29 doesn't exist in either.
-        expect(parseQuickAdd('2월 29일 회의', now: now).date, isNull);
-        // February never has a 30th, leap year or not.
-        expect(parseQuickAdd('2월 30일 회의', now: now).date, isNull);
-      },
-    );
+    test('a day that does not exist in that month is left unparsed (null), not '
+        'silently rolled into the next month — regression test: only a flat '
+        "1..31 range was checked before, so Dart's DateTime constructor "
+        'quietly normalized the overflow (e.g. "2월 29일" outside a leap '
+        'year silently became March 1) instead of the phrase failing to '
+        'parse the way every other ambiguous case in this file does', () {
+      // April never has a 31st.
+      expect(parseQuickAdd('4월 31일 회의', now: now).date, isNull);
+      expect(parseQuickAdd('Apr 31 meeting', now: now).date, isNull);
+      // 2026 and 2027 (the two candidate years from `now`) are both
+      // non-leap, so Feb 29 doesn't exist in either.
+      expect(parseQuickAdd('2월 29일 회의', now: now).date, isNull);
+      // February never has a 30th, leap year or not.
+      expect(parseQuickAdd('2월 30일 회의', now: now).date, isNull);
+    });
+
+    test('a phrase that named a day and could not be placed says so, so the '
+        'caller can tell it apart from no date phrase at all', () {
+      // Both of these leave the phrase in the title and the date null.
+      // Without the flag that is the same shape as plain text, and the
+      // to-do gets added with no explanation of where the date went.
+      expect(
+        parseQuickAdd('4월 31일 회의', now: now).hasUnplacedDatePhrase,
+        isTrue,
+      );
+      expect(
+        parseQuickAdd('2월 30일 회의', now: now).hasUnplacedDatePhrase,
+        isTrue,
+      );
+      // now is 2026: neither 2026 nor 2027 has a Feb 29.
+      expect(
+        parseQuickAdd('2월 29일 회의', now: now).hasUnplacedDatePhrase,
+        isTrue,
+      );
+      expect(
+        parseQuickAdd('Apr 31 meeting', now: now).hasUnplacedDatePhrase,
+        isTrue,
+      );
+    });
 
     test(
-      '2월 29일 still resolves correctly across a leap-year boundary, when '
-      'one of the two candidate years actually has it',
+      'it stays false whenever a date was actually placed, and for text with '
+      'no date phrase in it — a flag that fired on ordinary input would put '
+      'a message in front of the user on every other add',
       () {
-        // now is 2023-03-04 -- this year (2023) isn't a leap year, but next
-        // year (2024) is, so the leap day genuinely exists one year out.
-        final leapNow = DateTime(2023, 3, 4);
         expect(
-          parseQuickAdd('2월 29일 회의', now: leapNow).date,
-          DateTime(2024, 2, 29),
+          parseQuickAdd('3월 15일 생일파티', now: now).hasUnplacedDatePhrase,
+          isFalse,
+        );
+        expect(parseQuickAdd('내일 회의', now: now).hasUnplacedDatePhrase, isFalse);
+        expect(parseQuickAdd('회의', now: now).hasUnplacedDatePhrase, isFalse);
+        // Resolved by rolling to next year rather than rejected.
+        expect(
+          parseQuickAdd('1월 5일 회의', now: now).hasUnplacedDatePhrase,
+          isFalse,
+        );
+        // A leap day that *is* within the window resolves, so no flag.
+        expect(
+          parseQuickAdd(
+            '2월 29일 회의',
+            now: DateTime(2023, 3, 4),
+          ).hasUnplacedDatePhrase,
+          isFalse,
         );
       },
     );
+
+    test('a month outside 1..12 is not flagged — "0월"/"13월" never looked like '
+        'a date to begin with, so there is nothing to explain', () {
+      expect(
+        parseQuickAdd('13월 5일 회의', now: now).hasUnplacedDatePhrase,
+        isFalse,
+      );
+      expect(
+        parseQuickAdd('0월 5일 회의', now: now).hasUnplacedDatePhrase,
+        isFalse,
+      );
+    });
+
+    test('2월 29일 still resolves correctly across a leap-year boundary, when '
+        'one of the two candidate years actually has it', () {
+      // now is 2023-03-04 -- this year (2023) isn't a leap year, but next
+      // year (2024) is, so the leap day genuinely exists one year out.
+      final leapNow = DateTime(2023, 3, 4);
+      expect(
+        parseQuickAdd('2월 29일 회의', now: leapNow).date,
+        DateTime(2024, 2, 29),
+      );
+    });
   });
 
   group('time', () {
@@ -186,29 +243,26 @@ void main() {
       );
     });
 
-    test(
-      '밤/저녁 12시 mean midnight, not noon — regression test: 밤/저녁 are '
-      'descriptive night markers, not a true 12-hour AM/PM pair the way '
-      '오전/오후 is, so "12" after them means midnight (자정) the same way '
-      '"밤 12시에 통화하자" ("let\'s call at midnight") is understood in '
-      'natural Korean — the naive % 12 + 12 arithmetic used to turn this '
-      'into noon (12:00) instead',
-      () {
-        expect(
-          parseQuickAdd('밤 12시에 통화', now: now).time,
-          const TimeOfDay(hour: 0, minute: 0),
-        );
-        expect(
-          parseQuickAdd('저녁 12시 약속', now: now).time,
-          const TimeOfDay(hour: 0, minute: 0),
-        );
-        // Unaffected: 오후 12시 (a true AM/PM pair) still means noon.
-        expect(
-          parseQuickAdd('오후 12시 회의', now: now).time,
-          const TimeOfDay(hour: 12, minute: 0),
-        );
-      },
-    );
+    test('밤/저녁 12시 mean midnight, not noon — regression test: 밤/저녁 are '
+        'descriptive night markers, not a true 12-hour AM/PM pair the way '
+        '오전/오후 is, so "12" after them means midnight (자정) the same way '
+        '"밤 12시에 통화하자" ("let\'s call at midnight") is understood in '
+        'natural Korean — the naive % 12 + 12 arithmetic used to turn this '
+        'into noon (12:00) instead', () {
+      expect(
+        parseQuickAdd('밤 12시에 통화', now: now).time,
+        const TimeOfDay(hour: 0, minute: 0),
+      );
+      expect(
+        parseQuickAdd('저녁 12시 약속', now: now).time,
+        const TimeOfDay(hour: 0, minute: 0),
+      );
+      // Unaffected: 오후 12시 (a true AM/PM pair) still means noon.
+      expect(
+        parseQuickAdd('오후 12시 회의', now: now).time,
+        const TimeOfDay(hour: 12, minute: 0),
+      );
+    });
 
     test('minutes: 반 and N분', () {
       expect(
@@ -292,10 +346,7 @@ void main() {
       final r = parseQuickAdd('3月15日 誕生日パーティー', now: now);
       expect(r.date, DateTime(2026, 3, 15));
       // An already-passed month/day rolls to next year, same as Korean.
-      expect(
-        parseQuickAdd('1月5日 会議', now: now).date,
-        DateTime(2027, 1, 5),
-      );
+      expect(parseQuickAdd('1月5日 会議', now: now).date, DateTime(2027, 1, 5));
     });
 
     test('time: 午前/午後/朝/夜/晩 N時 is unambiguous', () {
@@ -321,25 +372,22 @@ void main() {
       );
     });
 
-    test(
-      '夜/晩12時 mean midnight, not noon — same regression as the Korean '
-      '밤/저녁 12시 case',
-      () {
-        expect(
-          parseQuickAdd('夜12時 電話', now: now).time,
-          const TimeOfDay(hour: 0, minute: 0),
-        );
-        expect(
-          parseQuickAdd('晩12時 約束', now: now).time,
-          const TimeOfDay(hour: 0, minute: 0),
-        );
-        // Unaffected: 午後12時 (a true AM/PM pair) still means noon.
-        expect(
-          parseQuickAdd('午後12時 会議', now: now).time,
-          const TimeOfDay(hour: 12, minute: 0),
-        );
-      },
-    );
+    test('夜/晩12時 mean midnight, not noon — same regression as the Korean '
+        '밤/저녁 12시 case', () {
+      expect(
+        parseQuickAdd('夜12時 電話', now: now).time,
+        const TimeOfDay(hour: 0, minute: 0),
+      );
+      expect(
+        parseQuickAdd('晩12時 約束', now: now).time,
+        const TimeOfDay(hour: 0, minute: 0),
+      );
+      // Unaffected: 午後12時 (a true AM/PM pair) still means noon.
+      expect(
+        parseQuickAdd('午後12時 会議', now: now).time,
+        const TimeOfDay(hour: 12, minute: 0),
+      );
+    });
 
     test('time: minutes with 半 and N分', () {
       expect(
