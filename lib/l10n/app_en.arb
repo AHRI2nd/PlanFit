@@ -52,7 +52,7 @@
     "placeholders": { "count": { "type": "int" } }
   },
   "homeWeekTitle": "This week",
-  "homeWeekSummary": "{events} events · {done}/{total} to-dos done",
+  "homeWeekSummary": "{events, plural, =1{1 event} other{{events} events}} · {total, plural, =1{{done}/{total} to-do done} other{{done}/{total} to-dos done}}",
   "@homeWeekSummary": {
     "placeholders": {
       "events": { "type": "int" },
@@ -255,7 +255,7 @@
   "autoBackupRestoreConfirmTitle": "Restore this backup?",
   "autoBackupRestoreConfirmBody": "This backup's contents will be merged into what you have now. Matching items get overwritten with the backup's version.",
   "backupExportFailed": "Export failed",
-  "backupImportSuccess": "Imported {events} events and {todos} to-dos",
+  "backupImportSuccess": "Imported {events, plural, =1{1 event} other{{events} events}} and {todos, plural, =1{1 to-do} other{{todos} to-dos}}",
   "@backupImportSuccess": {
     "placeholders": {
       "events": { "type": "int" },

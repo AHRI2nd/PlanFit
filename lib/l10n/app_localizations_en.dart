@@ -114,7 +114,19 @@ class AppL10nEn extends AppL10n {
 
   @override
   String homeWeekSummary(int events, int done, int total) {
-    return '$events events · $done/$total to-dos done';
+    String _temp0 = intl.Intl.pluralLogic(
+      events,
+      locale: localeName,
+      other: '$events events',
+      one: '1 event',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$done/$total to-dos done',
+      one: '$done/$total to-do done',
+    );
+    return '$_temp0 · $_temp1';
   }
 
   @override
@@ -638,7 +650,19 @@ class AppL10nEn extends AppL10n {
 
   @override
   String backupImportSuccess(int events, int todos) {
-    return 'Imported $events events and $todos to-dos';
+    String _temp0 = intl.Intl.pluralLogic(
+      events,
+      locale: localeName,
+      other: '$events events',
+      one: '1 event',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      todos,
+      locale: localeName,
+      other: '$todos to-dos',
+      one: '1 to-do',
+    );
+    return 'Imported $_temp0 and $_temp1';
   }
 
   @override
