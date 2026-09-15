@@ -367,7 +367,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
             rowCount <= 0
                 ? MonthCalendarRowHeight.min
                 : ((constraints.maxHeight -
-                              _monthTabBarHeight -
+                              kMonthTabBarHeight -
                               _monthDowHeight) /
                           rowCount)
                       .clamp(
@@ -862,7 +862,12 @@ class _MonthViewState extends ConsumerState<MonthView> {
 
 /// Height [_MonthTabBar] occupies, reserved out of the grid's own budget
 /// before [maxMonthRowHeight]'s floor is applied.
-const double _monthTabBarHeight = 44.0;
+///
+/// Public because the draggable add button has to keep clear of it: that
+/// button floats in a Stack over this view, so the switcher is a control
+/// sitting *inside* the region it may be parked in. See
+/// `DraggableAddButton.topInset`.
+const double kMonthTabBarHeight = 44.0;
 
 /// The two-way switcher [MonthLayoutMode.tabbed] puts above the month grid.
 ///

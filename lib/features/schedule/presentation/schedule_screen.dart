@@ -201,6 +201,18 @@ class ScheduleScreen extends ConsumerWidget {
                       },
                     ),
                     DraggableAddButton(
+                      // The month view is the only one that draws a control
+                      // inside this Stack's region — its calendar/timeline
+                      // switcher, on viewports too short to show both. Read
+                      // off the view rather than the switcher's own
+                      // presence: whether it is showing depends on the
+                      // month's row count and the height MonthView ends up
+                      // with, neither of which is known here, and reserving
+                      // the strip on a tall month view costs only the top
+                      // 44pt of somewhere to park.
+                      topInset: view == ScheduleView.month
+                          ? kMonthTabBarHeight
+                          : 0,
                       onPressed: () =>
                           showEventEditor(context, initialDay: selected),
                     ),

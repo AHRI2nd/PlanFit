@@ -24,9 +24,26 @@ import '../application/schedule_fab_position.dart';
 /// button that moved on a bare pan would trade an everyday gesture for a
 /// rare one. A tap still opens the editor, unchanged.
 class DraggableAddButton extends ConsumerStatefulWidget {
-  const DraggableAddButton({super.key, required this.onPressed});
+  const DraggableAddButton({
+    super.key,
+    required this.onPressed,
+    this.topInset = 0,
+  });
 
   final VoidCallback onPressed;
+
+  /// Height to keep clear at the top of the draggable region, for a control
+  /// the view underneath draws there.
+  ///
+  /// The class doc above promises a dragged button can never cover the
+  /// controls used to navigate — which holds for the header and the view
+  /// switcher, since both sit above this Stack. A control drawn *inside*
+  /// the view breaks that promise, and the month view's calendar/timeline
+  /// switcher is one: it only appears on a viewport too short to show both
+  /// halves, which is also where the button is most likely to be parked
+  /// near the top. Same idea as the nav bar coming off the bottom in
+  /// [_DraggableAddButtonState._placeableArea], from the other end.
+  final double topInset;
 
   /// Material's own FAB diameter — the size this reserves when working out
   /// where the button may be placed without hanging off an edge.
@@ -75,7 +92,7 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
   Rect _placeableArea(Size regionSize) {
     const inset = DraggableAddButton.edgeInset;
     final left = inset;
-    final top = inset;
+    final top = inset + widget.topInset;
     final right = regionSize.width - DraggableAddButton.size - inset;
     // The region runs to the bottom of the screen (AppShell draws its bar
     // over the body rather than reserving space for it), so the bar's own
