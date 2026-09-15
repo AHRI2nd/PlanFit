@@ -8,6 +8,7 @@ import '../../../design/glass/glass_nav_bar.dart' show navBarVisibleHeight;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
+import '../../../design/widgets/app_dialog.dart';
 import '../../../design/widgets/multi_chip_row.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../core/format.dart';
@@ -118,7 +119,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await showAppDatePicker(
       context: context,
       initialDate: _slotStart,
       firstDate: DateTime(2000),

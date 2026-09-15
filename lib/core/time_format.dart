@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design/widgets/app_dialog.dart';
 import '../features/settings/application/app_settings.dart';
 
 /// Drop-in replacement for [showTimePicker] that applies
@@ -11,16 +12,25 @@ import '../features/settings/application/app_settings.dart';
 /// in the app, via `Fmt.time`/`Fmt.hour`) — a blanket app-wide override
 /// would otherwise leak into `MediaQuery.alwaysUse24HourFormat` reads
 /// elsewhere and silently couple the two settings together.
+///
+/// Pushed on the nearest navigator, not the root — see
+/// [kDialogUsesRootNavigator] for why that matters to the Android back
+/// gesture.
 Future<TimeOfDay?> showAppTimePicker({
   required BuildContext context,
   required TimeOfDay initialTime,
   required TimeFormatPreference dialFormat,
 }) {
   if (dialFormat == TimeFormatPreference.system) {
-    return showTimePicker(context: context, initialTime: initialTime);
+    return showTimePicker(
+      context: context,
+      useRootNavigator: kDialogUsesRootNavigator,
+      initialTime: initialTime,
+    );
   }
   return showTimePicker(
     context: context,
+    useRootNavigator: kDialogUsesRootNavigator,
     initialTime: initialTime,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(

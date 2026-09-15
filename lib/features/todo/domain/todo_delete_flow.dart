@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
 import '../../../design/tokens/app_colors.dart';
+import '../../../design/widgets/app_dialog.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/todo_providers.dart';
@@ -29,7 +30,7 @@ Future<bool> confirmAndDeleteTodo(
   if (todo.recurrenceGroupId == null) {
     removed = await controller.remove(todo.id);
   } else {
-    final deleteSeries = await showDialog<bool>(
+    final deleteSeries = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n.todoDeleteSeriesTitle),

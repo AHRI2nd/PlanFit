@@ -8,6 +8,7 @@ import '../../../design/glass/glass_nav_bar.dart'
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/event_color_tag.dart';
+import '../../../design/widgets/app_dialog.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -77,7 +78,7 @@ class _HolidayCalendarSourceScreenState
   Future<void> _addCustomUrl() async {
     final l10n = AppL10n.of(context);
     final controller = TextEditingController();
-    final url = await showDialog<String>(
+    final url = await showAppDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.holidayCalendarSourceCustomDialogTitle),
@@ -219,7 +220,7 @@ class _HolidayCalendarSourceScreenState
         currentHex != null && !quickPresetHexes.contains(currentHex)
         ? EventColorTag.parseHex(currentHex)
         : null;
-    return showDialog<String>(
+    return showAppDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.holidayCalendarSourceColorTitle),
@@ -281,7 +282,7 @@ class _HolidayCalendarSourceScreenState
   Future<Color?> _pickCustomPaletteColor(BuildContext context, Color initial) {
     final l10n = AppL10n.of(context);
     var working = initial;
-    return showDialog<Color>(
+    return showAppDialog<Color>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.eventColorPickerTitle),

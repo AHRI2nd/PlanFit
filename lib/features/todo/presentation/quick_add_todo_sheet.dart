@@ -9,6 +9,7 @@ import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/adaptive_bottom_sheet.dart';
+import '../../../design/widgets/app_dialog.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show dateOnly;
@@ -206,7 +207,7 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
   }
 
   Future<void> _pickAddDate() async {
-    final picked = await showDatePicker(
+    final picked = await showAppDatePicker(
       context: context,
       initialDate: _effectiveDate,
       firstDate: DateTime(2000),

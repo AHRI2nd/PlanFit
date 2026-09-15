@@ -6,6 +6,7 @@ import '../../../design/glass/glass_nav_bar.dart'
     show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/app_dialog.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -35,7 +36,7 @@ class _CalendarImportScreenState extends ConsumerState<CalendarImportScreen> {
     final l10n = AppL10n.of(context);
     if (!await _ensureAccess() || !mounted) return;
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.calendarImportConfirmTitle(calendarName)),

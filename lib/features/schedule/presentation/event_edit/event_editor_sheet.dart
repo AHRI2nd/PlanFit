@@ -15,6 +15,7 @@ import '../../../../core/format.dart';
 import '../../../../core/maps_launcher.dart';
 import '../../../../core/share_origin.dart';
 import '../../../../core/time_format.dart';
+import '../../../../design/widgets/app_dialog.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
@@ -354,7 +355,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     final initial = isStart ? _start : _end;
     final date = _useLunarInput
         ? await showLunarDatePicker(context: context, initialDate: initial)
-        : await showDatePicker(
+        : await showAppDatePicker(
             context: context,
             initialDate: initial,
             firstDate: DateTime(2000),
@@ -436,7 +437,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   }
 
   Future<void> _pickUntil() async {
-    final date = await showDatePicker(
+    final date = await showAppDatePicker(
       context: context,
       initialDate: _recurrenceUntil.isBefore(_start)
           ? _start
@@ -460,7 +461,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
         _colorTag?.color ??
         AppColors.timeGradient(_start).first;
 
-    final picked = await showDialog<Color>(
+    final picked = await showAppDialog<Color>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.eventColorPickerTitle),
@@ -559,7 +560,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     // "this only / this and future" choice below.
     final existing = widget.existing;
     if (existing != null && existing.recurrenceGroupId != null) {
-      final applyToFuture = await showDialog<bool>(
+      final applyToFuture = await showAppDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(l10n.eventSaveSeriesTitle),
@@ -724,7 +725,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
 
     var deleteSeries = false;
     if (existing.recurrenceGroupId != null) {
-      final choice = await showDialog<bool>(
+      final choice = await showAppDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(l10n.eventDeleteSeriesTitle),
@@ -1260,7 +1261,7 @@ class _TemplatePickerSheet extends ConsumerWidget {
 
   Future<void> _saveCurrent(BuildContext context, WidgetRef ref) async {
     final l10n = AppL10n.of(context);
-    final name = await showDialog<String>(
+    final name = await showAppDialog<String>(
       context: context,
       builder: (dialogContext) => _TemplateNameDialog(l10n: l10n),
     );

@@ -17,6 +17,7 @@ import '../../../core/time_format.dart';
 import '../../../design/glass/glass_nav_bar.dart' show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/app_dialog.dart';
 import '../../../design/widgets/section_card.dart';
 import '../../../design/widgets/section_header.dart';
 import '../../../design/widgets/snackbar_x.dart';
@@ -837,7 +838,7 @@ class _LanguageRow extends StatelessWidget {
   static const _systemSentinel = '_system_';
 
   Future<void> _pick(BuildContext context) async {
-    final selected = await showDialog<String>(
+    final selected = await showAppDialog<String>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
         title: Text(l10n.settingsLanguage),
