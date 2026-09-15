@@ -142,7 +142,30 @@ class CalendarService implements CalendarPort {
   Future<String?>? _resolving;
 
   Future<String?> _doResolveTargetCalendarId() async {
-    final existing = await _findOwnCalendar();
+    final Calendar? existing;
+    try {
+      existing = await _findOwnCalendar();
+    } on DeviceCalendarException {
+      // Listing calendars can fail on the very call that follows the user
+      // granting access. The platform plugin holds one long-lived event
+      // store built at app launch, and it gates every read on re-reading
+      // the OS authorization status — which, on iOS, has not caught up by
+      // the time the grant's own completion handler has already reported
+      // success. So the toggle asks for access, is told yes, and its next
+      // call is refused.
+      //
+      // Report "no target" instead of letting that escape. The settings
+      // toggle already treats a null here as "nothing to sync into, leave
+      // the switch off" — the branch right below its call — so this lands
+      // in a path that was already designed for it. Before, the throw sailed
+      // past that branch and out of the button handler entirely, surfacing
+      // as an unhandled exception while the UI just sat there.
+      //
+      // Sync starts working on the next launch, when the store is rebuilt
+      // with the permission already in place. Telling the user that is a
+      // separate concern from not crashing, and is not done here.
+      return null;
+    }
     if (existing != null) {
       targetCalendarId = existing.id;
       return existing.id;
@@ -159,7 +182,16 @@ class CalendarService implements CalendarPort {
       // Calendar creation can fail on some accounts/platforms (e.g. no
       // account eligible to host a new local calendar) — fall back to an
       // existing writable calendar rather than leaving sync silently broken.
-      final writable = await writableCalendars();
+      final List<Calendar> writable;
+      try {
+        writable = await writableCalendars();
+      } on DeviceCalendarException {
+        // Same stale-authorization case as above, reached by the other
+        // route: creation failed *because* of it, so the fallback read
+        // fails too. Without this the exception would escape from inside a
+        // catch block, which is the same unhandled crash by a longer path.
+        return null;
+      }
       if (writable.isEmpty) return null;
       final primary = writable.firstWhere(
         (c) => c.isPrimary,
