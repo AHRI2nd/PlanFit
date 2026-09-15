@@ -443,7 +443,7 @@ void main() {
     });
 
     test(
-      'a DTSTART with no zone/TZID qualifier is taken as local time',
+      'a DTSTART with a same-zone TZID is converted to local time',
       () async {
         final path = await writeIcs(
           'BEGIN:VCALENDAR\r\n'

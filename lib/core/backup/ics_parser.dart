@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart' show compute;
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 /// One parsed RFC 5545 `VEVENT` block — the shared building block behind
 /// both [IcsExportService.importFromFile]'s "add as a brand-new editable
@@ -67,7 +69,16 @@ IcsParseResult _parseIcsForCompute(String raw) => const IcsParser().parse(raw);
 class IcsParser {
   const IcsParser();
 
+  // `parse` is also used directly by small synchronous callers and tests,
+  // while the production import path runs it in a compute isolate. Keep the
+  // database initialization here so both paths can resolve IANA TZIDs.
+  static bool _timeZonesInitialized = false;
+
   IcsParseResult parse(String raw) {
+    if (!_timeZonesInitialized) {
+      tzdata.initializeTimeZones();
+      _timeZonesInitialized = true;
+    }
     final blocks = _splitVevents(_unfold(raw));
     final vevents = <IcsVevent>[];
     var skipped = 0;
@@ -138,8 +149,8 @@ class IcsParser {
       final rawKey = line.substring(0, colon);
       final value = line.substring(colon + 1);
       // Strip parameters (e.g. `DTSTART;VALUE=DATE` / `DTSTART;TZID=...`) —
-      // the parameters themselves are inspected separately below only for
-      // the DTSTART/DTEND all-day check.
+      // the parameters themselves are inspected separately below, for the
+      // DTSTART/DTEND all-day check and for the zone.
       final key = rawKey.split(';').first;
 
       switch (key) {
@@ -154,12 +165,17 @@ class IcsParser {
         case 'DTSTART':
           isAllDay =
               rawKey.contains('VALUE=DATE') && !rawKey.contains('DATE-TIME');
-          start = _parseIcsDateTime(value, isAllDay: isAllDay);
+          start = _parseIcsDateTime(
+            value,
+            isAllDay: isAllDay,
+            tzid: _tzidParam(rawKey),
+          );
         case 'DTEND':
           end = _parseIcsDateTime(
             value,
             isAllDay:
                 rawKey.contains('VALUE=DATE') && !rawKey.contains('DATE-TIME'),
+            tzid: _tzidParam(rawKey),
           );
       }
     }
@@ -188,14 +204,46 @@ class IcsParser {
     );
   }
 
-  /// Handles the three DTSTART/DTEND shapes real-world `.ics` files use:
-  /// a bare `VALUE=DATE` (all-day, no zone), a trailing `Z` (UTC, converted
-  /// to local), or a naive local timestamp (`TZID=...` or no qualifier at
-  /// all — taken at face value, since resolving an arbitrary `TZID` would
-  /// need the file's own `VTIMEZONE` block parsed too; close enough for
-  /// same-timezone personal imports, which is the overwhelmingly common
-  /// case for this app).
-  DateTime? _parseIcsDateTime(String value, {required bool isAllDay}) {
+  /// The `TZID` parameter off a `DTSTART`/`DTEND` property name, or null
+  /// when there isn't one.
+  ///
+  /// Parameters can appear in any order and the value may be quoted
+  /// (`DTSTART;VALUE=DATE-TIME;TZID="America/New_York"`), so this walks the
+  /// `;`-separated parameter list rather than pattern-matching the whole
+  /// property name the way the all-day check above can afford to.
+  String? _tzidParam(String rawKey) {
+    for (final param in rawKey.split(';').skip(1)) {
+      if (!param.toUpperCase().startsWith('TZID=')) continue;
+      final raw = param.substring(5).trim();
+      final unquoted = raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')
+          ? raw.substring(1, raw.length - 1)
+          : raw;
+      return unquoted.isEmpty ? null : unquoted;
+    }
+    return null;
+  }
+
+  /// Handles the four DTSTART/DTEND shapes real-world `.ics` files use:
+  /// a bare `VALUE=DATE` (all-day, no zone), a trailing `Z` (UTC), a
+  /// `TZID=`-qualified wall time, or a floating timestamp with no qualifier
+  /// at all.
+  ///
+  /// A floating time is deliberately taken at face value — RFC 5545 §3.3.5
+  /// says it means "whatever this clock reads wherever you are", so local
+  /// is the correct reading, not a fallback.
+  ///
+  /// [tzid] is resolved against the IANA database rather than the file's own
+  /// `VTIMEZONE` block. Every major exporter (Google Calendar, Apple
+  /// Calendar, Outlook's modern output) writes IANA names there, so a
+  /// lookup covers them without parsing VTIMEZONE at all. Anything the
+  /// database doesn't know — Outlook's older `TZID=Pacific Standard Time`,
+  /// a hand-rolled `TZID=Customized Time Zone` — falls back to reading the
+  /// timestamp as local, which is what this did for every zone before.
+  DateTime? _parseIcsDateTime(
+    String value, {
+    required bool isAllDay,
+    String? tzid,
+  }) {
     if (isAllDay) {
       final m = RegExp(r'^(\d{4})(\d{2})(\d{2})$').firstMatch(value);
       if (m == null) return null;
@@ -218,6 +266,23 @@ class IcsParser {
       int.parse(m.group(6)!),
     );
     final isUtc = m.group(7) == 'Z';
+    if (!isUtc && tzid != null) {
+      try {
+        final location = tz.getLocation(tzid);
+        return tz.TZDateTime(
+          location,
+          naive.year,
+          naive.month,
+          naive.day,
+          naive.hour,
+          naive.minute,
+          naive.second,
+        ).toLocal();
+      } on Exception {
+        // Non-IANA TZIDs (notably older Outlook exports) are still valid
+        // input. Preserve the historical local-time fallback for them.
+      }
+    }
     return isUtc
         ? DateTime.utc(
             naive.year,

@@ -59,6 +59,32 @@ void main() {
     expect(result.vevents[0].uid, isNot(result.vevents[1].uid));
   });
 
+  test('resolves an IANA TZID before converting to the device local zone', () {
+    final result = parser.parse(
+      wrap(
+        'BEGIN:VEVENT\r\n'
+        'SUMMARY:New York meeting\r\n'
+        'DTSTART;TZID=America/New_York:20260925T090000\r\n'
+        'END:VEVENT',
+      ),
+    );
+
+    expect(result.vevents.single.start.toUtc(), DateTime.utc(2026, 9, 25, 13));
+  });
+
+  test('falls back to local time for an unknown TZID', () {
+    final result = parser.parse(
+      wrap(
+        'BEGIN:VEVENT\r\n'
+        'SUMMARY:Legacy meeting\r\n'
+        'DTSTART;TZID=Customized Time Zone:20260925T090000\r\n'
+        'END:VEVENT',
+      ),
+    );
+
+    expect(result.vevents.single.start, DateTime(2026, 9, 25, 9));
+  });
+
   test('skips a VEVENT missing SUMMARY or DTSTART, counts it separately', () {
     final result = parser.parse(
       wrap(
