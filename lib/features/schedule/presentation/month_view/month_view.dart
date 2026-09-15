@@ -57,6 +57,9 @@ const double _monthMinDayViewHeight = 96.0;
 /// pushing [DayView] (and the handle itself) out of the viewport — see the
 /// doc on [_MonthSplitHandle] for why an unbounded rowHeight let the handle
 /// scroll itself below the visible area with no way back.
+///
+/// Only meaningful in [MonthLayoutMode.split]: the tabbed mode hands the
+/// grid the whole viewport and has no handle or timeline to protect.
 double maxMonthRowHeight({
   required double availableHeight,
   required int rowCount,
@@ -70,6 +73,54 @@ double maxMonthRowHeight({
     MonthCalendarRowHeight.min,
     MonthCalendarRowHeight.max,
   );
+}
+
+/// How [MonthView] arranges the month grid and the selected day's timeline.
+enum MonthLayoutMode {
+  /// Grid above, drag handle, timeline below — the layout on any viewport
+  /// tall enough to give both halves their minimum.
+  split,
+
+  /// One at a time, chosen by a toggle: the viewport cannot seat both.
+  tabbed,
+}
+
+/// The shortest viewport [MonthLayoutMode.split] can be given while still
+/// showing every one of its three parts.
+///
+/// [MonthCalendarRowHeight.min] is a hard floor — below it the day-number
+/// circle and its marker overlap — so a grid of [rowCount] rows cannot be
+/// squeezed past `rowCount * min`, and [maxMonthRowHeight] returns that
+/// floor rather than going lower. The split layout puts that immovable grid
+/// in a [Column] above an [Expanded] timeline, and [Expanded] can only give
+/// back down to zero: once the grid plus the handle exceed the viewport,
+/// the timeline collapses to nothing and the *handle itself* is pushed off
+/// the bottom edge — taking with it the only control that could shrink the
+/// rows again.
+///
+/// Measured on this very failure: every iPhone in landscape (375-440pt of
+/// height, minus ~148pt of schedule chrome) lands under this for a five-row
+/// month, and all of them do for a six-row one.
+double minSplitLayoutHeight(int rowCount) =>
+    _monthDowHeight +
+    rowCount * MonthCalendarRowHeight.min +
+    _monthHandleHeight +
+    _monthMinDayViewHeight;
+
+/// Which layout [availableHeight] can actually seat.
+///
+/// Deliberately keyed on height alone. Width never constrains this — the
+/// grid is seven equal columns of whatever is on offer — and a rule that
+/// also read width would make phone-landscape and tablet-portrait disagree
+/// for no reason either one could show the user.
+MonthLayoutMode monthLayoutMode({
+  required double availableHeight,
+  required int rowCount,
+}) {
+  if (rowCount <= 0) return MonthLayoutMode.split;
+  return availableHeight >= minSplitLayoutHeight(rowCount)
+      ? MonthLayoutMode.split
+      : MonthLayoutMode.tabbed;
 }
 
 // The tiny label style every expanded-list row (event, to-do, "+N"
