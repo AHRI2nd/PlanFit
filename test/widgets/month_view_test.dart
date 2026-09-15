@@ -12,6 +12,7 @@ import 'package:planfit/core/di.dart';
 import 'package:planfit/core/lunar/lunar_date.dart';
 import 'package:planfit/core/lunar/lunar_format.dart';
 import 'package:planfit/design/theme/app_theme.dart';
+import 'package:planfit/design/glass/glass_nav_bar.dart' show navBarClearance;
 import 'package:planfit/design/tokens/event_color_tag.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/domain/event_repository.dart';
@@ -805,6 +806,27 @@ void main() {
       await tester.drag(find.text('20').first, const Offset(0, -60));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the grid reserves the floating bar clearance at its bottom', (
+      tester,
+    ) async {
+      useLandscapePhone(tester);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 100);
+      addTearDown(tester.view.resetViewPadding);
+      await pumpMonth(tester, sixRowMonth);
+
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.byType(SingleChildScrollView).first,
+      );
+      expect(
+        scrollView.padding,
+        EdgeInsets.only(
+          bottom: navBarClearance(
+            tester.element(find.byType(SingleChildScrollView).first),
+          ),
+        ),
+      );
     });
   });
 }

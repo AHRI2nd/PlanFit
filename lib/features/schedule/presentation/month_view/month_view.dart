@@ -12,6 +12,7 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_motion.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
+import '../../../../design/glass/glass_nav_bar.dart' show navBarClearance;
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
@@ -368,7 +369,8 @@ class _MonthViewState extends ConsumerState<MonthView> {
                 ? MonthCalendarRowHeight.min
                 : ((constraints.maxHeight -
                               kMonthTabBarHeight -
-                              _monthDowHeight) /
+                              _monthDowHeight -
+                              navBarClearance(context)) /
                           rowCount)
                       .clamp(
                         MonthCalendarRowHeight.min,
@@ -851,7 +853,12 @@ class _MonthViewState extends ConsumerState<MonthView> {
                   // than overflowing — the failure this whole layout exists
                   // to end. On anything roomier the grid is shorter than
                   // the viewport and this never scrolls at all.
-                  : SingleChildScrollView(child: calendar),
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.only(
+                        bottom: navBarClearance(context),
+                      ),
+                      child: calendar,
+                    ),
             ),
           ],
         );
