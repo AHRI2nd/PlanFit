@@ -263,304 +263,315 @@ class SettingsScreen extends ConsumerWidget {
       intensity: 0.5,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            0,
-            AppSpacing.gutter,
-            navBarClearance(context),
-          ),
-          children: [
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  top: AppSpacing.sm,
-                  bottom: AppSpacing.lg,
-                ),
-                child: Text(
-                  l10n.settingsTitle,
-                  style:
-                      theme.textTheme.displaySmall ??
-                      theme.textTheme.headlineMedium,
-                ),
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.contentMaxWidth,
+            ),
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                0,
+                AppSpacing.gutter,
+                navBarClearance(context),
               ),
-            ),
-
-            SectionHeader(l10n.settingsNotifications),
-            SectionCard(
               children: [
-                _SwitchRow(
-                  title: l10n.settingsNotificationSound,
-                  subtitle: l10n.settingsNotificationSoundDesc,
-                  value: settings.notificationSound,
-                  onChanged: toggleSound,
-                ),
-                const _RowDivider(),
-                _ExactAlarmRow(l10n: l10n),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            SectionHeader(l10n.settingsCalendar),
-            SectionCard(
-              children: [
-                _SwitchRow(
-                  title: l10n.settingsCalendarSync,
-                  subtitle: l10n.settingsCalendarSyncDesc,
-                  value: settings.calendarSyncEnabled,
-                  onChanged: toggleSync,
-                ),
-                // Only meaningful (and only shown) while calendar sync
-                // itself is on — see AppSettings.autoImportCalendarEnabled's
-                // doc for why turning sync off doesn't clear this choice.
-                if (settings.calendarSyncEnabled) ...[
-                  const _RowDivider(),
-                  _SwitchRow(
-                    title: l10n.settingsCalendarAutoImport,
-                    subtitle: l10n.settingsCalendarAutoImportDesc,
-                    value: settings.autoImportCalendarEnabled,
-                    onChanged: controller.setAutoImportCalendarEnabled,
-                  ),
-                ],
-                const _RowDivider(),
-                _CalendarTargetRow(
-                  enabled: settings.calendarSyncEnabled,
-                  l10n: l10n,
-                  onTap: () => context.go('/settings/calendar-picker'),
-                ),
-                if (settings.calendarSyncEnabled) ...[
-                  const _RowDivider(),
-                  _LastSyncRow(l10n: l10n),
-                ],
-                const _RowDivider(),
-                _NavRow(
-                  title: l10n.settingsSyncLog,
-                  onTap: () => context.go('/settings/sync-log'),
-                ),
-                const _RowDivider(),
-                _ActionRow(
-                  title: l10n.settingsCalendarImport,
-                  subtitle: l10n.settingsCalendarImportDesc,
-                  icon: Icons.file_download_outlined,
-                  onTap: () => context.go('/settings/calendar-import'),
-                ),
-                const _RowDivider(),
-                _SwitchRow(
-                  title: l10n.settingsHolidayCalendar,
-                  subtitle: l10n.settingsHolidayCalendarDesc,
-                  value: settings.holidayCalendarEnabled,
-                  onChanged: toggleHolidayCalendar,
-                ),
-                const _RowDivider(),
-                _HolidayCalendarSourceRow(
-                  enabled: settings.holidayCalendarEnabled,
-                  settings: settings,
-                  l10n: l10n,
-                  onTap: () => context.go('/settings/holiday-calendar-source'),
-                ),
-                // iOS only — Android has no native Apple Maps app to offer
-                // as a real alternative, so "system" and "Google 지도"
-                // would always resolve to the exact same thing there
-                // (buildMapsSearchUri's own "system" branch is just
-                // Platform.isIOS), making the choice meaningless rather
-                // than just narrower.
-                if (Platform.isIOS) ...[
-                  const _RowDivider(),
-                  _MapsAppRow(
-                    current: settings.mapsAppPreference,
-                    l10n: l10n,
-                    onChanged: controller.setMapsAppPreference,
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            SectionHeader(l10n.settingsAppearance),
-            SectionCard(
-              children: [
-                _ThemeRow(
-                  current: settings.themeMode,
-                  labels: (
-                    l10n.settingsThemeSystem,
-                    l10n.settingsThemeLight,
-                    l10n.settingsThemeDark,
-                  ),
-                  onChanged: controller.setThemeMode,
-                ),
-                const _RowDivider(),
-                _LanguageRow(
-                  current: settings.languageOverride,
-                  l10n: l10n,
-                  onChanged: controller.setLanguageOverride,
-                ),
-                const _RowDivider(),
-                _WeekStartRow(
-                  weekStartsMonday: settings.weekStartsMonday,
-                  l10n: l10n,
-                  onChanged: controller.setWeekStartsMonday,
-                ),
-                const _RowDivider(),
-                _SwitchRow(
-                  title: l10n.settingsShowLunarDates,
-                  subtitle: l10n.settingsShowLunarDatesDesc,
-                  value: settings.showLunarDates,
-                  onChanged: controller.setShowLunarDates,
-                ),
-                const _RowDivider(),
-                _TimeFormatRow(
-                  label: l10n.settingsTimeFormatDisplay,
-                  current: settings.displayTimeFormatPreference,
-                  l10n: l10n,
-                  onChanged: controller.setDisplayTimeFormatPreference,
-                ),
-                const _RowDivider(),
-                _TimeFormatRow(
-                  label: l10n.settingsTimeFormatDial,
-                  current: settings.dialTimeFormatPreference,
-                  l10n: l10n,
-                  onChanged: controller.setDialTimeFormatPreference,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            SectionHeader(l10n.settingsTodo),
-            SectionCard(
-              children: [
-                // iOS only — Android has no OS reminders app/API to sync to.
-                if (Platform.isIOS) ...[
-                  _SwitchRow(
-                    title: l10n.settingsReminderSync,
-                    subtitle: l10n.settingsReminderSyncDesc,
-                    value: settings.remindersSyncEnabled,
-                    onChanged: toggleReminderSync,
-                  ),
-                  const _RowDivider(),
-                ],
-                _TodoRetentionRow(
-                  days: settings.completedTodoRetentionDays,
-                  l10n: l10n,
-                  onChanged: controller.setCompletedTodoRetentionDays,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            SectionHeader(l10n.settingsData),
-            // Split into two labeled groups instead of one flat stack of 5
-            // rows — "내보내기"/"가져오기" alone (now "전체 백업
-            // 내보내기"/"가져오기") used to read as near-duplicates of the
-            // .ics rows below them; grouping under an explicit subtitle
-            // does more to separate them than the label wording alone can.
-            _DataSubsectionLabel(l10n.settingsDataBackupSection),
-            SectionCard(
-              children: [
-                _ActionRow(
-                  title: l10n.settingsExport,
-                  subtitle: l10n.settingsExportDesc,
-                  icon: Icons.ios_share,
-                  onTap: exportBackup,
-                ),
-                const _RowDivider(),
-                _ActionRow(
-                  title: l10n.settingsImport,
-                  subtitle: l10n.settingsImportDesc,
-                  icon: Icons.file_download_outlined,
-                  onTap: importBackup,
-                ),
-                const _RowDivider(),
-                _NavRow(
-                  title: l10n.settingsAutoBackup,
-                  onTap: () => context.go('/settings/auto-backup'),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _DataSubsectionLabel(l10n.settingsDataIcsSection),
-            SectionCard(
-              children: [
-                _ActionRow(
-                  title: l10n.settingsExportIcs,
-                  subtitle: l10n.settingsExportIcsDesc,
-                  icon: Icons.event_note_outlined,
-                  onTap: exportIcs,
-                ),
-                const _RowDivider(),
-                _ActionRow(
-                  title: l10n.settingsImportIcs,
-                  subtitle: l10n.settingsImportIcsDesc,
-                  icon: Icons.event_available_outlined,
-                  onTap: importIcs,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            SectionHeader(l10n.settingsAbout),
-            SectionCard(
-              children: [
-                _InfoRow(
-                  title: l10n.settingsVersion,
-                  // Read from the platform's own bundle metadata (baked in
-                  // from pubspec.yaml's version: at build time) rather than
-                  // a literal here — a hard-coded string previously went
-                  // stale the moment the version was bumped without anyone
-                  // remembering to update this too. Blank rather than a
-                  // placeholder number while the platform channel call is
-                  // still in flight (it resolves near-instantly in
-                  // practice) so a stale/wrong number is never shown even
-                  // briefly.
-                  value: ref
-                      .watch(appPackageInfoProvider)
-                      .whenOrNull(
-                        data: (info) => '${info.version}+${info.buildNumber}',
-                      ),
-                ),
-                const _RowDivider(),
-                // PlanFit ships ~195 resolved packages, and the permissive
-                // licenses nearly all of them carry (BSD-3-Clause across
-                // the Flutter/Dart team's own packages, MIT and Apache-2.0
-                // across the rest) require their copyright notice and
-                // license text to travel with the distributed binary — not
-                // just with the source. Nothing surfaced them before this,
-                // so the only license a user could reach was PlanFit's own,
-                // in the repository.
-                //
-                // Flutter's own page rather than a hand-maintained list:
-                // LicenseRegistry collects entries from every package's
-                // LICENSE at build time, so a dependency added or dropped
-                // later can't leave this stale the way a literal would.
-                _NavRow(
-                  title: l10n.settingsOpenSourceLicenses,
-                  // Pushed on the root navigator, unlike every other screen
-                  // reached from here. Those are branch routes that keep
-                  // the floating tab bar visible and pad themselves clear
-                  // of it with navBarClearance; [LicensePage] is Flutter's
-                  // own and takes no such padding, so inside the shell its
-                  // list ran under the bar with its last rows unreadable
-                  // (confirmed on the simulator). Covering the bar outright
-                  // is both the fix and the right shape for a terminal,
-                  // read-only page with nowhere else to navigate.
-                  onTap: () => Navigator.of(context, rootNavigator: true).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => LicensePage(
-                        applicationName: 'PlanFit',
-                        applicationVersion: ref
-                            .read(appPackageInfoProvider)
-                            .whenOrNull(
-                              data: (info) =>
-                                  '${info.version}+${info.buildNumber}',
-                            ),
-                        applicationLegalese: _appLegalese,
-                      ),
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      top: AppSpacing.sm,
+                      bottom: AppSpacing.lg,
+                    ),
+                    child: Text(
+                      l10n.settingsTitle,
+                      style:
+                          theme.textTheme.displaySmall ??
+                          theme.textTheme.headlineMedium,
                     ),
                   ),
                 ),
+
+                SectionHeader(l10n.settingsNotifications),
+                SectionCard(
+                  children: [
+                    _SwitchRow(
+                      title: l10n.settingsNotificationSound,
+                      subtitle: l10n.settingsNotificationSoundDesc,
+                      value: settings.notificationSound,
+                      onChanged: toggleSound,
+                    ),
+                    const _RowDivider(),
+                    _ExactAlarmRow(l10n: l10n),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                SectionHeader(l10n.settingsCalendar),
+                SectionCard(
+                  children: [
+                    _SwitchRow(
+                      title: l10n.settingsCalendarSync,
+                      subtitle: l10n.settingsCalendarSyncDesc,
+                      value: settings.calendarSyncEnabled,
+                      onChanged: toggleSync,
+                    ),
+                    // Only meaningful (and only shown) while calendar sync
+                    // itself is on — see AppSettings.autoImportCalendarEnabled's
+                    // doc for why turning sync off doesn't clear this choice.
+                    if (settings.calendarSyncEnabled) ...[
+                      const _RowDivider(),
+                      _SwitchRow(
+                        title: l10n.settingsCalendarAutoImport,
+                        subtitle: l10n.settingsCalendarAutoImportDesc,
+                        value: settings.autoImportCalendarEnabled,
+                        onChanged: controller.setAutoImportCalendarEnabled,
+                      ),
+                    ],
+                    const _RowDivider(),
+                    _CalendarTargetRow(
+                      enabled: settings.calendarSyncEnabled,
+                      l10n: l10n,
+                      onTap: () => context.go('/settings/calendar-picker'),
+                    ),
+                    if (settings.calendarSyncEnabled) ...[
+                      const _RowDivider(),
+                      _LastSyncRow(l10n: l10n),
+                    ],
+                    const _RowDivider(),
+                    _NavRow(
+                      title: l10n.settingsSyncLog,
+                      onTap: () => context.go('/settings/sync-log'),
+                    ),
+                    const _RowDivider(),
+                    _ActionRow(
+                      title: l10n.settingsCalendarImport,
+                      subtitle: l10n.settingsCalendarImportDesc,
+                      icon: Icons.file_download_outlined,
+                      onTap: () => context.go('/settings/calendar-import'),
+                    ),
+                    const _RowDivider(),
+                    _SwitchRow(
+                      title: l10n.settingsHolidayCalendar,
+                      subtitle: l10n.settingsHolidayCalendarDesc,
+                      value: settings.holidayCalendarEnabled,
+                      onChanged: toggleHolidayCalendar,
+                    ),
+                    const _RowDivider(),
+                    _HolidayCalendarSourceRow(
+                      enabled: settings.holidayCalendarEnabled,
+                      settings: settings,
+                      l10n: l10n,
+                      onTap: () =>
+                          context.go('/settings/holiday-calendar-source'),
+                    ),
+                    // iOS only — Android has no native Apple Maps app to offer
+                    // as a real alternative, so "system" and "Google 지도"
+                    // would always resolve to the exact same thing there
+                    // (buildMapsSearchUri's own "system" branch is just
+                    // Platform.isIOS), making the choice meaningless rather
+                    // than just narrower.
+                    if (Platform.isIOS) ...[
+                      const _RowDivider(),
+                      _MapsAppRow(
+                        current: settings.mapsAppPreference,
+                        l10n: l10n,
+                        onChanged: controller.setMapsAppPreference,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                SectionHeader(l10n.settingsAppearance),
+                SectionCard(
+                  children: [
+                    _ThemeRow(
+                      current: settings.themeMode,
+                      labels: (
+                        l10n.settingsThemeSystem,
+                        l10n.settingsThemeLight,
+                        l10n.settingsThemeDark,
+                      ),
+                      onChanged: controller.setThemeMode,
+                    ),
+                    const _RowDivider(),
+                    _LanguageRow(
+                      current: settings.languageOverride,
+                      l10n: l10n,
+                      onChanged: controller.setLanguageOverride,
+                    ),
+                    const _RowDivider(),
+                    _WeekStartRow(
+                      weekStartsMonday: settings.weekStartsMonday,
+                      l10n: l10n,
+                      onChanged: controller.setWeekStartsMonday,
+                    ),
+                    const _RowDivider(),
+                    _SwitchRow(
+                      title: l10n.settingsShowLunarDates,
+                      subtitle: l10n.settingsShowLunarDatesDesc,
+                      value: settings.showLunarDates,
+                      onChanged: controller.setShowLunarDates,
+                    ),
+                    const _RowDivider(),
+                    _TimeFormatRow(
+                      label: l10n.settingsTimeFormatDisplay,
+                      current: settings.displayTimeFormatPreference,
+                      l10n: l10n,
+                      onChanged: controller.setDisplayTimeFormatPreference,
+                    ),
+                    const _RowDivider(),
+                    _TimeFormatRow(
+                      label: l10n.settingsTimeFormatDial,
+                      current: settings.dialTimeFormatPreference,
+                      l10n: l10n,
+                      onChanged: controller.setDialTimeFormatPreference,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                SectionHeader(l10n.settingsTodo),
+                SectionCard(
+                  children: [
+                    // iOS only — Android has no OS reminders app/API to sync to.
+                    if (Platform.isIOS) ...[
+                      _SwitchRow(
+                        title: l10n.settingsReminderSync,
+                        subtitle: l10n.settingsReminderSyncDesc,
+                        value: settings.remindersSyncEnabled,
+                        onChanged: toggleReminderSync,
+                      ),
+                      const _RowDivider(),
+                    ],
+                    _TodoRetentionRow(
+                      days: settings.completedTodoRetentionDays,
+                      l10n: l10n,
+                      onChanged: controller.setCompletedTodoRetentionDays,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                SectionHeader(l10n.settingsData),
+                // Split into two labeled groups instead of one flat stack of 5
+                // rows — "내보내기"/"가져오기" alone (now "전체 백업
+                // 내보내기"/"가져오기") used to read as near-duplicates of the
+                // .ics rows below them; grouping under an explicit subtitle
+                // does more to separate them than the label wording alone can.
+                _DataSubsectionLabel(l10n.settingsDataBackupSection),
+                SectionCard(
+                  children: [
+                    _ActionRow(
+                      title: l10n.settingsExport,
+                      subtitle: l10n.settingsExportDesc,
+                      icon: Icons.ios_share,
+                      onTap: exportBackup,
+                    ),
+                    const _RowDivider(),
+                    _ActionRow(
+                      title: l10n.settingsImport,
+                      subtitle: l10n.settingsImportDesc,
+                      icon: Icons.file_download_outlined,
+                      onTap: importBackup,
+                    ),
+                    const _RowDivider(),
+                    _NavRow(
+                      title: l10n.settingsAutoBackup,
+                      onTap: () => context.go('/settings/auto-backup'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _DataSubsectionLabel(l10n.settingsDataIcsSection),
+                SectionCard(
+                  children: [
+                    _ActionRow(
+                      title: l10n.settingsExportIcs,
+                      subtitle: l10n.settingsExportIcsDesc,
+                      icon: Icons.event_note_outlined,
+                      onTap: exportIcs,
+                    ),
+                    const _RowDivider(),
+                    _ActionRow(
+                      title: l10n.settingsImportIcs,
+                      subtitle: l10n.settingsImportIcsDesc,
+                      icon: Icons.event_available_outlined,
+                      onTap: importIcs,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
+                SectionHeader(l10n.settingsAbout),
+                SectionCard(
+                  children: [
+                    _InfoRow(
+                      title: l10n.settingsVersion,
+                      // Read from the platform's own bundle metadata (baked in
+                      // from pubspec.yaml's version: at build time) rather than
+                      // a literal here — a hard-coded string previously went
+                      // stale the moment the version was bumped without anyone
+                      // remembering to update this too. Blank rather than a
+                      // placeholder number while the platform channel call is
+                      // still in flight (it resolves near-instantly in
+                      // practice) so a stale/wrong number is never shown even
+                      // briefly.
+                      value: ref
+                          .watch(appPackageInfoProvider)
+                          .whenOrNull(
+                            data: (info) =>
+                                '${info.version}+${info.buildNumber}',
+                          ),
+                    ),
+                    const _RowDivider(),
+                    // PlanFit ships ~195 resolved packages, and the permissive
+                    // licenses nearly all of them carry (BSD-3-Clause across
+                    // the Flutter/Dart team's own packages, MIT and Apache-2.0
+                    // across the rest) require their copyright notice and
+                    // license text to travel with the distributed binary — not
+                    // just with the source. Nothing surfaced them before this,
+                    // so the only license a user could reach was PlanFit's own,
+                    // in the repository.
+                    //
+                    // Flutter's own page rather than a hand-maintained list:
+                    // LicenseRegistry collects entries from every package's
+                    // LICENSE at build time, so a dependency added or dropped
+                    // later can't leave this stale the way a literal would.
+                    _NavRow(
+                      title: l10n.settingsOpenSourceLicenses,
+                      // Pushed on the root navigator, unlike every other screen
+                      // reached from here. Those are branch routes that keep
+                      // the floating tab bar visible and pad themselves clear
+                      // of it with navBarClearance; [LicensePage] is Flutter's
+                      // own and takes no such padding, so inside the shell its
+                      // list ran under the bar with its last rows unreadable
+                      // (confirmed on the simulator). Covering the bar outright
+                      // is both the fix and the right shape for a terminal,
+                      // read-only page with nowhere else to navigate.
+                      onTap: () =>
+                          Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => LicensePage(
+                                applicationName: 'PlanFit',
+                                applicationVersion: ref
+                                    .read(appPackageInfoProvider)
+                                    .whenOrNull(
+                                      data: (info) =>
+                                          '${info.version}+${info.buildNumber}',
+                                    ),
+                                applicationLegalese: _appLegalese,
+                              ),
+                            ),
+                          ),
+                    ),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

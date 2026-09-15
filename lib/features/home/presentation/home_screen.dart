@@ -259,36 +259,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
-            ListView(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                0,
-                AppSpacing.gutter,
-                // The pull-up bar below is a Stack overlay, not part of
-                // this list — its own collapsed height (once known; a
-                // generous placeholder before that) is padded in here so
-                // 이번 주's card never renders underneath it.
-                (peekHeight ?? 220) +
-                    navBarControlClearance(context) +
-                    AppSpacing.md,
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSpacing.contentMaxWidth,
+                ),
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.gutter,
+                    0,
+                    AppSpacing.gutter,
+                    // The pull-up bar below is a Stack overlay, not part of
+                    // this list — its own collapsed height (once known; a
+                    // generous placeholder before that) is padded in here so
+                    // 이번 주's card never renders underneath it.
+                    (peekHeight ?? 220) +
+                        navBarControlClearance(context) +
+                        AppSpacing.md,
+                  ),
+                  children: [
+                    SafeArea(
+                      bottom: false,
+                      child: _Hero(now: now, l10n: l10n, use24Hour: use24),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    SectionHeader(l10n.homeToday),
+                    _TodayFeed(
+                      now: now,
+                      locale: locale,
+                      l10n: l10n,
+                      use24Hour: use24,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    SectionHeader(l10n.homeWeekTitle),
+                    _WeeklyStats(now: now, locale: locale, l10n: l10n),
+                  ],
+                ),
               ),
-              children: [
-                SafeArea(
-                  bottom: false,
-                  child: _Hero(now: now, l10n: l10n, use24Hour: use24),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                SectionHeader(l10n.homeToday),
-                _TodayFeed(
-                  now: now,
-                  locale: locale,
-                  l10n: l10n,
-                  use24Hour: use24,
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                SectionHeader(l10n.homeWeekTitle),
-                _WeeklyStats(now: now, locale: locale, l10n: l10n),
-              ],
             ),
             // Never shown, never removed, and — the part that matters —
             // never toggled by the user: one twin pinned open, one pinned

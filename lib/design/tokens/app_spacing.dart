@@ -15,6 +15,11 @@ class AppSpacing {
   /// Comfortable page gutter.
   static const double gutter = 20;
 
+  /// Maximum width for single-column content on roomy tablet windows.
+  /// Phone layouts stay unchanged; wider screens gain readable line lengths
+  /// and intentional surrounding space instead of stretching every card.
+  static const double contentMaxWidth = 720;
+
   /// Minimum touch target (accessibility floor).
   static const double touchTarget = 48;
 }
