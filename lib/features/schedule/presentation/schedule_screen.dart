@@ -186,7 +186,32 @@ class ScheduleScreen extends ConsumerWidget {
                       child: switch (view) {
                         ScheduleView.day => DayView(day: selected),
                         ScheduleView.week => WeekView(anchor: selected),
-                        ScheduleView.month => const MonthView(),
+                        ScheduleView.month => LayoutBuilder(
+                          builder: (context, constraints) {
+                            // On a wide, comfortably tall iPad window keep
+                            // the month grid and the selected day's timeline
+                            // visible together. Narrow/short windows retain
+                            // the existing full-width month view so the grid
+                            // remains usable in Split View and landscape.
+                            final twoPane =
+                                constraints.maxWidth >= 900 &&
+                                constraints.maxHeight >= 600;
+                            if (!twoPane) return const MonthView();
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Expanded(child: MonthView()),
+                                VerticalDivider(
+                                  width: 1,
+                                  color: palette.inkFaint.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                                Expanded(child: DayView(day: selected)),
+                              ],
+                            );
+                          },
+                        ),
                         ScheduleView.year => const YearView(),
                         // Always "now", not `selected` — the list tab reads as
                         // "what's coming up", not "what's around whatever day
