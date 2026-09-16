@@ -150,7 +150,7 @@ void main() {
     });
   });
 
-  testWidgets('an iPad packs all twelve months into two six-month rows', (
+  testWidgets('an iPad packs all twelve months into three four-month rows', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1024, 768);
@@ -165,7 +165,7 @@ void main() {
     );
     final delegate =
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-    expect(delegate.crossAxisCount, 6);
+    expect(delegate.crossAxisCount, 4);
   });
 
   testWidgets('each mini-month header uses the abbreviated month name in en — '

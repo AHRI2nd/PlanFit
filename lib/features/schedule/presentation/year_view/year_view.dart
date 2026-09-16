@@ -156,14 +156,15 @@ class _YearPageContent extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Six columns give an iPad a true year-at-a-glance: January–June on
-        // the first row and July–December on the second. Phones retain the
-        // roomier three-column layout. Use the local pane's shortest side so
+        // Four columns give an iPad three balanced rows of four months,
+        // keeping each mini-calendar readable while still showing the whole
+        // year in one view. Phones retain the roomier three-column layout.
+        // Use the local pane's shortest side so
         // this also works in iPad portrait and Split View rather than relying
         // on the full device size.
         final isTablet =
             math.min(constraints.maxWidth, constraints.maxHeight) >= 600;
-        final columns = isTablet ? 6 : 3;
+        final columns = isTablet ? 4 : 3;
         return GridView.builder(
           key: const Key('yearMonthGrid'),
           padding: const EdgeInsets.fromLTRB(
