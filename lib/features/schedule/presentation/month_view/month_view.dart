@@ -261,8 +261,14 @@ const double monthCollapsedDotSize = _monthCollapsedDotSize;
 
 /// Month grid with per-day event dots. Tapping a day selects it and reveals
 /// that day's detail below, so month and day stay one continuous surface.
+///
+/// [calendarOnly] is used by the wide schedule two-pane layout: the selected
+/// day's detail is rendered in the adjacent pane, so embedding another
+/// timeline here would duplicate the empty state and todo editor.
 class MonthView extends ConsumerStatefulWidget {
-  const MonthView({super.key});
+  const MonthView({super.key, this.calendarOnly = false});
+
+  final bool calendarOnly;
 
   @override
   ConsumerState<MonthView> createState() => _MonthViewState();
@@ -824,6 +830,13 @@ class _MonthViewState extends ConsumerState<MonthView> {
         // Always the timeline layout regardless of the layout-mode
         // preference, per DayView's own doc on `compact`.
         final timeline = DayView(day: selected, compact: true);
+
+        if (widget.calendarOnly) {
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: navBarClearance(context)),
+            child: calendar,
+          );
+        }
 
         if (mode == MonthLayoutMode.split) {
           return Column(

@@ -200,7 +200,9 @@ class ScheduleScreen extends ConsumerWidget {
                             return Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Expanded(child: MonthView()),
+                                const Expanded(
+                                  child: MonthView(calendarOnly: true),
+                                ),
                                 VerticalDivider(
                                   width: 1,
                                   color: palette.inkFaint.withValues(

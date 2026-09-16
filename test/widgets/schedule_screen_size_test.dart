@@ -8,6 +8,7 @@ import 'package:planfit/core/di.dart';
 import 'package:planfit/design/theme/app_theme.dart';
 import 'package:planfit/features/schedule/application/schedule_providers.dart';
 import 'package:planfit/features/schedule/presentation/schedule_screen.dart';
+import 'package:planfit/features/schedule/presentation/month_view/month_view.dart';
 import 'package:planfit/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -131,6 +132,26 @@ void main() {
       });
     }
   }
+
+  testWidgets(
+    'wide month view keeps the calendar pane free of duplicated day content',
+    (tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await pumpSchedule(
+        tester,
+        view: ScheduleView.month,
+        selected: sixRowMonth,
+      );
+
+      final month = tester.widget<MonthView>(find.byType(MonthView));
+      expect(month.calendarOnly, isTrue);
+      expect(find.text('이 날은 아직 비어 있어요'), findsOneWidget);
+    },
+  );
 
   for (final view in ScheduleView.values) {
     testWidgets('${view.name} survives a rotation with no rebuild from '
