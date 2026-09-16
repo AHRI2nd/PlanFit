@@ -190,6 +190,7 @@ class _YearPageContent extends ConsumerWidget {
               todoDays: todoDays,
               locale: locale,
               startWeekday: startWeekday,
+              expanded: isTablet,
               onTap: () {
                 ref
                     .read(selectedDateProvider.notifier)
@@ -213,6 +214,7 @@ class _MiniMonth extends StatelessWidget {
     required this.todoDays,
     required this.locale,
     required this.startWeekday,
+    required this.expanded,
     required this.onTap,
   });
 
@@ -223,6 +225,7 @@ class _MiniMonth extends StatelessWidget {
   final Set<DateTime> todoDays;
   final String locale;
   final int startWeekday;
+  final bool expanded;
   final VoidCallback onTap;
 
   @override
@@ -297,7 +300,7 @@ class _MiniMonth extends StatelessWidget {
                   child: Text(
                     '$day',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 9,
+                      fontSize: expanded ? 11 : 9,
                       color: markerColor != null
                           ? Colors.white
                           : (isToday ? palette.accent : palette.inkFaint),

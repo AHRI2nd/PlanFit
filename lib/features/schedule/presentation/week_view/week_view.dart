@@ -507,6 +507,7 @@ class _WeekHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final theme = Theme.of(context);
+    final expanded = MediaQuery.sizeOf(context).shortestSide >= 600;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.gutter,
@@ -533,7 +534,7 @@ class _WeekHeader extends StatelessWidget {
                     // uses — see calendar_dot.dart's shared rule. This
                     // view had none before.
                     SizedBox(
-                      height: 6,
+                      height: expanded ? 10 : 6,
                       child: Builder(
                         builder: (context) {
                           final dotColor = calendarDotColor(
@@ -545,8 +546,8 @@ class _WeekHeader extends StatelessWidget {
                           if (dotColor == null) return const SizedBox.shrink();
                           return Center(
                             child: Container(
-                              width: 5,
-                              height: 5,
+                              width: expanded ? 8 : 5,
+                              height: expanded ? 8 : 5,
                               decoration: BoxDecoration(
                                 color: dotColor,
                                 shape: BoxShape.circle,
@@ -558,8 +559,8 @@ class _WeekHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Container(
-                      width: 28,
-                      height: 28,
+                      width: expanded ? 36 : 28,
+                      height: expanded ? 36 : 28,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: day == today ? accent : Colors.transparent,
@@ -568,13 +569,18 @@ class _WeekHeader extends StatelessWidget {
                       child: Text(
                         '${day.day}',
                         style: theme.textTheme.titleSmall?.copyWith(
+                          fontSize: expanded ? 18 : null,
                           color: day == today ? Colors.white : null,
                           fontWeight: day == today ? FontWeight.w700 : null,
                         ),
                       ),
                     ),
                     if (showLunarDates)
-                      _LunarDayLabel(day: day, l10n: AppL10n.of(context)),
+                      _LunarDayLabel(
+                        day: day,
+                        l10n: AppL10n.of(context),
+                        expanded: expanded,
+                      ),
                   ],
                 ),
               ),
@@ -593,10 +599,15 @@ class _WeekHeader extends StatelessWidget {
 /// aligned instead of the one out-of-range day's circle sitting slightly
 /// higher than its neighbors.
 class _LunarDayLabel extends StatelessWidget {
-  const _LunarDayLabel({required this.day, required this.l10n});
+  const _LunarDayLabel({
+    required this.day,
+    required this.l10n,
+    this.expanded = false,
+  });
 
   final DateTime day;
   final AppL10n l10n;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -604,13 +615,13 @@ class _LunarDayLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 2),
       child: SizedBox(
-        height: 11,
+        height: expanded ? 15 : 11,
         child: lunar == null
             ? null
             : Text(
                 LunarFmt.compact(l10n, lunar),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontSize: 9,
+                  fontSize: expanded ? 11 : 9,
                   color: context.palette.inkFaint,
                 ),
               ),
