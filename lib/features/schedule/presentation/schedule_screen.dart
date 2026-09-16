@@ -29,8 +29,6 @@ import 'year_view/year_view.dart';
 // calendar and the selected day's time list. Below this threshold (including
 // narrow iPad Split View windows), the single-pane month layout is clearer.
 const double _monthTwoPaneMinWidth = 960;
-const int _monthCalendarPaneFlex = 11;
-const int _monthDayPaneFlex = 9;
 
 /// The date [selected] moves to for a title-row swipe on [view], one period
 /// in the direction implied by [forward] (true = next, false = previous).
@@ -204,11 +202,21 @@ class ScheduleScreen extends ConsumerWidget {
                                 constraints.maxWidth >= _monthTwoPaneMinWidth &&
                                 constraints.maxHeight >= 600;
                             if (!twoPane) return const MonthView();
+                            // PageView-backed day content is sensitive to
+                            // fractional viewport widths in Flutter's sliver
+                            // precision checks. Round the calendar pane to a
+                            // logical pixel and give the remainder to the
+                            // detail pane while preserving the intended 55:45
+                            // balance.
+                            final calendarPaneWidth =
+                                (constraints.maxWidth * 0.55).floorToDouble();
+                            final dayPaneWidth =
+                                constraints.maxWidth - calendarPaneWidth - 1;
                             return Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Expanded(
-                                  flex: _monthCalendarPaneFlex,
+                                SizedBox(
+                                  width: calendarPaneWidth,
                                   child: MonthView(calendarOnly: true),
                                 ),
                                 VerticalDivider(
@@ -217,8 +225,8 @@ class ScheduleScreen extends ConsumerWidget {
                                     alpha: 0.3,
                                   ),
                                 ),
-                                Expanded(
-                                  flex: _monthDayPaneFlex,
+                                SizedBox(
+                                  width: dayPaneWidth,
                                   child: DayView(day: selected),
                                 ),
                               ],
