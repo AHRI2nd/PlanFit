@@ -525,7 +525,13 @@ class _MonthViewState extends ConsumerState<MonthView> {
                   );
                   if (!asListRow) {
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
+                      // Compact rows have only a few pixels below the date;
+                      // reserve the gap only when the expanded metrics can
+                      // afford it, otherwise a spanning bar plus dots can
+                      // overflow the marker box by a couple of pixels.
+                      padding: EdgeInsets.only(
+                        bottom: metrics.isExpanded ? 2 : 0,
+                      ),
                       child: bar,
                     );
                   }

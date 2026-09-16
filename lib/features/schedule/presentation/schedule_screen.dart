@@ -25,6 +25,13 @@ import 'search/event_search_screen.dart';
 import 'week_view/week_view.dart';
 import 'year_view/year_view.dart';
 
+// A two-pane month view needs enough width for both a readable seven-column
+// calendar and the selected day's time list. Below this threshold (including
+// narrow iPad Split View windows), the single-pane month layout is clearer.
+const double _monthTwoPaneMinWidth = 960;
+const int _monthCalendarPaneFlex = 11;
+const int _monthDayPaneFlex = 9;
+
 /// The date [selected] moves to for a title-row swipe on [view], one period
 /// in the direction implied by [forward] (true = next, false = previous).
 /// Returns null for views with no natural "period" to page through (agenda),
@@ -194,13 +201,14 @@ class ScheduleScreen extends ConsumerWidget {
                             // the existing full-width month view so the grid
                             // remains usable in Split View and landscape.
                             final twoPane =
-                                constraints.maxWidth >= 900 &&
+                                constraints.maxWidth >= _monthTwoPaneMinWidth &&
                                 constraints.maxHeight >= 600;
                             if (!twoPane) return const MonthView();
                             return Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 const Expanded(
+                                  flex: _monthCalendarPaneFlex,
                                   child: MonthView(calendarOnly: true),
                                 ),
                                 VerticalDivider(
@@ -209,7 +217,10 @@ class ScheduleScreen extends ConsumerWidget {
                                     alpha: 0.3,
                                   ),
                                 ),
-                                Expanded(child: DayView(day: selected)),
+                                Expanded(
+                                  flex: _monthDayPaneFlex,
+                                  child: DayView(day: selected),
+                                ),
                               ],
                             );
                           },
