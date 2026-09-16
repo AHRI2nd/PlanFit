@@ -77,54 +77,58 @@ void main() {
   );
 
   test(
-    'it never tries to create a calendar off the back of a refused read — '
-    'that would ask the same blocked plugin to write',
+    'a transient stale-permission refusal is retried once and then resolves',
     () async {
-      when(fakePlatform.listCalendars()).thenThrow(permissionDenied);
-
-      await service.resolveTargetCalendarId();
-
-      verifyNever(fakePlatform.createCalendar(any, any, any));
-    },
-  );
-
-  test(
-    'a refusal on the fallback read is caught too — creation failing '
-    'because of the same stale permission would otherwise throw from '
-    'inside the catch block that was handling it',
-    () async {
-      // Nothing named PlanFit exists, so it moves on to create one...
       var listCalls = 0;
       when(fakePlatform.listCalendars()).thenAnswer((_) async {
         listCalls++;
-        if (listCalls == 1) return <Map<String, dynamic>>[];
-        throw permissionDenied;
+        if (listCalls == 1) throw permissionDenied;
+        return [calendarMap(id: 'cal-1', name: 'PlanFit')];
       });
-      // ...creation fails, and the fallback read is then refused.
-      when(
-        fakePlatform.createCalendar(any, any, any),
-      ).thenThrow(permissionDenied);
 
-      await expectLater(service.resolveTargetCalendarId(), completion(isNull));
-      expect(listCalls, 2, reason: 'the fallback read was reached');
-    },
-  );
-
-  test(
-    'a working permission still resolves normally — the guard must not '
-    'swallow the ordinary path',
-    () async {
-      when(fakePlatform.listCalendars()).thenAnswer(
-        (_) async => [calendarMap(id: 'cal-1', name: 'PlanFit')],
-      );
-
-      await expectLater(
-        service.resolveTargetCalendarId(),
-        completion('cal-1'),
-      );
+      await expectLater(service.resolveTargetCalendarId(), completion('cal-1'));
+      expect(listCalls, 2);
       expect(service.targetCalendarId, 'cal-1');
     },
   );
+
+  test('it never tries to create a calendar off the back of a refused read — '
+      'that would ask the same blocked plugin to write', () async {
+    when(fakePlatform.listCalendars()).thenThrow(permissionDenied);
+
+    await service.resolveTargetCalendarId();
+
+    verifyNever(fakePlatform.createCalendar(any, any, any));
+  });
+
+  test('a refusal on the fallback read is caught too — creation failing '
+      'because of the same stale permission would otherwise throw from '
+      'inside the catch block that was handling it', () async {
+    // Nothing named PlanFit exists, so it moves on to create one...
+    var listCalls = 0;
+    when(fakePlatform.listCalendars()).thenAnswer((_) async {
+      listCalls++;
+      if (listCalls == 1) return <Map<String, dynamic>>[];
+      throw permissionDenied;
+    });
+    // ...creation fails, and the fallback read is then refused.
+    when(
+      fakePlatform.createCalendar(any, any, any),
+    ).thenThrow(permissionDenied);
+
+    await expectLater(service.resolveTargetCalendarId(), completion(isNull));
+    expect(listCalls, 2, reason: 'the fallback read was reached');
+  });
+
+  test('a working permission still resolves normally — the guard must not '
+      'swallow the ordinary path', () async {
+    when(
+      fakePlatform.listCalendars(),
+    ).thenAnswer((_) async => [calendarMap(id: 'cal-1', name: 'PlanFit')]);
+
+    await expectLater(service.resolveTargetCalendarId(), completion('cal-1'));
+    expect(service.targetCalendarId, 'cal-1');
+  });
 
   test(
     'an unrelated failure is still reported, not quietly turned into null — '

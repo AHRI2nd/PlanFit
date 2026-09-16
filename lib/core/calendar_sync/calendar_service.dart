@@ -141,11 +141,13 @@ class CalendarService implements CalendarPort {
 
   Future<String?>? _resolving;
 
-  Future<String?> _doResolveTargetCalendarId() async {
+  Future<String?> _doResolveTargetCalendarId({
+    int authorizationRetry = 0,
+  }) async {
     final Calendar? existing;
     try {
       existing = await _findOwnCalendar();
-    } on DeviceCalendarException {
+    } on DeviceCalendarException catch (error) {
       // Listing calendars can fail on the very call that follows the user
       // granting access. The platform plugin holds one long-lived event
       // store built at app launch, and it gates every read on re-reading
@@ -154,6 +156,18 @@ class CalendarService implements CalendarPort {
       // success. So the toggle asks for access, is told yes, and its next
       // call is refused.
       //
+      // A freshly-granted iOS permission can take more than one run-loop
+      // turn to become visible to the plugin's long-lived EventStore. Give
+      // that specific stale-permission case one short, bounded retry before
+      // reporting "no target". The retry stays here (rather than in the UI)
+      // so resume reconciliation and direct repository writes get the same
+      // behavior.
+      if (error.errorCode == DeviceCalendarError.permissionDenied &&
+          authorizationRetry == 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        return _doResolveTargetCalendarId(authorizationRetry: 1);
+      }
+
       // Report "no target" instead of letting that escape. The settings
       // toggle already treats a null here as "nothing to sync into, leave
       // the switch off" — the branch right below its call — so this lands
