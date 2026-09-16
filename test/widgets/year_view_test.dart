@@ -150,22 +150,37 @@ void main() {
     });
   });
 
-  testWidgets(
-    'each mini-month header uses the abbreviated month name in en — '
-    'regression test: 12 of these are packed 3-per-row, and a full name '
-    'wrapping there could push its own fixed-aspect-ratio grid cell into '
-    'a real overflow, not just look cramped',
-    (tester) async {
-      final selected = DateTime(2026, 3, 15);
-      await pumpYear(tester, selected, locale: const Locale('en'));
+  testWidgets('an iPad packs all twelve months into two six-month rows', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      // January — GridView.builder only mounts elements within its own
-      // viewport, so a later month (e.g. September, month 9 of 12) isn't
-      // guaranteed built without scrolling; the very first cell always is.
-      expect(find.text('Jan'), findsOneWidget);
-      expect(find.textContaining('January'), findsNothing);
-    },
-  );
+    await pumpYear(tester, DateTime(2026, 3, 15));
+
+    final grid = tester.widget<GridView>(
+      find.byKey(const Key('yearMonthGrid')),
+    );
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 6);
+  });
+
+  testWidgets('each mini-month header uses the abbreviated month name in en — '
+      'regression test: 12 of these are packed in the adaptive year grid, and a full name '
+      'wrapping there could push its own fixed-aspect-ratio grid cell into '
+      'a real overflow, not just look cramped', (tester) async {
+    final selected = DateTime(2026, 3, 15);
+    await pumpYear(tester, selected, locale: const Locale('en'));
+
+    // January — GridView.builder only mounts elements within its own
+    // viewport, so a later month (e.g. September, month 9 of 12) isn't
+    // guaranteed built without scrolling; the very first cell always is.
+    expect(find.text('Jan'), findsOneWidget);
+    expect(find.textContaining('January'), findsNothing);
+  });
 
   testWidgets(
     'a multi-day event marks every day it spans, not just its start day — '
@@ -211,14 +226,14 @@ void main() {
       // A single event on a day (count == 1) marks it with this exact
       // alpha — see year_view.dart's own (0.30 + count * 0.18) formula.
       final expectedColor = palette.accent.withValues(alpha: 0.48);
-      final dots = tester.widgetList<Container>(find.byType(Container)).where(
-        (c) {
-          final decoration = c.decoration;
-          return decoration is BoxDecoration &&
-              decoration.shape == BoxShape.circle &&
-              decoration.color == expectedColor;
-        },
-      );
+      final dots = tester.widgetList<Container>(find.byType(Container)).where((
+        c,
+      ) {
+        final decoration = c.decoration;
+        return decoration is BoxDecoration &&
+            decoration.shape == BoxShape.circle &&
+            decoration.color == expectedColor;
+      });
       expect(dots, hasLength(3));
     },
   );

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -152,35 +154,48 @@ class _YearPageContent extends ConsumerWidget {
         if (!t.isDone) dateOnly(t.slotStart),
     }..removeAll(overdueDays);
 
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.gutter,
-        AppSpacing.xs,
-        AppSpacing.gutter,
-        140,
-      ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: AppSpacing.md,
-        crossAxisSpacing: AppSpacing.md,
-        childAspectRatio: 0.82,
-      ),
-      itemCount: 12,
-      itemBuilder: (context, i) {
-        final month = i + 1;
-        return _MiniMonth(
-          year: year,
-          month: month,
-          counts: counts,
-          overdueDays: overdueDays,
-          todoDays: todoDays,
-          locale: locale,
-          startWeekday: startWeekday,
-          onTap: () {
-            ref
-                .read(selectedDateProvider.notifier)
-                .select(DateTime(year, month, 1));
-            ref.read(scheduleViewProvider.notifier).set(ScheduleView.month);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Six columns give an iPad a true year-at-a-glance: January–June on
+        // the first row and July–December on the second. Phones retain the
+        // roomier three-column layout. Use the local pane's shortest side so
+        // this also works in iPad portrait and Split View rather than relying
+        // on the full device size.
+        final isTablet =
+            math.min(constraints.maxWidth, constraints.maxHeight) >= 600;
+        final columns = isTablet ? 6 : 3;
+        return GridView.builder(
+          key: const Key('yearMonthGrid'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.xs,
+            AppSpacing.gutter,
+            140,
+          ),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: AppSpacing.md,
+            crossAxisSpacing: AppSpacing.md,
+            childAspectRatio: isTablet ? 0.9 : 0.82,
+          ),
+          itemCount: 12,
+          itemBuilder: (context, i) {
+            final month = i + 1;
+            return _MiniMonth(
+              year: year,
+              month: month,
+              counts: counts,
+              overdueDays: overdueDays,
+              todoDays: todoDays,
+              locale: locale,
+              startWeekday: startWeekday,
+              onTap: () {
+                ref
+                    .read(selectedDateProvider.notifier)
+                    .select(DateTime(year, month, 1));
+                ref.read(scheduleViewProvider.notifier).set(ScheduleView.month);
+              },
+            );
           },
         );
       },
