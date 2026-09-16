@@ -383,10 +383,22 @@ class _MonthViewState extends ConsumerState<MonthView> {
                         MonthCalendarRowHeight.max,
                       ),
         };
-        final effectiveRowHeight = rowHeight.clamp(
-          MonthCalendarRowHeight.min,
-          maxRowHeight,
-        );
+        // In the wide two-pane layout the adjacent DayView owns the selected
+        // day's details, so this pane should devote its entire height to the
+        // calendar grid instead of leaving the lower half unused. TableCalendar
+        // grows by rowHeight; derive it from the available pane height here.
+        final calendarOnlyRowHeight = rowCount <= 0
+            ? MonthCalendarRowHeight.min
+            : math.max(
+                MonthCalendarRowHeight.min,
+                (constraints.maxHeight -
+                        _monthDowHeight -
+                        navBarClearance(context)) /
+                    rowCount,
+              );
+        final effectiveRowHeight = widget.calendarOnly
+            ? calendarOnlyRowHeight
+            : rowHeight.clamp(MonthCalendarRowHeight.min, maxRowHeight);
         // TableCalendar sits inside this same horizontal gutter padding, so
         // this is its actual per-day column width — used to size the
         // day-number circle (see monthDayNumberDiameter's doc for why it's
