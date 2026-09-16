@@ -22,6 +22,7 @@ import '../../domain/event_span.dart';
 import '../day_view/day_view.dart';
 import '../event_edit/event_editor_sheet.dart';
 import '../event_edit/event_preview_sheet.dart';
+import '../calendar_layout_metrics.dart';
 
 /// Number of week-rows [TableCalendar] renders for the month containing
 /// [focusedDay], replicating its own internal `_getRowCount` (see
@@ -147,9 +148,14 @@ const _monthEventRowTextStyle = TextStyle(fontSize: 9, height: 1.1);
 /// budget this feeds [monthEventListCapacity] came out too generous: more
 /// rows got counted as "fitting" than the cell's real height could
 /// actually hold once the real (larger) text rendered.
-double monthEventRowHeight({TextScaler textScaler = TextScaler.noScaling}) {
+double monthEventRowHeight({
+  TextScaler textScaler = TextScaler.noScaling,
+  CalendarLayoutMetrics? metrics,
+}) {
+  final style =
+      metrics?.eventTextStyle(Colors.black) ?? _monthEventRowTextStyle;
   final painter = TextPainter(
-    text: const TextSpan(text: 'Ag', style: _monthEventRowTextStyle),
+    text: TextSpan(text: 'Ag', style: style),
     textDirection: TextDirection.ltr,
     textScaler: textScaler,
   )..layout();
@@ -241,15 +247,28 @@ int monthEventListCapacity({
   required double rowHeight,
   required double columnWidth,
   TextScaler textScaler = TextScaler.noScaling,
+  CalendarLayoutMetrics? metrics,
 }) {
+  final effectiveMetrics =
+      metrics ??
+      CalendarLayoutMetrics(
+        columnWidth: columnWidth,
+        rowHeight: rowHeight,
+        textScaler: textScaler,
+      );
   final available =
       rowHeight -
-      monthMarkerTop(columnWidth: columnWidth) -
-      _monthMarkerBottomPad;
-  final rowHeightNeeded = monthEventRowHeight(textScaler: textScaler);
+      (effectiveMetrics.numberTopMargin +
+          effectiveMetrics.dayNumberDiameter +
+          effectiveMetrics.markerTopGap) -
+      effectiveMetrics.markerBottomPadding;
+  final rowHeightNeeded = monthEventRowHeight(
+    textScaler: textScaler,
+    metrics: effectiveMetrics,
+  );
   final raw = (available / rowHeightNeeded).floor();
   if (raw < 2) return 0;
-  return raw.clamp(0, 5);
+  return effectiveMetrics.maxVisibleEventRows(raw);
 }
 
 // Public aliases of this file's own private layout constants, purely so
@@ -405,11 +424,17 @@ class _MonthViewState extends ConsumerState<MonthView> {
         // a fixed size, not derived from rowHeight) and the expanded event
         // list.
         final columnWidth = (constraints.maxWidth - AppSpacing.gutter * 2) / 7;
-        final numberDiameter = monthDayNumberDiameter(columnWidth: columnWidth);
+        final metrics = CalendarLayoutMetrics(
+          columnWidth: columnWidth,
+          rowHeight: effectiveRowHeight,
+          textScaler: MediaQuery.textScalerOf(context),
+        );
+        final numberDiameter = metrics.dayNumberDiameter;
         final listCapacity = monthEventListCapacity(
           rowHeight: effectiveRowHeight,
           columnWidth: columnWidth,
           textScaler: MediaQuery.textScalerOf(context),
+          metrics: metrics,
         );
 
         final calendar = Padding(
@@ -489,7 +514,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                   final isLast = span.last == d;
                   final color = EventColorTag.resolve(e.colorTag, e.startAt);
                   final bar = Container(
-                    height: 4,
+                    height: metrics.spanningBarHeight,
                     decoration: BoxDecoration(
                       color: color,
                       borderRadius: BorderRadius.horizontal(
@@ -510,6 +535,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                   return SizedBox(
                     height: monthEventRowHeight(
                       textScaler: MediaQuery.textScalerOf(context),
+                      metrics: metrics,
                     ),
                     child: Align(
                       alignment: Alignment.topCenter,
@@ -529,12 +555,18 @@ class _MonthViewState extends ConsumerState<MonthView> {
                 // arithmetic, and by cellMargin below, so all three
                 // agree on exactly where the circle sits) — see its
                 // own doc for why this no longer depends on rowHeight.
-                final markerTop = monthMarkerTop(columnWidth: columnWidth);
+                final markerTop =
+                    metrics.numberTopMargin +
+                    metrics.dayNumberDiameter +
+                    metrics.markerTopGap;
                 final availableForMarker =
-                    effectiveRowHeight - markerTop - _monthMarkerBottomPad;
+                    effectiveRowHeight -
+                    markerTop -
+                    metrics.markerBottomPadding;
                 final lunarRowHeight =
                     monthEventRowHeight(
                       textScaler: MediaQuery.textScalerOf(context),
+                      metrics: metrics,
                     ) +
                     1;
 
@@ -574,9 +606,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                       // own lunar label uses, so this reads no smaller
                       // than either the list rows sharing this same cell
                       // or the same label anywhere else in the app.
-                      style: _monthEventRowTextStyle.copyWith(
-                        color: palette.inkFaint,
-                      ),
+                      style: metrics.lunarTextStyle(palette.inkFaint),
                     ),
                   );
                 }
@@ -604,8 +634,8 @@ class _MonthViewState extends ConsumerState<MonthView> {
                 ];
                 if (listCapacity <= 0) {
                   final collapsedContentHeight =
-                      (spanning.isNotEmpty ? 6.0 : 0.0) +
-                      (entryColors.isNotEmpty ? _monthCollapsedDotSize : 0.0);
+                      (spanning.isNotEmpty ? metrics.spanningBarHeight : 0.0) +
+                      (entryColors.isNotEmpty ? metrics.collapsedDotSize : 0.0);
                   final showLunarHere =
                       lunar != null &&
                       availableForMarker - collapsedContentHeight >=
@@ -614,7 +644,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                     left: 0,
                     right: 0,
                     top: markerTop,
-                    bottom: _monthMarkerBottomPad,
+                    bottom: metrics.markerBottomPadding,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -631,8 +661,8 @@ class _MonthViewState extends ConsumerState<MonthView> {
                                       horizontal: 1,
                                     ),
                                     child: Container(
-                                      width: _monthCollapsedDotSize,
-                                      height: _monthCollapsedDotSize,
+                                      width: metrics.collapsedDotSize,
+                                      height: metrics.collapsedDotSize,
                                       decoration: BoxDecoration(
                                         color: color,
                                         shape: BoxShape.circle,
@@ -691,6 +721,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                     _MonthEventListRow(
                       color: EventColorTag.resolve(e.colorTag, e.startAt),
                       label: e.title.isEmpty ? '—' : e.title,
+                      metrics: metrics,
                       onTap: () => showEventPreview(context, event: e),
                       onLongPress: () => showEventEditor(context, existing: e),
                     ),
@@ -703,6 +734,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                         hasOverdueTodo: hasOverdueTodo,
                       )!,
                       label: l10n.todosSectionTitle,
+                      metrics: metrics,
                     ),
                 ];
                 // A "+N" hint on its own dedicated row always costs
@@ -744,10 +776,11 @@ class _MonthViewState extends ConsumerState<MonthView> {
                             color: last.color,
                             label: last.label,
                             trailingHint: hint,
+                            metrics: metrics,
                             onTap: last.onTap,
                             onLongPress: last.onLongPress,
                           )
-                        : _MonthMoreRow(count: hint),
+                        : _MonthMoreRow(count: hint, metrics: metrics),
                   );
                   visible = shown;
                 }
@@ -764,6 +797,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                             visible.length *
                                 monthEventRowHeight(
                                   textScaler: MediaQuery.textScalerOf(context),
+                                  metrics: metrics,
                                 ) >=
                         lunarRowHeight;
 
@@ -771,7 +805,7 @@ class _MonthViewState extends ConsumerState<MonthView> {
                   left: 0,
                   right: 0,
                   top: markerTop,
-                  bottom: _monthMarkerBottomPad,
+                  bottom: metrics.markerBottomPadding,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [if (showLunarHere) lunarLabel(), ...visible],
@@ -800,9 +834,9 @@ class _MonthViewState extends ConsumerState<MonthView> {
               // construction, below).
               cellMargin: EdgeInsets.fromLTRB(
                 6,
-                _monthNumberTopMargin,
+                metrics.numberTopMargin,
                 6,
-                effectiveRowHeight - _monthNumberTopMargin - numberDiameter,
+                effectiveRowHeight - metrics.numberTopMargin - numberDiameter,
               ),
               defaultTextStyle: theme.textTheme.bodyLarge!,
               weekendTextStyle: theme.textTheme.bodyLarge!,
@@ -999,6 +1033,7 @@ class _MonthEventListRow extends StatelessWidget {
   const _MonthEventListRow({
     required this.color,
     required this.label,
+    required this.metrics,
     this.trailingHint,
     this.onTap,
     this.onLongPress,
@@ -1006,6 +1041,7 @@ class _MonthEventListRow extends StatelessWidget {
 
   final Color color;
   final String label;
+  final CalendarLayoutMetrics metrics;
   final int? trailingHint;
 
   /// Both null for the to-do summary row this same widget also renders
@@ -1020,12 +1056,15 @@ class _MonthEventListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final content = SizedBox(
-      height: monthEventRowHeight(textScaler: MediaQuery.textScalerOf(context)),
+      height: monthEventRowHeight(
+        textScaler: MediaQuery.textScalerOf(context),
+        metrics: metrics,
+      ),
       child: Row(
         children: [
           Container(
-            width: 5,
-            height: 5,
+            width: metrics.isExpanded ? 8 : 5,
+            height: metrics.isExpanded ? 8 : 5,
             margin: const EdgeInsets.only(right: 3),
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
@@ -1034,7 +1073,7 @@ class _MonthEventListRow extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: _monthEventRowTextStyle.copyWith(color: palette.inkSoft),
+              style: metrics.eventTextStyle(palette.inkSoft),
             ),
           ),
           if (trailingHint != null)
@@ -1053,11 +1092,13 @@ class _MonthEventListRow extends StatelessWidget {
               ),
               child: Text(
                 '+$trailingHint',
-                style: _monthEventRowTextStyle.copyWith(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  color: palette.inkFaint,
-                ),
+                style: metrics
+                    .eventTextStyle(palette.inkFaint)
+                    .copyWith(
+                      fontSize: metrics.isExpanded ? 10 : 8,
+                      fontWeight: FontWeight.w700,
+                      color: palette.inkFaint,
+                    ),
               ),
             ),
         ],
@@ -1077,23 +1118,26 @@ class _MonthEventListRow extends StatelessWidget {
 /// fit in [monthEventListCapacity]'s budget, rather than the list silently
 /// dropping them with no trace they exist.
 class _MonthMoreRow extends StatelessWidget {
-  const _MonthMoreRow({required this.count});
+  const _MonthMoreRow({required this.count, required this.metrics});
 
   final int count;
+  final CalendarLayoutMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     return SizedBox(
-      height: monthEventRowHeight(textScaler: MediaQuery.textScalerOf(context)),
+      height: monthEventRowHeight(
+        textScaler: MediaQuery.textScalerOf(context),
+        metrics: metrics,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
           '+$count',
-          style: _monthEventRowTextStyle.copyWith(
-            fontWeight: FontWeight.w700,
-            color: palette.inkFaint,
-          ),
+          style: metrics
+              .eventTextStyle(palette.inkFaint)
+              .copyWith(fontWeight: FontWeight.w700, color: palette.inkFaint),
         ),
       ),
     );
