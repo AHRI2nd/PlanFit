@@ -70,4 +70,21 @@ void main() {
       expect(tester.getSize(find.byKey(bodyKey)).width, kSheetMaxWidth);
     },
   );
+
+  testWidgets(
+    'a short landscape window stays full width even when its width is tablet-sized',
+    (tester) async {
+      tester.view.physicalSize = const Size(678, 466);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await openSheet(tester);
+
+      expect(
+        tester.getSize(find.byKey(bodyKey)).width,
+        greaterThan(kSheetMaxWidth),
+      );
+    },
+  );
 }
