@@ -1,240 +1,110 @@
-import AppIntents
 import WidgetKit
 import SwiftUI
 
-// Not wired into the Xcode project yet — this is the ready-made source for
-// the WidgetKit Extension target described in docs/PROGRESS.md. Once that
-// target exists (created via Xcode > File > New > Target > Widget
-// Extension, named "PlanFitWidget"), replace its generated Swift file with
-// this one's contents. The to-do checkboxes below also need
-// BackgroundIntent.swift (same folder) added to the project — see its own
-// doc comment for the extra dual-target-membership step that one needs.
-//
-// Reads the same keys `HomeWidgetSync` (lib/core/home_widget/home_widget_sync.dart)
-// writes on the Flutter side, via the shared App Group's UserDefaults suite.
-
 private let appGroupId = "group.com.arisair.planfit"
-
-// The single key HomeWidgetSync.push (Dart) writes the whole snapshot under
-// as one JSON blob — see that class's own doc for why (one atomic write
-// instead of ~20 separate ones). Must match `HomeWidgetSync._snapshotKey`
-// and PlanFitWidgetProvider.kt's `SNAPSHOT_KEY` exactly. This file used to
-// read a set of individual flat keys (`event0_title`, `todo0_id`, ...) that
-// predated that change and were never written on either platform any more,
-// so every lookup silently fell back to empty — fixed to parse the same
-// blob PlanFitWidgetProvider.kt already does.
 private let widgetSnapshotKey = "widget_snapshot"
 
-private func parseWidgetSnapshot(_ json: String?) -> [String: Any] {
-    guard let json,
-          let data = json.data(using: .utf8),
-          let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    else {
-        return [:]
-    }
-    return object
+private struct Todo: Identifiable {
+  let id: String
+  let title: String
+  let done: Bool
 }
 
-private func snapshotString(_ snapshot: [String: Any], _ key: String, default defaultValue: String = "") -> String {
-    (snapshot[key] as? String) ?? defaultValue
+private struct Entry: TimelineEntry {
+  let date: Date
+  let title: String
+  let time: String
+  let progress: String
+  let todos: [Todo]
+  let deepLink: URL?
 }
 
-private func snapshotBool(_ snapshot: [String: Any], _ key: String) -> Bool {
-    (snapshot[key] as? Bool) ?? false
+private func snapshot() -> [String: Any] {
+  guard let raw = UserDefaults(suiteName: appGroupId)?.string(forKey: widgetSnapshotKey),
+        let data = raw.data(using: .utf8),
+        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+  else { return [:] }
+  return object
 }
 
-// One row of HomeWidgetSync's `todo{i}_id`/`todo{i}_title`/`todo{i}_done`.
-struct PlanFitWidgetTodo: Identifiable {
-    let id: String
-    let title: String
-    let done: Bool
+private struct Provider: TimelineProvider {
+  func placeholder(in context: Context) -> Entry {
+    Entry(date: Date(), title: "예정된 일정이 없어요", time: "", progress: "0/0", todos: [], deepLink: nil)
+  }
+
+  func getSnapshot(in context: Context, completion: @escaping (Entry) -> Void) {
+    completion(current())
+  }
+
+  func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
+    completion(Timeline(entries: [current()], policy: .after(Date().addingTimeInterval(1800))))
+  }
+
+  private func current() -> Entry {
+    let data = snapshot()
+    func string(_ key: String, _ fallback: String = "") -> String { data[key] as? String ?? fallback }
+    var todos: [Todo] = []
+    for index in 0..<2 {
+      let id = string("todo\(index)_id")
+      let title = string("todo\(index)_title")
+      guard !id.isEmpty, !title.isEmpty else { break }
+      todos.append(Todo(id: id, title: title, done: data["todo\(index)_done"] as? Bool ?? false))
+    }
+    let eventUri = string("event0_uri")
+    let todosUri = string("todos_uri")
+    return Entry(
+      date: Date(),
+      title: string("event0_title", "예정된 일정이 없어요"),
+      time: string("event0_time"),
+      progress: string("todos_progress", "0/0"),
+      todos: todos,
+      deepLink: URL(string: eventUri.isEmpty ? todosUri : eventUri)
+    )
+  }
 }
 
-struct PlanFitWidgetEntry: TimelineEntry {
-    let date: Date
-    let nextEventTitle: String
-    let nextEventTime: String
-    let todosProgress: String
-    // Only 2 shown — .systemSmall/.systemMedium (this widget's only
-    // supported families) don't have room for more, same reasoning as
-    // Android's compact layout in PlanFitWidgetProvider.kt.
-    let todos: [PlanFitWidgetTodo]
-    // Whole-widget tap target — prefers the next event's day, falling back
-    // to today (the to-do progress's day) when there's no event. A true
-    // per-section tap target needs iOS 17 Link()/App Intents; not worth the
-    // extra setup for the event/progress fields, unlike the to-dos below
-    // where per-row interactivity is the whole point.
-    let deepLinkUri: URL?
-}
+private struct WidgetView: View {
+  let entry: Entry
 
-struct PlanFitWidgetProvider: TimelineProvider {
-    func placeholder(in context: Context) -> PlanFitWidgetEntry {
-        PlanFitWidgetEntry(
-            date: Date(),
-            nextEventTitle: "다가오는 일정",
-            nextEventTime: "09:00",
-            todosProgress: "0/0",
-            todos: [],
-            deepLinkUri: nil
-        )
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (PlanFitWidgetEntry) -> Void) {
-        completion(currentEntry())
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<PlanFitWidgetEntry>) -> Void) {
-        let entry = currentEntry()
-        // The Flutter side pushes a fresh value on every relevant data change
-        // and on foreground resume — a short-lived timeline just keeps the
-        // system from ever showing very stale data if a push was missed.
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
-    }
-
-    private func currentEntry() -> PlanFitWidgetEntry {
-        // Only the first of HomeWidgetSync.maxEvents pushed events is used —
-        // the iOS widget stays single-event, unlike Android's expanded
-        // large-size layout (see PlanFitWidgetProvider.kt).
-        let defaults = UserDefaults(suiteName: appGroupId)
-        let snapshot = parseWidgetSnapshot(defaults?.string(forKey: widgetSnapshotKey))
-        let title = snapshotString(snapshot, "event0_title")
-        let eventUri = snapshotString(snapshot, "event0_uri")
-        let todosUri = snapshotString(snapshot, "todos_uri")
-        let linkString = eventUri.isEmpty ? todosUri : eventUri
-
-        var todos: [PlanFitWidgetTodo] = []
-        for i in 0..<2 {
-            let id = snapshotString(snapshot, "todo\(i)_id")
-            let todoTitle = snapshotString(snapshot, "todo\(i)_title")
-            if id.isEmpty || todoTitle.isEmpty { break }
-            todos.append(
-                PlanFitWidgetTodo(
-                    id: id,
-                    title: todoTitle,
-                    done: snapshotBool(snapshot, "todo\(i)_done")
-                )
-            )
-        }
-
-        return PlanFitWidgetEntry(
-            date: Date(),
-            nextEventTitle: title.isEmpty ? "예정된 일정이 없어요" : title,
-            nextEventTime: snapshotString(snapshot, "event0_time"),
-            todosProgress: snapshotString(snapshot, "todos_progress", default: "0/0"),
-            todos: todos,
-            deepLinkUri: linkString.isEmpty ? nil : URL(string: linkString)
-        )
-    }
-}
-
-struct PlanFitWidgetView: View {
-    var entry: PlanFitWidgetProvider.Entry
-    @Environment(\.colorScheme) private var colorScheme
-
-    // Text already uses SwiftUI's adaptive .primary/.secondary, so the
-    // background is the only hardcoded color that needs a dark variant —
-    // mirrors AppPalette.light/dark's surface tokens.
-    private var backgroundColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.086, green: 0.102, blue: 0.133) // ink800
-            : Color(red: 0.96, green: 0.95, blue: 0.93) // softPaper
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("다가오는 일정")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            HStack {
-                Text(entry.nextEventTitle)
-                    .font(.headline)
-                    .lineLimit(1)
-                if !entry.nextEventTime.isEmpty {
-                    Spacer()
-                    Text(entry.nextEventTime)
-                        .font(.subheadline.bold())
-                        .foregroundColor(Color(red: 0.29, green: 0.37, blue: 0.84)) // dawnIndigo
-                }
-            }
-            Spacer()
-            HStack {
-                Text("오늘의 할 일")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text(entry.todosProgress)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            if entry.todos.isEmpty {
-                Text("할 일이 없어요")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(entry.todos) { todo in
-                    todoRow(todo)
-                }
-            }
-        }
-        .padding()
-        .containerBackground(for: .widget) {
-            backgroundColor
-        }
-        .widgetURL(entry.deepLinkUri)
-    }
-
-    // Checkable right from the widget on iOS 17+ (via PlanFitBackgroundIntent
-    // — see BackgroundIntent.swift). Below that, to-dos still show but as
-    // plain read-only rows: pre-17 widgets can't run App Intents, and a
-    // dead checkbox would be worse than none — .widgetURL above already
-    // covers "just open the app" as the fallback interaction.
-    @ViewBuilder
-    private func todoRow(_ todo: PlanFitWidgetTodo) -> some View {
-        if #available(iOSApplicationExtension 17, *) {
-            Button(
-                intent: PlanFitBackgroundIntent(
-                    url: URL(string: "planfit://toggle-todo?id=\(todo.id)"),
-                    appGroup: appGroupId
-                )
-            ) {
-                todoRowLabel(todo)
-            }
-            .buttonStyle(.plain)
-        } else {
-            todoRowLabel(todo)
-        }
-    }
-
-    private func todoRowLabel(_ todo: PlanFitWidgetTodo) -> some View {
-        HStack(spacing: 6) {
+  var body: some View {
+    VStack(alignment: .leading, spacing: 5) {
+      Text("다가오는 일정").font(.caption2).foregroundStyle(.secondary)
+      HStack {
+        Text(entry.title).font(.headline).lineLimit(1)
+        if !entry.time.isEmpty { Spacer(); Text(entry.time).font(.subheadline.bold()) }
+      }
+      Spacer()
+      HStack {
+        Text("오늘의 할 일").font(.caption2).foregroundStyle(.secondary)
+        Spacer(); Text(entry.progress).font(.caption2).foregroundStyle(.secondary)
+      }
+      if entry.todos.isEmpty {
+        Text("할 일이 없어요").font(.subheadline).foregroundStyle(.secondary)
+      } else {
+        ForEach(entry.todos) { todo in
+          HStack(spacing: 6) {
             Image(systemName: todo.done ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(todo.done ? Color(red: 0.29, green: 0.37, blue: 0.84) : .secondary) // dawnIndigo
-            Text(todo.title)
-                .font(.footnote)
-                .lineLimit(1)
-                .strikethrough(todo.done)
-                .foregroundColor(todo.done ? .secondary : .primary)
+              .foregroundStyle(todo.done ? .blue : .secondary)
+            Text(todo.title).font(.footnote).lineLimit(1).strikethrough(todo.done)
+          }
         }
+      }
     }
+    .padding()
+    .containerBackground(for: .widget) { Color(.systemBackground) }
+    .widgetURL(entry.deepLink)
+  }
 }
 
 struct PlanFitWidget: Widget {
-    let kind: String = "PlanFitWidget"
+  let kind = "PlanFitWidget"
 
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: PlanFitWidgetProvider()) { entry in
-            PlanFitWidgetView(entry: entry)
-        }
-        .configurationDisplayName("PlanFit")
-        .description("다가오는 일정과 오늘의 할 일을 홈 화면에서 확인하세요")
-        .supportedFamilies([.systemSmall, .systemMedium])
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: Provider()) { entry in
+      WidgetView(entry: entry)
     }
-}
-
-@main
-struct PlanFitWidgetBundle: WidgetBundle {
-    var body: some Widget {
-        PlanFitWidget()
-    }
+    .configurationDisplayName("PlanFit")
+    .description("다가오는 일정과 오늘의 할 일을 홈 화면에서 확인하세요")
+    .supportedFamilies([.systemSmall, .systemMedium])
+  }
 }
