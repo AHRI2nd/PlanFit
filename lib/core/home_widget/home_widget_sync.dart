@@ -45,6 +45,10 @@ Map<String, Object> buildWidgetSnapshot({
     snapshot['todo${i}_done'] = todo?.isDone ?? false;
     snapshot['todo${i}_priority'] = todo?.priority ?? 0;
   }
+  snapshot['todos_count'] = ordered.length.clamp(
+    0,
+    HomeWidgetSync.maxWidgetTodos,
+  );
 
   snapshot['todos_progress'] =
       '${todayTodos.where((t) => t.isDone).length}/${todayTodos.length}';

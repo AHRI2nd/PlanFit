@@ -46,7 +46,9 @@ private struct Provider: TimelineProvider {
     func string(_ key: String, _ fallback: String = "") -> String { data[key] as? String ?? fallback }
     var todos: [Todo] = []
     let maxRows = family == .systemSmall ? 2 : 3
-    for index in 0..<maxRows {
+    let storedCount = data["todos_count"] as? Int ?? maxRows
+    let rowCount = min(max(storedCount, 0), maxRows)
+    for index in 0..<rowCount {
       let id = string("todo\(index)_id")
       let title = string("todo\(index)_title")
       guard !id.isEmpty, !title.isEmpty else { continue }
@@ -89,7 +91,11 @@ private struct WidgetView: View {
               HStack(spacing: 6) {
                 Image(systemName: todo.done ? "checkmark.circle.fill" : "circle")
                   .foregroundStyle(todo.done ? .blue : .secondary)
-                Text(todo.title).font(.footnote).lineLimit(1).strikethrough(todo.done)
+                Text(todo.title)
+                  .font(.footnote)
+                  .lineLimit(1)
+                  .minimumScaleFactor(0.8)
+                  .strikethrough(todo.done)
               }
             }
             .buttonStyle(.plain)

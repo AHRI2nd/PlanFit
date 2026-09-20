@@ -103,6 +103,7 @@ void main() {
         expect(snapshot['todo${i}_priority'], 0);
       }
       expect(snapshot['todos_progress'], '0/0');
+      expect(snapshot['todos_count'], 0);
     });
 
     test('a present event fills its slot with title/time/deep-link uri', () {
@@ -156,6 +157,7 @@ void main() {
       );
 
       expect(snapshot['todos_progress'], '1/3');
+      expect(snapshot['todos_count'], 3);
       expect(snapshot['todo2_id'], 't1');
       expect(snapshot['todo2_done'], true);
       expect(
