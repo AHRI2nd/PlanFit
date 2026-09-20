@@ -1,3 +1,4 @@
+import AppIntents
 import WidgetKit
 import SwiftUI
 
@@ -33,21 +34,22 @@ private struct Provider: TimelineProvider {
   }
 
   func getSnapshot(in context: Context, completion: @escaping (Entry) -> Void) {
-    completion(current())
+    completion(current(family: context.family))
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
-    completion(Timeline(entries: [current()], policy: .after(Date().addingTimeInterval(1800))))
+    completion(Timeline(entries: [current(family: context.family)], policy: .after(Date().addingTimeInterval(1800))))
   }
 
-  private func current() -> Entry {
+  private func current(family: WidgetFamily) -> Entry {
     let data = snapshot()
     func string(_ key: String, _ fallback: String = "") -> String { data[key] as? String ?? fallback }
     var todos: [Todo] = []
-    for index in 0..<2 {
+    let maxRows = family == .systemSmall ? 2 : 3
+    for index in 0..<maxRows {
       let id = string("todo\(index)_id")
       let title = string("todo\(index)_title")
-      guard !id.isEmpty, !title.isEmpty else { break }
+      guard !id.isEmpty, !title.isEmpty else { continue }
       todos.append(Todo(id: id, title: title, done: data["todo\(index)_done"] as? Bool ?? false))
     }
     let eventUri = string("event0_uri")
@@ -82,10 +84,15 @@ private struct WidgetView: View {
         Text("할 일이 없어요").font(.subheadline).foregroundStyle(.secondary)
       } else {
         ForEach(entry.todos) { todo in
-          HStack(spacing: 6) {
-            Image(systemName: todo.done ? "checkmark.circle.fill" : "circle")
-              .foregroundStyle(todo.done ? .blue : .secondary)
-            Text(todo.title).font(.footnote).lineLimit(1).strikethrough(todo.done)
+          if let url = URL(string: "planfit://toggle-todo?id=\(todo.id)") {
+            Button(intent: PlanFitBackgroundIntent(url: url, appGroup: appGroupId)) {
+              HStack(spacing: 6) {
+                Image(systemName: todo.done ? "checkmark.circle.fill" : "circle")
+                  .foregroundStyle(todo.done ? .blue : .secondary)
+                Text(todo.title).font(.footnote).lineLimit(1).strikethrough(todo.done)
+              }
+            }
+            .buttonStyle(.plain)
           }
         }
       }

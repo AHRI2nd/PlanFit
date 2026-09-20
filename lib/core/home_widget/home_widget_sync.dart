@@ -110,6 +110,12 @@ class HomeWidgetSync {
   /// for why this replaced one key per field.
   static const String _snapshotKey = 'widget_snapshot';
 
+  /// App Group queue written by the iOS interactive widget intent. The
+  /// Flutter app consumes it on launch/resume because a WidgetKit extension
+  /// cannot link Flutter's headless engine without pulling every plugin into
+  /// the app extension.
+  static const String pendingActionKey = 'widget_pending_action';
+
   static bool _appGroupSet = false;
 
   static Future<void> push({
@@ -129,15 +135,33 @@ class HomeWidgetSync {
     );
 
     // One platform-channel call, one underlying write — see [push]'s doc.
-    await HomeWidget.saveWidgetData<String>(
-      _snapshotKey,
-      jsonEncode(snapshot),
-    );
+    await HomeWidget.saveWidgetData<String>(_snapshotKey, jsonEncode(snapshot));
 
     await HomeWidget.updateWidget(
       androidName: androidProviderName,
       iOSName: iosWidgetKind,
     );
+  }
+
+  /// Reads and atomically clears the pending action left by an iOS widget row.
+  /// Returns null on non-iOS platforms or when no action is queued.
+  static Future<Uri?> consumePendingAction() async {
+    if (kIsWeb || !Platform.isIOS) return null;
+    if (!_appGroupSet) {
+      await HomeWidget.setAppGroupId(iosAppGroupId);
+      _appGroupSet = true;
+    }
+    final raw = await HomeWidget.getWidgetData<String>(
+      pendingActionKey,
+      appGroupId: iosAppGroupId,
+    );
+    if (raw == null || raw.isEmpty) return null;
+    await HomeWidget.saveWidgetData<String>(
+      pendingActionKey,
+      null,
+      appGroupId: iosAppGroupId,
+    );
+    return Uri.tryParse(raw);
   }
 
   /// The deep link opened for a given day — parsed by [parseScheduleDate] on

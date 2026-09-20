@@ -80,6 +80,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       _syncHomeWidget();
       _syncAppBadge();
       _handleColdStartFromWidget();
+      _handlePendingWidgetAction();
       _handleColdStartFromNotification();
       _runAutoBackup();
       _refillTodoNotifications();
@@ -140,6 +141,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       _reconcileReminders();
       _syncHomeWidget();
       _syncAppBadge();
+      _handlePendingWidgetAction();
       _runAutoBackup();
       _refillTodoNotifications();
       _pruneCompletedTodos();
@@ -307,6 +309,26 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       _openFromWidgetUri(uri);
     } catch (_) {
       // Best-effort, same as the rest of home widget sync.
+    }
+  }
+
+  /// Applies a to-do toggle queued by the iOS interactive widget intent.
+  /// The extension writes only to the shared App Group; this keeps all
+  /// database, reminder, and widget synchronization in the existing Dart
+  /// write path and makes stale/deleted ids harmless.
+  Future<void> _handlePendingWidgetAction() async {
+    try {
+      final uri = await HomeWidgetSync.consumePendingAction();
+      if (uri?.scheme != 'planfit' || uri?.host != 'toggle-todo') return;
+      final id = uri?.queryParameters['id'];
+      if (id == null || id.isEmpty) return;
+      final todo = await ref.read(todoDaoProvider).findById(id);
+      if (todo == null) return;
+      await ref.read(todoControllerProvider).toggle(id, !todo.isDone);
+      await _syncHomeWidget();
+      await _syncAppBadge();
+    } catch (_) {
+      // Best-effort, same as the other lifecycle synchronizations.
     }
   }
 

@@ -156,6 +156,8 @@ void main() {
       );
 
       expect(snapshot['todos_progress'], '1/3');
+      expect(snapshot['todo2_id'], 't1');
+      expect(snapshot['todo2_done'], true);
       expect(
         snapshot['todos_uri'],
         HomeWidgetSync.scheduleUri(DateTime(2026, 3, 10)).toString(),
