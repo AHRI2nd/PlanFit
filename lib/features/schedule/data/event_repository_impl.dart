@@ -376,12 +376,24 @@ class EventRepositoryImpl implements EventRepository {
     // outside the transaction — a platform-channel round trip per row must
     // not hold the single sqlite writer connection open for the whole loop.
     for (final r in rows) {
-      await _notifications.cancelForEvent(r.id);
+      // A notification plugin failure must not abort deletion of the local
+      // series.  The database delete is the user-visible operation; stale
+      // notification cleanup is best-effort and the next refill pass can
+      // reconcile anything left behind.
+      try {
+        await _notifications.cancelForEvent(r.id);
+      } on Exception {
+        // Continue with the calendar and database deletion below.
+      }
       if (_calendar.isEnabled && r.osEventId != null) {
         try {
           await _calendar.deleteEvent(r);
         } on Exception {
-          // Nothing to reconcile after this — the row is gone either way.
+          // The local row is about to be removed, so preserve the OS id for
+          // CalendarReconciler's retry/tombstone pass. Without this, an
+          // auto-import-enabled install can materialize the still-present OS
+          // event as a brand-new local row on the next reconcile.
+          await _dao.markCalendarDeletionPending(r.osEventId!);
         }
       }
     }

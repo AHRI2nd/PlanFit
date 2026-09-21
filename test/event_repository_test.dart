@@ -920,6 +920,47 @@ void main() {
       verify(dao.deleteById('occ-2')).called(1);
       verify(dao.deleteById('occ-3')).called(1);
     });
+
+    test(
+      'records failed OS deletes per occurrence and continues deleting the '
+      'rest of the local series',
+      () async {
+        final start = DateTime(2026, 8, 3, 9);
+        final target = row(
+          id: 'occ-fail-1',
+          startAt: start,
+          endAt: start.add(const Duration(hours: 1)),
+          recurrenceGroupId: 'group-fail',
+          osEventId: 'os-fail-1',
+        );
+        final next = row(
+          id: 'occ-fail-2',
+          startAt: start.add(const Duration(days: 7)),
+          endAt: start.add(const Duration(days: 7, hours: 1)),
+          recurrenceGroupId: 'group-fail',
+          osEventId: 'os-ok-2',
+        );
+        when(dao.findById('occ-fail-1')).thenAnswer((_) async => target);
+        when(
+          dao.seriesFrom('group-fail', target.startAt),
+        ).thenAnswer((_) async => [target, next]);
+        when(calendar.isEnabled).thenReturn(true);
+        when(calendar.deleteEvent(any)).thenAnswer((invocation) async {
+          final event = invocation.positionalArguments.first as EventRow;
+          if (event.id == 'occ-fail-1') {
+            throw Exception('calendar unavailable');
+          }
+        });
+
+        await repo.deleteSeriesFrom('occ-fail-1');
+
+        verify(dao.markCalendarDeletionPending('os-fail-1')).called(1);
+        verify(calendar.deleteEvent(target)).called(1);
+        verify(calendar.deleteEvent(next)).called(1);
+        verify(dao.deleteById('occ-fail-1')).called(1);
+        verify(dao.deleteById('occ-fail-2')).called(1);
+      },
+    );
   });
 
   group('restoreEvent', () {
