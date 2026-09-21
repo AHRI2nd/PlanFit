@@ -76,7 +76,16 @@ class RemindersService implements RemindersPort {
     if (!_supported) return;
     final osId = todo.osReminderId;
     if (osId == null) return;
-    await _channel.invokeMethod('deleteTodo', {'osReminderId': osId});
+    await deleteTodoById(osId);
+  }
+
+  /// Deletes an OS reminder when the local to-do row is already gone.  This
+  /// is used by the durable deletion-tombstone retry path.
+  Future<void> deleteTodoById(String osReminderId) async {
+    if (!_supported) return;
+    await _channel.invokeMethod('deleteTodo', {
+      'osReminderId': osReminderId,
+    });
   }
 
   /// Reads every reminder currently in PlanFit's list back — used by

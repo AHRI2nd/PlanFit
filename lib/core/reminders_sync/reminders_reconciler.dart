@@ -67,6 +67,19 @@ class RemindersReconciler {
     final at = now ?? DateTime.now();
     var changes = 0;
 
+    // Local deletion removes the to-do immediately, so its OS reminder id is
+    // kept in a tombstone until EventKit confirms the remote deletion.  Retry
+    // these before normal push/pull work; a missing item is treated as
+    // success by RemindersPlugin.deleteTodo and clears the tombstone too.
+    for (final osId in await _todoDao.pendingReminderDeletionIds()) {
+      try {
+        await _service.deleteTodoById(osId);
+        await _todoDao.clearReminderDeletion(osId);
+      } on Exception {
+        // Keep the tombstone for the next foreground retry.
+      }
+    }
+
     // 1) Push anything still waiting (created/edited while sync was off, or
     //    a failed earlier push).
     for (final row in await _todoDao.needingReminderPush()) {

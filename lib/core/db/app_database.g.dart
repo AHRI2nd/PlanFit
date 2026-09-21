@@ -4162,6 +4162,239 @@ class PendingCalendarDeletionsCompanion
   }
 }
 
+class $PendingReminderDeletionsTable extends PendingReminderDeletions
+    with TableInfo<$PendingReminderDeletionsTable, PendingReminderDeletionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingReminderDeletionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _osReminderIdMeta = const VerificationMeta(
+    'osReminderId',
+  );
+  @override
+  late final GeneratedColumn<String> osReminderId = GeneratedColumn<String>(
+    'os_reminder_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [osReminderId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_reminder_deletions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingReminderDeletionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('os_reminder_id')) {
+      context.handle(
+        _osReminderIdMeta,
+        osReminderId.isAcceptableOrUnknown(
+          data['os_reminder_id']!,
+          _osReminderIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_osReminderIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {osReminderId};
+  @override
+  PendingReminderDeletionRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingReminderDeletionRow(
+      osReminderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}os_reminder_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingReminderDeletionsTable createAlias(String alias) {
+    return $PendingReminderDeletionsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingReminderDeletionRow extends DataClass
+    implements Insertable<PendingReminderDeletionRow> {
+  final String osReminderId;
+  final DateTime createdAt;
+  const PendingReminderDeletionRow({
+    required this.osReminderId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['os_reminder_id'] = Variable<String>(osReminderId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PendingReminderDeletionsCompanion toCompanion(bool nullToAbsent) {
+    return PendingReminderDeletionsCompanion(
+      osReminderId: Value(osReminderId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingReminderDeletionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingReminderDeletionRow(
+      osReminderId: serializer.fromJson<String>(json['osReminderId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'osReminderId': serializer.toJson<String>(osReminderId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PendingReminderDeletionRow copyWith({
+    String? osReminderId,
+    DateTime? createdAt,
+  }) => PendingReminderDeletionRow(
+    osReminderId: osReminderId ?? this.osReminderId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PendingReminderDeletionRow copyWithCompanion(
+    PendingReminderDeletionsCompanion data,
+  ) {
+    return PendingReminderDeletionRow(
+      osReminderId: data.osReminderId.present
+          ? data.osReminderId.value
+          : this.osReminderId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingReminderDeletionRow(')
+          ..write('osReminderId: $osReminderId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(osReminderId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingReminderDeletionRow &&
+          other.osReminderId == this.osReminderId &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingReminderDeletionsCompanion
+    extends UpdateCompanion<PendingReminderDeletionRow> {
+  final Value<String> osReminderId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PendingReminderDeletionsCompanion({
+    this.osReminderId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingReminderDeletionsCompanion.insert({
+    required String osReminderId,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : osReminderId = Value(osReminderId);
+  static Insertable<PendingReminderDeletionRow> custom({
+    Expression<String>? osReminderId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (osReminderId != null) 'os_reminder_id': osReminderId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingReminderDeletionsCompanion copyWith({
+    Value<String>? osReminderId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PendingReminderDeletionsCompanion(
+      osReminderId: osReminderId ?? this.osReminderId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (osReminderId.present) {
+      map['os_reminder_id'] = Variable<String>(osReminderId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingReminderDeletionsCompanion(')
+          ..write('osReminderId: $osReminderId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4172,6 +4405,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $EventTemplatesTable eventTemplates = $EventTemplatesTable(this);
   late final $PendingCalendarDeletionsTable pendingCalendarDeletions =
       $PendingCalendarDeletionsTable(this);
+  late final $PendingReminderDeletionsTable pendingReminderDeletions =
+      $PendingReminderDeletionsTable(this);
   late final EventDao eventDao = EventDao(this as AppDatabase);
   late final TodoDao todoDao = TodoDao(this as AppDatabase);
   late final SyncLogDao syncLogDao = SyncLogDao(this as AppDatabase);
@@ -4189,6 +4424,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncLogs,
     eventTemplates,
     pendingCalendarDeletions,
+    pendingReminderDeletions,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -6574,6 +6810,170 @@ typedef $$PendingCalendarDeletionsTableProcessedTableManager =
       PendingCalendarDeletionRow,
       PrefetchHooks Function()
     >;
+typedef $$PendingReminderDeletionsTableCreateCompanionBuilder =
+    PendingReminderDeletionsCompanion Function({
+      required String osReminderId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$PendingReminderDeletionsTableUpdateCompanionBuilder =
+    PendingReminderDeletionsCompanion Function({
+      Value<String> osReminderId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PendingReminderDeletionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingReminderDeletionsTable> {
+  $$PendingReminderDeletionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get osReminderId => $composableBuilder(
+    column: $table.osReminderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingReminderDeletionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingReminderDeletionsTable> {
+  $$PendingReminderDeletionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get osReminderId => $composableBuilder(
+    column: $table.osReminderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingReminderDeletionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingReminderDeletionsTable> {
+  $$PendingReminderDeletionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get osReminderId => $composableBuilder(
+    column: $table.osReminderId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PendingReminderDeletionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingReminderDeletionsTable,
+          PendingReminderDeletionRow,
+          $$PendingReminderDeletionsTableFilterComposer,
+          $$PendingReminderDeletionsTableOrderingComposer,
+          $$PendingReminderDeletionsTableAnnotationComposer,
+          $$PendingReminderDeletionsTableCreateCompanionBuilder,
+          $$PendingReminderDeletionsTableUpdateCompanionBuilder,
+          (
+            PendingReminderDeletionRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingReminderDeletionsTable,
+              PendingReminderDeletionRow
+            >,
+          ),
+          PendingReminderDeletionRow,
+          PrefetchHooks Function()
+        > {
+  $$PendingReminderDeletionsTableTableManager(
+    _$AppDatabase db,
+    $PendingReminderDeletionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingReminderDeletionsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PendingReminderDeletionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingReminderDeletionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> osReminderId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingReminderDeletionsCompanion(
+                osReminderId: osReminderId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String osReminderId,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingReminderDeletionsCompanion.insert(
+                osReminderId: osReminderId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingReminderDeletionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingReminderDeletionsTable,
+      PendingReminderDeletionRow,
+      $$PendingReminderDeletionsTableFilterComposer,
+      $$PendingReminderDeletionsTableOrderingComposer,
+      $$PendingReminderDeletionsTableAnnotationComposer,
+      $$PendingReminderDeletionsTableCreateCompanionBuilder,
+      $$PendingReminderDeletionsTableUpdateCompanionBuilder,
+      (
+        PendingReminderDeletionRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingReminderDeletionsTable,
+          PendingReminderDeletionRow
+        >,
+      ),
+      PendingReminderDeletionRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6592,5 +6992,10 @@ class $AppDatabaseManager {
       $$PendingCalendarDeletionsTableTableManager(
         _db,
         _db.pendingCalendarDeletions,
+      );
+  $$PendingReminderDeletionsTableTableManager get pendingReminderDeletions =>
+      $$PendingReminderDeletionsTableTableManager(
+        _db,
+        _db.pendingReminderDeletions,
       );
 }

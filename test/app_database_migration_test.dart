@@ -132,10 +132,11 @@ void main() {
     }
   });
 
-  test('upgrading from schema v16 creates pending_calendar_deletions and adds '
+  test('upgrading from schema v16 creates pending deletion tables and adds '
       "event_templates.location — regression test: the migration test suite "
-      'only covered up through v16 even though schemaVersion moved to 18 '
-      '(v17 added the table, v18 the column)', () async {
+      'only covered up through v16 even though schemaVersion moved to 19 '
+      '(v17 added the calendar table, v18 the column, v19 the reminder table)',
+      () async {
     // v16's own columns are identical to v15's (v16 only added indexes,
     // already covered by the v15 test above) — same raw schema, just a
     // different userVersion.
@@ -235,6 +236,13 @@ void main() {
     final pending = await db.select(db.pendingCalendarDeletions).get();
     expect(pending, hasLength(1));
     expect(pending.single.osEventId, 'os-1');
+
+    await db
+        .into(db.pendingReminderDeletions)
+        .insert(PendingReminderDeletionsCompanion.insert(osReminderId: 'os-r1'));
+    final pendingReminders = await db.select(db.pendingReminderDeletions).get();
+    expect(pendingReminders, hasLength(1));
+    expect(pendingReminders.single.osReminderId, 'os-r1');
   });
 
   test('upgrading from schema v17 (pending_calendar_deletions already exists) '

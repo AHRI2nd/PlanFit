@@ -21,6 +21,7 @@ part 'app_database.g.dart';
     SyncLogs,
     EventTemplates,
     PendingCalendarDeletions,
+    PendingReminderDeletions,
   ],
   daos: [EventDao, TodoDao, SyncLogDao, EventTemplateDao],
 )
@@ -28,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -101,6 +102,9 @@ class AppDatabase extends _$AppDatabase {
       // actually needs this column added.
       if (from >= 4 && from < 18) {
         await m.addColumn(eventTemplates, eventTemplates.location);
+      }
+      if (from < 19) {
+        await m.createTable(pendingReminderDeletions);
       }
     },
     // sqlite ships FK enforcement off by default, per-connection — every

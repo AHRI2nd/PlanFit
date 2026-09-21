@@ -63,11 +63,45 @@ void main() {
       notifications: notifications,
     );
     when(dao.needingReminderPush()).thenAnswer((_) async => []);
+    when(dao.pendingReminderDeletionIds()).thenAnswer((_) async => <String>{});
     when(dao.linkedToReminders()).thenAnswer((_) async => []);
     when(service.fetchReminders()).thenAnswer((_) async => []);
     when(syncLogDao.add(any)).thenAnswer((_) async {});
     when(notifications.cancelForTodo(any)).thenAnswer((_) async {});
     when(notifications.scheduleForTodo(any)).thenAnswer((_) async {});
+  });
+
+  group('pending reminder deletions', () {
+    test('retries OS deletion and clears the tombstone on success', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(dao.pendingReminderDeletionIds()).thenAnswer(
+        (_) async => {'os-stale'},
+      );
+      when(service.deleteTodoById('os-stale')).thenAnswer((_) async {});
+      when(dao.clearReminderDeletion('os-stale')).thenAnswer((_) async {});
+
+      final changes = await reconciler.reconcile();
+
+      expect(changes, 0);
+      verify(service.deleteTodoById('os-stale')).called(1);
+      verify(dao.clearReminderDeletion('os-stale')).called(1);
+    });
+
+    test('keeps the tombstone when OS deletion still fails', () async {
+      when(service.isEnabled).thenReturn(true);
+      when(dao.pendingReminderDeletionIds()).thenAnswer(
+        (_) async => {'os-stale'},
+      );
+      when(service.deleteTodoById('os-stale')).thenThrow(
+        Exception('reminders unavailable'),
+      );
+
+      final changes = await reconciler.reconcile();
+
+      expect(changes, 0);
+      verify(service.deleteTodoById('os-stale')).called(1);
+      verifyNever(dao.clearReminderDeletion(any));
+    });
   });
 
   test('does nothing when reminders sync is disabled', () async {

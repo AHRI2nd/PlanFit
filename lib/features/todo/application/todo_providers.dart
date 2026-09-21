@@ -11,6 +11,7 @@ import '../../../core/riverpod_x.dart';
 import '../../../core/serial_queue.dart';
 import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/domain/recurrence.dart';
+import '../../schedule/domain/ports.dart';
 import '../domain/todo_notification_sync.dart';
 import '../domain/todo_priority.dart';
 
@@ -531,12 +532,12 @@ class TodoController {
     var anyTagged = false;
     for (final row in stale) {
       await dao.deleteById(row.id);
-      await notifications.cancelForTodo(row.id);
       try {
-        await reminders.deleteTodo(row);
+        await notifications.cancelForTodo(row.id);
       } on Exception {
-        // Best-effort, same reasoning as _removeWithSubtasks.
+        // The local delete must not depend on the notification plugin.
       }
+      await _deleteReminderOrQueue(row, reminders: reminders);
       if ((row.tags ?? '').isNotEmpty) anyTagged = true;
     }
     // See setTags' own doc on todoTagsProvider.
@@ -564,20 +565,34 @@ class TodoController {
     final dao = _ref.read(todoDaoProvider);
     final subtasks = await dao.watchSubtasks(row.id).first;
     await dao.deleteById(row.id);
-    await _ref.read(notificationPortProvider).cancelForTodo(row.id);
-    // Best-effort, same reasoning as EventRepository.delete()'s calendar
-    // delete: the local delete already succeeded, so a Reminders-side
-    // failure must not surface as a delete failure.
     try {
-      await _ref.read(remindersPortProvider).deleteTodo(row);
+      await _ref.read(notificationPortProvider).cancelForTodo(row.id);
     } on Exception {
-      // Nothing to reconcile after this — the row is gone either way.
+      // The local delete must not depend on the notification plugin.
     }
+    await _deleteReminderOrQueue(row);
     // See setTags' own doc on todoTagsProvider — a deleted to-do can have
     // been the last one using a given tag, which should stop showing up
     // as a (now permanently empty) chip in the picker.
     if ((row.tags ?? '').isNotEmpty) _ref.invalidate(todoTagsProvider);
     return (todo: row, subtasks: subtasks);
+  }
+
+  /// Deletes the linked OS reminder after the local row is gone.  If EventKit
+  /// is unavailable, retain only the remote id so the reconciler can retry it
+  /// later; there is deliberately no dependency on a still-existing TodoRow.
+  Future<void> _deleteReminderOrQueue(
+    TodoRow row, {
+    RemindersPort? reminders,
+  }) async {
+    final RemindersPort service = reminders ?? _ref.read(remindersPortProvider);
+    final osId = row.osReminderId;
+    if (!service.isEnabled || osId == null) return;
+    try {
+      await service.deleteTodo(row);
+    } on Exception {
+      await _ref.read(todoDaoProvider).markReminderDeletionPending(osId);
+    }
   }
 
   /// Deletes [id] (re-reading it first so the captured snapshot — and its

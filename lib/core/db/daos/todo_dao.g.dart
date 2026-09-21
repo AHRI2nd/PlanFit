@@ -7,6 +7,8 @@ mixin _$TodoDaoMixin on DatabaseAccessor<AppDatabase> {
   $EventsTable get events => attachedDatabase.events;
   $TodoItemsTable get todoItems => attachedDatabase.todoItems;
   $TodoSubtasksTable get todoSubtasks => attachedDatabase.todoSubtasks;
+  $PendingReminderDeletionsTable get pendingReminderDeletions =>
+      attachedDatabase.pendingReminderDeletions;
   TodoDaoManager get managers => TodoDaoManager(this);
 }
 
@@ -19,4 +21,9 @@ class TodoDaoManager {
       $$TodoItemsTableTableManager(_db.attachedDatabase, _db.todoItems);
   $$TodoSubtasksTableTableManager get todoSubtasks =>
       $$TodoSubtasksTableTableManager(_db.attachedDatabase, _db.todoSubtasks);
+  $$PendingReminderDeletionsTableTableManager get pendingReminderDeletions =>
+      $$PendingReminderDeletionsTableTableManager(
+        _db.attachedDatabase,
+        _db.pendingReminderDeletions,
+      );
 }

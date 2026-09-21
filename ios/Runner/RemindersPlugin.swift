@@ -194,7 +194,18 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
       if let item = store.calendarItem(withIdentifier: osReminderId) as? EKReminder {
         // Best-effort, same reasoning as CalendarService.deleteEvent: already
         // gone from Reminders is already the desired end state, not a failure.
-        try? store.remove(item, commit: true)
+        do {
+          try store.remove(item, commit: true)
+        } catch {
+          DispatchQueue.main.async {
+            result(
+              FlutterError(
+                code: "delete_failed",
+                message: error.localizedDescription,
+                details: nil))
+          }
+          return
+        }
       }
       DispatchQueue.main.async { result(nil) }
     }

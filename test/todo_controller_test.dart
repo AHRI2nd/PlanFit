@@ -718,6 +718,49 @@ void main() {
     });
   });
 
+  group('reminder deletion retry', () {
+    late AppDatabase remDb;
+    late MockRemindersPort reminders;
+    late ProviderContainer remContainer;
+
+    setUp(() {
+      remDb = AppDatabase(NativeDatabase.memory());
+      reminders = MockRemindersPort();
+      when(reminders.isEnabled).thenReturn(false);
+      remContainer = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(remDb),
+          notificationPortProvider.overrideWithValue(notifications),
+          remindersPortProvider.overrideWithValue(reminders),
+        ],
+      );
+    });
+
+    tearDown(() {
+      remContainer.dispose();
+      remDb.close();
+    });
+
+    test('queues the OS reminder id when remote deletion fails', () async {
+      final remController = remContainer.read(todoControllerProvider);
+      final slot = DateTime.now().add(const Duration(hours: 2));
+      await remController.add(title: 'Buy milk', slotStart: slot);
+      final row = (await remDb.todoDao.all()).single;
+      await remDb.todoDao.patch(
+        row.id,
+        const TodoItemsCompanion(osReminderId: Value('os-stale')),
+      );
+
+      when(reminders.isEnabled).thenReturn(true);
+      when(reminders.deleteTodo(any)).thenThrow(Exception('EventKit error'));
+
+      await remController.remove(row.id);
+
+      expect(await remDb.todoDao.all(), isEmpty);
+      expect(await remDb.todoDao.pendingReminderDeletionIds(), {'os-stale'});
+    });
+  });
+
   group('refillNotifications', () {
     test('schedules notify-on to-dos inside the window', () async {
       final slot = DateTime.now().add(const Duration(days: 1));

@@ -234,3 +234,19 @@ class PendingCalendarDeletions extends Table {
   @override
   Set<Column> get primaryKey => {osEventId};
 }
+
+/// A tombstone for an OS reminder whose deletion could not be confirmed.
+///
+/// Local to-dos are intentionally deleted immediately when the user asks for
+/// it, even if EventKit is temporarily unavailable.  The reminder id is the
+/// only durable linkage left after that local row disappears, so retaining it
+/// here lets [RemindersReconciler] retry the OS-side deletion on a later
+/// foreground pass instead of leaving an orphan in the Reminders app forever.
+@DataClassName('PendingReminderDeletionRow')
+class PendingReminderDeletions extends Table {
+  TextColumn get osReminderId => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {osReminderId};
+}

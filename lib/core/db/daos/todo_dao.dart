@@ -8,7 +8,9 @@ import '../tables.dart';
 
 part 'todo_dao.g.dart';
 
-@DriftAccessor(tables: [TodoItems, TodoSubtasks])
+@DriftAccessor(
+  tables: [TodoItems, TodoSubtasks, PendingReminderDeletions],
+)
 class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   TodoDao(super.db);
 
@@ -153,6 +155,26 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
 
   Future<void> deleteById(String id) =>
       (delete(todoItems)..where((t) => t.id.equals(id))).go();
+
+  /// Records an OS reminder whose deletion could not be confirmed after the
+  /// local to-do was removed.  The reconciler retries these ids later; the
+  /// local row cannot be used because it is intentionally gone immediately.
+  Future<void> markReminderDeletionPending(String osReminderId) =>
+      into(pendingReminderDeletions).insertOnConflictUpdate(
+        PendingReminderDeletionsCompanion.insert(osReminderId: osReminderId),
+      );
+
+  /// Every OS reminder id waiting for a deletion retry.
+  Future<Set<String>> pendingReminderDeletionIds() async {
+    final rows = await select(pendingReminderDeletions).get();
+    return rows.map((row) => row.osReminderId).toSet();
+  }
+
+  /// Removes a reminder tombstone once EventKit confirms the deletion (or
+  /// reports that the item is already gone).
+  Future<void> clearReminderDeletion(String osReminderId) => (delete(
+    pendingReminderDeletions,
+  )..where((t) => t.osReminderId.equals(osReminderId))).go();
 
   /// Occurrences of a recurring series starting at or after [fromSlot] — the
   /// to-do equivalent of `EventDao.seriesFrom`. Read before
