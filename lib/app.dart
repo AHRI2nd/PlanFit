@@ -312,21 +312,28 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     }
   }
 
-  /// Applies a to-do toggle queued by the iOS interactive widget intent.
+  /// Applies all to-do toggles queued by the iOS interactive widget intent.
   /// The extension writes only to the shared App Group; this keeps all
   /// database, reminder, and widget synchronization in the existing Dart
-  /// write path and makes stale/deleted ids harmless.
+  /// write path and makes stale/deleted ids harmless. The queue is drained in
+  /// order so rapid taps cannot overwrite one another before the app resumes.
   Future<void> _handlePendingWidgetAction() async {
     try {
-      final uri = await HomeWidgetSync.consumePendingAction();
-      if (uri?.scheme != 'planfit' || uri?.host != 'toggle-todo') return;
-      final id = uri?.queryParameters['id'];
-      if (id == null || id.isEmpty) return;
-      final todo = await ref.read(todoDaoProvider).findById(id);
-      if (todo == null) return;
-      await ref.read(todoControllerProvider).toggle(id, !todo.isDone);
-      await _syncHomeWidget();
-      await _syncAppBadge();
+      final actions = await HomeWidgetSync.consumePendingActions();
+      var changed = false;
+      for (final uri in actions) {
+        if (uri.scheme != 'planfit' || uri.host != 'toggle-todo') continue;
+        final id = uri.queryParameters['id'];
+        if (id == null || id.isEmpty) continue;
+        final todo = await ref.read(todoDaoProvider).findById(id);
+        if (todo == null) continue;
+        await ref.read(todoControllerProvider).toggle(id, !todo.isDone);
+        changed = true;
+      }
+      if (changed) {
+        await _syncHomeWidget();
+        await _syncAppBadge();
+      }
     } catch (_) {
       // Best-effort, same as the other lifecycle synchronizations.
     }

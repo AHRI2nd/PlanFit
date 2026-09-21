@@ -147,10 +147,35 @@ class HomeWidgetSync {
     );
   }
 
-  /// Reads and atomically clears the pending action left by an iOS widget row.
-  /// Returns null on non-iOS platforms or when no action is queued.
-  static Future<Uri?> consumePendingAction() async {
-    if (kIsWeb || !Platform.isIOS) return null;
+  /// Decodes the action queue written by the iOS widget extension.
+  ///
+  /// The current format is a JSON array of URI strings. A plain URI is also
+  /// accepted for one release so installs upgraded from the old single-value
+  /// format do not lose an already queued tap.
+  static List<Uri> decodePendingActions(String raw) {
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      return [Uri.tryParse(raw)].whereType<Uri>().toList(growable: false);
+    }
+    if (decoded is List) {
+      return [
+        for (final value in decoded)
+          if (value is String) Uri.tryParse(value),
+      ].whereType<Uri>().toList(growable: false);
+    }
+    return [Uri.tryParse(raw)].whereType<Uri>().toList(growable: false);
+  }
+
+  /// Encodes pending widget actions as one JSON payload.
+  static String encodePendingActions(Iterable<Uri> actions) =>
+      jsonEncode([for (final action in actions) action.toString()]);
+
+  /// Reads and atomically clears all pending actions left by iOS widget rows.
+  /// Returns an empty list on non-iOS platforms or when no action is queued.
+  static Future<List<Uri>> consumePendingActions() async {
+    if (kIsWeb || !Platform.isIOS) return const [];
     if (!_appGroupSet) {
       await HomeWidget.setAppGroupId(iosAppGroupId);
       _appGroupSet = true;
@@ -159,13 +184,23 @@ class HomeWidgetSync {
       pendingActionKey,
       appGroupId: iosAppGroupId,
     );
-    if (raw == null || raw.isEmpty) return null;
+    if (raw == null || raw.isEmpty) return const [];
     await HomeWidget.saveWidgetData<String>(
       pendingActionKey,
       null,
       appGroupId: iosAppGroupId,
     );
-    return Uri.tryParse(raw);
+    try {
+      return decodePendingActions(raw);
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  /// Backward-compatible convenience for callers that only need one action.
+  static Future<Uri?> consumePendingAction() async {
+    final actions = await consumePendingActions();
+    return actions.isEmpty ? null : actions.first;
   }
 
   /// The deep link opened for a given day — parsed by [parseScheduleDate] on

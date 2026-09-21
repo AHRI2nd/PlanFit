@@ -177,6 +177,36 @@ void main() {
     });
   });
 
+  group('pending widget action queue', () {
+    test('round-trips multiple actions in order', () {
+      final actions = [
+        Uri.parse('planfit://toggle-todo?id=t1'),
+        Uri.parse('planfit://toggle-todo?id=t2'),
+      ];
+
+      final encoded = HomeWidgetSync.encodePendingActions(actions);
+
+      expect(HomeWidgetSync.decodePendingActions(encoded), actions);
+    });
+
+    test('accepts the legacy single-uri payload during migration', () {
+      final action = Uri.parse('planfit://toggle-todo?id=legacy');
+
+      expect(HomeWidgetSync.decodePendingActions(action.toString()), [action]);
+    });
+
+    test('ignores malformed queue entries without dropping valid actions', () {
+      final actions = HomeWidgetSync.decodePendingActions(
+        '["planfit://toggle-todo?id=ok", 42, "not a uri"]',
+      );
+
+      expect(actions, [
+        Uri.parse('planfit://toggle-todo?id=ok'),
+        Uri.parse('not a uri'),
+      ]);
+    });
+  });
+
   group('handleHomeWidgetUri', () {
     // Regression coverage for a bug where a bare `NotificationService()`
     // (no allocator) threw a StateError the moment a toggled to-do needed
