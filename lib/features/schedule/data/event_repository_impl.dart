@@ -338,7 +338,12 @@ class EventRepositoryImpl implements EventRepository {
     final row = await _dao.findById(id);
     if (row == null) return;
 
-    await _notifications.cancelForEvent(id);
+    try {
+      await _notifications.cancelForEvent(id);
+    } on Exception {
+      // Notification cleanup is best-effort; the local event deletion must
+      // still complete when the plugin or platform channel is unavailable.
+    }
     if (_calendar.isEnabled && row.osEventId != null) {
       // Best-effort, same reasoning as the push above: the user's delete
       // must go through locally even if the OS-calendar side fails for some

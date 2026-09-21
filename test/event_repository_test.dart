@@ -812,6 +812,23 @@ void main() {
       verifyNever(dao.deleteById(any));
     });
 
+    test('still deletes the local row when notification cancellation fails',
+        () async {
+      final existing = row(
+        id: 'e6a',
+        startAt: DateTime.now(),
+        endAt: DateTime.now().add(const Duration(hours: 1)),
+      );
+      when(dao.findById('e6a')).thenAnswer((_) async => existing);
+      when(notifications.cancelForEvent('e6a')).thenThrow(
+        Exception('notification plugin unavailable'),
+      );
+
+      await repo.delete('e6a');
+
+      verify(dao.deleteById('e6a')).called(1);
+    });
+
     test('still deletes the local row even when the calendar-side delete '
         'throws (e.g. the OS event was already removed externally)', () async {
       final existing = row(
