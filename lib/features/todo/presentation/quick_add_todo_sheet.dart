@@ -275,17 +275,47 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
         .where((t) => t.isNotEmpty);
     final tags = <String>{...parsed.tags, ...fieldTags}.toList();
 
+    final slotStart = DateTime(
+      base.year,
+      base.month,
+      base.day,
+      time.hour,
+      time.minute,
+    );
+    if (_addRecurrence != RecurrenceFrequency.none) {
+      final until = RecurrenceExpansion.defaultUntil(slotStart, _addRecurrence);
+      final truncated = RecurrenceExpansion.isTruncated(
+        start: slotStart,
+        frequency: _addRecurrence,
+        until: until,
+      );
+      if (truncated) {
+        final confirmed = await showAppDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(AppL10n.of(dialogContext).todoRepeatLimitTitle),
+            content: Text(AppL10n.of(dialogContext).todoRepeatLimitBody),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(AppL10n.of(dialogContext).commonCancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(AppL10n.of(dialogContext).todoRepeatLimitContinue),
+              ),
+            ],
+          ),
+        );
+        if (!mounted || confirmed != true) return;
+      }
+    }
+
     await ref
         .read(todoControllerProvider)
         .add(
           title: title,
-          slotStart: DateTime(
-            base.year,
-            base.month,
-            base.day,
-            time.hour,
-            time.minute,
-          ),
+          slotStart: slotStart,
           hasTime: parsed.time != null || _timeEnabled,
           frequency: _addRecurrence,
           // A parsed !priority/#tag overrides the chip/picker, the same

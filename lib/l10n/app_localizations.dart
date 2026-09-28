@@ -1693,6 +1693,24 @@ abstract class AppL10n {
   /// **'반복'**
   String get todoRepeat;
 
+  /// No description provided for @todoRepeatLimitTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'반복 일정이 일부만 만들어져요'**
+  String get todoRepeatLimitTitle;
+
+  /// No description provided for @todoRepeatLimitBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'반복 할 일은 최대 200회까지만 만들 수 있어요. 계속하면 처음 200회만 추가되고 그 이후 일정은 생성되지 않아요.'**
+  String get todoRepeatLimitBody;
+
+  /// No description provided for @todoRepeatLimitContinue.
+  ///
+  /// In ko, this message translates to:
+  /// **'200회만 추가'**
+  String get todoRepeatLimitContinue;
+
   /// No description provided for @todoNoTime.
   ///
   /// In ko, this message translates to:

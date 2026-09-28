@@ -856,6 +856,16 @@ class AppL10nKo extends AppL10n {
   String get todoRepeat => '반복';
 
   @override
+  String get todoRepeatLimitTitle => '반복 일정이 일부만 만들어져요';
+
+  @override
+  String get todoRepeatLimitBody =>
+      '반복 할 일은 최대 200회까지만 만들 수 있어요. 계속하면 처음 200회만 추가되고 그 이후 일정은 생성되지 않아요.';
+
+  @override
+  String get todoRepeatLimitContinue => '200회만 추가';
+
+  @override
   String get todoNoTime => '시간 없음';
 
   @override

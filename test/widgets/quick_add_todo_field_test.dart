@@ -35,6 +35,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     when(todos.findById(any)).thenAnswer((_) async => null);
     when(todos.upsert(any)).thenAnswer((_) async {});
+    when(
+      todos.transaction<Null>(any, requireNew: anyNamed('requireNew')),
+    ).thenAnswer((invocation) async {
+      final action =
+          invocation.positionalArguments.single as Future<Null> Function();
+      await action();
+      return null;
+    });
     when(notifications.cancelForTodo(any)).thenAnswer((_) async {});
     when(reminders.deleteTodo(any)).thenAnswer((_) async {});
     when(reminders.isEnabled).thenReturn(false);
@@ -188,6 +196,41 @@ void main() {
 
       expect(find.text(AppL10nKo().todoQuickAddDateNotPlaced), findsNothing);
       await tester.pump(const Duration(seconds: 5));
+    },
+  );
+
+  testWidgets(
+    'a truncated repeating to-do asks before creating only the first 200',
+    (tester) async {
+      await pumpField(tester, forceOptionsExpanded: true);
+      await tester.tap(find.byTooltip('반복'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('매일').last);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, '물 마시기');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('최대 200회까지만 만들 수 있어요'), findsOneWidget);
+      verifyNever(todos.upsert(any));
+
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        '물 마시기',
+      );
+      verifyNever(todos.upsert(any));
+
+      await tester.tap(find.byType(TextField).first);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('200회만 추가'));
+      await tester.pumpAndSettle();
+
+      final created = verify(todos.upsert(captureAny)).captured;
+      expect(created, hasLength(200));
     },
   );
 

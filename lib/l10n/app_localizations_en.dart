@@ -920,6 +920,16 @@ class AppL10nEn extends AppL10n {
   String get todoRepeat => 'Repeat';
 
   @override
+  String get todoRepeatLimitTitle => 'This repeat will be shortened';
+
+  @override
+  String get todoRepeatLimitBody =>
+      'A repeating to-do can create up to 200 occurrences. Continuing will add only the first 200; later occurrences will not be created.';
+
+  @override
+  String get todoRepeatLimitContinue => 'Add first 200';
+
+  @override
   String get todoNoTime => 'No time';
 
   @override
