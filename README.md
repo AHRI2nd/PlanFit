@@ -47,8 +47,8 @@ Test: `flutter analyze`, `flutter test`
 
 ## Platform notes
 
-- **iOS**: the home widget's WidgetKit Extension target has to be added once in Xcode (needs an App Group on both targets) — until then, widget calls are harmless no-ops.
-- **Android**: release builds sign with the debug keystore by default — replace `signingConfig` in `android/app/build.gradle.kts` before shipping.
+- **iOS**: the WidgetKit Extension target and shared App Group are configured in the project (verified with iOS 27). If you change the App Group identifier, update the Runner and extension entitlements together.
+- **Android**: release builds require a local `android/key.properties` signing configuration. For local-only release-build checks, `-PallowDebugReleaseSigning=true` explicitly opts into the debug keystore; never use that option for a distributable build.
 
 ## Roadmap / known limitations
 
