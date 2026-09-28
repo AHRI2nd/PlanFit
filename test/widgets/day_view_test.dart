@@ -114,12 +114,8 @@ void main() {
                 GlobalCupertinoLocalizations.delegate,
               ],
               supportedLocales: AppL10n.supportedLocales,
-              // Matches app.dart's own 1.0-1.3x accessibility clamp when a
-              // test asks for it, instead of the tester's default 1.0 —
-              // app.dart's own doc on that clamp already says a screen
-              // found to still clip at its 1.3x ceiling needs its own
-              // fixed-dimension fix, not a smaller app-wide ceiling; this
-              // is how a test checks for exactly that.
+              // Simulates the system accessibility text size selected by a
+              // test, instead of the tester's default 1.0.
               builder: textScaler == null
                   ? null
                   : (context, child) => MediaQuery(
@@ -1081,7 +1077,7 @@ void main() {
 
   testWidgets(
     'an all-day card with a 2-line title and a location renders without '
-    "overflowing at the app's 1.3x accessibility text-scale ceiling, and "
+    "overflowing at a 2.0x accessibility text scale, and "
     "the outer-scroll invariant still holds — regression test: every "
     'content height budget in this file (_minEventCardHeight, '
     '_locationRowExtraHeight, _crowdedColumnExtraHeight, '
@@ -1089,8 +1085,7 @@ void main() {
     'flat pixel constant with no notion of text scale at all, so a '
     "RenderFlex overflow reappeared here (and, more broadly, on an "
     "ordinary 1-hour timed event too — see the sibling test below) the "
-    "moment text was scaled up anywhere near the app's own 1.0-1.3x "
-    'accessibility clamp',
+    "moment text was scaled up to the system's 2.0x setting",
     (tester) async {
       final day = DateTime(2026, 3, 10);
       final dayEvents = [
@@ -1122,7 +1117,7 @@ void main() {
         todos.watchBetween(any, any),
       ).thenAnswer((_) => Stream.value(const []));
 
-      await pumpDay(tester, day, textScaler: const TextScaler.linear(1.3));
+      await pumpDay(tester, day, textScaler: const TextScaler.linear(2));
 
       expect(find.byType(SectionHeader), findsNothing);
       for (var i = 0; i < 6; i++) {
@@ -1137,11 +1132,11 @@ void main() {
 
   testWidgets(
     'an ordinary, uncrowded 1-hour timed event with no location renders '
-    "without overflowing at the app's 1.3x accessibility text-scale "
-    'ceiling — regression test: _minEventCardHeight was a flat 64px '
+    "without overflowing at a 2.0x accessibility text scale — regression "
+    'test: _minEventCardHeight was a flat 64px '
     'constant, exactly matching a plain 1-hour slot at the default text '
     'scale with nothing to spare, so scaling the title/time text up to '
-    "1.3x (nothing else about the card changes) alone was enough to "
+    "2.0x (nothing else about the card changes) alone was enough to "
     'overflow it, with no location row, crowding, or long title involved '
     'at all',
     (tester) async {
@@ -1164,7 +1159,7 @@ void main() {
       // assertion here — flutter_test fails a test on any uncaught
       // rendering-library exception (a RenderFlex overflow included) even
       // without an explicit expect() for it.
-      await pumpDay(tester, day, textScaler: const TextScaler.linear(1.3));
+      await pumpDay(tester, day, textScaler: const TextScaler.linear(2));
       await tester.ensureVisible(find.text('Anchor'));
     },
   );

@@ -94,8 +94,7 @@ void main() {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppL10n.supportedLocales,
-          // Matches app.dart's own 1.0-1.3x accessibility clamp when a test
-          // asks for it, instead of the tester's default 1.0.
+          // Simulates the system accessibility text size selected by a test.
           builder: textScaler == null
               ? null
               : (context, child) => MediaQuery(
@@ -520,10 +519,10 @@ void main() {
   });
 
   testWidgets("the weekly stats bar's done/total label fits its own box at the "
-      "app's 1.3x accessibility text-scale ceiling — regression test: that "
+      "a 2.0x accessibility text scale — regression test: that "
       'box was a fixed 12px SizedBox around labelSmall/fontSize:9 text, '
       'which needs only ~10.8px at the default 1.0x scale but ~14px at '
-      "1.3x — 2px taller than the box. Being a plain SizedBox (not a Flex) "
+      "2.0x — taller than the box. Being a plain SizedBox (not a Flex) "
       "meant this never threw a catchable overflow error; the label's true "
       'layout just silently painted outside its box and overlapped the '
       'weekday abbreviation directly below it', (tester) async {
@@ -548,7 +547,7 @@ void main() {
     );
     when(todos.watchBetween(any, any)).thenAnswer((_) => Stream.value([todo]));
 
-    await pumpHome(tester, textScaler: const TextScaler.linear(1.3));
+    await pumpHome(tester, textScaler: const TextScaler.linear(2));
     // 이번 주 sits below the fold at this text scale — scroll the
     // background list (there are two ListViews on screen now: this one,
     // and the pull-up bar's own; .first is the background one, since it's
@@ -567,7 +566,7 @@ void main() {
     final naturalHeight = (TextPainter(
       text: TextSpan(text: '0/1', style: labelWidget.style),
       textDirection: TextDirection.ltr,
-      textScaler: const TextScaler.linear(1.3),
+      textScaler: const TextScaler.linear(2),
     )..layout()).height;
 
     expect(

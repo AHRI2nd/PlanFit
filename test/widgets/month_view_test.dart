@@ -592,15 +592,15 @@ void main() {
         "always measuring at the default (unscaled) size — regression "
         'test: this used to construct its TextPainter with no textScaler '
         "at all, so it always measured at 1.0x regardless of the app's "
-        'own accessibility text-scale clamp (app.dart allows up to 1.3x); '
+        'system accessibility text scale of 2.0x; '
         'the row budget this feeds monthEventListCapacity then came out '
         'too generous once the real (larger) text rendered', () {
       final unscaled = monthEventRowHeight();
       final scaled = monthEventRowHeight(
-        textScaler: const TextScaler.linear(1.3),
+        textScaler: const TextScaler.linear(2),
       );
       expect(scaled, greaterThan(unscaled));
-      expect(scaled, closeTo(unscaled * 1.3, 1.0));
+      expect(scaled, closeTo(unscaled * 2, 1.0));
     });
 
     test('monthEventListCapacity reports fewer rows fitting at a larger '
@@ -618,13 +618,13 @@ void main() {
       final scaled = monthEventListCapacity(
         rowHeight: rowHeight,
         columnWidth: columnWidth,
-        textScaler: const TextScaler.linear(1.3),
+        textScaler: const TextScaler.linear(2),
       );
       expect(
         scaled,
         lessThan(unscaled),
         reason:
-            'each row needs more vertical room at 1.3x scale, so fewer '
+            'each row needs more vertical room at 2.0x scale, so fewer '
             'of them should fit in the same rowHeight',
       );
     });
