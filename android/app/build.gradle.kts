@@ -7,12 +7,29 @@ plugins {
 }
 
 // Release signing lives in a gitignored key.properties (see android/.gitignore) so
-// the keystore path/passwords never end up in version control. Falls back to null
-// (debug signing) when the file is absent, e.g. on a fresh checkout without it.
+// the keystore path/passwords never end up in version control.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+val allowDebugReleaseSigning =
+    providers.gradleProperty("allowDebugReleaseSigning").orNull == "true"
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
+// Keep local debug-signed Release runs possible only with an explicit opt-in.
+// A normal Release APK/AAB task must never silently produce an artifact that
+// cannot be published or updated over a properly signed installation.
+gradle.taskGraph.whenReady {
+    val isReleaseArtifactTask = allTasks.any { task ->
+        task.path.endsWith(":assembleRelease") ||
+            task.path.endsWith(":bundleRelease")
+    }
+    if (isReleaseArtifactTask && !keystorePropertiesFile.exists() && !allowDebugReleaseSigning) {
+        throw GradleException(
+            "Release builds require android/key.properties and a release keystore. " +
+                "For local-only testing, explicitly pass -PallowDebugReleaseSigning=true.",
+        )
+    }
 }
 
 android {
@@ -68,8 +85,8 @@ android {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
-                // No key.properties on this machine — fall back to debug signing so
-                // `flutter run --release` still works, but this build must never ship.
+                // Only reachable for an explicitly opted-in local test build;
+                // release artifact tasks are rejected above by default.
                 signingConfigs.getByName("debug")
             }
         }
