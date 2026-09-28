@@ -40,6 +40,21 @@ const _feedWithOne =
 
 const _feedWithNone = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR';
 
+const _feedWithSkippedEvent =
+    'BEGIN:VCALENDAR\r\n'
+    'VERSION:2.0\r\n'
+    'BEGIN:VEVENT\r\n'
+    'UID:new-year@holiday\r\n'
+    'SUMMARY:New Year\r\n'
+    'DTSTART;VALUE=DATE:20260101\r\n'
+    'DTEND;VALUE=DATE:20260102\r\n'
+    'END:VEVENT\r\n'
+    'BEGIN:VEVENT\r\n'
+    'UID:unsupported@holiday\r\n'
+    'SUMMARY:Unparseable event\r\n'
+    'END:VEVENT\r\n'
+    'END:VCALENDAR';
+
 @GenerateMocks([http.Client])
 void main() {
   late AppDatabase db;
@@ -145,6 +160,24 @@ void main() {
       expect(rows.single.title, 'New Year');
     },
   );
+
+  test('a partially parsed feed preserves the last complete snapshot', () async {
+    when(client.get(any)).thenAnswer((_) async => ok(_feedWithTwo));
+    await service.syncCountry('KR');
+
+    when(client.get(any)).thenAnswer((_) async => ok(_feedWithSkippedEvent));
+    await expectLater(
+      service.syncCountry('KR'),
+      throwsA(isA<HolidayCalendarSyncException>()),
+    );
+
+    final rows = await db.eventDao.all();
+    expect(rows, hasLength(2));
+    expect(rows.map((row) => row.importSourceEventId).toSet(), {
+      'new-year@holiday',
+      'lunar-new-year@holiday',
+    });
+  });
 
   test(
     'unsubscribeCountry removes every mirrored row for that country',
@@ -253,15 +286,19 @@ void main() {
       expect(await db.eventDao.all(), isEmpty);
     });
 
-    test('a feed that later becomes empty does NOT throw on a re-sync — only '
-        'the first sync of a URL treats zero events as suspicious', () async {
+    test('a feed that later becomes empty preserves existing rows', () async {
       when(client.get(any)).thenAnswer((_) async => ok(_feedWithOne));
       await service.syncCustomUrl('https://example.com/calendar.ics');
 
       when(client.get(any)).thenAnswer((_) async => ok(_feedWithNone));
-      await service.syncCustomUrl('https://example.com/calendar.ics');
+      await expectLater(
+        service.syncCustomUrl('https://example.com/calendar.ics'),
+        throwsA(isA<HolidayCalendarSyncException>()),
+      );
 
-      expect(await db.eventDao.all(), isEmpty);
+      final rows = await db.eventDao.all();
+      expect(rows, hasLength(1));
+      expect(rows.single.importSourceEventId, 'new-year@holiday');
     });
 
     test('unsubscribeCustom removes the mirrored custom rows', () async {

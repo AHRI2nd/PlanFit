@@ -280,11 +280,29 @@ class HolidayCalendarService {
     }
 
     final result = await parseIcsInBackground(response.body);
+    // A subscription refresh is a snapshot replacement: deleting rows that
+    // were not parsed is safe only when we know the whole feed parsed. Keep
+    // the last complete snapshot if even one VEVENT was skipped, otherwise a
+    // newly unsupported field/date shape could silently erase valid mirrors.
+    if (result.skipped > 0) {
+      throw HolidayCalendarSyncException(
+        '$feedUrl contains ${result.skipped} unparseable event(s)',
+      );
+    }
     final existing = await eventDao.mirroredFrom(
       sourceId,
       DateTime(2000),
       DateTime(2100),
     );
+    // A 200 response containing HTML, an empty body, or an unexpectedly
+    // empty calendar is not trustworthy evidence that every subscribed
+    // event was deleted. Removing the subscription remains the explicit way
+    // to clear its rows.
+    if (result.vevents.isEmpty && existing.isNotEmpty) {
+      throw HolidayCalendarSyncException(
+        '$feedUrl contains no events; existing calendar data was preserved',
+      );
+    }
     final existingByUid = {
       for (final row in existing)
         if (row.importSourceEventId != null) row.importSourceEventId!: row,
