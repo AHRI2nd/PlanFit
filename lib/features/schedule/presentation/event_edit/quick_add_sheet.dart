@@ -42,6 +42,8 @@ class QuickAddEventSheet extends ConsumerStatefulWidget {
 
 class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
   final _controller = TextEditingController();
+  String _draftText = '';
+  ({String title, DateTime startAt, bool usedDefaultTime})? _draft;
   bool _saving = false;
 
   @override
@@ -53,22 +55,17 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
   Future<void> _submit() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    final resolved = _draftText == text && _draft != null
+        ? _draft!
+        : _resolve(text);
     final l10n = AppL10n.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
-    final parsed = parseQuickAdd(text, now: DateTime.now());
-    final day = parsed.date ?? widget.anchorDay;
-    final time = parsed.time ?? const TimeOfDay(hour: 9, minute: 0);
-    final title = parsed.title.isEmpty ? text : parsed.title;
-    final startAt = DateTime(
-      day.year,
-      day.month,
-      day.day,
-      time.hour,
-      time.minute,
-    );
+    final day = DateUtils.dateOnly(resolved.startAt);
+    final title = resolved.title;
+    final startAt = resolved.startAt;
     final endAt = startAt.add(const Duration(hours: 1));
 
     setState(() => _saving = true);
@@ -102,10 +99,39 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
     }
   }
 
+  ({String title, DateTime startAt, bool usedDefaultTime}) _resolve(
+    String text,
+  ) {
+    final parsed = parseQuickAdd(text, now: DateTime.now());
+    final day = parsed.date ?? widget.anchorDay;
+    final time = parsed.time ?? const TimeOfDay(hour: 9, minute: 0);
+    return (
+      title: parsed.title.isEmpty ? text : parsed.title,
+      startAt: DateTime(day.year, day.month, day.day, time.hour, time.minute),
+      usedDefaultTime: parsed.time == null,
+    );
+  }
+
+  void _onChanged(String value) {
+    final text = value.trim();
+    setState(() {
+      _draftText = text;
+      _draft = text.isEmpty ? null : _resolve(text);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
+    final draft = _draft;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
     return Padding(
       padding: EdgeInsets.only(
         left: AppSpacing.gutter,
@@ -142,10 +168,39 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
           TextField(
             controller: _controller,
             autofocus: true,
+            onChanged: _onChanged,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
             decoration: InputDecoration(hintText: l10n.quickAddEventExample),
           ),
+          if (draft != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              l10n.quickAddEventPreview(
+                Fmt.monthDay(draft.startAt, locale),
+                Fmt.time(draft.startAt, locale, use24Hour: use24),
+                Fmt.monthDay(
+                  draft.startAt.add(const Duration(hours: 1)),
+                  locale,
+                ),
+                Fmt.time(
+                  draft.startAt.add(const Duration(hours: 1)),
+                  locale,
+                  use24Hour: use24,
+                ),
+              ),
+              key: const Key('quick-add-event-preview'),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            if (draft.usedDefaultTime)
+              Text(
+                l10n.quickAddEventDefaultTime,
+                key: const Key('quick-add-event-default-time'),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: palette.inkFaint),
+              ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           SizedBox(
             width: double.infinity,
