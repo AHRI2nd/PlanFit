@@ -80,6 +80,19 @@ final selectedDateProvider = NotifierProvider<SelectedDate, DateTime>(
   SelectedDate.new,
 );
 
+/// Search text is remembered for the current app session so leaving the
+/// schedule search and opening it again can resume the user's last query.
+class EventSearchQuery extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String query) => state = query;
+}
+
+final eventSearchQueryProvider = NotifierProvider<EventSearchQuery, String>(
+  EventSearchQuery.new,
+);
+
 class ScheduleViewMode extends Notifier<ScheduleView> {
   @override
   ScheduleView build() => ScheduleView.day;

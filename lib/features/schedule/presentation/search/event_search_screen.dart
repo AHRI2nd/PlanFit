@@ -16,14 +16,15 @@ import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
 import '../../../todo/domain/todo_priority.dart';
 import '../../../todo/domain/todo_tag_match.dart';
+import '../../../todo/presentation/todo_detail_sheet.dart';
 import '../../application/schedule_providers.dart';
 import '../event_edit/event_editor_sheet.dart';
 import '../event_edit/event_preview_sheet.dart';
 
 /// Full-text search over both events (title/memo) and to-dos (title).
 /// Tapping an event result jumps the schedule tab to that day (in day view)
-/// and opens it for editing; a to-do result just jumps to its day — to-dos
-/// are edited inline in the day view's hourly list, not in a separate editor.
+/// and opens it for editing; a to-do result opens its detail sheet above the
+/// search results so the query stays available when the detail is dismissed.
 class EventSearchScreen extends ConsumerStatefulWidget {
   const EventSearchScreen({super.key});
 
@@ -32,7 +33,7 @@ class EventSearchScreen extends ConsumerStatefulWidget {
 }
 
 class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
   Timer? _debounce;
   List<EventRow>? _eventResults;
   List<TodoRow>? _todoResults;
@@ -51,6 +52,18 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   String? _tagFilter;
   EventColorTag? _colorFilter;
   DateTimeRange? _dateRangeFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    final query = ref.read(eventSearchQueryProvider);
+    _controller = TextEditingController(text: query);
+    if (query.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onChanged(query);
+      });
+    }
+  }
 
   /// [_todoResults] narrowed by the priority/tag filter chips — the title
   /// match already happened in [_onChanged]; this is a further, purely
@@ -102,6 +115,7 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   void _onChanged(String query) {
     _debounce?.cancel();
     final trimmed = query.trim();
+    ref.read(eventSearchQueryProvider.notifier).set(trimmed);
     if (trimmed.isEmpty) {
       // Invalidate any search still in flight from before the box was
       // cleared — cancelling the debounce Timer above only stops a
@@ -154,9 +168,7 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   }
 
   void _openTodo(TodoRow todo) {
-    ref.read(selectedDateProvider.notifier).select(todo.slotStart);
-    ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
-    Navigator.of(context).pop();
+    showTodoDetailSheet(context, todo);
   }
 
   @override

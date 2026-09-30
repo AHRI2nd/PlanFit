@@ -33,7 +33,11 @@ void main() {
   late MockEventRepository eventRepository;
   late MockTodoDao todoDao;
 
-  EventRow event({String id = 'e1', String title = 'Team standup'}) {
+  EventRow event({
+    String id = 'e1',
+    String title = 'Team standup',
+    bool isAllDay = false,
+  }) {
     final now = DateTime(2026, 3, 10, 9);
     return EventRow(
       id: id,
@@ -42,7 +46,7 @@ void main() {
       location: null,
       startAt: now,
       endAt: now.add(const Duration(hours: 1)),
-      isAllDay: false,
+      isAllDay: isAllDay,
       colorTag: null,
       notify: true,
       reminderMinutesBefore: 0,
@@ -60,10 +64,39 @@ void main() {
     );
   }
 
+  TodoRow todo({
+    String id = 't1',
+    String title = 'Team prep',
+    bool isDone = false,
+    bool hasTime = true,
+  }) {
+    final now = DateTime(2026, 3, 10, 9);
+    return TodoRow(
+      id: id,
+      eventId: null,
+      title: title,
+      slotStart: now,
+      slotEnd: null,
+      hasTime: hasTime,
+      isDone: isDone,
+      sortOrder: 0,
+      priority: 0,
+      tags: null,
+      notify: false,
+      isPinned: false,
+      recurrenceRule: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
+      createdAt: now,
+    );
+  }
+
   setUp(() {
     eventRepository = MockEventRepository();
     todoDao = MockTodoDao();
     SharedPreferences.setMockInitialValues({});
+    when(
+      todoDao.watchSubtasks(any),
+    ).thenAnswer((_) => Stream.value(const <TodoSubtaskRow>[]));
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -85,10 +118,25 @@ void main() {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppL10n.supportedLocales,
-          home: const EventSearchScreen(),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const EventSearchScreen(),
+                    ),
+                  ),
+                  child: const Text('open search'),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
+    await tester.tap(find.text('open search'));
+    await tester.pumpAndSettle();
   }
 
   testWidgets(
@@ -139,6 +187,86 @@ void main() {
 
     expect(find.text('Xylophone lesson'), findsOneWidget);
   });
+
+  testWidgets(
+    'tapping a to-do result opens its detail while keeping search underneath',
+    (tester) async {
+      when(eventRepository.search('team')).thenAnswer((_) async => []);
+      when(todoDao.search('team')).thenAnswer((_) async => [todo()]);
+
+      await pumpScreen(tester);
+      await tester.enterText(find.byType(TextField), 'team');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tester.tap(find.text('Team prep'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is TextField && widget.controller?.text == 'team',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Team prep'), findsWidgets);
+    },
+  );
+
+  testWidgets('reopening search restores the query and matching results', (
+    tester,
+  ) async {
+    when(
+      eventRepository.search('agenda'),
+    ).thenAnswer((_) async => [event(title: 'Quarterly agenda')]);
+    when(
+      todoDao.search('agenda'),
+    ).thenAnswer((_) async => [todo(title: 'Review agenda')]);
+
+    await pumpScreen(tester);
+    await tester.enterText(find.byType(TextField), 'agenda');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.text('Quarterly agenda'), findsOneWidget);
+    expect(find.text('Review agenda'), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(EventSearchScreen))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open search'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.controller?.text == 'agenda',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Quarterly agenda'), findsOneWidget);
+    expect(find.text('Review agenda'), findsOneWidget);
+  });
+
+  testWidgets(
+    'search includes completed to-dos without a time and all-day events',
+    (tester) async {
+      when(eventRepository.search('review')).thenAnswer(
+        (_) async => [event(title: 'Annual review', isAllDay: true)],
+      );
+      when(todoDao.search('review')).thenAnswer(
+        (_) async => [
+          todo(title: 'Review notes', isDone: true, hasTime: false),
+        ],
+      );
+
+      await pumpScreen(tester);
+      await tester.enterText(find.byType(TextField), 'review');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      expect(find.text('Annual review'), findsOneWidget);
+      expect(find.text('Review notes'), findsOneWidget);
+    },
+  );
 
   testWidgets('tapping an event result closes search and opens the read-only '
       'preview over the day view it jumped to', (tester) async {
