@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
+import '../../../core/backup/share_full_backup.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
-import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+import '../../../design/glass/glass_nav_bar.dart' show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/app_dialog.dart';
@@ -85,6 +85,9 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
     }
   }
 
+  Future<void> _exportFullBackup() =>
+      shareFullBackup(context, ref.read(backupServiceProvider));
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
@@ -114,11 +117,29 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(AppSpacing.gutter),
-                    child: Text(
-                      l10n.autoBackupDesc,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: palette.inkFaint,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.autoBackupDesc,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: palette.inkFaint,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          l10n.autoBackupLocalProtection,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: palette.inkFaint,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        OutlinedButton.icon(
+                          onPressed: _exportFullBackup,
+                          icon: const Icon(Icons.ios_share),
+                          label: Text(l10n.autoBackupExportFull),
+                        ),
+                      ],
                     ),
                   ),
                   Expanded(

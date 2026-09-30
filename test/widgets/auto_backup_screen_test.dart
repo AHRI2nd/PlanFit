@@ -52,7 +52,10 @@ void main() {
 
   tearDown(() => rootDir.deleteSync(recursive: true));
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    Locale locale = const Locale('ko'),
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     final widget = ProviderScope(
       overrides: [
@@ -71,7 +74,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: AppTheme.light(),
-        locale: const Locale('ko'),
+        locale: locale,
         localizationsDelegates: const [
           AppL10n.delegate,
           GlobalMaterialLocalizations.delegate,
@@ -104,6 +107,28 @@ void main() {
     await pumpScreen(tester);
 
     expect(find.text('아직 자동 백업이 없어요'), findsOneWidget);
+    expect(find.textContaining('이 기기의 앱 저장 공간에 보관돼요'), findsOneWidget);
+    expect(find.text('전체 백업 내보내기'), findsOneWidget);
+  });
+
+  testWidgets('explains the actual automatic backup trigger in Korean', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+
+    expect(find.textContaining('앱을 열거나 다시 활성화할 때'), findsOneWidget);
+    expect(find.textContaining('마지막 성공 백업 후 24시간'), findsOneWidget);
+    expect(find.textContaining('최근 7개'), findsOneWidget);
+  });
+
+  testWidgets('explains the actual automatic backup trigger in English', (
+    tester,
+  ) async {
+    await pumpScreen(tester, locale: const Locale('en'));
+
+    expect(find.textContaining('open or resume the app'), findsOneWidget);
+    expect(find.textContaining('last successful backup'), findsOneWidget);
+    expect(find.textContaining('last 7'), findsOneWidget);
   });
 
   testWidgets(

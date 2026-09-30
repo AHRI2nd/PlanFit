@@ -12,6 +12,7 @@ import '../../../core/calendar_sync/holiday_calendar_service.dart';
 import '../../../core/clock.dart';
 import '../../../core/di.dart';
 import '../../../core/format.dart';
+import '../../../core/backup/share_full_backup.dart';
 import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
 import '../../../design/glass/glass_nav_bar.dart' show navBarClearance;
@@ -144,27 +145,7 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     Future<void> exportBackup() async {
-      final messenger = ScaffoldMessenger.of(context);
-      final shareOrigin = shareOriginOf(context);
-      File? file;
-      try {
-        file = await ref.read(backupServiceProvider).exportToFile();
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(file.path)],
-            subject: 'PlanFit backup',
-            sharePositionOrigin: shareOrigin,
-          ),
-        );
-      } catch (_) {
-        messenger.showAutoDismissSnackBar(
-          SnackBar(content: Text(l10n.backupExportFailed)),
-        );
-      } finally {
-        // The share sheet reads this file itself, so it can only be cleaned
-        // up once share() has returned — never before.
-        if (file != null && await file.exists()) await file.delete();
-      }
+      await shareFullBackup(context, ref.read(backupServiceProvider));
     }
 
     Future<void> importBackup() async {
