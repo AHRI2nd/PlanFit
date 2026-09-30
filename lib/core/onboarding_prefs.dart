@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 /// SharedPreferences keys for one-time, non-user-facing app state — kept
 /// separate from [AppSettings] since these aren't settings a user toggles,
 /// just "has this already happened" flags shared between app.dart and the
@@ -7,4 +9,9 @@ class OnboardingPrefs {
 
   static const String completed = 'onboarding.completed';
   static const String notificationPrompted = 'onboarding.notificationPrompted';
+  static const String notificationDeferred = 'onboarding.notificationDeferred';
+
+  static bool shouldRequestNotificationPermission(SharedPreferences prefs) =>
+      !(prefs.getBool(notificationPrompted) ?? false) &&
+      !(prefs.getBool(notificationDeferred) ?? false);
 }

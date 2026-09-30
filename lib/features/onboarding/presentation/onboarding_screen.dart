@@ -52,20 +52,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  Future<void> _finish() async {
+  Future<void> _finish({bool requestNotifications = true}) async {
     if (_finishing) return;
     _finishing = true;
     try {
-      await _doFinish();
+      await _doFinish(requestNotifications: requestNotifications);
     } finally {
       _finishing = false;
     }
   }
 
-  Future<void> _doFinish() async {
+  Future<void> _doFinish({required bool requestNotifications}) async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setBool(OnboardingPrefs.completed, true);
-    if (!(prefs.getBool(OnboardingPrefs.notificationPrompted) ?? false)) {
+    if (!requestNotifications) {
+      if (!(prefs.getBool(OnboardingPrefs.notificationPrompted) ?? false)) {
+        await prefs.setBool(OnboardingPrefs.notificationDeferred, true);
+      }
+    } else if (OnboardingPrefs.shouldRequestNotificationPermission(prefs)) {
       try {
         await ref.read(notificationServiceProvider).requestPermission();
       } catch (_) {
@@ -140,7 +144,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: isLast
                       ? const SizedBox(height: 40)
                       : TextButton(
-                          onPressed: _finish,
+                          onPressed: () => _finish(requestNotifications: false),
                           child: Text(
                             l10n.onboardingSkip,
                             style: theme.textTheme.labelLarge?.copyWith(

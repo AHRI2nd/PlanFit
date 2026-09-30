@@ -21,6 +21,16 @@ class _FakeNotificationService extends NotificationService {
   Future<bool> requestPermission() async => true;
 }
 
+class _CountingNotificationService extends NotificationService {
+  var requestPermissionCalls = 0;
+
+  @override
+  Future<bool> requestPermission() async {
+    requestPermissionCalls++;
+    return true;
+  }
+}
+
 /// Stands in for a real (known) failure mode — a PlatformException from the
 /// underlying flutter_local_notifications call.
 class _ThrowingNotificationService extends NotificationService {
@@ -115,7 +125,8 @@ void main() {
   testWidgets(
     'Get started on the last page marks onboarding complete and leaves the screen',
     (tester) async {
-      final prefs = await pumpOnboarding(tester);
+      final service = _CountingNotificationService();
+      final prefs = await pumpOnboarding(tester, notificationService: service);
 
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
@@ -125,6 +136,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
+      expect(service.requestPermissionCalls, 1);
       expect(find.text('HOME_STUB'), findsOneWidget);
     },
   );
@@ -132,45 +144,64 @@ void main() {
   testWidgets('skip completes onboarding immediately from the first page', (
     tester,
   ) async {
-    final prefs = await pumpOnboarding(tester);
+    final service = _CountingNotificationService();
+    final prefs = await pumpOnboarding(tester, notificationService: service);
 
     await tester.tap(find.text('건너뛰기'));
     await tester.pumpAndSettle();
 
     expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
+    expect(prefs.getBool(OnboardingPrefs.notificationDeferred), isTrue);
+    expect(OnboardingPrefs.shouldRequestNotificationPermission(prefs), isFalse);
+    expect(service.requestPermissionCalls, 0);
     expect(find.text('HOME_STUB'), findsOneWidget);
   });
 
-  testWidgets(
-    'Get started still leaves the screen even when the notification '
-    'permission request throws — regression test: _finish() used to have '
-    'no catch around that call, so the exception propagated out and '
-    "skipped context.go('/home') entirely, even though "
-    'OnboardingPrefs.completed was already persisted just above — a '
-    'same-session stuck screen masked on the next launch (which reads '
-    "completed and redirects straight past onboarding, hiding the bug)",
-    (tester) async {
-      final prefs = await pumpOnboarding(
-        tester,
-        notificationService: _ThrowingNotificationService(),
-      );
+  testWidgets('skip from the second page also defers notifications', (
+    tester,
+  ) async {
+    final service = _CountingNotificationService();
+    final prefs = await pumpOnboarding(tester, notificationService: service);
 
-      await tester.tap(find.text('다음'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('다음'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('시작하기'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('건너뛰기'));
+    await tester.pumpAndSettle();
 
-      expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
-      expect(
-        find.text('HOME_STUB'),
-        findsOneWidget,
-        reason:
-            'a thrown permission request must not prevent navigating home',
-      );
-    },
-  );
+    expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
+    expect(prefs.getBool(OnboardingPrefs.notificationDeferred), isTrue);
+    expect(OnboardingPrefs.shouldRequestNotificationPermission(prefs), isFalse);
+    expect(service.requestPermissionCalls, 0);
+  });
+
+  testWidgets('Get started still leaves the screen even when the notification '
+      'permission request throws — regression test: _finish() used to have '
+      'no catch around that call, so the exception propagated out and '
+      "skipped context.go('/home') entirely, even though "
+      'OnboardingPrefs.completed was already persisted just above — a '
+      'same-session stuck screen masked on the next launch (which reads '
+      "completed and redirects straight past onboarding, hiding the bug)", (
+    tester,
+  ) async {
+    final prefs = await pumpOnboarding(
+      tester,
+      notificationService: _ThrowingNotificationService(),
+    );
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getBool(OnboardingPrefs.completed), isTrue);
+    expect(
+      find.text('HOME_STUB'),
+      findsOneWidget,
+      reason: 'a thrown permission request must not prevent navigating home',
+    );
+  });
 
   testWidgets(
     'tapping Get started twice while the permission dialog is still up '
@@ -180,10 +211,7 @@ void main() {
     'fired a second concurrent requestPermission() platform-channel call',
     (tester) async {
       final service = _CountingDelayedNotificationService();
-      final prefs = await pumpOnboarding(
-        tester,
-        notificationService: service,
-      );
+      final prefs = await pumpOnboarding(tester, notificationService: service);
 
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();

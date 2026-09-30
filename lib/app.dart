@@ -151,7 +151,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
 
   Future<void> _maybeRequestNotificationPermission() async {
     final prefs = ref.read(sharedPreferencesProvider);
-    if (prefs.getBool(OnboardingPrefs.notificationPrompted) ?? false) return;
+    if (!OnboardingPrefs.shouldRequestNotificationPermission(prefs)) return;
     try {
       await ref.read(notificationServiceProvider).requestPermission();
     } finally {
