@@ -13,6 +13,7 @@
   "onboardingPage3Body": "일정이 시작되기 전, 원하는 시점에 알림을 보내드려요",
   "tabHome": "홈",
   "tabSchedule": "시간표",
+  "tabTodos": "할 일",
   "tabSettings": "설정",
   "tabBadgeSemanticLabel": "{label}, 미완료 {count}개",
   "@tabBadgeSemanticLabel": {
@@ -92,6 +93,16 @@
   "quickAddEventTitle": "빠른 추가",
   "quickAddEventHint": "날짜와 시간을 자동으로 알아들어요",
   "quickAddEventExample": "내일 오후 3시 회의",
+  "quickAddEventPreview": "{startDay} {startTime} – {endDay} {endTime}에 추가됩니다",
+  "@quickAddEventPreview": {
+    "placeholders": {
+      "startDay": {},
+      "startTime": {},
+      "endDay": {},
+      "endTime": {}
+    }
+  },
+  "quickAddEventDefaultTime": "시간을 입력하지 않아 오전 9시에 추가됩니다.",
   "quickAddEventCreated": "\"{title}\" · {day} {time}에 추가했어요",
   "@quickAddEventCreated": {
     "placeholders": {
@@ -250,7 +261,9 @@
   "settingsAutoBackup": "자동 백업 기록",
   "autoBackupTitle": "자동 백업",
   "autoBackupEmpty": "아직 자동 백업이 없어요",
-  "autoBackupDesc": "24시간마다 자동으로 백업하고, 최근 7개만 보관해요",
+  "autoBackupDesc": "앱을 열거나 다시 활성화할 때, 마지막 성공 백업 후 24시간이 지났으면 자동 백업해요. 최근 7개를 보관해요.",
+  "autoBackupLocalProtection": "자동 백업은 이 기기의 앱 저장 공간에 보관돼요. 앱을 삭제하거나 기기를 잃거나 초기화하면 함께 사라질 수 있어요. 기기 밖에도 보관하려면 전체 백업을 내보내 저장하세요.",
+  "autoBackupExportFull": "전체 백업 내보내기",
   "autoBackupRestore": "이 백업으로 복원",
   "autoBackupRestoreConfirmTitle": "이 백업으로 복원할까요?",
   "autoBackupRestoreConfirmBody": "지금 있는 일정/할 일에 이 백업 내용이 합쳐져요. 같은 항목은 백업 시점 내용으로 덮어써요.",
@@ -416,11 +429,13 @@
   "todoUpdateFailed": "저장하지 못했어요. 다시 시도해주세요",
 
   "smartListTitle": "할 일 모아보기",
+  "smartListAll": "전체",
   "smartListToday": "오늘",
   "smartListOverdue": "기한 지남",
   "smartListHighPriority": "우선순위 높음",
   "smartListPinned": "고정됨",
   "smartListByTag": "태그별",
+  "smartListEmptyAll": "아직 할 일이 없어요",
   "smartListEmptyToday": "오늘 할 일이 없어요",
   "smartListEmptyOverdue": "기한 지난 할 일이 없어요",
   "smartListEmptyHighPriority": "우선순위 높은 할 일이 없어요",

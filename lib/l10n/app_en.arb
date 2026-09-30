@@ -13,6 +13,7 @@
   "onboardingPage3Body": "Get a reminder before each event starts, exactly when you want it",
   "tabHome": "Home",
   "tabSchedule": "Schedule",
+  "tabTodos": "To-dos",
   "tabSettings": "Settings",
   "tabBadgeSemanticLabel": "{label}, {count} incomplete",
   "@tabBadgeSemanticLabel": {
@@ -92,6 +93,16 @@
   "quickAddEventTitle": "Quick add",
   "quickAddEventHint": "Understands dates and times automatically",
   "quickAddEventExample": "Meeting tomorrow 3pm",
+  "quickAddEventPreview": "{startDay} {startTime} – {endDay} {endTime}",
+  "@quickAddEventPreview": {
+    "placeholders": {
+      "startDay": {},
+      "startTime": {},
+      "endDay": {},
+      "endTime": {}
+    }
+  },
+  "quickAddEventDefaultTime": "No time was recognized, so this will be set for 9:00 AM.",
   "quickAddEventCreated": "Added \"{title}\" · {day} {time}",
   "@quickAddEventCreated": {
     "placeholders": {
@@ -250,7 +261,9 @@
   "settingsAutoBackup": "Automatic backups",
   "autoBackupTitle": "Automatic backups",
   "autoBackupEmpty": "No automatic backups yet",
-  "autoBackupDesc": "Backs up automatically every 24 hours, keeping the last 7",
+  "autoBackupDesc": "When you open or resume the app, it creates an automatic backup if 24 hours have passed since the last successful backup. It keeps the last 7.",
+  "autoBackupLocalProtection": "Automatic backups are stored in this app's storage on this device. They may be lost if you uninstall the app, lose the device, or reset it. Export a full backup to keep a copy elsewhere.",
+  "autoBackupExportFull": "Export full backup",
   "autoBackupRestore": "Restore this backup",
   "autoBackupRestoreConfirmTitle": "Restore this backup?",
   "autoBackupRestoreConfirmBody": "This backup's contents will be merged into what you have now. Matching items get overwritten with the backup's version.",
@@ -416,11 +429,13 @@
   "todoUpdateFailed": "Couldn't save — please try again",
 
   "smartListTitle": "All to-dos",
+  "smartListAll": "All",
   "smartListToday": "Today",
   "smartListOverdue": "Overdue",
   "smartListHighPriority": "High priority",
   "smartListPinned": "Pinned",
   "smartListByTag": "By tag",
+  "smartListEmptyAll": "No to-dos yet",
   "smartListEmptyToday": "No to-dos today",
   "smartListEmptyOverdue": "Nothing overdue",
   "smartListEmptyHighPriority": "No high-priority to-dos",

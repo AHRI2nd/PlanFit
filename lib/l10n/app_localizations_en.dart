@@ -48,6 +48,9 @@ class AppL10nEn extends AppL10n {
   String get tabSchedule => 'Schedule';
 
   @override
+  String get tabTodos => 'To-dos';
+
+  @override
   String get tabSettings => 'Settings';
 
   @override
@@ -222,6 +225,20 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get quickAddEventExample => 'Meeting tomorrow 3pm';
+
+  @override
+  String quickAddEventPreview(
+    Object startDay,
+    Object startTime,
+    Object endDay,
+    Object endTime,
+  ) {
+    return '$startDay $startTime – $endDay $endTime';
+  }
+
+  @override
+  String get quickAddEventDefaultTime =>
+      'No time was recognized, so this will be set for 9:00 AM.';
 
   @override
   String quickAddEventCreated(String title, String day, String time) {
@@ -633,7 +650,14 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get autoBackupDesc =>
-      'Backs up automatically every 24 hours, keeping the last 7';
+      'When you open or resume the app, it creates an automatic backup if 24 hours have passed since the last successful backup. It keeps the last 7.';
+
+  @override
+  String get autoBackupLocalProtection =>
+      'Automatic backups are stored in this app\'s storage on this device. They may be lost if you uninstall the app, lose the device, or reset it. Export a full backup to keep a copy elsewhere.';
+
+  @override
+  String get autoBackupExportFull => 'Export full backup';
 
   @override
   String get autoBackupRestore => 'Restore this backup';
@@ -1064,6 +1088,9 @@ class AppL10nEn extends AppL10n {
   String get smartListTitle => 'All to-dos';
 
   @override
+  String get smartListAll => 'All';
+
+  @override
   String get smartListToday => 'Today';
 
   @override
@@ -1077,6 +1104,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get smartListByTag => 'By tag';
+
+  @override
+  String get smartListEmptyAll => 'No to-dos yet';
 
   @override
   String get smartListEmptyToday => 'No to-dos today';

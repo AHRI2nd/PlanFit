@@ -169,6 +169,12 @@ abstract class AppL10n {
   /// **'시간표'**
   String get tabSchedule;
 
+  /// No description provided for @tabTodos.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일'**
+  String get tabTodos;
+
   /// No description provided for @tabSettings.
   ///
   /// In ko, this message translates to:
@@ -474,6 +480,23 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'내일 오후 3시 회의'**
   String get quickAddEventExample;
+
+  /// No description provided for @quickAddEventPreview.
+  ///
+  /// In ko, this message translates to:
+  /// **'{startDay} {startTime} – {endDay} {endTime}에 추가됩니다'**
+  String quickAddEventPreview(
+    Object startDay,
+    Object startTime,
+    Object endDay,
+    Object endTime,
+  );
+
+  /// No description provided for @quickAddEventDefaultTime.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간을 입력하지 않아 오전 9시에 추가됩니다.'**
+  String get quickAddEventDefaultTime;
 
   /// No description provided for @quickAddEventCreated.
   ///
@@ -1192,8 +1215,20 @@ abstract class AppL10n {
   /// No description provided for @autoBackupDesc.
   ///
   /// In ko, this message translates to:
-  /// **'24시간마다 자동으로 백업하고, 최근 7개만 보관해요'**
+  /// **'앱을 열거나 다시 활성화할 때, 마지막 성공 백업 후 24시간이 지났으면 자동 백업해요. 최근 7개를 보관해요.'**
   String get autoBackupDesc;
+
+  /// No description provided for @autoBackupLocalProtection.
+  ///
+  /// In ko, this message translates to:
+  /// **'자동 백업은 이 기기의 앱 저장 공간에 보관돼요. 앱을 삭제하거나 기기를 잃거나 초기화하면 함께 사라질 수 있어요. 기기 밖에도 보관하려면 전체 백업을 내보내 저장하세요.'**
+  String get autoBackupLocalProtection;
+
+  /// No description provided for @autoBackupExportFull.
+  ///
+  /// In ko, this message translates to:
+  /// **'전체 백업 내보내기'**
+  String get autoBackupExportFull;
 
   /// No description provided for @autoBackupRestore.
   ///
@@ -1963,6 +1998,12 @@ abstract class AppL10n {
   /// **'할 일 모아보기'**
   String get smartListTitle;
 
+  /// No description provided for @smartListAll.
+  ///
+  /// In ko, this message translates to:
+  /// **'전체'**
+  String get smartListAll;
+
   /// No description provided for @smartListToday.
   ///
   /// In ko, this message translates to:
@@ -1992,6 +2033,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'태그별'**
   String get smartListByTag;
+
+  /// No description provided for @smartListEmptyAll.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 할 일이 없어요'**
+  String get smartListEmptyAll;
 
   /// No description provided for @smartListEmptyToday.
   ///

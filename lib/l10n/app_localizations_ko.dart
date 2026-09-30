@@ -45,6 +45,9 @@ class AppL10nKo extends AppL10n {
   String get tabSchedule => '시간표';
 
   @override
+  String get tabTodos => '할 일';
+
+  @override
   String get tabSettings => '설정';
 
   @override
@@ -207,6 +210,19 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get quickAddEventExample => '내일 오후 3시 회의';
+
+  @override
+  String quickAddEventPreview(
+    Object startDay,
+    Object startTime,
+    Object endDay,
+    Object endTime,
+  ) {
+    return '$startDay $startTime – $endDay $endTime에 추가됩니다';
+  }
+
+  @override
+  String get quickAddEventDefaultTime => '시간을 입력하지 않아 오전 9시에 추가됩니다.';
 
   @override
   String quickAddEventCreated(String title, String day, String time) {
@@ -590,7 +606,15 @@ class AppL10nKo extends AppL10n {
   String get autoBackupEmpty => '아직 자동 백업이 없어요';
 
   @override
-  String get autoBackupDesc => '24시간마다 자동으로 백업하고, 최근 7개만 보관해요';
+  String get autoBackupDesc =>
+      '앱을 열거나 다시 활성화할 때, 마지막 성공 백업 후 24시간이 지났으면 자동 백업해요. 최근 7개를 보관해요.';
+
+  @override
+  String get autoBackupLocalProtection =>
+      '자동 백업은 이 기기의 앱 저장 공간에 보관돼요. 앱을 삭제하거나 기기를 잃거나 초기화하면 함께 사라질 수 있어요. 기기 밖에도 보관하려면 전체 백업을 내보내 저장하세요.';
+
+  @override
+  String get autoBackupExportFull => '전체 백업 내보내기';
 
   @override
   String get autoBackupRestore => '이 백업으로 복원';
@@ -998,6 +1022,9 @@ class AppL10nKo extends AppL10n {
   String get smartListTitle => '할 일 모아보기';
 
   @override
+  String get smartListAll => '전체';
+
+  @override
   String get smartListToday => '오늘';
 
   @override
@@ -1011,6 +1038,9 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get smartListByTag => '태그별';
+
+  @override
+  String get smartListEmptyAll => '아직 할 일이 없어요';
 
   @override
   String get smartListEmptyToday => '오늘 할 일이 없어요';
