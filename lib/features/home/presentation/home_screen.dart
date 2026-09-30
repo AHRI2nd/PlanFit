@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/clock.dart';
 import '../../../core/date_math.dart';
@@ -29,7 +30,6 @@ import '../../todo/domain/todo_ordering.dart';
 import '../../todo/domain/todo_priority.dart';
 import '../../todo/presentation/quick_add_todo_sheet.dart';
 import '../../todo/presentation/todo_detail_sheet.dart';
-import '../../todo/presentation/todo_smart_list_screen.dart';
 
 /// How much of the screen the pull-up bar covers once dragged (or tapped)
 /// open — short of the very top, so a sliver of the hero peeks through as a
@@ -744,11 +744,7 @@ class _TodayFeed extends ConsumerWidget {
                 ),
                 IconButton(
                   tooltip: l10n.homeTodosViewAll,
-                  onPressed: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => const TodoSmartListScreen(),
-                    ),
-                  ),
+                  onPressed: () => context.go('/todos/all'),
                   icon: Icon(Icons.chevron_right, color: palette.inkFaint),
                 ),
               ],
@@ -1059,9 +1055,22 @@ class _HomeTodoList extends ConsumerWidget {
         const <TodoRow>[];
 
     if (overdue.isEmpty && upcoming.isEmpty) {
-      return _EmptyCard(
-        icon: Icons.checklist_rounded,
-        message: l10n.homeTodoListEmpty,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _EmptyCard(
+            icon: Icons.checklist_rounded,
+            message: l10n.homeTodoListEmpty,
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => context.go('/todos/all'),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(l10n.homeTodosViewAll),
+            ),
+          ),
+        ],
       );
     }
 
@@ -1111,13 +1120,7 @@ class _HomeTodoList extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
               child: InkWell(
-                onTap: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (_) => const TodoSmartListScreen(
-                      initialTab: SmartListInitialTab.overdue,
-                    ),
-                  ),
-                ),
+                onTap: () => context.go('/todos/all'),
                 child: Text(
                   l10n.homeOverdueListMore(hiddenCount),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1127,6 +1130,14 @@ class _HomeTodoList extends ConsumerWidget {
                 ),
               ),
             ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => context.go('/todos/all'),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(l10n.homeTodosViewAll),
+            ),
+          ),
         ],
       ),
     );

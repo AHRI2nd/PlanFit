@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:planfit/core/clock.dart';
@@ -55,6 +56,7 @@ void main() {
     when(
       todos.watchBetween(any, any),
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    when(todos.watchAll()).thenAnswer((_) => Stream.value(const <TodoRow>[]));
     when(
       todos.watchOverdue(any),
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
@@ -72,6 +74,18 @@ void main() {
     DateTime? now,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+        GoRoute(path: '/todos', builder: (_, _) => const TodoSmartListScreen()),
+        GoRoute(
+          path: '/todos/all',
+          builder: (_, _) => const TodoSmartListScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -83,7 +97,8 @@ void main() {
           if (now != null)
             nowTickerProvider.overrideWith((_) => Stream.value(now)),
         ],
-        child: MaterialApp(
+        child: MaterialApp.router(
+          routerConfig: router,
           theme: AppTheme.light(),
           // Pinned so the test doesn't depend on the host machine's locale.
           locale: const Locale('ko'),
@@ -101,7 +116,6 @@ void main() {
                   data: MediaQuery.of(context).copyWith(textScaler: textScaler),
                   child: child!,
                 ),
-          home: const HomeScreen(),
         ),
       ),
     );
@@ -134,6 +148,11 @@ void main() {
     // 할 일 only shows once the pull-up bar is dragged open.
     await expandTodoSheet(tester);
     expect(find.text('처리할 할 일이 없어요'), findsOneWidget);
+    final allTodosLink = find.text('할 일 전체 보기');
+    expect(allTodosLink, findsOneWidget);
+    await tester.tap(allTodosLink);
+    await tester.pumpAndSettle();
+    expect(find.byType(TodoSmartListScreen), findsOneWidget);
   });
 
   testWidgets(
@@ -1313,7 +1332,7 @@ void main() {
         final smartList = tester.widget<TodoSmartListScreen>(
           find.byType(TodoSmartListScreen),
         );
-        expect(smartList.initialTab, SmartListInitialTab.overdue);
+        expect(smartList.initialTab, SmartListInitialTab.all);
       },
     );
   });

@@ -99,6 +99,12 @@ final overdueTodosProvider = StreamProvider<List<TodoRow>>((ref) {
   return ref.watch(todoDaoProvider).watchOverdue(DateTime.now());
 });
 
+/// Every retained to-do, including completed items — the smart-list screen's
+/// unfiltered "전체" tab.
+final allTodosProvider = StreamProvider<List<TodoRow>>((ref) {
+  return ref.watch(todoDaoProvider).watchAll();
+});
+
 /// The home screen's to-do list's "not overdue yet" half — paired with
 /// [overdueTodosProvider] there (see `_HomeTodoList`'s own doc for how the
 /// two combine). No smart-list tab of its own; unlike every other provider
@@ -491,11 +497,10 @@ class TodoController {
     // rather than relying on the DAO's own order so the ranking this cap
     // depends on can't change out from under it if that query's ordering
     // ever does.
-    final eligible =
-        [
-          for (final row in candidates)
-            if (row.notify && row.hasTime && !row.isDone) row,
-        ]..sort((a, b) => a.slotStart.compareTo(b.slotStart));
+    final eligible = [
+      for (final row in candidates)
+        if (row.notify && row.hasTime && !row.isDone) row,
+    ]..sort((a, b) => a.slotStart.compareTo(b.slotStart));
 
     for (final row in eligible.take(maxPendingTodoAlerts)) {
       final live = await dao.findById(row.id);

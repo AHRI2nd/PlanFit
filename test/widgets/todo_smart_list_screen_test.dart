@@ -45,6 +45,7 @@ void main() {
     when(
       todos.watchPinned(),
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    when(todos.watchAll()).thenAnswer((_) => Stream.value(const <TodoRow>[]));
     when(todos.allTags()).thenAnswer((_) async => const <String>[]);
     // TodoController.add's _syncNotification/_syncReminder short-circuit on
     // a null row, keeping this test focused on the one write path it's
@@ -99,6 +100,109 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('할 일 추가'), findsOneWidget);
+  });
+
+  testWidgets('the unfiltered All tab is visible and selected by default', (
+    tester,
+  ) async {
+    await pumpScreen(tester, initialTab: SmartListInitialTab.all);
+
+    final allChip = find.ancestor(
+      of: find.text('전체'),
+      matching: find.byType(ChoiceChip),
+    );
+    expect(allChip, findsOneWidget);
+    expect(tester.widget<ChoiceChip>(allChip).selected, isTrue);
+  });
+
+  testWidgets('All shows future and completed to-dos from the full query', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 3, 10, 12);
+    TodoRow row(String id, DateTime slot, {bool done = false}) => TodoRow(
+      id: id,
+      eventId: null,
+      title: id,
+      slotStart: slot,
+      slotEnd: null,
+      hasTime: true,
+      isDone: done,
+      completedAt: done ? now : null,
+      sortOrder: 0,
+      priority: 0,
+      tags: null,
+      notify: false,
+      additionalReminderMinutes: null,
+      isPinned: false,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      osReminderId: null,
+      osReminderListId: null,
+      osReminderLastKnownModified: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
+      createdAt: now,
+    );
+    when(todos.watchAll()).thenAnswer(
+      (_) => Stream.value([
+        row('Future', now.add(const Duration(days: 5))),
+        row('Completed', now.subtract(const Duration(days: 1)), done: true),
+      ]),
+    );
+
+    await pumpScreen(tester, initialTab: SmartListInitialTab.all);
+
+    expect(find.text('Future'), findsOneWidget);
+    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('할 일이 없어요'), findsNothing);
+  });
+
+  testWidgets('All does not cap a backlog at the home screen limit', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 3, 10, 12);
+    TodoRow row(int index) => TodoRow(
+      id: 'todo-$index',
+      eventId: null,
+      title: 'Task $index',
+      slotStart: now.add(Duration(days: index + 1)),
+      slotEnd: null,
+      hasTime: true,
+      isDone: false,
+      completedAt: null,
+      sortOrder: index,
+      priority: 0,
+      tags: null,
+      notify: false,
+      additionalReminderMinutes: null,
+      isPinned: false,
+      recurrenceRule: null,
+      recurrenceGroupId: null,
+      osReminderId: null,
+      osReminderListId: null,
+      osReminderLastKnownModified: null,
+      reminderSyncStatus: SyncStatus.pendingPush,
+      createdAt: now,
+    );
+    when(
+      todos.watchAll(),
+    ).thenAnswer((_) => Stream.value([for (var i = 0; i < 55; i++) row(i)]));
+
+    await pumpScreen(tester, initialTab: SmartListInitialTab.all);
+
+    expect(tester.widgetList<ListView>(find.byType(ListView)).length, 1);
+    expect(
+      tester.widget<ListView>(find.byType(ListView)).semanticChildCount,
+      55,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Task 54'),
+      300,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.text('Task 54'), findsOneWidget);
   });
 
   testWidgets(

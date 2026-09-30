@@ -20,13 +20,13 @@ import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
 import 'todo_selection.dart';
 
-enum _SmartListTab { today, overdue, highPriority, pinned, byTag }
+enum _SmartListTab { all, today, overdue, highPriority, pinned, byTag }
 
 /// Which tab [TodoSmartListScreen] opens on — only the tabs another screen
 /// actually has a reason to deep-link into (e.g. the home screen's overdue
 /// list linking to "see the rest here") are exposed; the others are only
 /// ever reached by tapping a chip inside this screen itself.
-enum SmartListInitialTab { today, overdue }
+enum SmartListInitialTab { all, today, overdue }
 
 /// A cross-day view of to-dos, filtered by one of a few fixed "smart list"
 /// criteria — the counterpart to the day/week/month views' own per-day
@@ -35,7 +35,7 @@ enum SmartListInitialTab { today, overdue }
 class TodoSmartListScreen extends ConsumerStatefulWidget {
   const TodoSmartListScreen({
     super.key,
-    this.initialTab = SmartListInitialTab.today,
+    this.initialTab = SmartListInitialTab.all,
   });
 
   final SmartListInitialTab initialTab;
@@ -48,6 +48,7 @@ class TodoSmartListScreen extends ConsumerStatefulWidget {
 class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
     with TodoSelectionMixin<TodoSmartListScreen> {
   late _SmartListTab _tab = switch (widget.initialTab) {
+    SmartListInitialTab.all => _SmartListTab.all,
     SmartListInitialTab.today => _SmartListTab.today,
     SmartListInitialTab.overdue => _SmartListTab.overdue,
   };
@@ -148,6 +149,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
   }
 
   String _tabLabel(AppL10n l10n, _SmartListTab tab) => switch (tab) {
+    _SmartListTab.all => l10n.smartListAll,
     _SmartListTab.today => l10n.smartListToday,
     _SmartListTab.overdue => l10n.smartListOverdue,
     _SmartListTab.highPriority => l10n.smartListHighPriority,
@@ -157,6 +159,16 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
 
   Widget _buildBody(BuildContext context, AppL10n l10n) {
     switch (_tab) {
+      case _SmartListTab.all:
+        return _TodoListView(
+          watch: (ref) => ref.watch(allTodosProvider),
+          emptyMessage: l10n.smartListEmptyAll,
+          orderCompletedLast: true,
+          selectionMode: selectionMode,
+          selectedIds: selectedIds,
+          onToggleSelected: toggleSelected,
+          onEnterSelection: enterSelection,
+        );
       case _SmartListTab.today:
         return _TodoListView(
           watch: (ref) =>
@@ -309,6 +321,7 @@ class _TodoListView extends ConsumerWidget {
   const _TodoListView({
     required this.watch,
     required this.emptyMessage,
+    this.orderCompletedLast = false,
     required this.selectionMode,
     required this.selectedIds,
     required this.onToggleSelected,
@@ -321,6 +334,7 @@ class _TodoListView extends ConsumerWidget {
   /// argument, which don't share one convenient static type to hold here.
   final AsyncValue<List<TodoRow>> Function(WidgetRef ref) watch;
   final String emptyMessage;
+  final bool orderCompletedLast;
   final bool selectionMode;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelected;
@@ -341,7 +355,9 @@ class _TodoListView extends ConsumerWidget {
         // them ("기한 지남", "고정됨") are already filtered down to a single
         // group, where this only settles the order *within* it, and the
         // rest would otherwise each need the same clause repeated.
-        final todos = orderCrossDayTodos(unordered, now: DateTime.now());
+        final todos = orderCompletedLast
+            ? orderAllTodos(unordered, now: DateTime.now())
+            : orderCrossDayTodos(unordered, now: DateTime.now());
         if (todos.isEmpty) {
           return Center(
             child: Text(

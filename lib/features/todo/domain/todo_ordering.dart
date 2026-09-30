@@ -51,14 +51,35 @@ List<TodoRow> orderCrossDayTodos(List<TodoRow> todos, {required DateTime now}) {
   // not, and two to-dos sharing a rank and a slot time (a whole day's
   // no-time items all sit at midnight) would otherwise be free to swap
   // places on any rebuild, which reads as the list flickering.
-  final decorated = [
-    for (var i = 0; i < todos.length; i++) (index: i, todo: todos[i]),
-  ]..sort((a, b) {
-    final byRank = rank(a.todo).compareTo(rank(b.todo));
-    if (byRank != 0) return byRank;
-    final byTime = a.todo.slotStart.compareTo(b.todo.slotStart);
-    if (byTime != 0) return byTime;
-    return a.index.compareTo(b.index);
-  });
+  final decorated =
+      [for (var i = 0; i < todos.length; i++) (index: i, todo: todos[i])]
+        ..sort((a, b) {
+          final byRank = rank(a.todo).compareTo(rank(b.todo));
+          if (byRank != 0) return byRank;
+          final byTime = a.todo.slotStart.compareTo(b.todo.slotStart);
+          if (byTime != 0) return byTime;
+          return a.index.compareTo(b.index);
+        });
   return [for (final d in decorated) d.todo];
+}
+
+/// Orders the unfiltered smart list: all unfinished items follow the usual
+/// pinned/overdue/date order, then completed items appear newest completion
+/// first. Completion history must never outrank work that is still open.
+List<TodoRow> orderAllTodos(List<TodoRow> todos, {required DateTime now}) {
+  final active = orderCrossDayTodos(
+    todos.where((todo) => !todo.isDone).toList(),
+    now: now,
+  );
+  final completed =
+      [
+        for (var i = 0; i < todos.length; i++)
+          if (todos[i].isDone) (index: i, todo: todos[i]),
+      ]..sort((a, b) {
+        final aAt = a.todo.completedAt ?? a.todo.slotStart;
+        final bAt = b.todo.completedAt ?? b.todo.slotStart;
+        final byCompletedAt = bAt.compareTo(aAt);
+        return byCompletedAt != 0 ? byCompletedAt : a.index.compareTo(b.index);
+      });
+  return [...active, for (final item in completed) item.todo];
 }

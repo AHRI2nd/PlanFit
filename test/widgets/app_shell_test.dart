@@ -89,6 +89,7 @@ void main() {
           todo('g'),
         ]),
       );
+      when(todos.watchAll()).thenAnswer((_) => Stream.value(const []));
 
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
@@ -129,8 +130,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        tester.widget<NavBadgeIcon>(find.byType(NavBadgeIcon).at(1)).count,
+        tester.widget<NavBadgeIcon>(find.byType(NavBadgeIcon).at(2)).count,
         2,
+      );
+      expect(
+        tester.widget<NavBadgeIcon>(find.byType(NavBadgeIcon).at(1)).count,
+        0,
       );
 
       // Simulate the midnight rollover directly through the provider — the
@@ -144,13 +149,17 @@ void main() {
       await tester.pump();
 
       expect(
-        tester.widget<NavBadgeIcon>(find.byType(NavBadgeIcon).at(1)).count,
+        tester.widget<NavBadgeIcon>(find.byType(NavBadgeIcon).at(2)).count,
         5,
         reason:
             "AppShell's badge should follow todayProvider directly, not "
             'stay pinned to whatever day was current the last time its host '
             'route happened to rebuild',
       );
+
+      appRouter.go('/todos');
+      await tester.pumpAndSettle();
+      expect(find.text('할 일 모아보기'), findsOneWidget);
     },
   );
 
@@ -235,7 +244,9 @@ void main() {
       );
       final bands = <({double top, double sigma})>[];
       for (var i = 0; i < filters.evaluate().length; i++) {
-        final text = tester.widget<BackdropFilter>(filters.at(i)).filter
+        final text = tester
+            .widget<BackdropFilter>(filters.at(i))
+            .filter
             .toString();
         final sigma = double.parse(
           RegExp(r'blur\(([\d.]+)').firstMatch(text)!.group(1)!,

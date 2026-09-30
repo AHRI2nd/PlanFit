@@ -48,6 +48,9 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   /// Every to-do, for a full-database export.
   Future<List<TodoRow>> all() => select(todoItems).get();
 
+  /// Every to-do, including completed items — the unfiltered smart-list tab.
+  Stream<List<TodoRow>> watchAll() => select(todoItems).watch();
+
   Future<TodoRow?> findById(String id) =>
       (select(todoItems)..where((t) => t.id.equals(id))).getSingleOrNull();
 

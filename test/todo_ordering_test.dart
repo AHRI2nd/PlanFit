@@ -16,6 +16,7 @@ void main() {
     bool pinned = false,
     bool hasTime = true,
     bool done = false,
+    DateTime? completedAt,
   }) => TodoRow(
     id: id,
     eventId: null,
@@ -24,7 +25,7 @@ void main() {
     slotEnd: null,
     hasTime: hasTime,
     isDone: done,
-    completedAt: null,
+    completedAt: completedAt,
     sortOrder: 0,
     priority: 0,
     tags: null,
@@ -60,6 +61,29 @@ void main() {
       'overdue-late',
       'rest-early',
       'rest-late',
+    ]);
+  });
+
+  test('orderAllTodos puts completed items last, newest completion first', () {
+    final rows = [
+      todo(
+        'done-old',
+        slot: now,
+        done: true,
+        completedAt: now.subtract(const Duration(days: 2)),
+      ),
+      todo('future', slot: now.add(const Duration(days: 2))),
+      todo('overdue', slot: now.subtract(const Duration(hours: 1))),
+      todo('pinned', slot: now.add(const Duration(days: 5)), pinned: true),
+      todo('done-new', slot: now, done: true, completedAt: now),
+    ];
+
+    expect(orderAllTodos(rows, now: now).map((todo) => todo.id), [
+      'pinned',
+      'overdue',
+      'future',
+      'done-new',
+      'done-old',
     ]);
   });
 

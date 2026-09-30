@@ -11,15 +11,13 @@ import '../../features/settings/presentation/holiday_calendar_source_screen.dart
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/sync_log_screen.dart';
 import '../../features/shell/app_shell.dart';
+import '../../features/todo/presentation/todo_smart_list_screen.dart';
 import '../di.dart';
 import '../onboarding_prefs.dart';
 
-/// Three-tab app with per-tab navigation stacks via [StatefulShellRoute].
+/// Four-tab app with per-tab navigation stacks via [StatefulShellRoute].
 /// Each branch keeps its own history, so switching tabs preserves where the
-/// user was. (A fourth "social" tab existed as a pure "coming soon"
-/// placeholder — see git history — and was pulled before the first release
-/// rather than shipping a permanently-empty nav destination; the branch
-/// slot it's welcome back in whenever that feature actually has content.)
+/// user was.
 ///
 /// `/onboarding` sits outside the shell (no tab bar). The [redirect] below
 /// gates *every* navigation attempt on onboarding being complete — not just
@@ -57,6 +55,18 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/schedule',
               builder: (_, _) => const ScheduleScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/todos',
+              builder: (_, _) => const TodoSmartListScreen(),
+            ),
+            GoRoute(
+              path: '/todos/all',
+              builder: (_, _) => const TodoSmartListScreen(),
             ),
           ],
         ),

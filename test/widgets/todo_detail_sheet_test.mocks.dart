@@ -317,6 +317,14 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
           as _i6.Future<List<_i2.TodoRow>>);
 
   @override
+  _i6.Stream<List<_i2.TodoRow>> watchAll() =>
+      (super.noSuchMethod(
+            Invocation.method(#watchAll, []),
+            returnValue: _i6.Stream<List<_i2.TodoRow>>.empty(),
+          )
+          as _i6.Stream<List<_i2.TodoRow>>);
+
+  @override
   _i6.Future<_i2.TodoRow?> findById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#findById, [id]),
