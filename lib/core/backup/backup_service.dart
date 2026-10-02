@@ -41,6 +41,21 @@ class BackupImportSummary {
   final bool legacyFormat;
 }
 
+/// Counts available before a backup is imported, without changing local data.
+class BackupFilePreview {
+  const BackupFilePreview({
+    required this.eventCount,
+    required this.todoCount,
+    required this.templateCount,
+    required this.legacyFormat,
+  });
+
+  final int eventCount;
+  final int todoCount;
+  final int templateCount;
+  final bool legacyFormat;
+}
+
 /// [compute] requires a top-level (or static) function reference — see
 /// [BackupService.buildJson]'s own doc on why this call is offloaded at all.
 String _encodeBackupJson(Map<String, dynamic> json) =>
@@ -136,6 +151,17 @@ class BackupService {
   /// Reads a previously-exported file and restores every event/to-do into
   /// the local database. Existing rows with the same id are overwritten —
   /// re-importing the same backup is safe to repeat.
+  Future<BackupFilePreview> previewFromFile(String path) async {
+    final raw = await File(path).readAsString();
+    final json = await compute(_decodeBackupJson, raw);
+    return BackupFilePreview(
+      eventCount: ((json['events'] as List?) ?? const []).length,
+      todoCount: ((json['todos'] as List?) ?? const []).length,
+      templateCount: ((json['eventTemplates'] as List?) ?? const []).length,
+      legacyFormat: (json['schemaVersion'] as int? ?? 1) < 2,
+    );
+  }
+
   Future<BackupImportSummary> importFromFile(String path) async {
     final raw = await File(path).readAsString();
     final json = await compute(_decodeBackupJson, raw);

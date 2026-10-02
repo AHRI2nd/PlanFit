@@ -56,7 +56,7 @@ app.*.map.json
 # project root is the exception (that's the public-facing doc) and Flutter's
 # own generated asset READMEs (e.g. under ios/Runner/Assets.xcassets/) are
 # left alone since they're routine template boilerplate, not project notes.
-/docs/*.md
+/docs/*
 
 # Local-only command reference (build/run/simulator commands, paths specific
 # to this machine) — not meant for the public repo either.

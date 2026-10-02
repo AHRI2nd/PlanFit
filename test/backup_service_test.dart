@@ -48,6 +48,52 @@ void main() {
     return calendar;
   }
 
+  test('previews backup counts without changing the destination', () async {
+    final sourceDb = newDb();
+    final destinationDb = newDb();
+    final notifications = MockNotificationPort();
+    when(notifications.scheduleForEvent(any)).thenAnswer((_) async {});
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+
+    final source = BackupService(
+      eventRepository: EventRepositoryImpl(
+        dao: sourceDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      ),
+      todoDao: sourceDb.todoDao,
+      eventTemplateDao: sourceDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    await sourceDb.todoDao.upsert(
+      TodoItemsCompanion.insert(
+        id: 'preview-todo',
+        slotStart: DateTime(2026, 10, 2),
+      ),
+    );
+    final file = await source.exportToFile();
+
+    final destination = BackupService(
+      eventRepository: EventRepositoryImpl(
+        dao: destinationDb.eventDao,
+        notifications: notifications,
+        calendar: disabledCalendar(),
+      ),
+      todoDao: destinationDb.todoDao,
+      eventTemplateDao: destinationDb.eventTemplateDao,
+      notifications: notifications,
+    );
+    final preview = await destination.previewFromFile(file.path);
+
+    expect(preview.eventCount, 0);
+    expect(preview.todoCount, 1);
+    expect(preview.templateCount, 0);
+    expect(await destinationDb.todoDao.all(), isEmpty);
+
+    await sourceDb.close();
+    await destinationDb.close();
+  });
+
   test('round-trips a todo\'s createdAt and its link to its event', () async {
     final sourceDb = newDb();
     final notifications = MockNotificationPort();
