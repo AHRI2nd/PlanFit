@@ -303,6 +303,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     const SizedBox(height: AppSpacing.xl),
                     SectionHeader(l10n.homeWeekTitle),
                     _WeeklyStats(now: now, locale: locale, l10n: l10n),
+                    TextButton.icon(onPressed: () => context.push('/home/review'),
+                      icon: const Icon(Icons.history), label: Text(l10n.reviewTitle)),
                   ],
                 ),
               ),

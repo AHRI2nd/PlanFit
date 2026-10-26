@@ -631,5 +631,12 @@
   "homeUseCompact": "Switch to compact view",
   "homeOngoing": "Ongoing appointment",
   "homeNext": "Next appointment",
-  "homeNoNext": "No upcoming appointment · Add one"
+  "homeNoNext": "No upcoming appointment · Add one",
+  "reviewTitle": "Weekly review",
+  "reviewPlanned": "Scheduled this week",
+  "reviewCompleted": "Completed this week",
+  "reviewUnknown": "Completion date unknown",
+  "reviewRetained": "Based on retained records. Rescheduling, undoing completion and automatic deletion can change these records. Planned intervals are not actual work time.",
+  "reviewRetention": "Automatic cleanup of completed items is enabled.",
+  "reviewNextWeek": "Move to next week"
 }

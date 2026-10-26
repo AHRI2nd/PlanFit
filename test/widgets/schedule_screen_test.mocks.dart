@@ -439,6 +439,28 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
           as _i6.Future<List<_i2.TodoRow>>);
 
   @override
+  _i6.Stream<List<_i2.TodoRow>> watchScheduledBetween(
+    DateTime? from,
+    DateTime? to,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchScheduledBetween, [from, to]),
+            returnValue: _i6.Stream<List<_i2.TodoRow>>.empty(),
+          )
+          as _i6.Stream<List<_i2.TodoRow>>);
+
+  @override
+  _i6.Stream<List<_i2.TodoRow>> watchCompletedBetween(
+    DateTime? from,
+    DateTime? to,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchCompletedBetween, [from, to]),
+            returnValue: _i6.Stream<List<_i2.TodoRow>>.empty(),
+          )
+          as _i6.Stream<List<_i2.TodoRow>>);
+
+  @override
   _i6.Future<void> upsert(_i2.TodoItemsCompanion? companion) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [companion]),

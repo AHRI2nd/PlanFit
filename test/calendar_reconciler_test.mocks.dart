@@ -465,6 +465,14 @@ class MockEventDao extends _i1.Mock implements _i5.EventDao {
           as _i6.Stream<List<_i2.EventRow>>);
 
   @override
+  _i6.Stream<_i2.EventRow?> watchNextTimed(DateTime? from) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchNextTimed, [from]),
+            returnValue: _i6.Stream<_i2.EventRow?>.empty(),
+          )
+          as _i6.Stream<_i2.EventRow?>);
+
+  @override
   _i6.Future<_i2.EventRow?> findById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#findById, [id]),

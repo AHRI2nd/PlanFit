@@ -1342,4 +1342,26 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get homeNoNext => '다음 일정이 없어요 · 일정 추가';
+
+  @override
+  String get reviewTitle => '주간 회고';
+
+  @override
+  String get reviewPlanned => '이 주에 배치된 할 일';
+
+  @override
+  String get reviewCompleted => '이 주에 실제 완료한 할 일';
+
+  @override
+  String get reviewUnknown => '완료일이 없는 항목';
+
+  @override
+  String get reviewRetained =>
+      '현재 보관 중인 자료 기준입니다. 재계획·완료 취소·자동 삭제에 따라 기록이 달라질 수 있습니다. 계획 구간은 실제 작업 시간이 아닙니다.';
+
+  @override
+  String get reviewRetention => '완료 항목 자동 정리가 켜져 있습니다.';
+
+  @override
+  String get reviewNextWeek => '다음 주로 이동';
 }

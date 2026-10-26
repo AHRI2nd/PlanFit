@@ -54,7 +54,7 @@ mixin TodoSelectionMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     });
   }
 
-  Future<void> bulkReschedule() async {
+  Future<void> bulkReschedule({DateTime? suggestedDay}) async {
     if (selectionBusy || selectedIds.isEmpty) return;
     final ids = selectedIds.toSet();
     final l10n = AppL10n.of(context);
@@ -65,12 +65,13 @@ mixin TodoSelectionMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(l10n.commonCancel)),
           TextButton(onPressed: () => Navigator.pop(dialogContext, 0), child: Text(l10n.commonToday)),
           TextButton(onPressed: () => Navigator.pop(dialogContext, 1), child: Text(l10n.todoMoveTomorrow)),
+          if (suggestedDay != null) TextButton(onPressed: () => Navigator.pop(dialogContext, 3), child: Text('${l10n.reviewNextWeek} · ${suggestedDay.year}/${suggestedDay.month}/${suggestedDay.day}')),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, 2), child: Text(l10n.todoMoveChooseDate))],
       ));
       if (!mounted || choice == null) return;
       final today = ref.read(todayProvider);
       final day = choice == 2 ? await showAppDatePicker(context: context, initialDate: today,
-        firstDate: DateTime(1900), lastDate: DateTime(2200)) : addCalendarDays(today, choice);
+        firstDate: DateTime(1900), lastDate: DateTime(2200)) : choice == 3 ? suggestedDay : addCalendarDays(today, choice);
       if (day == null || !mounted) return;
       final controller = ref.read(todoControllerProvider);
       final result = await controller.reschedule(ids, day);

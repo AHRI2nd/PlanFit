@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/home/presentation/weekly_review_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/schedule/presentation/schedule_screen.dart';
 import '../../features/settings/presentation/auto_backup_screen.dart';
@@ -48,7 +49,7 @@ final appRouter = GoRouter(
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+            GoRoute(path: '/home', builder: (_, _) => const HomeScreen(), routes: [GoRoute(path: 'review', builder: (_, _) => const WeeklyReviewScreen())]),
           ],
         ),
         StatefulShellBranch(

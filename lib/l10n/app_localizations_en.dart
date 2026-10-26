@@ -1417,4 +1417,27 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get homeNoNext => 'No upcoming appointment · Add one';
+
+  @override
+  String get reviewTitle => 'Weekly review';
+
+  @override
+  String get reviewPlanned => 'Scheduled this week';
+
+  @override
+  String get reviewCompleted => 'Completed this week';
+
+  @override
+  String get reviewUnknown => 'Completion date unknown';
+
+  @override
+  String get reviewRetained =>
+      'Based on retained records. Rescheduling, undoing completion and automatic deletion can change these records. Planned intervals are not actual work time.';
+
+  @override
+  String get reviewRetention =>
+      'Automatic cleanup of completed items is enabled.';
+
+  @override
+  String get reviewNextWeek => 'Move to next week';
 }

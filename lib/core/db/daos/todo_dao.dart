@@ -42,6 +42,14 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
         .get();
   }
 
+  Stream<List<TodoRow>> watchScheduledBetween(DateTime from, DateTime to) =>
+      (select(todoItems)..where((t) => t.slotStart.isBiggerOrEqualValue(from) & t.slotStart.isSmallerThanValue(to))
+        ..orderBy([(t) => OrderingTerm(expression: t.slotStart), (t) => OrderingTerm(expression: t.id)])).watch();
+
+  Stream<List<TodoRow>> watchCompletedBetween(DateTime from, DateTime to) =>
+      (select(todoItems)..where((t) => t.isDone.equals(true) & t.completedAt.isBiggerOrEqualValue(from) & t.completedAt.isSmallerThanValue(to))
+        ..orderBy([(t) => OrderingTerm(expression: t.completedAt), (t) => OrderingTerm(expression: t.id)])).watch();
+
   Future<void> upsert(TodoItemsCompanion companion) =>
       into(todoItems).insertOnConflictUpdate(companion);
 
