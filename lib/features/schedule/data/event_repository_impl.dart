@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/date_math.dart';
+import '../../../core/search/search_options.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/daos/event_dao.dart';
 import '../../../core/db/sync_status.dart';
@@ -38,7 +39,7 @@ class EventRepositoryImpl implements EventRepository {
   Future<EventRow?> findById(String id) => _dao.findById(id);
 
   @override
-  Future<List<EventRow>> search(String query) => _dao.search(query);
+  Future<List<EventRow>> search(String query, {SearchOptions? options}) => _dao.search(query, options: options);
 
   @override
   Future<List<EventRow>> allEvents() => _dao.all();

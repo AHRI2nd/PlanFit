@@ -1,5 +1,6 @@
 import '../../../core/db/app_database.dart';
 import 'event_input.dart';
+import '../../../core/search/search_options.dart';
 
 /// The one interface both the UI and the calendar reconciler go through to
 /// read and write events. Keeping it abstract is the "keep the door open"
@@ -11,7 +12,7 @@ abstract class EventRepository {
   Future<EventRow?> findById(String id);
 
   /// Case-insensitive substring search over title and memo.
-  Future<List<EventRow>> search(String query);
+  Future<List<EventRow>> search(String query, {SearchOptions? options});
 
   /// Every event, for a full-database backup export.
   Future<List<EventRow>> allEvents();

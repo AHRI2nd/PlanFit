@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../../features/todo/domain/todo_tag_match.dart';
 import '../app_database.dart';
-import '../sql_like.dart';
+import '../../search/search_options.dart';
 import '../sync_status.dart';
 import '../tables.dart';
 
@@ -205,16 +205,11 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   /// the to-do equivalent of `EventDao.search` (to-dos have no memo field).
   /// See [buildLikeSubstringPattern]'s doc for why the query can't be
   /// dropped straight into a `%...%` pattern as-is.
-  Future<List<TodoRow>> search(String query) {
-    final pattern = buildLikeSubstringPattern(query);
-    return (select(todoItems)
-          ..where((t) => t.title.like(pattern, escapeChar: likeEscapeChar))
-          ..orderBy([
-            (t) =>
-                OrderingTerm(expression: t.slotStart, mode: OrderingMode.desc),
-          ])
-          ..limit(100))
-        .get();
+  Future<List<TodoRow>> search(String query, {SearchOptions? options}) async {
+    final statement = SearchStatement(query, options ?? const SearchOptions(), events: false);
+    final rows = await customSelect(statement.sql, variables: statement.variables,
+      readsFrom: {todoItems}).get();
+    return Future.wait(rows.map((row) => todoItems.mapFromRow(row)));
   }
 
   Future<void> setPriority(String id, int priority) =>

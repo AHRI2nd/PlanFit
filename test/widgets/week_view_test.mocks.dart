@@ -8,10 +8,11 @@ import 'dart:async' as _i6;
 import 'package:drift/drift.dart' as _i3;
 import 'package:drift/src/runtime/executor/stream_queries.dart' as _i4;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i9;
+import 'package:mockito/src/dummies.dart' as _i10;
 import 'package:planfit/core/db/app_database.dart' as _i2;
 import 'package:planfit/core/db/daos/todo_dao.dart' as _i5;
-import 'package:planfit/features/schedule/domain/event_input.dart' as _i8;
+import 'package:planfit/core/search/search_options.dart' as _i8;
+import 'package:planfit/features/schedule/domain/event_input.dart' as _i9;
 import 'package:planfit/features/schedule/domain/event_repository.dart' as _i7;
 
 // ignore_for_file: type=lint
@@ -186,9 +187,12 @@ class MockEventRepository extends _i1.Mock implements _i7.EventRepository {
           as _i6.Future<_i2.EventRow?>);
 
   @override
-  _i6.Future<List<_i2.EventRow>> search(String? query) =>
+  _i6.Future<List<_i2.EventRow>> search(
+    String? query, {
+    _i8.SearchOptions? options,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#search, [query]),
+            Invocation.method(#search, [query], {#options: options}),
             returnValue: _i6.Future<List<_i2.EventRow>>.value(<_i2.EventRow>[]),
           )
           as _i6.Future<List<_i2.EventRow>>);
@@ -202,7 +206,7 @@ class MockEventRepository extends _i1.Mock implements _i7.EventRepository {
           as _i6.Future<List<_i2.EventRow>>);
 
   @override
-  _i6.Future<_i2.EventRow> save(_i8.EventInput? input) =>
+  _i6.Future<_i2.EventRow> save(_i9.EventInput? input) =>
       (super.noSuchMethod(
             Invocation.method(#save, [input]),
             returnValue: _i6.Future<_i2.EventRow>.value(
@@ -212,7 +216,7 @@ class MockEventRepository extends _i1.Mock implements _i7.EventRepository {
           as _i6.Future<_i2.EventRow>);
 
   @override
-  _i6.Future<void> saveSeriesFrom(String? id, _i8.EventInput? input) =>
+  _i6.Future<void> saveSeriesFrom(String? id, _i9.EventInput? input) =>
       (super.noSuchMethod(
             Invocation.method(#saveSeriesFrom, [id, input]),
             returnValue: _i6.Future<void>.value(),
@@ -302,7 +306,7 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
   _i3.SqlTypes get typeMapping =>
       (super.noSuchMethod(
             Invocation.getter(#typeMapping),
-            returnValue: _i9.dummyValue<_i3.SqlTypes>(
+            returnValue: _i10.dummyValue<_i3.SqlTypes>(
               this,
               Invocation.getter(#typeMapping),
             ),
@@ -568,9 +572,12 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<List<_i2.TodoRow>> search(String? query) =>
+  _i6.Future<List<_i2.TodoRow>> search(
+    String? query, {
+    _i8.SearchOptions? options,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#search, [query]),
+            Invocation.method(#search, [query], {#options: options}),
             returnValue: _i6.Future<List<_i2.TodoRow>>.value(<_i2.TodoRow>[]),
           )
           as _i6.Future<List<_i2.TodoRow>>);
@@ -751,7 +758,7 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
   T alias<T, D>(_i3.ResultSetImplementation<T, D>? table, String? alias) =>
       (super.noSuchMethod(
             Invocation.method(#alias, [table, alias]),
-            returnValue: _i9.dummyValue<T>(
+            returnValue: _i10.dummyValue<T>(
               this,
               Invocation.method(#alias, [table, alias]),
             ),
@@ -788,8 +795,8 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
       (super.noSuchMethod(
             Invocation.method(#doWhenOpened, [fn]),
             returnValue:
-                _i9.ifNotNull(
-                  _i9.dummyValueOrNull<T>(
+                _i10.ifNotNull(
+                  _i10.dummyValueOrNull<T>(
                     this,
                     Invocation.method(#doWhenOpened, [fn]),
                   ),
@@ -1004,8 +1011,8 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
               {#requireNew: requireNew},
             ),
             returnValue:
-                _i9.ifNotNull(
-                  _i9.dummyValueOrNull<T>(
+                _i10.ifNotNull(
+                  _i10.dummyValueOrNull<T>(
                     this,
                     Invocation.method(
                       #transaction,
@@ -1031,8 +1038,8 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
       (super.noSuchMethod(
             Invocation.method(#exclusively, [action]),
             returnValue:
-                _i9.ifNotNull(
-                  _i9.dummyValueOrNull<T>(
+                _i10.ifNotNull(
+                  _i10.dummyValueOrNull<T>(
                     this,
                     Invocation.method(#exclusively, [action]),
                   ),
@@ -1066,8 +1073,8 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
               {#interceptor: interceptor},
             ),
             returnValue:
-                _i9.ifNotNull(
-                  _i9.dummyValueOrNull<T>(
+                _i10.ifNotNull(
+                  _i10.dummyValueOrNull<T>(
                     this,
                     Invocation.method(
                       #runWithInterceptor,
@@ -1164,7 +1171,7 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
   String $expandVar(int? start, int? amount) =>
       (super.noSuchMethod(
             Invocation.method(#$expandVar, [start, amount]),
-            returnValue: _i9.dummyValue<String>(
+            returnValue: _i10.dummyValue<String>(
               this,
               Invocation.method(#$expandVar, [start, amount]),
             ),

@@ -7,7 +7,8 @@ import 'dart:async' as _i4;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:planfit/core/db/app_database.dart' as _i2;
-import 'package:planfit/features/schedule/domain/event_input.dart' as _i5;
+import 'package:planfit/core/search/search_options.dart' as _i5;
+import 'package:planfit/features/schedule/domain/event_input.dart' as _i6;
 import 'package:planfit/features/schedule/domain/event_repository.dart' as _i3;
 
 // ignore_for_file: type=lint
@@ -63,9 +64,12 @@ class MockEventRepository extends _i1.Mock implements _i3.EventRepository {
           as _i4.Future<_i2.EventRow?>);
 
   @override
-  _i4.Future<List<_i2.EventRow>> search(String? query) =>
+  _i4.Future<List<_i2.EventRow>> search(
+    String? query, {
+    _i5.SearchOptions? options,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#search, [query]),
+            Invocation.method(#search, [query], {#options: options}),
             returnValue: _i4.Future<List<_i2.EventRow>>.value(<_i2.EventRow>[]),
           )
           as _i4.Future<List<_i2.EventRow>>);
@@ -79,7 +83,7 @@ class MockEventRepository extends _i1.Mock implements _i3.EventRepository {
           as _i4.Future<List<_i2.EventRow>>);
 
   @override
-  _i4.Future<_i2.EventRow> save(_i5.EventInput? input) =>
+  _i4.Future<_i2.EventRow> save(_i6.EventInput? input) =>
       (super.noSuchMethod(
             Invocation.method(#save, [input]),
             returnValue: _i4.Future<_i2.EventRow>.value(
@@ -89,7 +93,7 @@ class MockEventRepository extends _i1.Mock implements _i3.EventRepository {
           as _i4.Future<_i2.EventRow>);
 
   @override
-  _i4.Future<void> saveSeriesFrom(String? id, _i5.EventInput? input) =>
+  _i4.Future<void> saveSeriesFrom(String? id, _i6.EventInput? input) =>
       (super.noSuchMethod(
             Invocation.method(#saveSeriesFrom, [id, input]),
             returnValue: _i4.Future<void>.value(),
