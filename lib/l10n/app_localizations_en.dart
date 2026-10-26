@@ -1227,4 +1227,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get searchMoreTodos => 'More to-dos';
+
+  @override
+  String get searchClearFilters => 'Clear filters';
 }

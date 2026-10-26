@@ -2261,6 +2261,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'할 일 더 보기'**
   String get searchMoreTodos;
+
+  /// No description provided for @searchClearFilters.
+  ///
+  /// In ko, this message translates to:
+  /// **'검색 조건 초기화'**
+  String get searchClearFilters;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

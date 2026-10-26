@@ -14,6 +14,7 @@ import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
 import '../../../../design/widgets/app_dialog.dart';
+import '../../../../design/widgets/async_content.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
@@ -41,21 +42,18 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   Timer? _debounce;
   List<EventRow>? _eventResults;
   List<TodoRow>? _todoResults;
-  bool _loading = false;
+  bool _eventsLoading = false;
+  bool _todosLoading = false;
+  bool get _loading => _eventsLoading || _todosLoading;
+  Object? _eventError;
+  Object? _todoError;
   static const _pageSize = 50;
   bool _hasMoreEvents = false;
   bool _hasMoreTodos = false;
   bool _loadingMoreEvents = false;
   bool _loadingMoreTodos = false;
 
-  /// Bumped every time a new debounced search actually starts (not on every
-  /// keystroke — the [Timer] cancel/reset above already coalesces those).
-  /// The debounce alone only stops two *pending* searches from both firing;
-  /// it doesn't stop an *in-flight* one from finishing after a newer one
-  /// was kicked off. A broader query (e.g. "a") can take longer to scan
-  /// than a narrower one typed right after it (e.g. "abc"), so without
-  /// this, the slower/older search's results could land last and overwrite
-  /// the results for a query the user has since moved past.
+  /// Every input/filter change invalidates in-flight requests immediately.
   int _searchGeneration = 0;
   TodoPriority? _priorityFilter;
   String? _tagFilter;
@@ -152,42 +150,51 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
 
   void _onChanged(String query) {
     _debounce?.cancel();
+    final generation = ++_searchGeneration;
     final trimmed = query.trim();
     ref.read(eventSearchQueryProvider.notifier).set(trimmed);
-    if (trimmed.isEmpty) {
-      // Invalidate any search still in flight from before the box was
-      // cleared — cancelling the debounce Timer above only stops a
-      // *pending* search from starting, not one that already started and
-      // is still awaiting its Future.wait. Without bumping the generation
-      // here too, that older search's captured generation still matches
-      // _searchGeneration when it finally resolves, so its results
-      // silently overwrite the empty state this clear just set.
-      _searchGeneration++;
-      setState(() {
-        _eventResults = null;
-        _todoResults = null;
-        _loading = false;
-      });
-      return;
-    }
-    setState(() => _loading = true);
-    _debounce = Timer(const Duration(milliseconds: 250), () async {
-      final generation = ++_searchGeneration;
-      final results = await Future.wait([
-        ref.read(eventRepositoryProvider).search(trimmed, options: _options),
-        ref.read(todoDaoProvider).search(trimmed, options: _options),
-      ]);
-      if (!mounted || generation != _searchGeneration) return;
-      setState(() {
-        _eventResults = results[0] as List<EventRow>;
-        _todoResults = results[1] as List<TodoRow>;
-        _hasMoreEvents = _eventResults!.length == _pageSize;
-        _hasMoreTodos = _todoResults!.length == _pageSize;
-        _loadingMoreEvents = false;
-        _loadingMoreTodos = false;
-        _loading = false;
-      });
+    setState(() {
+      _eventResults = null; _todoResults = null;
+      _eventError = null; _todoError = null;
+      _hasMoreEvents = false; _hasMoreTodos = false;
+      _loadingMoreEvents = false; _loadingMoreTodos = false;
+      _eventsLoading = trimmed.isNotEmpty; _todosLoading = trimmed.isNotEmpty;
     });
+    if (trimmed.isEmpty) return;
+    final options = _options;
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      unawaited(_loadFirst(true, trimmed, options, generation));
+      unawaited(_loadFirst(false, trimmed, options, generation));
+    });
+  }
+
+  Future<void> _loadFirst(bool events, String query, SearchOptions options, int generation) async {
+    try {
+      if (events) {
+        final rows = await ref.read(eventRepositoryProvider).search(query, options: options);
+        if (!mounted || generation != _searchGeneration) return;
+        setState(() { _eventResults = rows; _hasMoreEvents = rows.length == _pageSize; });
+      } else {
+        final rows = await ref.read(todoDaoProvider).search(query, options: options);
+        if (!mounted || generation != _searchGeneration) return;
+        setState(() { _todoResults = rows; _hasMoreTodos = rows.length == _pageSize; });
+      }
+    } catch (error) {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() { if (events) { _eventError = error; } else { _todoError = error; } });
+    } finally {
+      if (mounted && generation == _searchGeneration) {
+        setState(() { if (events) { _eventsLoading = false; } else { _todosLoading = false; } });
+      }
+    }
+  }
+
+  void _retrySource(bool events) {
+    setState(() {
+      if (events) { _eventError = null; _eventsLoading = true; }
+      else { _todoError = null; _todosLoading = true; }
+    });
+    unawaited(_loadFirst(events, _controller.text.trim(), _options, _searchGeneration));
   }
 
   Future<void> _loadMore(bool events) async {
@@ -258,6 +265,11 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        actions: [IconButton(icon: const Icon(Icons.filter_alt_off_outlined),
+          tooltip: l10n.searchClearFilters, onPressed: () => _changeFilters(() {
+            _priorityFilter = null; _tagFilter = null; _colorFilter = null;
+            _dateRangeFilter = null; _includeCompleted = true; _type = SearchResultType.all;
+          }))],
         title: TextField(
           controller: _controller,
           autofocus: true,
@@ -298,14 +310,16 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     ThemeData theme,
     String locale,
   ) {
-    if (_loading) {
+    if (_loading && _eventResults == null && _todoResults == null &&
+        _eventError == null && _todoError == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final events = _eventResults;
-    final todos = _todoResults;
-    if (events == null || todos == null) {
+    if (!_loading && _eventResults == null && _todoResults == null &&
+        _eventError == null && _todoError == null) {
       return _Placeholder(icon: Icons.search, message: l10n.searchPrompt);
     }
+    final events = _eventResults ?? const <EventRow>[];
+    final todos = _todoResults ?? const <TodoRow>[];
     final filteredTodos = _filteredTodoResults;
     final filteredEvents = _filteredEventResults;
     return ListView(
@@ -314,6 +328,15 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
         vertical: AppSpacing.sm,
       ),
       children: [
+        if (_loading) const LinearProgressIndicator(),
+        if (_eventError != null && _type != SearchResultType.todos) ...[
+          SectionHeader(l10n.searchSectionEvents),
+          AsyncStateNotice(onRetry: () => _retrySource(true)),
+        ],
+        if (_todoError != null && _type != SearchResultType.events) ...[
+          SectionHeader(l10n.searchSectionTodos),
+          AsyncStateNotice(onRetry: () => _retrySource(false)),
+        ],
         DropdownButton<SearchResultType>(
           value: _type, isExpanded: true,
           items: [
@@ -329,7 +352,9 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
         if (_type != SearchResultType.events)
           FilterChip(label: Text(l10n.searchIncludeCompleted), selected: _includeCompleted,
             onSelected: (value) => _changeFilters(() => _includeCompleted = value)),
-        if (filteredEvents.isEmpty && filteredTodos.isEmpty)
+        if (!_loading && _eventError == null && _todoError == null &&
+            (_type == SearchResultType.todos || filteredEvents.isEmpty) &&
+            (_type == SearchResultType.events || filteredTodos.isEmpty))
           _Placeholder(icon: Icons.search_off, message: l10n.searchEmpty),
         if (events.isNotEmpty && _type != SearchResultType.todos) ...[
           SectionHeader(l10n.searchSectionEvents),
@@ -468,6 +493,9 @@ class _EventFilterRow extends StatelessWidget {
                 onSelected: (_) => onColorChanged(tag.name),
                 showCheckmark: false,
               ),
+            ActionChip(label: Text(colorFilter?.startsWith('#') == true
+                ? colorFilter! : l10n.searchCustomColor),
+              onPressed: () => _pickCustomColor(context)),
           ],
         ),
         const SizedBox(height: AppSpacing.xs),

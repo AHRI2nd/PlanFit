@@ -1159,4 +1159,7 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get searchMoreTodos => '할 일 더 보기';
+
+  @override
+  String get searchClearFilters => '검색 조건 초기화';
 }

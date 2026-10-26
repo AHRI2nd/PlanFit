@@ -495,5 +495,6 @@
   "searchCustomColor": "사용자 지정 색상",
   "searchInvalidColor": "#112233 형식으로 입력해주세요",
   "searchMoreEvents": "일정 더 보기",
-  "searchMoreTodos": "할 일 더 보기"
+  "searchMoreTodos": "할 일 더 보기",
+  "searchClearFilters": "검색 조건 초기화"
 }

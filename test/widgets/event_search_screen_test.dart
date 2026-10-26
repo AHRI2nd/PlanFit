@@ -321,4 +321,17 @@ void main() {
     expect(find.byIcon(Icons.date_range), findsOneWidget);
   });
 
+  testWidgets('one source failure retains the other results and offers retry', (tester) async {
+    when(eventRepository.search('team', options: anyNamed('options')))
+      .thenAnswer((_) async => throw StateError('unavailable'));
+    when(todoDao.search('team', options: anyNamed('options')))
+      .thenAnswer((_) async => [todo()]);
+    await pumpScreen(tester);
+    await tester.enterText(find.byType(TextField), 'team');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.text('Team prep'), findsOneWidget);
+    expect(find.text('다시 시도'), findsOneWidget);
+  });
+
 }
