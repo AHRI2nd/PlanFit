@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../design/glass/glass_nav_bar.dart' show navBarControlClearance;
+import '../../../design/layout/app_layout.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../application/schedule_fab_position.dart';
@@ -76,6 +77,7 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
   /// Live pixel offset while a drag is in flight; null whenever the button
   /// is parked, in which case the stored position is what places it.
   Offset? _dragTopLeft;
+  Rect? _dragRegion;
 
   /// Where the button's top-left sat when the long press began.
   /// `onLongPressMoveUpdate` reports its offset cumulatively from the press
@@ -89,19 +91,20 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
   /// region of [regionSize] — the parked button's own footprint and the
   /// nav bar it must stay clear of, taken out of the region up front so
   /// every calculation below can treat this as a plain rectangle.
-  Rect _placeableArea(Size regionSize) {
+  Rect _placeableArea(Size regionSize, Rect availableRegion) {
     const inset = DraggableAddButton.edgeInset;
-    final left = inset;
-    final top = inset + widget.topInset;
-    final right = regionSize.width - DraggableAddButton.size - inset;
+    final left = availableRegion.left + inset;
+    final top = availableRegion.top + inset + widget.topInset;
+    final right = availableRegion.right - DraggableAddButton.size - inset;
     // The region runs to the bottom of the screen (AppShell draws its bar
     // over the body rather than reserving space for it), so the bar's own
     // height comes off here or a button parked at the bottom would sit
     // behind it — visible through the glass but not tappable.
-    final bottom =
-        regionSize.height -
+    final overlapsBottomBar =
+        availableRegion.bottom >= regionSize.height - 1;
+    final bottom = availableRegion.bottom -
         DraggableAddButton.size -
-        navBarControlClearance(context);
+        (overlapsBottomBar ? navBarControlClearance(context) : 0);
     return Rect.fromLTRB(
       left,
       top,
@@ -110,26 +113,81 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
     );
   }
 
-  Offset _parkedTopLeft(ScheduleFabPosition position, Size regionSize) {
-    final area = _placeableArea(regionSize);
+  Rect _regionFor(
+    ScheduleFabPosition position,
+    List<Rect> regions,
+    Size regionSize,
+  ) {
+    final eligible = regions
+        .where((region) =>
+            region.width >= DraggableAddButton.size &&
+            region.height >= DraggableAddButton.size)
+        .toList();
+    if (eligible.isEmpty) return Offset.zero & regionSize;
+    final sameRow = eligible.every(
+      (region) => (region.center.dy - eligible.first.center.dy).abs() < 1,
+    );
+    if (!sameRow) {
+      eligible.sort((a, b) => b.bottom.compareTo(a.bottom));
+      return eligible.first;
+    }
+    eligible.sort((a, b) => a.left.compareTo(b.left));
+    return position.side == ScheduleFabSide.left
+        ? eligible.first
+        : eligible.last;
+  }
+
+  Rect _regionDuringDrag(List<Rect> regions, Size regionSize) {
+    final current = _dragRegion;
+    if (current != null && regions.contains(current)) return current;
+    final dragTopLeft = _dragTopLeft;
+    if (dragTopLeft != null) {
+      final center = dragTopLeft +
+          const Offset(
+            DraggableAddButton.size / 2,
+            DraggableAddButton.size / 2,
+          );
+      for (final region in regions) {
+        if (region.contains(center)) return region;
+      }
+    }
+    return _regionFor(
+      ref.read(scheduleFabPositionProvider),
+      regions,
+      regionSize,
+    );
+  }
+
+  Offset _parkedTopLeft(
+    ScheduleFabPosition position,
+    Size regionSize,
+    Rect availableRegion,
+  ) {
+    final area = _placeableArea(regionSize, availableRegion);
     return Offset(
       position.side == ScheduleFabSide.left ? area.left : area.right,
       area.top + (area.bottom - area.top) * position.verticalFraction,
     );
   }
 
-  void _onLongPressStart(Offset topLeft) {
+  void _onLongPressStart(Offset topLeft, Rect availableRegion) {
     HapticFeedback.mediumImpact();
     setState(() {
       _pressOrigin = topLeft;
+      _dragRegion = availableRegion;
       _dragTopLeft = topLeft;
     });
   }
 
   void _onLongPressMove(Offset offsetFromOrigin, Size regionSize) {
-    final area = _placeableArea(regionSize);
+    final availableRegion = _regionDuringDrag(
+      AppLayout.of(context, viewportSize: regionSize).controlRegions,
+      regionSize,
+    );
+    final area = _placeableArea(regionSize, availableRegion);
     final next = _pressOrigin + offsetFromOrigin;
     setState(() {
+      _dragRegion = availableRegion;
       _dragTopLeft = Offset(
         next.dx.clamp(area.left, area.right),
         next.dy.clamp(area.top, area.bottom),
@@ -140,7 +198,11 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
   void _onLongPressEnd(Size regionSize) {
     final dropped = _dragTopLeft;
     if (dropped == null) return;
-    final area = _placeableArea(regionSize);
+    final availableRegion = _regionDuringDrag(
+      AppLayout.of(context, viewportSize: regionSize).controlRegions,
+      regionSize,
+    );
+    final area = _placeableArea(regionSize, availableRegion);
 
     // Nearest side by the button's own centre, so the halfway line is the
     // middle of the region rather than the middle minus half a button.
@@ -153,7 +215,10 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
     final fraction = span <= 0 ? 0.0 : (dropped.dy - area.top) / span;
 
     HapticFeedback.selectionClick();
-    setState(() => _dragTopLeft = null);
+    setState(() {
+      _dragTopLeft = null;
+      _dragRegion = null;
+    });
     ref
         .read(scheduleFabPositionProvider.notifier)
         .set(ScheduleFabPosition(side: side, verticalFraction: fraction));
@@ -174,7 +239,15 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final regionSize = constraints.biggest;
-          final topLeft = _dragTopLeft ?? _parkedTopLeft(position, regionSize);
+          final regions = AppLayout.of(
+            context,
+            viewportSize: regionSize,
+          ).controlRegions;
+          final availableRegion = _dragging
+              ? _regionDuringDrag(regions, regionSize)
+              : _regionFor(position, regions, regionSize);
+          final topLeft = _dragTopLeft ??
+              _parkedTopLeft(position, regionSize, availableRegion);
 
           return Stack(
             children: [
@@ -201,8 +274,10 @@ class _DraggableAddButtonState extends ConsumerState<DraggableAddButton> {
                             debugOwner: this,
                           ),
                           (instance) {
-                            instance.onLongPressStart = (_) =>
-                                _onLongPressStart(topLeft);
+                            instance.onLongPressStart = (_) => _onLongPressStart(
+                              topLeft,
+                              availableRegion,
+                            );
                             instance.onLongPressMoveUpdate = (details) =>
                                 _onLongPressMove(
                                   details.offsetFromOrigin,

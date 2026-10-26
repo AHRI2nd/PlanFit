@@ -12,6 +12,7 @@ class AppLayout {
     required this.keyboardBounds,
     required this.navigationPlacement,
     required this.availableRegions,
+    required this.controlRegions,
     required this.occlusions,
   });
 
@@ -20,13 +21,15 @@ class AppLayout {
   final Rect keyboardBounds;
   final NavigationPlacement navigationPlacement;
   final List<Rect> availableRegions;
+  final List<Rect> controlRegions;
   final List<Rect> occlusions;
 
   bool get usesSideNavigation =>
       navigationPlacement != NavigationPlacement.bottom;
 
-  static AppLayout of(BuildContext context) {
+  static AppLayout of(BuildContext context, {Size? viewportSize}) {
     final media = MediaQuery.of(context);
+    final size = viewportSize ?? media.size;
     final scope = context.dependOnInheritedWidgetOfExactType<AppLayoutScope>();
     final snapshot = scope?.snapshot;
     final windowSize = scope?.windowSize;
@@ -38,21 +41,21 @@ class AppLayout {
     final regions = snapshotMatches
         ? snapshot.regions
             .map((region) => region.bounds.shift(-origin))
-            .where((rect) => rect.overlaps(Offset.zero & media.size))
+            .where((rect) => rect.overlaps(Offset.zero & size))
             .toList(growable: false)
         : const <ReservedRegion>[];
 
     final safeBounds = Rect.fromLTRB(
       media.padding.left,
       media.padding.top,
-      media.size.width - media.padding.right,
-      media.size.height - media.padding.bottom,
+      size.width - media.padding.right,
+      size.height - media.padding.bottom,
     );
     final keyboardBounds = Rect.fromLTRB(
       0,
       0,
-      media.size.width,
-      media.size.height - media.viewInsets.bottom,
+      size.width,
+      size.height - media.viewInsets.bottom,
     );
     final contentBounds = safeBounds.intersect(keyboardBounds);
     final divisions = regions
@@ -66,6 +69,10 @@ class AppLayout {
             region.kind == ReservedRegionKind.occlusion && region.isActive)
         .map((region) => region.bounds)
         .toList(growable: false);
+    final controlRegions = _divide(
+      contentBounds,
+      [...divisions, ...occlusions],
+    );
 
     final horizontalClass = snapshotMatches
         ? snapshot.horizontalSizeClass
@@ -82,11 +89,12 @@ class AppLayout {
         : NavigationPlacement.leading;
 
     return AppLayout(
-      size: media.size,
+      size: size,
       safeBounds: contentBounds,
       keyboardBounds: keyboardBounds,
       navigationPlacement: placement,
       availableRegions: availableRegions,
+      controlRegions: controlRegions,
       occlusions: occlusions,
     );
   }

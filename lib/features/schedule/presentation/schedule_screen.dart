@@ -9,6 +9,7 @@ import '../../../core/lunar/lunar_format.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/layout/app_layout.dart';
 import '../../../design/widgets/swipe_navigation_detector.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../features/settings/application/settings_controller.dart';
@@ -29,6 +30,8 @@ import 'year_view/year_view.dart';
 // calendar and the selected day's time list. Below this threshold (including
 // narrow iPad Split View windows), the single-pane month layout is clearer.
 const double _monthTwoPaneMinWidth = 960;
+const double _monthCalendarPaneMinWidth = 376;
+const double _dayDetailPaneMinWidth = 320;
 
 /// The date [selected] moves to for a title-row swipe on [view], one period
 /// in the direction implied by [forward] (true = next, false = previous).
@@ -193,14 +196,85 @@ class ScheduleScreen extends ConsumerWidget {
                         ScheduleView.week => WeekView(anchor: selected),
                         ScheduleView.month => LayoutBuilder(
                           builder: (context, constraints) {
+                            final size = constraints.biggest;
+                            final layout = AppLayout.of(
+                              context,
+                              viewportSize: size,
+                            );
+                            final regions = layout.availableRegions;
+                            if (regions.length > 1) {
+                              final horizontal = regions.every(
+                                (region) =>
+                                    (region.top - regions.first.top).abs() < 1,
+                              );
+                              final ordered = [...regions]
+                                ..sort(horizontal
+                                    ? (a, b) => a.left.compareTo(b.left)
+                                    : (a, b) => a.top.compareTo(b.top));
+                              if (horizontal &&
+                                  ordered.length >= 2 &&
+                                  ordered[0].width >=
+                                      _monthCalendarPaneMinWidth &&
+                                  ordered[1].width >= _dayDetailPaneMinWidth &&
+                                  ordered[0].height >= 600 &&
+                                  ordered[1].height >= 600) {
+                                return Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Positioned.fromRect(
+                                      rect: ordered[0],
+                                      child: MonthView(calendarOnly: true),
+                                    ),
+                                    Positioned.fromRect(
+                                      rect: ordered[1],
+                                      child: DayView(day: selected),
+                                    ),
+                                  ],
+                                );
+                              }
+                              final vertical = regions.every(
+                                (region) =>
+                                    (region.left - regions.first.left).abs() < 1,
+                              );
+                              if (vertical &&
+                                  ordered.length >= 2 &&
+                                  ordered[0].width >= 700 &&
+                                  ordered[0].height >= 240 &&
+                                  ordered[1].height >= 320) {
+                                return Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Positioned.fromRect(
+                                      rect: ordered[0],
+                                      child: MonthView(calendarOnly: true),
+                                    ),
+                                    Positioned.fromRect(
+                                      rect: ordered[1],
+                                      child: DayView(day: selected),
+                                    ),
+                                  ],
+                                );
+                              }
+                              final fallback = horizontal
+                                  ? ordered.last
+                                  : ordered.first;
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Positioned.fromRect(
+                                    rect: fallback,
+                                    child: const MonthView(),
+                                  ),
+                                ],
+                              );
+                            }
                             // On a wide, comfortably tall iPad window keep
                             // the month grid and the selected day's timeline
                             // visible together. Narrow/short windows retain
                             // the existing full-width month view so the grid
                             // remains usable in Split View and landscape.
-                            final twoPane =
-                                constraints.maxWidth >= _monthTwoPaneMinWidth &&
-                                constraints.maxHeight >= 600;
+                            final twoPane = size.width >= _monthTwoPaneMinWidth &&
+                                size.height >= 600;
                             if (!twoPane) return const MonthView();
                             // PageView-backed day content is sensitive to
                             // fractional viewport widths in Flutter's sliver
