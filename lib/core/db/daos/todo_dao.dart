@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../../features/todo/domain/todo_tag_match.dart';
 import '../app_database.dart';
+import '../../date_math.dart';
 import '../../search/search_options.dart';
 import '../sync_status.dart';
 import '../tables.dart';
@@ -14,6 +15,11 @@ part 'todo_dao.g.dart';
 class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   TodoDao(super.db);
 
+  Expression<bool> _inWindow(DateTime from, DateTime to) =>
+    todoItems.slotStart.isSmallerThanValue(to) &
+    (todoItems.slotStart.isBiggerOrEqualValue(from) |
+      (todoItems.hasTime.equals(true) & todoItems.slotEnd.isBiggerThanValue(from) & todoItems.slotEnd.isBiggerThan(todoItems.slotStart)));
+
   /// To-dos whose slot starts within [from, to). No-time to-dos (see
   /// [TodoItems.hasTime]) sort first as a group — they belong to the day but
   /// not to any particular hour in it — then the rest by slot, then manual
@@ -22,8 +28,7 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
     return (select(todoItems)
           ..where(
             (t) =>
-                t.slotStart.isBiggerOrEqualValue(from) &
-                t.slotStart.isSmallerThanValue(to),
+                _inWindow(from, to),
           )
           ..orderBy([
             (t) => OrderingTerm(expression: t.hasTime),
@@ -36,8 +41,7 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   Future<List<TodoRow>> between(DateTime from, DateTime to) {
     return (select(todoItems)..where(
           (t) =>
-              t.slotStart.isBiggerOrEqualValue(from) &
-              t.slotStart.isSmallerThanValue(to),
+              _inWindow(from, to),
         ))
         .get();
   }
@@ -107,13 +111,14 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
 
   /// Sets a concrete time — implicitly turns a no-time to-do back into a
   /// timed one, since picking a time is exactly how a user opts back in.
-  Future<void> updateSlotStart(String id, DateTime slotStart) =>
-      (update(todoItems)..where((t) => t.id.equals(id))).write(
-        TodoItemsCompanion(
-          slotStart: Value(slotStart),
-          hasTime: const Value(true),
-        ),
-      );
+  Future<void> updateSlotStart(String id, DateTime slotStart) => transaction(() async {
+    final row = await findById(id);
+    if (row == null) return;
+    final end = row.hasTime && row.slotEnd != null && row.slotEnd!.isAfter(row.slotStart)
+      ? shiftTimeOfDay(slotStart, calendarDuration(row.slotStart, row.slotEnd!)) : null;
+    await patch(id, TodoItemsCompanion(slotStart: Value(slotStart), slotEnd: Value(end),
+      hasTime: const Value(true), reminderSyncStatus: const Value(SyncStatus.pendingPush)));
+  });
 
   /// Moves [id] onto [day], keeping both its time-of-day and whether it has
   /// one at all.
@@ -127,7 +132,7 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   ///
   /// A no-time to-do is normalized to [day]'s own midnight, for the same
   /// reason [clearTime] does it — see there.
-  Future<void> updateSlotDate(String id, DateTime day) async {
+  Future<void> updateSlotDate(String id, DateTime day) => transaction(() async {
     final existing = await findById(id);
     if (existing == null) return;
     final s = existing.slotStart;
@@ -144,9 +149,12 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
           )
         : DateTime(day.year, day.month, day.day);
     await (update(todoItems)..where((t) => t.id.equals(id))).write(
-      TodoItemsCompanion(slotStart: Value(moved)),
+      TodoItemsCompanion(slotStart: Value(moved),
+        slotEnd: Value(existing.hasTime && existing.slotEnd != null && existing.slotEnd!.isAfter(s)
+          ? shiftTimeOfDay(moved, calendarDuration(s, existing.slotEnd!)) : null),
+        reminderSyncStatus: const Value(SyncStatus.pendingPush)),
     );
-  }
+  });
 
   /// Clears the time-of-day, keeping the to-do on the same day but moving it
   /// into that day's "no time" group — and normalizes [TodoItems.slotStart]
@@ -157,7 +165,7 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   /// 9am, one from 2pm) would keep those as an invisible sort key ahead of
   /// `sortOrder`, silently breaking manual drag reorder within that day's
   /// no-time bucket.
-  Future<void> clearTime(String id) async {
+  Future<void> clearTime(String id) => transaction(() async {
     final existing = await findById(id);
     if (existing == null) return;
     final day = DateTime(
@@ -166,9 +174,9 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
       existing.slotStart.day,
     );
     await (update(todoItems)..where((t) => t.id.equals(id))).write(
-      TodoItemsCompanion(hasTime: const Value(false), slotStart: Value(day)),
+      TodoItemsCompanion(hasTime: const Value(false), slotStart: Value(day), slotEnd: const Value(null), reminderSyncStatus: const Value(SyncStatus.pendingPush)),
     );
-  }
+  });
 
   Future<void> deleteById(String id) =>
       (delete(todoItems)..where((t) => t.id.equals(id))).go();

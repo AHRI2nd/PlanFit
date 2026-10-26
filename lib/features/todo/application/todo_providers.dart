@@ -15,6 +15,7 @@ import '../../schedule/domain/recurrence.dart';
 import '../../schedule/domain/ports.dart';
 import '../domain/todo_notification_sync.dart';
 import '../domain/todo_reschedule.dart';
+import '../domain/todo_time_block.dart';
 import '../domain/todo_priority.dart';
 
 /// To-dos whose slot falls on the given day, grouped-ready (already ordered by
@@ -262,16 +263,18 @@ class TodoController {
     await _syncReminder(id);
   }
 
-  Future<void> updateTime(String id, DateTime slotStart) async {
+  Future<void> updateTime(String id, DateTime slotStart) => _placementQueue.run(() async {
     await _ref.read(todoDaoProvider).updateSlotStart(id, slotStart);
-    await _syncNotification(id);
-    await _syncReminder(id);
-  }
+    try { await _syncPlacement(id); } catch (_) { /* Local placement is already committed. */ }
+  });
 
   /// Moves [id] to a different day, keeping its time-of-day and whether it
   /// has one — see [TodoDao.updateSlotDate] for why that isn't [updateTime]
   /// with a recomposed date.
   final _placementQueue = SerialQueue();
+  Future<TimeBlockSaveResult> setTimeBlock(String id, TodoTimeBlock block) =>
+    _placementQueue.run(() => TodoTimeBlockWriter(dao: _ref.read(todoDaoProvider), synchronize: _syncPlacement).save(id, block));
+
   Future<TodoRescheduleResult> reschedule(Iterable<String> ids, DateTime day) {
     final selected = ids.toSet();
     return _placementQueue.run(() => TodoRescheduler(dao: _ref.read(todoDaoProvider),
@@ -295,17 +298,15 @@ class TodoController {
     if (deferred) throw StateError('Placement saved; platform work deferred');
   }
 
-  Future<void> updateDate(String id, DateTime day) async {
+  Future<void> updateDate(String id, DateTime day) => _placementQueue.run(() async {
     await _ref.read(todoDaoProvider).updateSlotDate(id, day);
-    await _syncNotification(id);
-    await _syncReminder(id);
-  }
+    try { await _syncPlacement(id); } catch (_) { /* Local placement is already committed. */ }
+  });
 
-  Future<void> clearTime(String id) async {
+  Future<void> clearTime(String id) => _placementQueue.run(() async {
     await _ref.read(todoDaoProvider).clearTime(id);
-    await _syncNotification(id);
-    await _syncReminder(id);
-  }
+    try { await _syncPlacement(id); } catch (_) { /* Local placement is already committed. */ }
+  });
 
   Future<void> setPriority(String id, int priority) =>
       _ref.read(todoDaoProvider).setPriority(id, priority);
