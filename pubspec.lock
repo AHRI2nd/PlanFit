@@ -468,7 +468,7 @@ packages:
     source: hosted
     version: "8.0.1"
   flutter_local_notifications_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: flutter_local_notifications_platform_interface
       sha256: "4dfbae10debab9ac975d8b01943fed94c0c19dad43f825964b29f3c3f9a8a852"
