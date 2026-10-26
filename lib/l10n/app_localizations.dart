@@ -2435,6 +2435,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'권한과 처리 대기 상태를 확인해요. 알림 권한과 개별 항목의 알림 예약 여부는 다를 수 있어요.'**
   String get healthDescription;
+
+  /// No description provided for @scheduleTools.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간표 도구'**
+  String get scheduleTools;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

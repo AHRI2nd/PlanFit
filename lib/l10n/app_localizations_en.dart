@@ -1329,4 +1329,7 @@ class AppL10nEn extends AppL10n {
   @override
   String get healthDescription =>
       'Review access and pending work. Notification access does not confirm that an individual alert has been scheduled.';
+
+  @override
+  String get scheduleTools => 'Schedule tools';
 }

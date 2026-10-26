@@ -532,161 +532,37 @@ class _TitleChevron extends StatelessWidget {
   }
 }
 
-/// The view-switcher row's trailing icon cluster: quick-add + legend on
-/// every view, plus [_DayLayoutToggle] on [ScheduleView.day] only.
-///
-/// Always reserves exactly the width the 2-icon (non-day) cluster needs,
-/// regardless of which view is active — [_ViewSwitcher] sits in an
-/// [Expanded] right next to this, so if this cluster's width changed
-/// between views, the switcher pill itself would resize and visibly shift
-/// left/right when switching tabs. A [Visibility] with `maintainSize` locks
-/// that width in; day view's extra button then reuses that same footprint
-/// by tightening the *gaps* between the 3 icons (smaller inter-icon spacing,
-/// smaller tap padding around each) — the icons themselves stay their
-/// normal size, never scaled down, only repositioned closer together. The
-/// [FittedBox] around them is a pure safety net (`scaleDown` never enlarges,
-/// and does nothing at all once the 3 tightened icons already fit) in case
-/// some device/text-scale combination makes them not quite fit.
-class _HeaderTrailingIcons extends StatelessWidget {
-  const _HeaderTrailingIcons({
-    required this.view,
-    required this.onQuickAdd,
-    required this.onLegend,
-  });
+/// Primary creation stays directly accessible; secondary actions use a menu.
+enum _ScheduleTool { legend, layout }
 
+class _HeaderTrailingIcons extends ConsumerWidget {
+  const _HeaderTrailingIcons({required this.view, required this.onQuickAdd, required this.onLegend});
   final ScheduleView view;
   final VoidCallback onQuickAdd;
   final VoidCallback onLegend;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppL10n.of(context);
-    final baseIcons = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          tooltip: l10n.quickAddEventTitle,
-          icon: const Icon(Icons.bolt_outlined),
-          onPressed: onQuickAdd,
-        ),
-        IconButton(
-          tooltip: l10n.calendarLegendTooltip,
-          icon: const Icon(Icons.info_outline),
-          onPressed: onLegend,
-        ),
-      ],
-    );
-
-    if (view != ScheduleView.day) return baseIcons;
-
-    return Stack(
-      alignment: Alignment.centerRight,
-      children: [
-        Visibility(
-          visible: false,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: baseIcons,
-        ),
-        Positioned.fill(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _CompactHeaderIconButton(
-                    tooltip: l10n.quickAddEventTitle,
-                    icon: Icons.bolt_outlined,
-                    onPressed: onQuickAdd,
-                  ),
-                  const SizedBox(width: 2),
-                  _CompactHeaderIconButton(
-                    tooltip: l10n.calendarLegendTooltip,
-                    icon: Icons.info_outline,
-                    onPressed: onLegend,
-                  ),
-                  const SizedBox(width: 2),
-                  const _DayLayoutToggle(),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// A tap target for the day view's tightened 3-icon cluster (see
-/// [_HeaderTrailingIcons]) — deliberately built on [InkResponse], not
-/// [IconButton]. Measured live: even with `visualDensity: compact` and
-/// `padding: EdgeInsets.zero`, [IconButton]'s own theme still enforces a
-/// ~40px minimum tap box underneath (baseline default measured 44px, the
-/// "compact" IconButton only reached 40px) — three of those can't fit in
-/// the ~96px two normal `IconButton`s use, so the space would still run out
-/// and fall back to the [FittedBox] safety net, uniformly shrinking the
-/// icon glyphs along with everything else. [InkResponse] has no such
-/// enforced minimum, so the icon itself (default 24dp, unscaled — no `size`
-/// override) plus a small fixed padding is *all* of this widget's real
-/// footprint, comfortably fitting 3 of them in that same reserved width.
-class _CompactHeaderIconButton extends StatelessWidget {
-  const _CompactHeaderIconButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkResponse(
-        onTap: onPressed,
-        radius: 20,
-        child: Padding(padding: const EdgeInsets.all(2), child: Icon(icon)),
-      ),
-    );
-  }
-}
-
-/// Switches [DayView] between its timeline and 24-hour clock layouts — only
-/// shown while [ScheduleView.day] is active, since it's the only view either
-/// layout applies to. Shows the icon for the layout a tap would switch *to*
-/// (matching the icon convention play/pause buttons use), not the one
-/// currently showing.
-///
-/// Its only call site is inside [_HeaderTrailingIcons]' tightened 3-icon
-/// cluster, so it uses the same compact tap-padding as
-/// [_CompactHeaderIconButton] there — the icon glyph itself is still full
-/// size, unscaled.
-class _DayLayoutToggle extends ConsumerWidget {
-  const _DayLayoutToggle();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
     final mode = ref.watch(dayViewLayoutModeProvider);
-    final targetMode = mode == DayViewLayoutMode.timeline
-        ? DayViewLayoutMode.clock
-        : DayViewLayoutMode.timeline;
-    return _CompactHeaderIconButton(
-      tooltip: targetMode == DayViewLayoutMode.clock
-          ? l10n.dayLayoutSwitchToClock
-          : l10n.dayLayoutSwitchToTimeline,
-      icon: targetMode == DayViewLayoutMode.clock
-          ? Icons.donut_large_outlined
-          : Icons.view_timeline_outlined,
-      onPressed: () =>
-          ref.read(dayViewLayoutModeProvider.notifier).set(targetMode),
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      SizedBox(width: 48, height: 48, child: IconButton(
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        tooltip: l10n.quickAddEventTitle, icon: const Icon(Icons.bolt_outlined), onPressed: onQuickAdd)),
+      SizedBox(width: 48, height: 48, child: PopupMenuButton<_ScheduleTool>(
+        tooltip: l10n.scheduleTools, icon: const Icon(Icons.more_vert),
+        onSelected: (tool) {
+          if (tool == _ScheduleTool.legend) { onLegend(); }
+          else { ref.read(dayViewLayoutModeProvider.notifier).set(
+            mode == DayViewLayoutMode.timeline ? DayViewLayoutMode.clock : DayViewLayoutMode.timeline); }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(value: _ScheduleTool.legend, child: Text(l10n.calendarLegendTooltip)),
+          if (view == ScheduleView.day) PopupMenuItem(value: _ScheduleTool.layout,
+            child: Text(mode == DayViewLayoutMode.timeline
+              ? l10n.dayLayoutSwitchToClock : l10n.dayLayoutSwitchToTimeline)),
+        ],
+      )),
+    ]);
   }
 }
 

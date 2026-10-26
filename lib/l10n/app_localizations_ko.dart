@@ -1258,4 +1258,7 @@ class AppL10nKo extends AppL10n {
   @override
   String get healthDescription =>
       '권한과 처리 대기 상태를 확인해요. 알림 권한과 개별 항목의 알림 예약 여부는 다를 수 있어요.';
+
+  @override
+  String get scheduleTools => '시간표 도구';
 }

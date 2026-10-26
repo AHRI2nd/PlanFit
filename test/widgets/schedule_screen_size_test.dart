@@ -187,4 +187,12 @@ void main() {
     expect(find.byKey(const Key('schedule-view-menu')), findsOneWidget);
   });
 
+  testWidgets('day quick-add keeps a full interactive target', (tester) async {
+    await pumpSchedule(tester, view: ScheduleView.day, selected: sixRowMonth);
+    final l10n = AppL10n.of(tester.element(find.byType(ScheduleScreen)));
+    final size = tester.getSize(find.byTooltip(l10n.quickAddEventTitle).last);
+    expect(size.width, greaterThanOrEqualTo(48));
+    expect(size.height, greaterThanOrEqualTo(48));
+  });
+
 }

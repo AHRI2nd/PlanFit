@@ -565,5 +565,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "scheduleTools": "시간표 도구"
 }
