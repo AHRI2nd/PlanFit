@@ -490,5 +490,8 @@
   "lunarDatePickerDay": "Day",
   "lunarLeapMonthToggle": "Leap month",
   "commonRetry": "Try again",
-  "commonNoRecords": "No records yet"
+  "commonNoRecords": "No records yet",
+  "searchIncludeCompleted": "Include completed to-dos",
+  "searchCustomColor": "Custom color",
+  "searchInvalidColor": "Enter a color such as #112233"
 }

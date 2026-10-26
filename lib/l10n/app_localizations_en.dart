@@ -1212,4 +1212,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get commonNoRecords => 'No records yet';
+
+  @override
+  String get searchIncludeCompleted => 'Include completed to-dos';
+
+  @override
+  String get searchCustomColor => 'Custom color';
+
+  @override
+  String get searchInvalidColor => 'Enter a color such as #112233';
 }

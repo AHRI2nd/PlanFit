@@ -2231,6 +2231,24 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'아직 기록이 없어요'**
   String get commonNoRecords;
+
+  /// No description provided for @searchIncludeCompleted.
+  ///
+  /// In ko, this message translates to:
+  /// **'완료한 할 일 포함'**
+  String get searchIncludeCompleted;
+
+  /// No description provided for @searchCustomColor.
+  ///
+  /// In ko, this message translates to:
+  /// **'사용자 지정 색상'**
+  String get searchCustomColor;
+
+  /// No description provided for @searchInvalidColor.
+  ///
+  /// In ko, this message translates to:
+  /// **'#112233 형식으로 입력해주세요'**
+  String get searchInvalidColor;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

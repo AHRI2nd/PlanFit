@@ -1144,4 +1144,13 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get commonNoRecords => '아직 기록이 없어요';
+
+  @override
+  String get searchIncludeCompleted => '완료한 할 일 포함';
+
+  @override
+  String get searchCustomColor => '사용자 지정 색상';
+
+  @override
+  String get searchInvalidColor => '#112233 형식으로 입력해주세요';
 }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/db/app_database.dart';
+import '../../../../core/date_math.dart';
+import '../../../../core/search/search_options.dart';
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
 import '../../../../core/time_format.dart';
@@ -11,6 +13,7 @@ import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../design/widgets/section_header.dart';
+import '../../../../design/widgets/app_dialog.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
@@ -18,6 +21,7 @@ import '../../../todo/domain/todo_priority.dart';
 import '../../../todo/domain/todo_tag_match.dart';
 import '../../../todo/presentation/todo_detail_sheet.dart';
 import '../../application/schedule_providers.dart';
+import '../../application/search_memory.dart';
 import '../event_edit/event_editor_sheet.dart';
 import '../event_edit/event_preview_sheet.dart';
 
@@ -50,12 +54,25 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   int _searchGeneration = 0;
   TodoPriority? _priorityFilter;
   String? _tagFilter;
-  EventColorTag? _colorFilter;
+  String? _colorFilter;
+  bool _includeCompleted = true;
+  SearchResultType _type = SearchResultType.all;
   DateTimeRange? _dateRangeFilter;
 
   @override
   void initState() {
     super.initState();
+    final memory = ref.read(searchMemoryProvider);
+    _priorityFilter = memory.options.priority == null ? null
+        : TodoPriority.fromValue(memory.options.priority!);
+    _tagFilter = memory.options.tag;
+    _colorFilter = memory.options.colorTag;
+    _includeCompleted = memory.options.includeCompleted;
+    _type = memory.type;
+    if (memory.options.from != null && memory.options.to != null) {
+      _dateRangeFilter = DateTimeRange(start: memory.options.from!,
+        end: addCalendarDays(memory.options.to!, -1));
+    }
     final query = ref.read(eventSearchQueryProvider);
     _controller = TextEditingController(text: query);
     if (query.trim().isNotEmpty) {
@@ -65,6 +82,19 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     }
   }
 
+  SearchOptions get _options => SearchOptions(
+    from: _dateRangeFilter?.start,
+    to: _dateRangeFilter == null ? null : addCalendarDays(_dateRangeFilter!.end, 1),
+    colorTag: _colorFilter, priority: _priorityFilter?.value, tag: _tagFilter,
+    includeCompleted: _includeCompleted,
+  );
+
+  void _changeFilters(VoidCallback update) {
+    setState(update);
+    ref.read(searchMemoryProvider.notifier).save(SearchMemory(options: _options, type: _type));
+    _onChanged(_controller.text);
+  }
+
   /// [_todoResults] narrowed by the priority/tag filter chips — the title
   /// match already happened in [_onChanged]; this is a further, purely
   /// client-side refinement of that same result set.
@@ -72,6 +102,9 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     final todos = _todoResults;
     if (todos == null) return const [];
     return todos.where((todo) {
+      if (!_includeCompleted && todo.isDone) return false;
+      if (_options.from != null && todo.slotStart.isBefore(_options.from!)) return false;
+      if (_options.to != null && !todo.slotStart.isBefore(_options.to!)) return false;
       if (_priorityFilter != null && todo.priority != _priorityFilter!.value) {
         return false;
       }
@@ -91,13 +124,13 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     if (events == null) return const [];
     return events.where((event) {
       if (_colorFilter != null &&
-          EventColorTag.tryParse(event.colorTag) != _colorFilter) {
+          event.colorTag?.toUpperCase() != _colorFilter?.toUpperCase()) {
         return false;
       }
       final range = _dateRangeFilter;
       if (range != null) {
-        final day = dateOnly(event.startAt);
-        if (day.isBefore(range.start) || day.isAfter(range.end)) {
+        if (!event.endAt.isAfter(range.start) ||
+            !event.startAt.isBefore(addCalendarDays(range.end, 1))) {
           return false;
         }
       }
@@ -136,8 +169,8 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     _debounce = Timer(const Duration(milliseconds: 250), () async {
       final generation = ++_searchGeneration;
       final results = await Future.wait([
-        ref.read(eventRepositoryProvider).search(trimmed),
-        ref.read(todoDaoProvider).search(trimmed),
+        ref.read(eventRepositoryProvider).search(trimmed, options: _options),
+        ref.read(todoDaoProvider).search(trimmed, options: _options),
       ]);
       if (!mounted || generation != _searchGeneration) return;
       setState(() {
@@ -228,9 +261,6 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     if (events == null || todos == null) {
       return _Placeholder(icon: Icons.search, message: l10n.searchPrompt);
     }
-    if (events.isEmpty && todos.isEmpty) {
-      return _Placeholder(icon: Icons.search_off, message: l10n.searchEmpty);
-    }
     final filteredTodos = _filteredTodoResults;
     final filteredEvents = _filteredEventResults;
     return ListView(
@@ -239,15 +269,26 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
         vertical: AppSpacing.sm,
       ),
       children: [
-        if (events.isNotEmpty) ...[
+        DropdownButton<SearchResultType>(
+          value: _type, isExpanded: true,
+          items: [
+            DropdownMenuItem(value: SearchResultType.all, child: Text(l10n.searchFilterAll)),
+            DropdownMenuItem(value: SearchResultType.events, child: Text(l10n.searchSectionEvents)),
+            DropdownMenuItem(value: SearchResultType.todos, child: Text(l10n.searchSectionTodos)),
+          ],
+          onChanged: (type) { if (type != null) _changeFilters(() => _type = type); },
+        ),
+        _EventFilterRow(colorFilter: _colorFilter, dateRangeFilter: _dateRangeFilter,
+          locale: locale, onColorChanged: (c) => _changeFilters(() => _colorFilter = c),
+          onDateRangeChanged: (r) => _changeFilters(() => _dateRangeFilter = r)),
+        if (_type != SearchResultType.events)
+          FilterChip(label: Text(l10n.searchIncludeCompleted), selected: _includeCompleted,
+            onSelected: (value) => _changeFilters(() => _includeCompleted = value)),
+        if (filteredEvents.isEmpty && filteredTodos.isEmpty)
+          _Placeholder(icon: Icons.search_off, message: l10n.searchEmpty),
+        if (events.isNotEmpty && _type != SearchResultType.todos) ...[
           SectionHeader(l10n.searchSectionEvents),
-          _EventFilterRow(
-            colorFilter: _colorFilter,
-            dateRangeFilter: _dateRangeFilter,
-            locale: locale,
-            onColorChanged: (c) => setState(() => _colorFilter = c),
-            onDateRangeChanged: (r) => setState(() => _dateRangeFilter = r),
-          ),
+
           const SizedBox(height: AppSpacing.xs),
           if (filteredEvents.isEmpty)
             Padding(
@@ -268,13 +309,13 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
             ),
           const SizedBox(height: AppSpacing.md),
         ],
-        if (todos.isNotEmpty) ...[
+        if (todos.isNotEmpty && _type != SearchResultType.events) ...[
           SectionHeader(l10n.searchSectionTodos),
           _TodoFilterRow(
             priorityFilter: _priorityFilter,
             tagFilter: _tagFilter,
-            onPriorityChanged: (p) => setState(() => _priorityFilter = p),
-            onTagChanged: (t) => setState(() => _tagFilter = t),
+            onPriorityChanged: (p) => _changeFilters(() => _priorityFilter = p),
+            onTagChanged: (t) => _changeFilters(() => _tagFilter = t),
           ),
           const SizedBox(height: AppSpacing.xs),
           if (filteredTodos.isEmpty)
@@ -311,11 +352,33 @@ class _EventFilterRow extends StatelessWidget {
     required this.onDateRangeChanged,
   });
 
-  final EventColorTag? colorFilter;
+  final String? colorFilter;
   final DateTimeRange? dateRangeFilter;
   final String locale;
-  final ValueChanged<EventColorTag?> onColorChanged;
+  final ValueChanged<String?> onColorChanged;
   final ValueChanged<DateTimeRange?> onDateRangeChanged;
+
+  Future<void> _pickCustomColor(BuildContext context) async {
+    final l10n = AppL10n.of(context);
+    final controller = TextEditingController(text: colorFilter?.startsWith('#') == true ? colorFilter : '');
+    String? error;
+    final value = await showAppDialog<String>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: Text(l10n.searchCustomColor),
+        content: TextField(controller: controller, decoration: InputDecoration(
+          hintText: '#RRGGBB', errorText: error)),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(l10n.commonCancel)),
+          FilledButton(onPressed: () {
+            final color = controller.text.trim().toUpperCase();
+            if (!RegExp(r'^#[0-9A-F]{6}$').hasMatch(color)) {
+              setDialogState(() => error = l10n.searchInvalidColor); return;
+            }
+            Navigator.pop(dialogContext, color);
+          }, child: Text(l10n.eventSave))],
+      )));
+    controller.dispose();
+    if (value != null && context.mounted) onColorChanged(value);
+  }
 
   Future<void> _pickDateRange(BuildContext context) async {
     final now = DateTime.now();
@@ -324,6 +387,7 @@ class _EventFilterRow extends StatelessWidget {
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 5),
       initialDateRange: dateRangeFilter,
+      useRootNavigator: kDialogUsesRootNavigator,
     );
     if (picked != null) onDateRangeChanged(picked);
   }
@@ -351,8 +415,8 @@ class _EventFilterRow extends StatelessWidget {
                 avatar: CircleAvatar(backgroundColor: tag.color),
                 label: const SizedBox.shrink(),
                 labelPadding: EdgeInsets.zero,
-                selected: colorFilter == tag,
-                onSelected: (_) => onColorChanged(tag),
+                selected: colorFilter == tag.name,
+                onSelected: (_) => onColorChanged(tag.name),
                 showCheckmark: false,
               ),
           ],
