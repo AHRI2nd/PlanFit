@@ -600,5 +600,29 @@
         "type": "int"
       }
     }
+  },
+  "todoMoveUndone": "Restored {count} placements",
+  "todoMoveSkipped": "Kept {count} items unchanged",
+  "todoMoveDeferred": "{count} items saved; notification or sync work is waiting",
+  "@todoMoveUndone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@todoMoveSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@todoMoveDeferred": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

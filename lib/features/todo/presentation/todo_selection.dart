@@ -6,6 +6,7 @@ import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/snackbar_x.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/todo_providers.dart';
+import '../domain/todo_reschedule.dart';
 import '../../../core/date_math.dart';
 import '../../../design/widgets/app_dialog.dart';
 import '../../schedule/application/schedule_providers.dart' show todayProvider;
@@ -71,11 +72,24 @@ mixin TodoSelectionMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
       final day = choice == 2 ? await showAppDatePicker(context: context, initialDate: today,
         firstDate: DateTime(1900), lastDate: DateTime(2200)) : addCalendarDays(today, choice);
       if (day == null || !mounted) return;
-      final result = await ref.read(todoControllerProvider).reschedule(ids, day);
+      final controller = ref.read(todoControllerProvider);
+      final result = await controller.reschedule(ids, day);
       if (!mounted) return;
       exitSelection();
-      ScaffoldMessenger.of(context).showAutoDismissSnackBar(
-        SnackBar(content: Text(l10n.todoMoveCompleted(result.moves.length))));
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showAutoDismissSnackBar(SnackBar(duration: const Duration(seconds: 6),
+        content: Text(_placementReport(l10n, result)),
+        action: result.moves.isEmpty ? null : SnackBarAction(label: l10n.eventUndo, onPressed: () async {
+          try {
+            final undone = await controller.undoReschedule(result.moves);
+            if (messenger.mounted) messenger.showAutoDismissSnackBar(
+              SnackBar(content: Text(_placementReport(l10n, undone, undo: true))));
+          } catch (_) {
+            if (messenger.mounted) messenger.showAutoDismissSnackBar(
+              SnackBar(content: Text(l10n.todoMoveFailed)));
+          }
+        })));
+
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showAutoDismissSnackBar(
         SnackBar(content: Text(l10n.todoMoveFailed)));
@@ -182,3 +196,9 @@ class TodoSelectionToolbar extends StatelessWidget {
     );
   }
 }
+
+String _placementReport(AppL10n l10n, TodoRescheduleResult result, {bool undo = false}) => [
+  undo ? l10n.todoMoveUndone(result.moves.length) : l10n.todoMoveCompleted(result.moves.length),
+  if (result.skippedIds.isNotEmpty) l10n.todoMoveSkipped(result.skippedIds.length),
+  if (result.deferredIds.isNotEmpty) l10n.todoMoveDeferred(result.deferredIds.length),
+].join('\n');

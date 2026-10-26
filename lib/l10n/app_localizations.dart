@@ -2519,6 +2519,24 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'날짜 이동'**
   String get todoSelectionReschedule;
+
+  /// No description provided for @todoMoveUndone.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일 {count}개의 날짜를 되돌렸어요'**
+  String todoMoveUndone(int count);
+
+  /// No description provided for @todoMoveSkipped.
+  ///
+  /// In ko, this message translates to:
+  /// **'다른 편집·완료·삭제 등으로 {count}개는 유지했어요'**
+  String todoMoveSkipped(int count);
+
+  /// No description provided for @todoMoveDeferred.
+  ///
+  /// In ko, this message translates to:
+  /// **'{count}개는 저장했고 알림·연동 처리를 기다려요'**
+  String todoMoveDeferred(int count);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

@@ -36,4 +36,30 @@ void main() {
     await expectLater(service.move({'a','b'}, DateTime(2030, 2, 2)), throwsA(anything));
     expect((await db.todoDao.findById('a'))!.slotStart, DateTime(2030));
   });
+  test('undo restores placement while preserving a later title edit', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db.todoDao.upsert(TodoItemsCompanion.insert(id: 'a', slotStart: DateTime(2030)));
+    final service = TodoRescheduler(dao: db.todoDao, synchronize: (_) async {});
+    final moved = await service.move({'a'}, DateTime(2030, 2, 2));
+    await db.todoDao.patch('a', const TodoItemsCompanion(title: Value('Later title')));
+    final undone = await service.undo(moved.moves);
+    final row = (await db.todoDao.findById('a'))!;
+    expect(row.slotStart, DateTime(2030));
+    expect(row.title, 'Later title');
+    expect(undone.moves, hasLength(1));
+  });
+  test('undo skips independently moved items and deferred sync is reported', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db.todoDao.upsert(TodoItemsCompanion.insert(id: 'a', slotStart: DateTime(2030)));
+    final service = TodoRescheduler(dao: db.todoDao, synchronize: (_) async => throw Exception('offline'));
+    final moved = await service.move({'a'}, DateTime(2030, 2, 2));
+    expect(moved.deferredIds, {'a'});
+    await db.todoDao.updateSlotStart('a', DateTime(2030, 3, 3));
+    final undone = await service.undo(moved.moves);
+    expect(undone.skippedIds, {'a'});
+    expect((await db.todoDao.findById('a'))!.slotStart, DateTime(2030, 3, 3));
+  });
+
 }

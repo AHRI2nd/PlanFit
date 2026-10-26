@@ -600,5 +600,29 @@
         "type": "int"
       }
     }
+  },
+  "todoMoveUndone": "할 일 {count}개의 날짜를 되돌렸어요",
+  "todoMoveSkipped": "다른 편집·완료·삭제 등으로 {count}개는 유지했어요",
+  "todoMoveDeferred": "{count}개는 저장했고 알림·연동 처리를 기다려요",
+  "@todoMoveUndone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@todoMoveSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@todoMoveDeferred": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

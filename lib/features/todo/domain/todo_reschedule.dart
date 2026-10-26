@@ -63,11 +63,30 @@ class TodoRescheduler {
           moves.add(TodoMove(id, before, after));
         }
       });
-      return publish(moves, skipped);
+      return _publish(moves, skipped);
     });
   }
 
-  Future<TodoRescheduleResult> publish(List<TodoMove> moves, Set<String> skipped) async {
+  Future<TodoRescheduleResult> undo(Iterable<TodoMove> changes) {
+    final snapshot = changes.toList(growable: false);
+    return _queue.run(() async {
+      final restored = <TodoMove>[];
+      final skipped = <String>{};
+      await dao.transaction(() async {
+        for (final move in snapshot) {
+          final current = await dao.findById(move.id);
+          if (current == null || current.isDone || !move.after.matches(current)) {
+            skipped.add(move.id); continue;
+          }
+          await dao.patch(move.id, move.before.patch);
+          restored.add(TodoMove(move.id, move.after, move.before));
+        }
+      });
+      return _publish(restored, skipped);
+    });
+  }
+
+  Future<TodoRescheduleResult> _publish(List<TodoMove> moves, Set<String> skipped) async {
     final deferred = <String>{};
     for (final move in moves) {
       try { await synchronize(move.id); } catch (_) { deferred.add(move.id); }

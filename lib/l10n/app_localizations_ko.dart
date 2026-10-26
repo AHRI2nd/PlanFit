@@ -1306,4 +1306,19 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get todoSelectionReschedule => '날짜 이동';
+
+  @override
+  String todoMoveUndone(int count) {
+    return '할 일 $count개의 날짜를 되돌렸어요';
+  }
+
+  @override
+  String todoMoveSkipped(int count) {
+    return '다른 편집·완료·삭제 등으로 $count개는 유지했어요';
+  }
+
+  @override
+  String todoMoveDeferred(int count) {
+    return '$count개는 저장했고 알림·연동 처리를 기다려요';
+  }
 }

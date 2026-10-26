@@ -275,6 +275,12 @@ class TodoController {
       synchronize: _syncPlacement).move(selected, day));
   }
 
+  Future<TodoRescheduleResult> undoReschedule(Iterable<TodoMove> moves) {
+    final snapshot = moves.toList(growable: false);
+    return _placementQueue.run(() => TodoRescheduler(dao: _ref.read(todoDaoProvider),
+      synchronize: _syncPlacement).undo(snapshot));
+  }
+
   Future<void> _syncPlacement(String id) async {
     var deferred = false;
     try { await _syncNotification(id); } catch (_) { deferred = true; }

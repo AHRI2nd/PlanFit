@@ -1381,4 +1381,19 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get todoSelectionReschedule => 'Move to another date';
+
+  @override
+  String todoMoveUndone(int count) {
+    return 'Restored $count placements';
+  }
+
+  @override
+  String todoMoveSkipped(int count) {
+    return 'Kept $count items unchanged';
+  }
+
+  @override
+  String todoMoveDeferred(int count) {
+    return '$count items saved; notification or sync work is waiting';
+  }
 }
