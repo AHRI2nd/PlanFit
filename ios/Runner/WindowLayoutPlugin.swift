@@ -74,9 +74,10 @@ public final class WindowLayoutPlugin: NSObject, FlutterPlugin, FlutterStreamHan
       let divisionRegions = view.reservedRegions(kind: .division, options: .includeInactive)
       let occlusionRegions = view.reservedRegions(kind: .occlusion, options: .includeInactive)
       regions = (divisionRegions.map { ($0, "division") } + occlusionRegions.map { ($0, "occlusion") })
-        .map { region, kind in
-          [
-            "id": region.identifier.description,
+        .map { pair in
+          let (region, kind) = pair
+          return [
+            "id": region.id.description,
             "kind": kind,
             "left": region.frame.minX,
             "top": region.frame.minY,
