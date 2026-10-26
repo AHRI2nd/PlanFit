@@ -26,8 +26,18 @@ class _SettingsController extends SettingsController {
   AppSettings build() => const AppSettings();
 }
 
+class _PreparedBackup extends Fake implements PreparedBackup {
+  @override
+  BackupFilePreview get preview => const BackupFilePreview(
+    eventCount: 3, todoCount: 2, templateCount: 1, legacyFormat: false);
+}
+
 class _RecordingBackupService extends Fake implements BackupService {
   int importCalls = 0;
+  @override
+  Future<PreparedBackup> prepareFromFile(String path) async => _PreparedBackup();
+  @override
+  Future<BackupImportSummary> importPrepared(PreparedBackup prepared) => importFromFile('confirmed');
 
   @override
   Future<BackupFilePreview> previewFromFile(String path) async =>
@@ -87,7 +97,8 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.ensureVisible(find.text('전체 백업 가져오기'));
+    await tester.scrollUntilVisible(find.text('전체 백업 가져오기'), 300,
+      scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
   }
 
@@ -118,5 +129,7 @@ void main() {
     await tester.tap(find.text('가져오기', skipOffstage: false).last);
     await tester.pumpAndSettle();
     expect(backup.importCalls, 1);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 }

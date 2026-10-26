@@ -13,6 +13,7 @@ import '../../../core/clock.dart';
 import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/backup/share_full_backup.dart';
+import '../../../core/backup/import_activity.dart';
 import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
 import '../../../design/glass/glass_nav_bar.dart' show navBarClearance;
@@ -37,6 +38,7 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final settings = ref.watch(settingsControllerProvider);
     final controller = ref.read(settingsControllerProvider.notifier);
+    final importingBackup = ref.watch(backupImportActivityProvider);
 
     void showPermissionDeniedSnackBar() {
       ScaffoldMessenger.of(context).showAutoDismissSnackBar(
@@ -150,6 +152,9 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     Future<void> importBackup() async {
+      final activity = ref.read(backupImportActivityProvider.notifier);
+      if (!activity.begin()) return;
+      final backup = ref.read(backupServiceProvider);
       final messenger = ScaffoldMessenger.of(context);
       try {
         // uniformTypeIdentifiers is required on iOS — file_selector_ios
@@ -165,9 +170,21 @@ class SettingsScreen extends ConsumerWidget {
         final file = await openFile(acceptedTypeGroups: [jsonTypeGroup]);
         final path = file?.path;
         if (path == null) return;
-        final summary = await ref
-            .read(backupServiceProvider)
-            .importFromFile(path);
+        final prepared = await backup.prepareFromFile(path);
+        if (!context.mounted) return;
+        final preview = prepared.preview;
+        final confirmed = await showAppDialog<bool>(context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(l10n.backupImportConfirmTitle),
+            content: Text('${l10n.backupImportPreviewBody(preview.eventCount, preview.todoCount, preview.templateCount)}\n\n${l10n.backupImportMergeNote}'
+              '${preview.legacyFormat ? '\n\n${l10n.backupImportLegacyWarning}' : ''}'),
+            actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(l10n.commonCancel)),
+              FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(l10n.backupImportConfirmAction))],
+          ));
+        if (confirmed != true || !context.mounted) return;
+        final summary = await backup.importPrepared(prepared);
         final message = summary.legacyFormat
             ? '${l10n.backupImportSuccess(summary.eventCount, summary.todoCount)}\n'
                   '${l10n.backupImportLegacyWarning}'
@@ -184,6 +201,8 @@ class SettingsScreen extends ConsumerWidget {
         messenger.showAutoDismissSnackBar(
           SnackBar(content: Text(l10n.backupImportFailed)),
         );
+      } finally {
+        activity.finish();
       }
     }
 
@@ -457,7 +476,7 @@ class SettingsScreen extends ConsumerWidget {
                       title: l10n.settingsImport,
                       subtitle: l10n.settingsImportDesc,
                       icon: Icons.file_download_outlined,
-                      onTap: importBackup,
+                      onTap: importingBackup ? null : importBackup,
                     ),
                     const _RowDivider(),
                     _NavRow(
@@ -691,7 +710,7 @@ class _ActionRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

@@ -1165,4 +1165,19 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get searchOpenSchedule => '시간표에서 보기';
+
+  @override
+  String get backupImportConfirmTitle => '전체 백업을 가져올까요?';
+
+  @override
+  String backupImportPreviewBody(int events, int todos, int templates) {
+    return '일정 $events개 · 할 일 $todos개 · 템플릿 $templates개';
+  }
+
+  @override
+  String get backupImportMergeNote =>
+      '같은 ID의 항목은 덮어쓰고 파일에 없는 항목은 유지해요. 앱 설정과 구독 정보는 포함되지 않아요.';
+
+  @override
+  String get backupImportConfirmAction => '가져오기';
 }

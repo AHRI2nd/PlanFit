@@ -497,5 +497,22 @@
   "searchMoreEvents": "More events",
   "searchMoreTodos": "More to-dos",
   "searchClearFilters": "Clear filters",
-  "searchOpenSchedule": "Show in schedule"
+  "searchOpenSchedule": "Show in schedule",
+  "backupImportConfirmTitle": "Import this full backup?",
+  "backupImportPreviewBody": "{events} events · {todos} to-dos · {templates} templates",
+  "backupImportMergeNote": "Matching IDs will be overwritten. Items absent from the file will be kept. App settings and subscriptions are not included.",
+  "backupImportConfirmAction": "Import",
+  "@backupImportPreviewBody": {
+    "placeholders": {
+      "events": {
+        "type": "int"
+      },
+      "todos": {
+        "type": "int"
+      },
+      "templates": {
+        "type": "int"
+      }
+    }
+  }
 }

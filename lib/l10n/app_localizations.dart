@@ -2273,6 +2273,30 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'시간표에서 보기'**
   String get searchOpenSchedule;
+
+  /// No description provided for @backupImportConfirmTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'전체 백업을 가져올까요?'**
+  String get backupImportConfirmTitle;
+
+  /// No description provided for @backupImportPreviewBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정 {events}개 · 할 일 {todos}개 · 템플릿 {templates}개'**
+  String backupImportPreviewBody(int events, int todos, int templates);
+
+  /// No description provided for @backupImportMergeNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'같은 ID의 항목은 덮어쓰고 파일에 없는 항목은 유지해요. 앱 설정과 구독 정보는 포함되지 않아요.'**
+  String get backupImportMergeNote;
+
+  /// No description provided for @backupImportConfirmAction.
+  ///
+  /// In ko, this message translates to:
+  /// **'가져오기'**
+  String get backupImportConfirmAction;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

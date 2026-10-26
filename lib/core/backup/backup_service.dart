@@ -83,6 +83,23 @@ Map<String, dynamic> _decodeBackupJson(String raw) =>
 /// their import-source marker on the round trip (it isn't serialized below),
 /// which previously caused a restored mirror row to look PlanFit-owned and
 /// get pushed to the device calendar as if the user had created it.
+/// Validated immutable contents of the exact file the user confirmed.
+class PreparedBackup {
+  PreparedBackup._({required List<EventRow> events,
+    required List<TodoItemsCompanion> todos,
+    required List<TodoSubtasksCompanion> subtasks,
+    required List<EventTemplatesCompanion> templates, required this.legacyFormat})
+    : events = List.unmodifiable(events), todos = List.unmodifiable(todos),
+      subtasks = List.unmodifiable(subtasks), templates = List.unmodifiable(templates);
+  final List<EventRow> events;
+  final List<TodoItemsCompanion> todos;
+  final List<TodoSubtasksCompanion> subtasks;
+  final List<EventTemplatesCompanion> templates;
+  final bool legacyFormat;
+  BackupFilePreview get preview => BackupFilePreview(eventCount: events.length,
+    todoCount: todos.length, templateCount: templates.length, legacyFormat: legacyFormat);
+}
+
 class BackupService {
   BackupService({
     required this.eventRepository,
@@ -151,21 +168,16 @@ class BackupService {
   /// Reads a previously-exported file and restores every event/to-do into
   /// the local database. Existing rows with the same id are overwritten —
   /// re-importing the same backup is safe to repeat.
-  Future<BackupFilePreview> previewFromFile(String path) async {
-    final raw = await File(path).readAsString();
-    final json = await compute(_decodeBackupJson, raw);
-    return BackupFilePreview(
-      eventCount: ((json['events'] as List?) ?? const []).length,
-      todoCount: ((json['todos'] as List?) ?? const []).length,
-      templateCount: ((json['eventTemplates'] as List?) ?? const []).length,
-      legacyFormat: (json['schemaVersion'] as int? ?? 1) < 2,
-    );
-  }
+  Future<BackupFilePreview> previewFromFile(String path) async =>
+      (await prepareFromFile(path)).preview;
 
-  Future<BackupImportSummary> importFromFile(String path) async {
-    final raw = await File(path).readAsString();
-    final json = await compute(_decodeBackupJson, raw);
-
+  Future<PreparedBackup> prepareFromFile(String path) async {
+    final json = await compute(_decodeBackupJson, await File(path).readAsString());
+    final version = json['schemaVersion'] as int? ?? 1;
+    if (version < 1 || version > _schemaVersion ||
+        (!json.containsKey('events') && !json.containsKey('todos'))) {
+      throw const FormatException('Unsupported backup format');
+    }
     final eventsJson = (json['events'] as List?) ?? const [];
     final todosJson = (json['todos'] as List?) ?? const [];
     final subtasksJson = (json['todoSubtasks'] as List?) ?? const [];
@@ -177,24 +189,7 @@ class BackupService {
     // BackupImportSummary.legacyFormat's own doc.
     final legacyFormat = (json['schemaVersion'] as int? ?? 1) < 2;
 
-    // Parse every record *before* writing anything. A single malformed
-    // field (a hand-edited file, corruption, a future schema version with a
-    // renamed field) must fail the whole import cleanly — not throw partway
-    // through the write loops below, leaving some rows already overwritten
-    // in the DB and others not, silently merged into existing data behind a
-    // generic "복원 실패" toast that gives no hint a partial write happened.
-    //
-    // That covers bad *data*, which is the realistic failure here and the
-    // one this can fully prevent. It does not make the whole restore one
-    // atomic unit: the writes below run as two transactions (events, then
-    // to-dos and subtasks), because each half deliberately keeps its own
-    // platform-channel side effects outside its transaction rather than
-    // holding the database open across hundreds of them — see
-    // `EventRepositoryImpl.restoreEvents`. A database-level failure landing
-    // between the two therefore can leave events restored and to-dos not.
-    // Re-running the import is the recovery, and it's a complete one: every
-    // write here is an upsert keyed by the row's own id, so repeating a
-    // restore converges on the same result rather than duplicating anything.
+    // Validate all records before showing confirmation or writing anything.
     final events = [
       for (final e in eventsJson) _eventFromJson(e as Map<String, dynamic>),
     ];
@@ -219,6 +214,24 @@ class BackupService {
         _eventTemplateFromJson(t as Map<String, dynamic>),
     ];
 
+    if (events.any((e) => !e.endAt.isAfter(e.startAt)) ||
+        events.map((e) => e.id).toSet().length != events.length ||
+        todoCompanions.map((t) => t.id.value).toSet().length != todoCompanions.length) {
+      throw const FormatException('Invalid or duplicate backup records');
+    }
+    return PreparedBackup._(events: events, todos: todoCompanions,
+      subtasks: subtaskCompanions, templates: templateCompanions, legacyFormat: legacyFormat);
+  }
+
+  Future<BackupImportSummary> importFromFile(String path) async =>
+      importPrepared(await prepareFromFile(path));
+
+  Future<BackupImportSummary> importPrepared(PreparedBackup prepared) async {
+    final events = prepared.events;
+    final todoCompanions = prepared.todos;
+    final subtaskCompanions = prepared.subtasks;
+    final templateCompanions = prepared.templates;
+    final legacyFormat = prepared.legacyFormat;
     await eventRepository.restoreEvents(events);
 
     // Same DB-writes-in-one-transaction, side-effects-after split as

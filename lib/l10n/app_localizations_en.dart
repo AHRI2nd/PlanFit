@@ -1233,4 +1233,19 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get searchOpenSchedule => 'Show in schedule';
+
+  @override
+  String get backupImportConfirmTitle => 'Import this full backup?';
+
+  @override
+  String backupImportPreviewBody(int events, int todos, int templates) {
+    return '$events events · $todos to-dos · $templates templates';
+  }
+
+  @override
+  String get backupImportMergeNote =>
+      'Matching IDs will be overwritten. Items absent from the file will be kept. App settings and subscriptions are not included.';
+
+  @override
+  String get backupImportConfirmAction => 'Import';
 }

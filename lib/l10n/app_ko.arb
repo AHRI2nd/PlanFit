@@ -497,5 +497,22 @@
   "searchMoreEvents": "일정 더 보기",
   "searchMoreTodos": "할 일 더 보기",
   "searchClearFilters": "검색 조건 초기화",
-  "searchOpenSchedule": "시간표에서 보기"
+  "searchOpenSchedule": "시간표에서 보기",
+  "backupImportConfirmTitle": "전체 백업을 가져올까요?",
+  "backupImportPreviewBody": "일정 {events}개 · 할 일 {todos}개 · 템플릿 {templates}개",
+  "backupImportMergeNote": "같은 ID의 항목은 덮어쓰고 파일에 없는 항목은 유지해요. 앱 설정과 구독 정보는 포함되지 않아요.",
+  "backupImportConfirmAction": "가져오기",
+  "@backupImportPreviewBody": {
+    "placeholders": {
+      "events": {
+        "type": "int"
+      },
+      "todos": {
+        "type": "int"
+      },
+      "templates": {
+        "type": "int"
+      }
+    }
+  }
 }
