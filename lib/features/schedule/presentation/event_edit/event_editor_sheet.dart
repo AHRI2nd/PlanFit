@@ -16,6 +16,7 @@ import '../../../../core/maps_launcher.dart';
 import '../../../../core/share_origin.dart';
 import '../../../../core/time_format.dart';
 import '../../../../design/widgets/app_dialog.dart';
+import '../../../../design/layout/app_layout.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
@@ -67,12 +68,15 @@ Future<void> showEventEditor(
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
-      builder: (_) => EventEditorSheet(
-        existing: existing,
-        initialDay: initialDay,
-        duplicateFrom: duplicateFrom,
-        initialStart: initialStart,
-        initialEnd: initialEnd,
+      builder: (_) => DisplayFeatureSubScreen(
+        anchorPoint: AppLayout.anchorPointOf(context),
+        child: EventEditorSheet(
+          existing: existing,
+          initialDay: initialDay,
+          duplicateFrom: duplicateFrom,
+          initialStart: initialStart,
+          initialEnd: initialEnd,
+        ),
       ),
     ),
   );

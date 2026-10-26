@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../layout/app_layout.dart';
+
 /// Whether a dialog is pushed on the root navigator instead of the nearest
 /// enclosing one. Always `false` here, and the reason is load-bearing on
 /// Android, so every dialog in the app goes through the wrappers below
@@ -42,6 +44,7 @@ Future<T?> showAppDialog<T>({
   return showDialog<T>(
     context: context,
     useRootNavigator: kDialogUsesRootNavigator,
+    anchorPoint: AppLayout.anchorPointOf(context),
     builder: builder,
   );
 }
@@ -56,6 +59,7 @@ Future<DateTime?> showAppDatePicker({
   return showDatePicker(
     context: context,
     useRootNavigator: kDialogUsesRootNavigator,
+    anchorPoint: AppLayout.anchorPointOf(context),
     initialDate: initialDate,
     firstDate: firstDate,
     lastDate: lastDate,

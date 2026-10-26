@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../layout/app_layout.dart';
+
 /// Width above which the device is treated as tablet-sized for sheet
 /// presentation — Material's own compact/medium window-size-class cutoff.
 const double kSheetTabletBreakpoint = 600;
@@ -38,6 +40,7 @@ Future<T?> showAdaptiveBottomSheet<T>({
     isScrollControlled: true,
     backgroundColor: backgroundColor,
     showDragHandle: showDragHandle,
+    anchorPoint: AppLayout.anchorPointOf(context),
     constraints: isTablet
         ? const BoxConstraints(maxWidth: kSheetMaxWidth)
         : null,

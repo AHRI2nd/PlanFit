@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design/layout/app_layout.dart';
 import '../design/widgets/app_dialog.dart';
 import '../features/settings/application/app_settings.dart';
 
@@ -25,12 +26,14 @@ Future<TimeOfDay?> showAppTimePicker({
     return showTimePicker(
       context: context,
       useRootNavigator: kDialogUsesRootNavigator,
+      anchorPoint: AppLayout.anchorPointOf(context),
       initialTime: initialTime,
     );
   }
   return showTimePicker(
     context: context,
     useRootNavigator: kDialogUsesRootNavigator,
+    anchorPoint: AppLayout.anchorPointOf(context),
     initialTime: initialTime,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(

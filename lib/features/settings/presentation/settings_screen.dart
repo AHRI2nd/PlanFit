@@ -16,6 +16,7 @@ import '../../../core/backup/share_full_backup.dart';
 import '../../../core/share_origin.dart';
 import '../../../core/time_format.dart';
 import '../../../design/glass/glass_nav_bar.dart' show navBarClearance;
+import '../../../design/layout/app_layout.dart';
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/widgets/app_dialog.dart';
@@ -535,15 +536,18 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () =>
                           Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => LicensePage(
-                                applicationName: 'PlanFit',
-                                applicationVersion: ref
-                                    .read(appPackageInfoProvider)
-                                    .whenOrNull(
-                                      data: (info) =>
-                                          '${info.version}+${info.buildNumber}',
-                                    ),
-                                applicationLegalese: _appLegalese,
+                              builder: (_) => DisplayFeatureSubScreen(
+                                anchorPoint: AppLayout.anchorPointOf(context),
+                                child: LicensePage(
+                                  applicationName: 'PlanFit',
+                                  applicationVersion: ref
+                                      .read(appPackageInfoProvider)
+                                      .whenOrNull(
+                                        data: (info) =>
+                                            '${info.version}+${info.buildNumber}',
+                                      ),
+                                  applicationLegalese: _appLegalese,
+                                ),
                               ),
                             ),
                           ),

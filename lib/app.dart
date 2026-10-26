@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -17,6 +18,7 @@ import 'core/onboarding_prefs.dart';
 import 'core/routing/app_router.dart';
 import 'core/sync_prefs.dart';
 import 'core/layout/window_layout_provider.dart';
+import 'core/layout/window_layout_snapshot.dart';
 import 'design/theme/app_theme.dart';
 import 'design/layout/app_layout.dart';
 import 'features/schedule/application/schedule_providers.dart';
@@ -451,12 +453,35 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       routerConfig: appRouter,
-      builder: (context, child) => AppLayoutScope(
-        snapshot: windowLayout,
-        windowSize: MediaQuery.sizeOf(context),
-        windowPadding: MediaQuery.paddingOf(context),
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        final reservedFeatures = windowLayout?.regions
+                .where((region) => region.isActive)
+                .map(
+                  (region) => DisplayFeature(
+                    bounds: region.bounds,
+                    type: region.kind == ReservedRegionKind.division
+                        ? DisplayFeatureType.fold
+                        : DisplayFeatureType.cutout,
+                    state: region.kind == ReservedRegionKind.division
+                        ? DisplayFeatureState.postureHalfOpened
+                        : DisplayFeatureState.unknown,
+                  ),
+                )
+                .toList(growable: false) ??
+            const <DisplayFeature>[];
+        return MediaQuery(
+          data: media.copyWith(
+            displayFeatures: [...media.displayFeatures, ...reservedFeatures],
+          ),
+          child: AppLayoutScope(
+            snapshot: windowLayout,
+            windowSize: media.size,
+            windowPadding: media.padding,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
       localizationsDelegates: const [
         AppL10n.delegate,
         GlobalMaterialLocalizations.delegate,

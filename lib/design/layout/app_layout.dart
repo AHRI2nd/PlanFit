@@ -107,6 +107,12 @@ class AppLayout {
     return renderObject.localToGlobal(Offset.zero);
   }
 
+  static Offset? anchorPointOf(BuildContext context) {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+  }
+
   static List<Rect> _divide(Rect bounds, List<Rect> divisions) {
     var regions = <Rect>[bounds];
     for (final division in divisions) {

@@ -127,7 +127,10 @@ class ScheduleScreen extends ConsumerWidget {
                       icon: const Icon(Icons.search),
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => const EventSearchScreen(),
+                          builder: (_) => DisplayFeatureSubScreen(
+                            anchorPoint: AppLayout.anchorPointOf(context),
+                            child: const EventSearchScreen(),
+                          ),
                         ),
                       ),
                     ),
