@@ -1153,4 +1153,10 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get searchInvalidColor => '#112233 형식으로 입력해주세요';
+
+  @override
+  String get searchMoreEvents => '일정 더 보기';
+
+  @override
+  String get searchMoreTodos => '할 일 더 보기';
 }

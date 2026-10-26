@@ -1221,4 +1221,10 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get searchInvalidColor => 'Enter a color such as #112233';
+
+  @override
+  String get searchMoreEvents => 'More events';
+
+  @override
+  String get searchMoreTodos => 'More to-dos';
 }

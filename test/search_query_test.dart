@@ -33,4 +33,18 @@ void main() {
       options: SearchOptions(tag: 'work', from: DateTime(2030), to: DateTime(2030, 1, 2)));
     expect(rows.map((t) => t.id), ['a']);
   });
+  test('cursor pages do not repeat or omit same-time rows', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    for (final id in ['a', 'b', 'c']) {
+      await db.todoDao.upsert(TodoItemsCompanion.insert(
+        id: id, title: const Value('task'), slotStart: DateTime(2030)));
+    }
+    final first = await db.todoDao.search('task', options: const SearchOptions(limit: 2));
+    expect(first.map((t) => t.id), ['c', 'b']);
+    final next = await db.todoDao.search('task', options: SearchOptions(limit: 2,
+      before: SearchCursor(first.last.slotStart, first.last.id)));
+    expect(next.map((t) => t.id), ['a']);
+  });
+
 }

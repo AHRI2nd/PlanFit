@@ -2249,6 +2249,18 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'#112233 형식으로 입력해주세요'**
   String get searchInvalidColor;
+
+  /// No description provided for @searchMoreEvents.
+  ///
+  /// In ko, this message translates to:
+  /// **'일정 더 보기'**
+  String get searchMoreEvents;
+
+  /// No description provided for @searchMoreTodos.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일 더 보기'**
+  String get searchMoreTodos;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

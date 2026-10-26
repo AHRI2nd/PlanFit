@@ -42,6 +42,11 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   List<EventRow>? _eventResults;
   List<TodoRow>? _todoResults;
   bool _loading = false;
+  static const _pageSize = 50;
+  bool _hasMoreEvents = false;
+  bool _hasMoreTodos = false;
+  bool _loadingMoreEvents = false;
+  bool _loadingMoreTodos = false;
 
   /// Bumped every time a new debounced search actually starts (not on every
   /// keystroke — the [Timer] cancel/reset above already coalesces those).
@@ -86,7 +91,7 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     from: _dateRangeFilter?.start,
     to: _dateRangeFilter == null ? null : addCalendarDays(_dateRangeFilter!.end, 1),
     colorTag: _colorFilter, priority: _priorityFilter?.value, tag: _tagFilter,
-    includeCompleted: _includeCompleted,
+    includeCompleted: _includeCompleted, limit: _pageSize,
   );
 
   void _changeFilters(VoidCallback update) {
@@ -176,9 +181,49 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
       setState(() {
         _eventResults = results[0] as List<EventRow>;
         _todoResults = results[1] as List<TodoRow>;
+        _hasMoreEvents = _eventResults!.length == _pageSize;
+        _hasMoreTodos = _todoResults!.length == _pageSize;
+        _loadingMoreEvents = false;
+        _loadingMoreTodos = false;
         _loading = false;
       });
     });
+  }
+
+  Future<void> _loadMore(bool events) async {
+    if ((events ? _loadingMoreEvents : _loadingMoreTodos) || _loading) return;
+    final generation = _searchGeneration;
+    final query = _controller.text.trim();
+    final cursor = events
+        ? SearchCursor(_eventResults!.last.startAt, _eventResults!.last.id)
+        : SearchCursor(_todoResults!.last.slotStart, _todoResults!.last.id);
+    final options = _options.pageAfter(cursor);
+    setState(() { if (events) { _loadingMoreEvents = true; } else { _loadingMoreTodos = true; } });
+    try {
+      if (events) {
+        final rows = await ref.read(eventRepositoryProvider).search(query, options: options);
+        if (!mounted || generation != _searchGeneration) return;
+        setState(() {
+          _eventResults = {for (final row in [..._eventResults!, ...rows]) row.id: row}.values.toList();
+          _hasMoreEvents = rows.length == _pageSize;
+        });
+      } else {
+        final rows = await ref.read(todoDaoProvider).search(query, options: options);
+        if (!mounted || generation != _searchGeneration) return;
+        setState(() {
+          _todoResults = {for (final row in [..._todoResults!, ...rows]) row.id: row}.values.toList();
+          _hasMoreTodos = rows.length == _pageSize;
+        });
+      }
+    } catch (_) {
+      if (mounted && generation == _searchGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppL10n.of(context).errorWidgetFallback)));
+      }
+    } finally {
+      if (mounted && generation == _searchGeneration) {
+        setState(() { if (events) { _loadingMoreEvents = false; } else { _loadingMoreTodos = false; } });
+      }
+    }
   }
 
   /// Tap target: closes search, jumps the day view to the event's own day,
@@ -307,6 +352,8 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
               onTap: () => _previewEvent(event),
               onLongPress: () => _editEvent(event),
             ),
+          if (_hasMoreEvents) TextButton(onPressed: _loadingMoreEvents ? null : () => _loadMore(true),
+            child: Text(l10n.searchMoreEvents)),
           const SizedBox(height: AppSpacing.md),
         ],
         if (todos.isNotEmpty && _type != SearchResultType.events) ...[
@@ -334,6 +381,8 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
               locale: locale,
               onTap: () => _openTodo(todo),
             ),
+          if (_hasMoreTodos) TextButton(onPressed: _loadingMoreTodos ? null : () => _loadMore(false),
+            child: Text(l10n.searchMoreTodos)),
         ],
       ],
     );

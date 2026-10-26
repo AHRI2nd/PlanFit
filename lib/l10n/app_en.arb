@@ -493,5 +493,7 @@
   "commonNoRecords": "No records yet",
   "searchIncludeCompleted": "Include completed to-dos",
   "searchCustomColor": "Custom color",
-  "searchInvalidColor": "Enter a color such as #112233"
+  "searchInvalidColor": "Enter a color such as #112233",
+  "searchMoreEvents": "More events",
+  "searchMoreTodos": "More to-dos"
 }

@@ -4,7 +4,7 @@ import '../db/sql_like.dart';
 /// Date ranges are half-open; UI converts its inclusive last day to next day.
 class SearchOptions {
   const SearchOptions({this.from, this.to, this.colorTag, this.priority,
-    this.tag, this.includeCompleted = true, this.limit = 100});
+    this.tag, this.includeCompleted = true, this.limit = 100, this.before});
   final DateTime? from;
   final DateTime? to;
   final String? colorTag;
@@ -12,6 +12,16 @@ class SearchOptions {
   final String? tag;
   final bool includeCompleted;
   final int limit;
+  final SearchCursor? before;
+  SearchOptions pageAfter(SearchCursor? cursor) => SearchOptions(
+    from: from, to: to, colorTag: colorTag, priority: priority, tag: tag,
+    includeCompleted: includeCompleted, limit: limit, before: cursor);
+}
+
+class SearchCursor {
+  const SearchCursor(this.at, this.id);
+  final DateTime at;
+  final String id;
 }
 
 class SearchStatement {
@@ -53,6 +63,12 @@ class SearchStatement {
           ) SELECT 1 FROM tag_parts WHERE token = ?
         )''', Variable.withString(options.tag!));
       }
+    }
+    final cursor = options.before;
+    if (cursor != null) {
+      conditions.add('($date < ? OR ($date = ? AND id < ?))');
+      variables.addAll([Variable.withDateTime(cursor.at),
+        Variable.withDateTime(cursor.at), Variable.withString(cursor.id)]);
     }
     variables.add(Variable.withInt(options.limit.clamp(1, 500)));
     sql = 'SELECT * FROM $table WHERE ${conditions.join(' AND ')} '
