@@ -1281,4 +1281,29 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get eventSaveFailed => '저장하지 못했어요. 입력을 유지했으니 다시 시도해주세요.';
+
+  @override
+  String todoMoveTitle(int count) {
+    return '할 일 $count개 날짜 이동';
+  }
+
+  @override
+  String get todoMoveKeepTime => '선택한 미완료 회차만 이동해요. 기존 시각과 길이는 유지해요.';
+
+  @override
+  String get todoMoveTomorrow => '내일';
+
+  @override
+  String get todoMoveChooseDate => '날짜 선택';
+
+  @override
+  String todoMoveCompleted(int count) {
+    return '할 일 $count개를 이동했어요';
+  }
+
+  @override
+  String get todoMoveFailed => '날짜를 옮기지 못했어요. 선택을 유지했으니 다시 시도해주세요.';
+
+  @override
+  String get todoSelectionReschedule => '날짜 이동';
 }

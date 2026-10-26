@@ -90,6 +90,7 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList>
             onCancel: exitSelection,
             onComplete: bulkComplete,
             onDelete: bulkDelete,
+                onReschedule: bulkReschedule, busy: selectionBusy,
           ),
         todosAsync.maybeWhen(
           data: (todos) {

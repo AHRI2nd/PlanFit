@@ -2477,6 +2477,48 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'저장하지 못했어요. 입력을 유지했으니 다시 시도해주세요.'**
   String get eventSaveFailed;
+
+  /// No description provided for @todoMoveTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일 {count}개 날짜 이동'**
+  String todoMoveTitle(int count);
+
+  /// No description provided for @todoMoveKeepTime.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택한 미완료 회차만 이동해요. 기존 시각과 길이는 유지해요.'**
+  String get todoMoveKeepTime;
+
+  /// No description provided for @todoMoveTomorrow.
+  ///
+  /// In ko, this message translates to:
+  /// **'내일'**
+  String get todoMoveTomorrow;
+
+  /// No description provided for @todoMoveChooseDate.
+  ///
+  /// In ko, this message translates to:
+  /// **'날짜 선택'**
+  String get todoMoveChooseDate;
+
+  /// No description provided for @todoMoveCompleted.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일 {count}개를 이동했어요'**
+  String todoMoveCompleted(int count);
+
+  /// No description provided for @todoMoveFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'날짜를 옮기지 못했어요. 선택을 유지했으니 다시 시도해주세요.'**
+  String get todoMoveFailed;
+
+  /// No description provided for @todoSelectionReschedule.
+  ///
+  /// In ko, this message translates to:
+  /// **'날짜 이동'**
+  String get todoSelectionReschedule;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

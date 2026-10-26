@@ -1354,4 +1354,31 @@ class AppL10nEn extends AppL10n {
   @override
   String get eventSaveFailed =>
       'Could not save. Your input is still here; try again.';
+
+  @override
+  String todoMoveTitle(int count) {
+    return 'Move $count to-dos';
+  }
+
+  @override
+  String get todoMoveKeepTime =>
+      'Move only the selected unfinished occurrences. Existing times and durations are kept.';
+
+  @override
+  String get todoMoveTomorrow => 'Tomorrow';
+
+  @override
+  String get todoMoveChooseDate => 'Choose date';
+
+  @override
+  String todoMoveCompleted(int count) {
+    return 'Moved $count to-dos';
+  }
+
+  @override
+  String get todoMoveFailed =>
+      'Could not move these items. Your selection is still here.';
+
+  @override
+  String get todoSelectionReschedule => 'Move to another date';
 }

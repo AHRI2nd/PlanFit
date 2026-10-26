@@ -14,6 +14,7 @@ import '../../schedule/application/schedule_providers.dart';
 import '../../schedule/domain/recurrence.dart';
 import '../../schedule/domain/ports.dart';
 import '../domain/todo_notification_sync.dart';
+import '../domain/todo_reschedule.dart';
 import '../domain/todo_priority.dart';
 
 /// To-dos whose slot falls on the given day, grouped-ready (already ordered by
@@ -267,6 +268,24 @@ class TodoController {
   /// Moves [id] to a different day, keeping its time-of-day and whether it
   /// has one — see [TodoDao.updateSlotDate] for why that isn't [updateTime]
   /// with a recomposed date.
+  final _placementQueue = SerialQueue();
+  Future<TodoRescheduleResult> reschedule(Iterable<String> ids, DateTime day) {
+    final selected = ids.toSet();
+    return _placementQueue.run(() => TodoRescheduler(dao: _ref.read(todoDaoProvider),
+      synchronize: _syncPlacement).move(selected, day));
+  }
+
+  Future<void> _syncPlacement(String id) async {
+    var deferred = false;
+    try { await _syncNotification(id); } catch (_) { deferred = true; }
+    try { await _syncReminder(id); } catch (_) { deferred = true; }
+    if (_ref.read(remindersPortProvider).isEnabled) {
+      final row = await _ref.read(todoDaoProvider).findById(id);
+      if (row?.reminderSyncStatus == SyncStatus.pendingPush) deferred = true;
+    }
+    if (deferred) throw StateError('Placement saved; platform work deferred');
+  }
+
   Future<void> updateDate(String id, DateTime day) async {
     await _ref.read(todoDaoProvider).updateSlotDate(id, day);
     await _syncNotification(id);

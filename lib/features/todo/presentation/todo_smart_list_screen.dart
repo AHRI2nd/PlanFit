@@ -60,6 +60,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
   /// HourlyTodoList's own day-change reset, just triggered by a tab/tag
   /// pick here instead of paging to a different day.
   void _switchTab(_SmartListTab tab) {
+    if (selectionBusy) return;
     setState(() {
       _tab = tab;
       selectionMode = false;
@@ -68,6 +69,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
   }
 
   void _switchTag(String tag) {
+    if (selectionBusy) return;
     setState(() {
       _selectedTag = tag;
       selectionMode = false;
@@ -110,6 +112,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
                 onCancel: exitSelection,
                 onComplete: bulkComplete,
                 onDelete: bulkDelete,
+                onReschedule: bulkReschedule, busy: selectionBusy,
               ),
             )
           else

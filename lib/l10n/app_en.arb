@@ -579,5 +579,26 @@
       }
     }
   },
-  "eventSaveFailed": "Could not save. Your input is still here; try again."
+  "eventSaveFailed": "Could not save. Your input is still here; try again.",
+  "todoMoveTitle": "Move {count} to-dos",
+  "todoMoveKeepTime": "Move only the selected unfinished occurrences. Existing times and durations are kept.",
+  "todoMoveTomorrow": "Tomorrow",
+  "todoMoveChooseDate": "Choose date",
+  "todoMoveCompleted": "Moved {count} to-dos",
+  "todoMoveFailed": "Could not move these items. Your selection is still here.",
+  "todoSelectionReschedule": "Move to another date",
+  "@todoMoveTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@todoMoveCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
