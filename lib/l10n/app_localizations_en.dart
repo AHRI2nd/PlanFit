@@ -1440,4 +1440,56 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get reviewNextWeek => 'Move to next week';
+
+  @override
+  String get blockTitle => 'Plan a time block';
+
+  @override
+  String get blockEdit => 'Edit time block';
+
+  @override
+  String get blockClear => 'Clear time block';
+
+  @override
+  String get blockAvailability => 'Working hours and breaks';
+
+  @override
+  String get blockWorkStart => 'Start';
+
+  @override
+  String get blockWorkEnd => 'End';
+
+  @override
+  String get blockBreak => 'Exclude break time';
+
+  @override
+  String get blockAllDay => 'Treat all-day events as busy';
+
+  @override
+  String get blockSuggestions => 'Available time suggestions';
+
+  @override
+  String get blockSuggestionHelp =>
+      'Suggestions use current records. Point todos reserve no duration. Working days, hours and breaks only affect suggestions; you can enter a time manually. Duration stays on this device; Reminders receives the start time.';
+
+  @override
+  String get blockNoSuggestions =>
+      'No matching slots. Change the date, duration or working hours, or enter a time manually.';
+
+  @override
+  String get blockConflict => 'Review overlapping items';
+
+  @override
+  String get blockConflictHelp =>
+      'This interval overlaps these items. You may place it anyway after reviewing; conflicts are checked again before saving.';
+
+  @override
+  String get blockConfirmOverlap => 'Confirm and place';
+
+  @override
+  String get blockDeferred =>
+      'Time block saved. Notification or Reminders processing needs attention.';
+
+  @override
+  String get blockTimeline => 'Todo time blocks';
 }

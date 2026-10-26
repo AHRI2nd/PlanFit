@@ -33,4 +33,29 @@ void main() {
     await db.todoDao.setDone('a', true);
     expect(() => writer.save('a', TodoTimeBlock(DateTime(2030), DateTime(2030, 1, 2))), throwsStateError);
   });
+  test('availability merges busy intervals and allows adjacent ranges', () {
+    final day = DateTime(2030, 1, 7);
+    final work = TodoTimeBlock(DateTime(2030, 1, 7, 9), DateTime(2030, 1, 7, 12));
+    final slots = availableTimeBlocks(work: work, duration: const Duration(hours: 1), busy: [
+      TodoTimeBlock(DateTime(2030, 1, 7, 10), DateTime(2030, 1, 7, 11)),
+      TodoTimeBlock(day, DateTime(2030, 1, 7, 9)),
+    ]);
+    expect(slots.map((s) => s.start.hour), [9, 11]);
+  });
+  test('apply rechecks conflicts including changes after acknowledgement', () async {
+    await db.todoDao.upsert(TodoItemsCompanion.insert(id: 'a', slotStart: DateTime(2030)));
+    await db.eventDao.upsert(EventsCompanion.insert(id: 'busy', title: const Value('Meeting'),
+      startAt: DateTime(2030, 1, 1, 9), endAt: DateTime(2030, 1, 1, 10)));
+    final writer = TodoTimeBlockWriter(dao: db.todoDao, synchronize: (_) async {});
+    final block = TodoTimeBlock(DateTime(2030, 1, 1, 9), DateTime(2030, 1, 1, 10));
+    final first = await writer.save('a', block);
+    expect(first.saved, false); expect(first.conflicts.single.title, 'Meeting');
+    expect((await db.todoDao.findById('a'))!.slotEnd, isNull);
+    await db.eventDao.patch('busy', EventsCompanion(endAt: Value(DateTime(2030, 1, 1, 11))));
+    final second = await writer.save('a', block, acknowledgedConflicts: first.conflicts.map((c) => c.token).toSet());
+    expect(second.saved, false);
+    final third = await writer.save('a', block, acknowledgedConflicts: second.conflicts.map((c) => c.token).toSet());
+    expect(third.saved, true);
+  });
+
 }

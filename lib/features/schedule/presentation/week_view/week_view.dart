@@ -15,6 +15,8 @@ import '../../../../design/tokens/event_color_tag.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../todo/application/todo_providers.dart';
+import '../../../todo/presentation/todo_block_lane.dart';
+import '../../../todo/domain/todo_time_block.dart';
 import '../../application/schedule_providers.dart';
 import '../../domain/calendar_dot.dart';
 import '../../domain/day_clock_geometry.dart' show clampedMinutesOfDay;
@@ -732,7 +734,7 @@ class _AllDayStrip extends StatelessWidget {
   }
 }
 
-class _WeekGrid extends StatefulWidget {
+class _WeekGrid extends ConsumerStatefulWidget {
   const _WeekGrid({
     required this.days,
     required this.today,
@@ -760,10 +762,10 @@ class _WeekGrid extends StatefulWidget {
   final bool use24Hour;
 
   @override
-  State<_WeekGrid> createState() => _WeekGridState();
+  ConsumerState<_WeekGrid> createState() => _WeekGridState();
 }
 
-class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
+class _WeekGridState extends ConsumerState<_WeekGrid> with WidgetsBindingObserver {
   /// Long-press-drag-to-create state, mirroring DayView's own — see its doc
   /// comment. [_createDayIndex] pins the drag to whichever column it started
   /// in even if the finger wanders sideways into a neighboring one.
@@ -868,6 +870,8 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
     final onTapDay = widget.onTapDay;
     final use24 = widget.use24Hour;
     final pendingCreate = _pendingCreateRange;
+    final blocks = (ref.watch(todosForWeekProvider(days.first)).value ?? const <TodoRow>[]).where((r) => !r.isDone && TodoTimeBlock.of(r) != null).toList();
+    List<TodoRow> onDay(DateTime day) => blocks.where((r) => r.slotStart.isBefore(addCalendarDays(day, 1)) && r.slotEnd!.isAfter(day)).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
       child: LayoutBuilder(
@@ -1001,6 +1005,11 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                   ),
                 ),
 
+              for (var i = 0; i < days.length; i++)
+                if (onDay(days[i]).isNotEmpty) Positioned(top: 0, left: railInset + i * columnWidth + columnWidth * .65,
+                  width: columnWidth * .35, height: hourHeight * 24,
+                  child: TodoBlockLane(rows: onDay(days[i]), day: days[i], hourHeight: hourHeight, use24Hour: use24)),
+
               // Events, positioned by day column + time. Laid out into
               // non-overlapping columns within each day column the same
               // way DayView lays out its own timeline — see cascadeEvents'
@@ -1012,7 +1021,7 @@ class _WeekGridState extends State<_WeekGrid> with WidgetsBindingObserver {
                   Builder(
                     builder: (context) {
                       final e = c.event;
-                      final columnAvailable = columnWidth - 2;
+                      final columnAvailable = columnWidth * (onDay(days[i]).isEmpty ? 1 : .65) - 2;
                       final eventWidth = columnAvailable / c.columnCount;
                       final leftInset = c.column * eventWidth;
                       final crowded = c.columnCount > 1;

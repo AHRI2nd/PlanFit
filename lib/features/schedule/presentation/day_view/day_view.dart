@@ -18,6 +18,9 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../application/schedule_providers.dart';
 import '../../../todo/presentation/hourly_todo_list.dart';
+import '../../../todo/presentation/todo_block_lane.dart';
+import '../../../todo/application/todo_providers.dart';
+import '../../../todo/domain/todo_time_block.dart';
 import '../../domain/day_clock_geometry.dart' show clampedMinutesOfDay;
 import '../../domain/drag_create.dart';
 import '../../domain/event_overlap.dart';
@@ -173,7 +176,8 @@ class _DayViewState extends ConsumerState<DayView> {
         : allDayCount *
                   (DayView._allDayCardMaxHeight * textScale + AppSpacing.xs) +
               AppSpacing.sm;
-    final pagerHeight = events != null && events.isEmpty
+    final hasBlocks = (ref.watch(todosForDayProvider(widget.day)).value ?? const <TodoRow>[]).any((r) => !r.isDone && TodoTimeBlock.of(r) != null);
+    final pagerHeight = events != null && events.isEmpty && !hasBlocks
         ? _DayContent.emptyContentHeight
         : DayView._hourHeight * 24 + DayView._endOfDayHeight + allDayReserve;
 
@@ -334,6 +338,7 @@ class _DayContent extends ConsumerWidget {
     final palette = context.palette;
     final locale = Localizations.localeOf(context).toLanguageTag();
     final eventsAsync = ref.watch(eventsForDayProvider(day));
+    final blocks = (ref.watch(todosForDayProvider(day)).value ?? const <TodoRow>[]).where((r) => !r.isDone && TodoTimeBlock.of(r) != null).toList();
     // Watches nowTickerProvider — see that provider's own doc — rather than
     // computing DateTime.now() directly, so the "now" indicator line below
     // keeps creeping forward even while this tab sits idle (no other
@@ -362,7 +367,7 @@ class _DayContent extends ConsumerWidget {
                 ),
               const SizedBox(height: AppSpacing.sm),
             ],
-            if (timed.isEmpty && allDay.isEmpty)
+            if (timed.isEmpty && allDay.isEmpty && blocks.isEmpty)
               _EmptyDay(l10n: l10n, compact: compact)
             else if (layoutMode == DayViewLayoutMode.clock) ...[
               Padding(
@@ -666,6 +671,7 @@ class _TimelineState extends ConsumerState<_Timeline>
   Widget build(BuildContext context) {
     final palette = context.palette;
     final pendingCreate = _pendingCreateRange;
+    final blocks = (ref.watch(todosForDayProvider(widget.day)).value ?? const <TodoRow>[]).where((r) => !r.isDone && TodoTimeBlock.of(r) != null).toList();
     final use24 = resolveUse24Hour(
       ref.watch(
         settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
@@ -677,7 +683,8 @@ class _TimelineState extends ConsumerState<_Timeline>
       builder: (context, constraints) {
         // Needed to split however many non-overlapping columns
         // cascadeEvents assigns a cluster into actual pixel widths below.
-        final availableWidth = constraints.maxWidth - widget.railInset;
+        final blockWidth = blocks.isEmpty ? 0.0 : (constraints.maxWidth - widget.railInset) * .35;
+        final availableWidth = constraints.maxWidth - widget.railInset - blockWidth;
 
         return Stack(
           children: [
@@ -823,6 +830,9 @@ class _TimelineState extends ConsumerState<_Timeline>
                 ),
               ),
 
+            if (blocks.isNotEmpty) Positioned(top: 0, right: 0, width: blockWidth, height: widget.hourHeight * 24,
+              child: TodoBlockLane(rows: blocks, day: widget.day, hourHeight: widget.hourHeight, use24Hour: use24)),
+
             // Event cards positioned by start time, sized exactly to their
             // own duration — top and bottom both land precisely on their
             // start/end hour gridlines, rather than the couple of px of
@@ -894,7 +904,7 @@ class _TimelineState extends ConsumerState<_Timeline>
                   return Positioned(
                     top: _offsetFor(start),
                     left: widget.railInset + leftInset,
-                    right: rightInset,
+                    right: rightInset + blockWidth,
                     height: height,
                     child: _EventCard(
                       event: e,

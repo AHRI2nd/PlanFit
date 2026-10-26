@@ -12,6 +12,8 @@ import '../domain/todo_overdue.dart';
 import '../domain/todo_priority.dart';
 import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
+import 'todo_time_block_sheet.dart';
+import '../domain/todo_time_block.dart';
 import 'todo_selection.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
@@ -396,8 +398,8 @@ class _TodoTile extends ConsumerWidget {
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: () => _pickTime(context, ref),
+              Flexible(child: GestureDetector(
+                onTap: () => TodoTimeBlock.of(todo) != null ? showTodoTimeBlockSheet(context, todo) : _pickTime(context, ref),
                 // Long-press clears back to "no time" — picking a time via
                 // the tap above is the way back in (see TodoDao.updateSlotStart).
                 onLongPress: todo.hasTime
@@ -410,7 +412,8 @@ class _TodoTile extends ConsumerWidget {
                   ),
                   child: Text(
                     todo.hasTime
-                        ? Fmt.time(todo.slotStart, locale, use24Hour: use24)
+                        ? TodoTimeBlock.of(todo) == null ? Fmt.time(todo.slotStart, locale, use24Hour: use24)
+                          : '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)} – ${Fmt.monthDay(todo.slotEnd!, locale)} ${Fmt.time(todo.slotEnd!, locale, use24Hour: use24)}' 
                         : l10n.todoNoTime,
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: isOverdue
@@ -422,7 +425,7 @@ class _TodoTile extends ConsumerWidget {
                     ),
                   ),
                 ),
-              ),
+              )),
               if (dragHandleIndex != null)
                 ReorderableDragStartListener(
                   index: dragHandleIndex!,

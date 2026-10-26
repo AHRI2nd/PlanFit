@@ -2621,6 +2621,102 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'다음 주로 이동'**
   String get reviewNextWeek;
+
+  /// No description provided for @blockTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간에 배치'**
+  String get blockTitle;
+
+  /// No description provided for @blockEdit.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간 블록 수정'**
+  String get blockEdit;
+
+  /// No description provided for @blockClear.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간 배치 해제'**
+  String get blockClear;
+
+  /// No description provided for @blockAvailability.
+  ///
+  /// In ko, this message translates to:
+  /// **'활동 시간과 휴식'**
+  String get blockAvailability;
+
+  /// No description provided for @blockWorkStart.
+  ///
+  /// In ko, this message translates to:
+  /// **'시작'**
+  String get blockWorkStart;
+
+  /// No description provided for @blockWorkEnd.
+  ///
+  /// In ko, this message translates to:
+  /// **'종료'**
+  String get blockWorkEnd;
+
+  /// No description provided for @blockBreak.
+  ///
+  /// In ko, this message translates to:
+  /// **'휴식 시간 제외'**
+  String get blockBreak;
+
+  /// No description provided for @blockAllDay.
+  ///
+  /// In ko, this message translates to:
+  /// **'종일 일정을 바쁜 시간으로 처리'**
+  String get blockAllDay;
+
+  /// No description provided for @blockSuggestions.
+  ///
+  /// In ko, this message translates to:
+  /// **'빈 시간 후보'**
+  String get blockSuggestions;
+
+  /// No description provided for @blockSuggestionHelp.
+  ///
+  /// In ko, this message translates to:
+  /// **'현재 등록 자료 기준 제안입니다. 시간만 지정한 할 일은 시간을 점유하지 않습니다. 활동 요일·시간과 휴식은 후보에만 적용되며 직접 입력할 수 있습니다. 길이는 기기에만 보관되고 미리알림에는 시작 시각이 전달됩니다.'**
+  String get blockSuggestionHelp;
+
+  /// No description provided for @blockNoSuggestions.
+  ///
+  /// In ko, this message translates to:
+  /// **'조건에 맞는 후보가 없어요. 날짜·길이·활동 시간을 바꾸거나 직접 입력하세요.'**
+  String get blockNoSuggestions;
+
+  /// No description provided for @blockConflict.
+  ///
+  /// In ko, this message translates to:
+  /// **'겹치는 항목 확인'**
+  String get blockConflict;
+
+  /// No description provided for @blockConflictHelp.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음 항목과 시간이 겹칩니다. 확인 후에도 배치할 수 있으며 저장 직전에 다시 확인합니다.'**
+  String get blockConflictHelp;
+
+  /// No description provided for @blockConfirmOverlap.
+  ///
+  /// In ko, this message translates to:
+  /// **'겹침을 확인하고 배치'**
+  String get blockConfirmOverlap;
+
+  /// No description provided for @blockDeferred.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간 블록은 저장됐습니다. 알림·미리알림 처리는 다시 확인해 주세요.'**
+  String get blockDeferred;
+
+  /// No description provided for @blockTimeline.
+  ///
+  /// In ko, this message translates to:
+  /// **'할 일 시간 블록'**
+  String get blockTimeline;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

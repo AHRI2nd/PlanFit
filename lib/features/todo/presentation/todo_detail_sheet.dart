@@ -1,9 +1,13 @@
+import '../../schedule/application/schedule_providers.dart' show dateOnly;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/app_database.dart';
+import '../../../core/di.dart';
+import '../../../core/date_math.dart';
+import 'todo_time_block_sheet.dart';
 import '../../../design/glass/glass_nav_bar.dart' show navBarVisibleHeight;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
@@ -97,6 +101,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
   /// would write to the database and leave the row on screen showing the old
   /// one.
   late DateTime _slotStart;
+  DateTime? _slotEnd;
   late bool _hasTime;
 
   static const List<int> _leadTimeOptions = [0, 5, 10, 30, 60, 1440];
@@ -118,6 +123,18 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     }
   }
 
+  Future<void> _editBlock() async {
+    _flushPendingSaves();
+    try {
+      final current = await ref.read(todoDaoProvider).findById(widget.todo.id);
+      if (!mounted || current == null) return;
+      final updated = await showTodoTimeBlockSheet(context, current);
+      if (mounted && updated != null) setState(() {
+        _slotStart = updated.slotStart; _slotEnd = updated.slotEnd; _hasTime = updated.hasTime;
+      });
+    } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppL10n.of(context).todoUpdateFailed))); }
+  }
+
   Future<void> _pickDate() async {
     final picked = await showAppDatePicker(
       context: context,
@@ -128,15 +145,11 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     if (picked == null || !mounted) return;
     await _guard(
       () => ref.read(todoControllerProvider).updateDate(widget.todo.id, picked),
-      () => _slotStart = _hasTime
-          ? DateTime(
-              picked.year,
-              picked.month,
-              picked.day,
-              _slotStart.hour,
-              _slotStart.minute,
-            )
-          : DateTime(picked.year, picked.month, picked.day),
+      () {
+        final next = _hasTime ? DateTime(picked.year, picked.month, picked.day, _slotStart.hour, _slotStart.minute) : dateOnly(picked);
+        if (_slotEnd != null) _slotEnd = shiftTimeOfDay(next, calendarDuration(_slotStart, _slotEnd!));
+        _slotStart = next;
+      },
     );
   }
 
@@ -161,6 +174,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
       () {
         // updateTime turns a no-time to-do back into a timed one — picking a
         // time is exactly how a user opts back in (TodoDao.updateSlotStart).
+        if (_slotEnd != null) _slotEnd = shiftTimeOfDay(next, calendarDuration(_slotStart, _slotEnd!));
         _slotStart = next;
         _hasTime = true;
       },
@@ -171,6 +185,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     () => ref.read(todoControllerProvider).clearTime(widget.todo.id),
     () {
       _hasTime = false;
+      _slotEnd = null;
       _slotStart = DateTime(_slotStart.year, _slotStart.month, _slotStart.day);
     },
   );
@@ -183,6 +198,7 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     _tags = TextEditingController(text: widget.todo.tags ?? '');
     _lastSavedTags = _tags.text;
     _slotStart = widget.todo.slotStart;
+    _slotEnd = widget.todo.slotEnd;
     _hasTime = widget.todo.hasTime;
     _priority = TodoPriority.fromValue(widget.todo.priority);
     _notify = widget.todo.notify;
@@ -473,6 +489,10 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                           ),
                       ],
                     ),
+                    if (!widget.todo.isDone) Align(alignment: Alignment.centerLeft, child: TextButton.icon(
+                      onPressed: _editBlock, icon: const Icon(Icons.view_agenda_outlined), label: Text(_slotEnd == null ? l10n.blockTitle : l10n.blockEdit))),
+                    if (_hasTime && _slotEnd != null && _slotEnd!.isAfter(_slotStart))
+                      Text('${Fmt.monthDay(_slotStart, locale)} ${Fmt.time(_slotStart, locale, use24Hour: use24Hour)} – ${Fmt.monthDay(_slotEnd!, locale)} ${Fmt.time(_slotEnd!, locale, use24Hour: use24Hour)} · ${l10n.durationMinutes(_slotEnd!.difference(_slotStart).inMinutes)}'),
                     const SizedBox(height: AppSpacing.xs),
                     Row(
                       children: [

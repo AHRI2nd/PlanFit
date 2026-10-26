@@ -1364,4 +1364,55 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get reviewNextWeek => '다음 주로 이동';
+
+  @override
+  String get blockTitle => '시간에 배치';
+
+  @override
+  String get blockEdit => '시간 블록 수정';
+
+  @override
+  String get blockClear => '시간 배치 해제';
+
+  @override
+  String get blockAvailability => '활동 시간과 휴식';
+
+  @override
+  String get blockWorkStart => '시작';
+
+  @override
+  String get blockWorkEnd => '종료';
+
+  @override
+  String get blockBreak => '휴식 시간 제외';
+
+  @override
+  String get blockAllDay => '종일 일정을 바쁜 시간으로 처리';
+
+  @override
+  String get blockSuggestions => '빈 시간 후보';
+
+  @override
+  String get blockSuggestionHelp =>
+      '현재 등록 자료 기준 제안입니다. 시간만 지정한 할 일은 시간을 점유하지 않습니다. 활동 요일·시간과 휴식은 후보에만 적용되며 직접 입력할 수 있습니다. 길이는 기기에만 보관되고 미리알림에는 시작 시각이 전달됩니다.';
+
+  @override
+  String get blockNoSuggestions =>
+      '조건에 맞는 후보가 없어요. 날짜·길이·활동 시간을 바꾸거나 직접 입력하세요.';
+
+  @override
+  String get blockConflict => '겹치는 항목 확인';
+
+  @override
+  String get blockConflictHelp =>
+      '다음 항목과 시간이 겹칩니다. 확인 후에도 배치할 수 있으며 저장 직전에 다시 확인합니다.';
+
+  @override
+  String get blockConfirmOverlap => '겹침을 확인하고 배치';
+
+  @override
+  String get blockDeferred => '시간 블록은 저장됐습니다. 알림·미리알림 처리는 다시 확인해 주세요.';
+
+  @override
+  String get blockTimeline => '할 일 시간 블록';
 }

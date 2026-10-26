@@ -638,5 +638,21 @@
   "reviewUnknown": "Completion date unknown",
   "reviewRetained": "Based on retained records. Rescheduling, undoing completion and automatic deletion can change these records. Planned intervals are not actual work time.",
   "reviewRetention": "Automatic cleanup of completed items is enabled.",
-  "reviewNextWeek": "Move to next week"
+  "reviewNextWeek": "Move to next week",
+  "blockTitle": "Plan a time block",
+  "blockEdit": "Edit time block",
+  "blockClear": "Clear time block",
+  "blockAvailability": "Working hours and breaks",
+  "blockWorkStart": "Start",
+  "blockWorkEnd": "End",
+  "blockBreak": "Exclude break time",
+  "blockAllDay": "Treat all-day events as busy",
+  "blockSuggestions": "Available time suggestions",
+  "blockSuggestionHelp": "Suggestions use current records. Point todos reserve no duration. Working days, hours and breaks only affect suggestions; you can enter a time manually. Duration stays on this device; Reminders receives the start time.",
+  "blockNoSuggestions": "No matching slots. Change the date, duration or working hours, or enter a time manually.",
+  "blockConflict": "Review overlapping items",
+  "blockConflictHelp": "This interval overlaps these items. You may place it anyway after reviewing; conflicts are checked again before saving.",
+  "blockConfirmOverlap": "Confirm and place",
+  "blockDeferred": "Time block saved. Notification or Reminders processing needs attention.",
+  "blockTimeline": "Todo time blocks"
 }

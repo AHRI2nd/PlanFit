@@ -272,8 +272,8 @@ class TodoController {
   /// has one — see [TodoDao.updateSlotDate] for why that isn't [updateTime]
   /// with a recomposed date.
   final _placementQueue = SerialQueue();
-  Future<TimeBlockSaveResult> setTimeBlock(String id, TodoTimeBlock block) =>
-    _placementQueue.run(() => TodoTimeBlockWriter(dao: _ref.read(todoDaoProvider), synchronize: _syncPlacement).save(id, block));
+  Future<TimeBlockSaveResult> setTimeBlock(String id, TodoTimeBlock block, {Set<String> acknowledgedConflicts = const {}, bool blockAllDay = false}) =>
+    _placementQueue.run(() => TodoTimeBlockWriter(dao: _ref.read(todoDaoProvider), synchronize: _syncPlacement).save(id, block, acknowledgedConflicts: acknowledgedConflicts, blockAllDay: blockAllDay));
 
   Future<TodoRescheduleResult> reschedule(Iterable<String> ids, DateTime day) {
     final selected = ids.toSet();
