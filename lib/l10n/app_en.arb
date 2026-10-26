@@ -516,5 +516,25 @@
     }
   },
   "backupIntegrationDeferred": "Saved locally. Some notification or sync work will be retried.",
-  "backupRecoveryLabel": "Before-import recovery copy"
+  "backupRecoveryLabel": "Before-import recovery copy",
+  "backupRefresh": "Refresh backups",
+  "backupLastSuccess": "Last successful backup: {time}",
+  "backupLastAttempt": "Last attempt: {time}",
+  "backupCleanupPending": "The backup was saved; older file cleanup needs another attempt.",
+  "backupWriteFailed": "The latest backup could not be saved. Try again.",
+  "backupCreateNow": "Back up now",
+  "@backupLastSuccess": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@backupLastAttempt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -1255,4 +1255,28 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get backupRecoveryLabel => 'Before-import recovery copy';
+
+  @override
+  String get backupRefresh => 'Refresh backups';
+
+  @override
+  String backupLastSuccess(String time) {
+    return 'Last successful backup: $time';
+  }
+
+  @override
+  String backupLastAttempt(String time) {
+    return 'Last attempt: $time';
+  }
+
+  @override
+  String get backupCleanupPending =>
+      'The backup was saved; older file cleanup needs another attempt.';
+
+  @override
+  String get backupWriteFailed =>
+      'The latest backup could not be saved. Try again.';
+
+  @override
+  String get backupCreateNow => 'Back up now';
 }

@@ -2309,6 +2309,42 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'가져오기 전 보호용 사본'**
   String get backupRecoveryLabel;
+
+  /// No description provided for @backupRefresh.
+  ///
+  /// In ko, this message translates to:
+  /// **'백업 새로고침'**
+  String get backupRefresh;
+
+  /// No description provided for @backupLastSuccess.
+  ///
+  /// In ko, this message translates to:
+  /// **'마지막 성공: {time}'**
+  String backupLastSuccess(String time);
+
+  /// No description provided for @backupLastAttempt.
+  ///
+  /// In ko, this message translates to:
+  /// **'마지막 시도: {time}'**
+  String backupLastAttempt(String time);
+
+  /// No description provided for @backupCleanupPending.
+  ///
+  /// In ko, this message translates to:
+  /// **'백업은 저장했지만 오래된 파일 정리를 다시 시도해야 해요.'**
+  String get backupCleanupPending;
+
+  /// No description provided for @backupWriteFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'최근 백업을 저장하지 못했어요. 다시 시도해주세요.'**
+  String get backupWriteFailed;
+
+  /// No description provided for @backupCreateNow.
+  ///
+  /// In ko, this message translates to:
+  /// **'지금 백업'**
+  String get backupCreateNow;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

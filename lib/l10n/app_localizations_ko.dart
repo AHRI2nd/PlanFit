@@ -1186,4 +1186,26 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get backupRecoveryLabel => '가져오기 전 보호용 사본';
+
+  @override
+  String get backupRefresh => '백업 새로고침';
+
+  @override
+  String backupLastSuccess(String time) {
+    return '마지막 성공: $time';
+  }
+
+  @override
+  String backupLastAttempt(String time) {
+    return '마지막 시도: $time';
+  }
+
+  @override
+  String get backupCleanupPending => '백업은 저장했지만 오래된 파일 정리를 다시 시도해야 해요.';
+
+  @override
+  String get backupWriteFailed => '최근 백업을 저장하지 못했어요. 다시 시도해주세요.';
+
+  @override
+  String get backupCreateNow => '지금 백업';
 }

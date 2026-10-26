@@ -133,10 +133,12 @@ final icsExportServiceProvider = Provider<IcsExportService>((ref) {
 });
 
 final autoBackupServiceProvider = Provider<AutoBackupService>((ref) {
-  return AutoBackupService(
+  final service = AutoBackupService(
     backupService: ref.watch(backupServiceProvider),
     prefs: ref.watch(sharedPreferencesProvider),
   );
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 final calendarImportServiceProvider = Provider<CalendarImportService>((ref) {

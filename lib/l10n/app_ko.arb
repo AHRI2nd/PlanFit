@@ -516,5 +516,25 @@
     }
   },
   "backupIntegrationDeferred": "기기에 저장했어요. 일부 알림·연동 작업은 다시 시도해요.",
-  "backupRecoveryLabel": "가져오기 전 보호용 사본"
+  "backupRecoveryLabel": "가져오기 전 보호용 사본",
+  "backupRefresh": "백업 새로고침",
+  "backupLastSuccess": "마지막 성공: {time}",
+  "backupLastAttempt": "마지막 시도: {time}",
+  "backupCleanupPending": "백업은 저장했지만 오래된 파일 정리를 다시 시도해야 해요.",
+  "backupWriteFailed": "최근 백업을 저장하지 못했어요. 다시 시도해주세요.",
+  "backupCreateNow": "지금 백업",
+  "@backupLastSuccess": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@backupLastAttempt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }

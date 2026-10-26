@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:path_provider/path_provider.dart';
@@ -58,6 +59,9 @@ class AutoBackupService {
   /// simply spend two of the [maxRetained] slots on one moment in time —
   /// silently halving how far back the rolling history actually reaches.
   bool _running = false;
+  final _changes = StreamController<void>.broadcast();
+  Stream<void> get changes => _changes.stream;
+  void dispose() => unawaited(_changes.close());
 
   DateTime? get lastRunAt {
     final iso = prefs.getString(_kLastRunAt);
@@ -76,11 +80,11 @@ class AutoBackupService {
   /// app.dart's other foreground-resume tasks (calendar reconcile, widget
   /// sync, ...) — a failure here must never surface to the user or block
   /// anything else.
-  Future<void> runIfDue({DateTime? now}) async {
+  Future<void> runIfDue({DateTime? now, bool force = false}) async {
     if (_running) return;
     final at = now ?? DateTime.now();
     final last = lastRunAt;
-    if (last != null && at.difference(last) < minInterval) return;
+    if (!force && last != null && at.difference(last) < minInterval) return;
 
     _running = true;
     File? partial;
@@ -112,6 +116,7 @@ class AutoBackupService {
         on FileSystemException { /* Partial files are excluded from history. */ }
       }
       _running = false;
+      if (!_changes.isClosed) _changes.add(null);
     }
   }
 

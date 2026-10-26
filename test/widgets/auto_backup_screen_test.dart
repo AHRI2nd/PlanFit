@@ -41,6 +41,16 @@ class _NoopEventTemplateDao extends Mock implements EventTemplateDao {}
 
 class _NoopNotificationPort extends Mock implements NotificationPort {}
 
+class _ToggleAutoBackup extends AutoBackupService {
+  _ToggleAutoBackup({required super.backupService, required super.prefs, this.failListing = false});
+  final bool failListing;
+  @override
+  Future<List<File>> listBackups() async {
+    if (failListing) throw const FileSystemException('unavailable');
+    return super.listBackups();
+  }
+}
+
 void main() {
   late Directory rootDir;
 
@@ -55,13 +65,15 @@ void main() {
   Future<void> pumpScreen(
     WidgetTester tester, {
     Locale locale = const Locale('ko'),
+    bool failListing = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final widget = ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         autoBackupServiceProvider.overrideWithValue(
-          AutoBackupService(
+          _ToggleAutoBackup(
+            failListing: failListing,
             backupService: BackupService(
               eventRepository: _NoopEventRepository(),
               todoDao: _NoopTodoDao(),
@@ -141,16 +153,29 @@ void main() {
         ..createSync(recursive: true);
       File(
         '${backupsDir.path}/backup-2026-01-01T00-00-00.json',
-      ).writeAsStringSync('{}');
+      ).writeAsStringSync('{"schemaVersion":2,"events":[],"todos":[]}');
 
       await pumpScreen(tester);
 
       expect(find.text('이 백업으로 복원'), findsOneWidget);
 
-      await tester.tap(find.text('이 백업으로 복원'));
+      await tester.runAsync(() async {
+        await tester.tap(find.text('이 백업으로 복원'));
+        for (var i = 0; i < 100; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          await tester.pump();
+          if (find.text('이 백업으로 복원할까요?').evaluate().isNotEmpty) break;
+        }
+      });
       await tester.pumpAndSettle();
 
       expect(find.text('이 백업으로 복원할까요?'), findsOneWidget);
     },
   );
+  testWidgets('listing failure offers retry instead of endless loading', (tester) async {
+    await pumpScreen(tester, failListing: true);
+    expect(find.text('다시 시도'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
 }
