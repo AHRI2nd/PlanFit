@@ -48,6 +48,14 @@ class MockEventRepository extends _i1.Mock implements _i3.EventRepository {
           as _i4.Stream<List<_i2.EventRow>>);
 
   @override
+  _i4.Stream<_i2.EventRow?> watchNextTimed(DateTime? from) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchNextTimed, [from]),
+            returnValue: _i4.Stream<_i2.EventRow?>.empty(),
+          )
+          as _i4.Stream<_i2.EventRow?>);
+
+  @override
   _i4.Stream<List<_i2.EventRow>> watchUpcoming(DateTime? from, {int? limit}) =>
       (super.noSuchMethod(
             Invocation.method(#watchUpcoming, [from], {#limit: limit}),

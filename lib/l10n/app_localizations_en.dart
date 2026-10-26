@@ -1402,4 +1402,19 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get smartListEarlierEmpty => 'No unfinished items from previous dates';
+
+  @override
+  String get homeUseClock => 'Switch to clock view';
+
+  @override
+  String get homeUseCompact => 'Switch to compact view';
+
+  @override
+  String get homeOngoing => 'Ongoing appointment';
+
+  @override
+  String get homeNext => 'Next appointment';
+
+  @override
+  String get homeNoNext => 'No upcoming appointment · Add one';
 }

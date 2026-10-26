@@ -2549,6 +2549,36 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'이전 날짜에 남은 할 일이 없어요'**
   String get smartListEarlierEmpty;
+
+  /// No description provided for @homeUseClock.
+  ///
+  /// In ko, this message translates to:
+  /// **'시계 보기로 전환'**
+  String get homeUseClock;
+
+  /// No description provided for @homeUseCompact.
+  ///
+  /// In ko, this message translates to:
+  /// **'간결한 보기로 전환'**
+  String get homeUseCompact;
+
+  /// No description provided for @homeOngoing.
+  ///
+  /// In ko, this message translates to:
+  /// **'진행 중 일정'**
+  String get homeOngoing;
+
+  /// No description provided for @homeNext.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음 일정'**
+  String get homeNext;
+
+  /// No description provided for @homeNoNext.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음 일정이 없어요 · 일정 추가'**
+  String get homeNoNext;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

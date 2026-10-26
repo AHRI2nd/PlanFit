@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/clock.dart';
+import '../application/home_preferences.dart';
 import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/format.dart';
@@ -246,6 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       context,
     );
+    final compact = ref.watch(homeLayoutProvider) == HomeLayoutMode.compact;
     final peekHeight = _peekHeight;
     // Deliberately un-keyed: its height varies with the user's own tune
     // toggle, which is exactly what makes it useless to measure. Both
@@ -283,9 +285,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   children: [
                     SafeArea(
                       bottom: false,
-                      child: _Hero(now: now, l10n: l10n, use24Hour: use24),
+                      child: _Hero(now: now, l10n: l10n, use24Hour: use24, compact: compact, onToggle: () => ref.read(homeLayoutProvider.notifier).toggle()),
                     ),
                     const SizedBox(height: AppSpacing.xl),
+                    if (compact) ...[
+                      _NextAppointment(now: now, locale: locale, use24Hour: use24),
+                      ListTile(title: Text(l10n.smartListEarlier), trailing: const Icon(Icons.arrow_forward),
+                        onTap: () => context.go('/todos?filter=earlier')),
+                    ],
                     SectionHeader(l10n.homeToday),
                     _TodayFeed(
                       now: now,
@@ -564,8 +571,10 @@ class _TodoAddPeek extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.now, required this.l10n, required this.use24Hour});
+  const _Hero({required this.now, required this.l10n, required this.use24Hour, required this.compact, required this.onToggle});
 
+  final bool compact;
+  final VoidCallback onToggle;
   final DateTime now;
   final AppL10n l10n;
   final bool use24Hour;
@@ -591,12 +600,15 @@ class _Hero extends StatelessWidget {
           Row(children: [
             Expanded(child: Text(_greeting(), style: Theme.of(context)
               .textTheme.titleMedium?.copyWith(color: palette.inkSoft))),
+            IconButton(onPressed: onToggle, tooltip: compact ? l10n.homeUseClock : l10n.homeUseCompact,
+              icon: Icon(compact ? Icons.schedule : Icons.view_compact_outlined)),
             const AppSearchButton(),
           ]),
           const SizedBox(height: AppSpacing.xs),
           Text(
             Fmt.time(now, locale, use24Hour: use24Hour),
-            style: AppTypography.clock.copyWith(color: palette.ink),
+            key: compact ? const ValueKey('home-compact-clock') : null,
+            style: compact ? Theme.of(context).textTheme.headlineMedium : AppTypography.clock.copyWith(color: palette.ink),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
@@ -612,6 +624,35 @@ class _Hero extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _NextAppointment extends ConsumerWidget {
+  const _NextAppointment({required this.now, required this.locale, required this.use24Hour});
+  final DateTime now;
+  final String locale;
+  final bool use24Hour;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = ref.watch(eventsForDayProvider(dateOnly(now)));
+    final next = ref.watch(nextTimedEventProvider);
+    final l10n = AppL10n.of(context);
+    return AsyncContent<List<EventRow>>(
+      value: today,
+      onRetry: () { ref.invalidate(eventsForDayProvider(dateOnly(now))); ref.invalidate(nextTimedEventProvider); },
+      builder: (rows) {
+        final ongoing = rows.where((e) => !e.isAllDay && !e.startAt.isAfter(now) && e.endAt.isAfter(now)).firstOrNull;
+        if (ongoing != null) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SectionHeader(l10n.homeOngoing),
+          _UpcomingTile(event: ongoing, now: now, locale: locale, use24Hour: use24Hour),
+        ]);
+        return AsyncContent<EventRow?>(value: next, onRetry: () => ref.invalidate(nextTimedEventProvider),
+          builder: (event) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SectionHeader(l10n.homeNext),
+            if (event == null) ListTile(title: Text(l10n.homeNoNext), onTap: () => showEventEditor(context))
+            else _UpcomingTile(event: event, now: now, locale: locale, use24Hour: use24Hour),
+          ]));
+      });
   }
 }
 

@@ -229,7 +229,12 @@ final eventsForYearProvider = StreamProvider.autoDispose
 final upcomingEventsProvider = StreamProvider<List<EventRow>>((ref) {
   return ref
       .watch(eventRepositoryProvider)
-      .watchUpcoming(DateTime.now(), limit: 4);
+      .watchUpcoming(ref.watch(nowTickerProvider).value ?? DateTime.now(), limit: 4);
+});
+
+final nextTimedEventProvider = StreamProvider.autoDispose<EventRow?>((ref) {
+  return ref.watch(eventRepositoryProvider).watchNextTimed(
+    ref.watch(nowTickerProvider).value ?? DateTime.now());
 });
 
 /// Events in the week containing [anyDayInWeek] (per the week-start setting)

@@ -47,6 +47,11 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
         .watch();
   }
 
+  Stream<EventRow?> watchNextTimed(DateTime from) => (select(events)
+    ..where((t) => t.isAllDay.equals(false) & t.startAt.isBiggerOrEqualValue(from))
+    ..orderBy([(t) => OrderingTerm(expression: t.startAt), (t) => OrderingTerm(expression: t.id)])
+    ..limit(1)).watchSingleOrNull();
+
   Future<EventRow?> findById(String id) =>
       (select(events)..where((t) => t.id.equals(id))).getSingleOrNull();
 

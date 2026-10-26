@@ -56,6 +56,7 @@ void main() {
     when(
       todos.watchBetween(any, any),
     ).thenAnswer((_) => Stream.value(const <TodoRow>[]));
+    when(events.watchNextTimed(any)).thenAnswer((_) => Stream.value(null));
     when(todos.watchAll()).thenAnswer((_) => Stream.value(const <TodoRow>[]));
     when(
       todos.watchOverdue(any),
@@ -136,6 +137,16 @@ void main() {
     await tester.drag(find.text('할 일 추가'), const Offset(0, -600));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('compact home retains its selected layout', (tester) async {
+    await pumpHome(tester);
+    await tester.tap(find.byTooltip('간결한 보기로 전환'));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('home-compact-clock')), findsOneWidget);
+    expect(find.text('이전 날짜 미완료'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('home.layout'), 'compact');
+  });
 
   testWidgets('shows every empty state when there is no data', (tester) async {
     await pumpHome(tester);

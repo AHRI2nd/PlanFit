@@ -626,5 +626,10 @@
     }
   },
   "smartListEarlier": "Earlier unfinished",
-  "smartListEarlierEmpty": "No unfinished items from previous dates"
+  "smartListEarlierEmpty": "No unfinished items from previous dates",
+  "homeUseClock": "Switch to clock view",
+  "homeUseCompact": "Switch to compact view",
+  "homeOngoing": "Ongoing appointment",
+  "homeNext": "Next appointment",
+  "homeNoNext": "No upcoming appointment · Add one"
 }

@@ -8,6 +8,7 @@ import '../../../core/search/search_options.dart';
 /// sharing / accounts) without touching any screen.
 abstract class EventRepository {
   Stream<List<EventRow>> watchBetween(DateTime from, DateTime to);
+  Stream<EventRow?> watchNextTimed(DateTime from);
   Stream<List<EventRow>> watchUpcoming(DateTime from, {int limit});
   Future<EventRow?> findById(String id);
 

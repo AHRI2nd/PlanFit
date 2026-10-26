@@ -32,6 +32,9 @@ class EventRepositoryImpl implements EventRepository {
       _dao.watchBetween(from, to);
 
   @override
+  Stream<EventRow?> watchNextTimed(DateTime from) => _dao.watchNextTimed(from);
+
+  @override
   Stream<List<EventRow>> watchUpcoming(DateTime from, {int limit = 5}) =>
       _dao.watchUpcoming(from, limit: limit);
 

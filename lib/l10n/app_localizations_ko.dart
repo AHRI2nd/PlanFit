@@ -1327,4 +1327,19 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get smartListEarlierEmpty => '이전 날짜에 남은 할 일이 없어요';
+
+  @override
+  String get homeUseClock => '시계 보기로 전환';
+
+  @override
+  String get homeUseCompact => '간결한 보기로 전환';
+
+  @override
+  String get homeOngoing => '진행 중 일정';
+
+  @override
+  String get homeNext => '다음 일정';
+
+  @override
+  String get homeNoNext => '다음 일정이 없어요 · 일정 추가';
 }
