@@ -15,6 +15,7 @@ import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/app_typography.dart';
 import '../../../design/tokens/event_color_tag.dart';
 import '../../../design/widgets/section_header.dart';
+import '../../../design/widgets/async_content.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart';
@@ -670,7 +671,7 @@ class _TodayFeed extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final theme = Theme.of(context);
-    final today = dateOnly(DateTime.now());
+    final today = dateOnly(now);
     // Scoped to *today* specifically (eventsForDayProvider, same window
     // todosForDayProvider already uses below) — this card sits under a
     // "오늘"/Today section header, but used to watch upcomingEventsProvider
@@ -681,12 +682,15 @@ class _TodayFeed extends ConsumerWidget {
     // right on the card. upcomingEventsProvider itself is untouched and
     // still correct for its other callers (the OS home-screen widget, the
     // schedule-tab badge) — those aren't making a "today" claim.
-    final events =
-        ref.watch(eventsForDayProvider(today)).asData?.value ??
-        const <EventRow>[];
-    final todos =
-        ref.watch(todosForDayProvider(today)).asData?.value ??
-        const <TodoRow>[];
+    final eventsState = ref.watch(eventsForDayProvider(today));
+    final todosState = ref.watch(todosForDayProvider(today));
+    final placeholder = asyncGroupPlaceholder(context, [eventsState, todosState], () {
+      ref.invalidate(eventsForDayProvider(today));
+      ref.invalidate(todosForDayProvider(today));
+    });
+    if (placeholder != null) return placeholder;
+    final events = eventsState.value ?? const <EventRow>[];
+    final todos = todosState.value ?? const <TodoRow>[];
 
     if (events.isEmpty && todos.isEmpty) {
       return _EmptyCard(
@@ -1048,11 +1052,15 @@ class _HomeTodoList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final overdue =
-        ref.watch(overdueTodosProvider).asData?.value ?? const <TodoRow>[];
-    final upcoming =
-        ref.watch(upcomingNotOverdueTodosProvider).asData?.value ??
-        const <TodoRow>[];
+    final overdueState = ref.watch(overdueTodosProvider);
+    final upcomingState = ref.watch(upcomingNotOverdueTodosProvider);
+    final placeholder = asyncGroupPlaceholder(context, [overdueState, upcomingState], () {
+      ref.invalidate(overdueTodosProvider);
+      ref.invalidate(upcomingNotOverdueTodosProvider);
+    });
+    if (placeholder != null) return placeholder;
+    final overdue = overdueState.value ?? const <TodoRow>[];
+    final upcoming = upcomingState.value ?? const <TodoRow>[];
 
     if (overdue.isEmpty && upcoming.isEmpty) {
       return Column(
@@ -1172,12 +1180,15 @@ class _WeeklyStats extends ConsumerWidget {
     // keys todosForDayProvider on `dateOnly(DateTime.now())` rather than a
     // raw timestamp.
     final today = dateOnly(now);
-    final events =
-        ref.watch(eventsForWeekProvider(today)).asData?.value ??
-        const <EventRow>[];
-    final todos =
-        ref.watch(todosForWeekProvider(today)).asData?.value ??
-        const <TodoRow>[];
+    final eventsState = ref.watch(eventsForWeekProvider(today));
+    final todosState = ref.watch(todosForWeekProvider(today));
+    final placeholder = asyncGroupPlaceholder(context, [eventsState, todosState], () {
+      ref.invalidate(eventsForWeekProvider(today));
+      ref.invalidate(todosForWeekProvider(today));
+    });
+    if (placeholder != null) return placeholder;
+    final events = eventsState.value ?? const <EventRow>[];
+    final todos = todosState.value ?? const <TodoRow>[];
 
     if (events.isEmpty && todos.isEmpty) {
       return _EmptyCard(

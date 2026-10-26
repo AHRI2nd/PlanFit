@@ -488,5 +488,7 @@
   "lunarDatePickerYear": "Year",
   "lunarDatePickerMonth": "Month",
   "lunarDatePickerDay": "Day",
-  "lunarLeapMonthToggle": "Leap month"
+  "lunarLeapMonthToggle": "Leap month",
+  "commonRetry": "Try again",
+  "commonNoRecords": "No records yet"
 }

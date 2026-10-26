@@ -1138,4 +1138,10 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get lunarLeapMonthToggle => '윤달';
+
+  @override
+  String get commonRetry => '다시 시도';
+
+  @override
+  String get commonNoRecords => '아직 기록이 없어요';
 }

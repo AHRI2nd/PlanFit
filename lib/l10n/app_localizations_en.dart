@@ -1206,4 +1206,10 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get lunarLeapMonthToggle => 'Leap month';
+
+  @override
+  String get commonRetry => 'Try again';
+
+  @override
+  String get commonNoRecords => 'No records yet';
 }

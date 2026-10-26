@@ -2219,6 +2219,18 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'윤달'**
   String get lunarLeapMonthToggle;
+
+  /// No description provided for @commonRetry.
+  ///
+  /// In ko, this message translates to:
+  /// **'다시 시도'**
+  String get commonRetry;
+
+  /// No description provided for @commonNoRecords.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 기록이 없어요'**
+  String get commonNoRecords;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

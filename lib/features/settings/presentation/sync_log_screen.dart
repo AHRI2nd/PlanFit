@@ -9,6 +9,7 @@ import '../../../core/time_format.dart';
 import '../../../design/glass/glass_nav_bar.dart'
     show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
+import '../../../design/widgets/async_content.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/settings_controller.dart';
@@ -36,11 +37,15 @@ class SyncLogScreen extends ConsumerWidget {
       body: StreamBuilder<List<SyncLogRow>>(
         stream: logs,
         builder: (context, snapshot) {
-          final rows = snapshot.data ?? const <SyncLogRow>[];
+          if (snapshot.hasError) {
+            return AsyncStateNotice(onRetry: () => ref.invalidate(syncLogDaoProvider));
+          }
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final rows = snapshot.data!;
           if (rows.isEmpty) {
             return Center(
               child: Text(
-                '—',
+                l10n.commonNoRecords,
                 style: TextStyle(color: palette.inkFaint, fontSize: 32),
               ),
             );
