@@ -1332,4 +1332,22 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get scheduleTools => 'Schedule tools';
+
+  @override
+  String get durationTitle => 'Duration in minutes';
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get durationInvalid => 'Enter a positive number of minutes';
+
+  @override
+  String get quickAddResetInterpretation =>
+      'Use dates and times from the text again';
+
+  @override
+  String get quickAddDetails => 'Edit details';
 }

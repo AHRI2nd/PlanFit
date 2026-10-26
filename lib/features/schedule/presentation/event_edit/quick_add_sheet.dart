@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di.dart';
 import '../../../../core/format.dart';
-import '../../../../core/quick_add/quick_add_parser.dart';
 import '../../../../core/time_format.dart';
 import '../../../settings/application/settings_controller.dart';
 import '../../../../design/glass/glass_nav_bar.dart'
@@ -11,9 +10,13 @@ import '../../../../design/glass/glass_nav_bar.dart'
 import '../../../../design/tokens/app_colors.dart';
 import '../../../../design/tokens/app_spacing.dart';
 import '../../../../design/widgets/adaptive_bottom_sheet.dart';
+import '../../../../design/widgets/app_dialog.dart';
+import '../../../../design/widgets/minutes_picker_dialog.dart';
 import '../../../../design/widgets/snackbar_x.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/event_input.dart';
+import '../../domain/quick_add_draft.dart';
+import 'event_editor_sheet.dart';
 
 /// A one-line free-text entry point for creating an event straight from a
 /// phrase like "내일 오후 3시 회의" — [parseQuickAdd] pulls the date/time
@@ -43,7 +46,7 @@ class QuickAddEventSheet extends ConsumerStatefulWidget {
 class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
   final _controller = TextEditingController();
   String _draftText = '';
-  ({String title, DateTime startAt, bool usedDefaultTime})? _draft;
+  QuickAddDraft? _draft;
   bool _saving = false;
 
   @override
@@ -66,7 +69,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
     final day = DateUtils.dateOnly(resolved.startAt);
     final title = resolved.title;
     final startAt = resolved.startAt;
-    final endAt = startAt.add(const Duration(hours: 1));
+    final endAt = resolved.endAt;
 
     setState(() => _saving = true);
     try {
@@ -99,17 +102,39 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
     }
   }
 
-  ({String title, DateTime startAt, bool usedDefaultTime}) _resolve(
-    String text,
-  ) {
-    final parsed = parseQuickAdd(text, now: DateTime.now());
-    final day = parsed.date ?? widget.anchorDay;
-    final time = parsed.time ?? const TimeOfDay(hour: 9, minute: 0);
-    return (
-      title: parsed.title.isEmpty ? text : parsed.title,
-      startAt: DateTime(day.year, day.month, day.day, time.hour, time.minute),
-      usedDefaultTime: parsed.time == null,
-    );
+  QuickAddDraft _resolve(String text) => _draft?.withText(text, now: DateTime.now()) ??
+    QuickAddDraft.parse(text, anchorDay: widget.anchorDay, now: DateTime.now());
+
+  Future<void> _editDay() async {
+    final draft = _draft;
+    if (draft == null) return;
+    final day = await showAppDatePicker(context: context, initialDate: draft.startAt,
+      firstDate: DateTime(1900), lastDate: DateTime(2200));
+    if (day != null && mounted) setState(() => _draft = draft.withDay(day));
+  }
+  Future<void> _editTime() async {
+    final draft = _draft;
+    if (draft == null) return;
+    final time = await showAppTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(draft.startAt),
+      dialFormat: ref.read(settingsControllerProvider).dialTimeFormatPreference);
+    if (time != null && mounted) setState(() => _draft = draft.withTime(time));
+  }
+  Future<void> _editDuration() async {
+    final draft = _draft;
+    if (draft == null) return;
+    final minutes = await showMinutesPicker(context, initialMinutes: draft.durationMinutes);
+    if (minutes != null && mounted) setState(() => _draft = draft.withDuration(minutes));
+  }
+  Future<void> _openDetails() async {
+    final draft = _draft;
+    if (_saving || draft == null) return;
+    setState(() => _saving = true);
+    var saved = false;
+    await showEventEditor(context, initialTitle: draft.title,
+      initialStart: draft.startAt, initialEnd: draft.endAt, onSaved: () => saved = true);
+    if (!mounted) return;
+    if (saved) { Navigator.of(context).pop(); }
+    else { setState(() => _saving = false); }
   }
 
   void _onChanged(String value) {
@@ -132,7 +157,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
       ),
       context,
     );
-    return Padding(
+    return SingleChildScrollView(child: Padding(
       padding: EdgeInsets.only(
         left: AppSpacing.gutter,
         right: AppSpacing.gutter,
@@ -167,6 +192,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
           const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _controller,
+            enabled: !_saving,
             autofocus: true,
             onChanged: _onChanged,
             textInputAction: TextInputAction.done,
@@ -174,17 +200,27 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
             decoration: InputDecoration(hintText: l10n.quickAddEventExample),
           ),
           if (draft != null) ...[
+            Wrap(spacing: 8, children: [
+              ActionChip(label: Text(Fmt.monthDay(draft.startAt, locale)), onPressed: _saving ? null : _editDay),
+              ActionChip(label: Text(Fmt.time(draft.startAt, locale, use24Hour: use24)), onPressed: _saving ? null : _editTime),
+              ActionChip(label: Text(l10n.durationMinutes(draft.durationMinutes)), onPressed: _saving ? null : _editDuration),
+            ]),
+            if (draft.hasOverrides) TextButton(onPressed: _saving ? null : () => setState(() =>
+              _draft = draft.withoutOverrides().withText(_controller.text.trim(), now: DateTime.now())),
+              child: Text(l10n.quickAddResetInterpretation)),
+            OutlinedButton.icon(onPressed: _saving ? null : _openDetails,
+              icon: const Icon(Icons.open_in_full), label: Text(l10n.quickAddDetails)),
             const SizedBox(height: AppSpacing.xs),
             Text(
               l10n.quickAddEventPreview(
                 Fmt.monthDay(draft.startAt, locale),
                 Fmt.time(draft.startAt, locale, use24Hour: use24),
                 Fmt.monthDay(
-                  draft.startAt.add(const Duration(hours: 1)),
+                  draft.endAt,
                   locale,
                 ),
                 Fmt.time(
-                  draft.startAt.add(const Duration(hours: 1)),
+                  draft.endAt,
                   locale,
                   use24Hour: use24,
                 ),
@@ -211,6 +247,6 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
           ),
         ],
       ),
-    );
+    ));
   }
 }

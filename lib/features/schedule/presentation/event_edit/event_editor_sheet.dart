@@ -61,6 +61,8 @@ Future<void> showEventEditor(
   EventRow? duplicateFrom,
   DateTime? initialStart,
   DateTime? initialEnd,
+  String? initialTitle,
+  VoidCallback? onSaved,
 }) {
   if (existing != null && existing.importSourceCalendarId != null) {
     return showEventPreview(context, event: existing);
@@ -76,6 +78,8 @@ Future<void> showEventEditor(
           duplicateFrom: duplicateFrom,
           initialStart: initialStart,
           initialEnd: initialEnd,
+          initialTitle: initialTitle,
+          onSaved: onSaved,
         ),
       ),
     ),
@@ -154,6 +158,8 @@ class EventEditorSheet extends ConsumerStatefulWidget {
     this.duplicateFrom,
     this.initialStart,
     this.initialEnd,
+    this.initialTitle,
+    this.onSaved,
   });
 
   final EventRow? existing;
@@ -165,6 +171,8 @@ class EventEditorSheet extends ConsumerStatefulWidget {
   /// [duplicateFrom] supplies its own times.
   final DateTime? initialStart;
   final DateTime? initialEnd;
+  final String? initialTitle;
+  final VoidCallback? onSaved;
 
   @override
   ConsumerState<EventEditorSheet> createState() => _EventEditorSheetState();
@@ -229,7 +237,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     // row actually being edited in place) always wins when both are set,
     // though callers never pass both.
     final source = e ?? widget.duplicateFrom;
-    _title = TextEditingController(text: source?.title ?? '');
+    _title = TextEditingController(text: source?.title ?? widget.initialTitle ?? '');
     _memo = TextEditingController(text: source?.memo ?? '');
     _location = TextEditingController(text: source?.location ?? '');
     final anchor = widget.initialDay ?? DateTime.now();
@@ -591,6 +599,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
       await repo.save(input);
     }
     if (!mounted) return;
+    widget.onSaved?.call();
     navigator.pop();
     if (truncated) {
       messenger.showAutoDismissSnackBar(

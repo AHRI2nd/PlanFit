@@ -2441,6 +2441,36 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'시간표 도구'**
   String get scheduleTools;
+
+  /// No description provided for @durationTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'소요 시간(분)'**
+  String get durationTitle;
+
+  /// No description provided for @durationMinutes.
+  ///
+  /// In ko, this message translates to:
+  /// **'{minutes}분'**
+  String durationMinutes(int minutes);
+
+  /// No description provided for @durationInvalid.
+  ///
+  /// In ko, this message translates to:
+  /// **'1 이상의 분으로 입력해주세요'**
+  String get durationInvalid;
+
+  /// No description provided for @quickAddResetInterpretation.
+  ///
+  /// In ko, this message translates to:
+  /// **'문장에서 날짜·시간 다시 적용'**
+  String get quickAddResetInterpretation;
+
+  /// No description provided for @quickAddDetails.
+  ///
+  /// In ko, this message translates to:
+  /// **'상세 편집'**
+  String get quickAddDetails;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

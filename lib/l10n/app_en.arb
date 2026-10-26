@@ -566,5 +566,17 @@
       }
     }
   },
-  "scheduleTools": "Schedule tools"
+  "scheduleTools": "Schedule tools",
+  "durationTitle": "Duration in minutes",
+  "durationMinutes": "{minutes} min",
+  "durationInvalid": "Enter a positive number of minutes",
+  "quickAddResetInterpretation": "Use dates and times from the text again",
+  "quickAddDetails": "Edit details",
+  "@durationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  }
 }

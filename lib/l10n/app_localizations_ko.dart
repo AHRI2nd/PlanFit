@@ -1261,4 +1261,21 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get scheduleTools => '시간표 도구';
+
+  @override
+  String get durationTitle => '소요 시간(분)';
+
+  @override
+  String durationMinutes(int minutes) {
+    return '$minutes분';
+  }
+
+  @override
+  String get durationInvalid => '1 이상의 분으로 입력해주세요';
+
+  @override
+  String get quickAddResetInterpretation => '문장에서 날짜·시간 다시 적용';
+
+  @override
+  String get quickAddDetails => '상세 편집';
 }

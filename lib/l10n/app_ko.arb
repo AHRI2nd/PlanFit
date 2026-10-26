@@ -566,5 +566,17 @@
       }
     }
   },
-  "scheduleTools": "시간표 도구"
+  "scheduleTools": "시간표 도구",
+  "durationTitle": "소요 시간(분)",
+  "durationMinutes": "{minutes}분",
+  "durationInvalid": "1 이상의 분으로 입력해주세요",
+  "quickAddResetInterpretation": "문장에서 날짜·시간 다시 적용",
+  "quickAddDetails": "상세 편집",
+  "@durationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  }
 }
