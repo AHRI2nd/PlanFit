@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,12 @@ class AutoBackupService {
   final SharedPreferences prefs;
 
   static const String _kLastRunAt = 'backup.lastAutoBackupAt';
+  static const _lastAttemptKey = 'backup.lastAttemptAt';
+  static const _lastFailureKey = 'backup.lastFailureAt';
+  static const _lastErrorKey = 'backup.lastError';
+  DateTime? get lastAttemptAt => DateTime.tryParse(prefs.getString(_lastAttemptKey) ?? '');
+  DateTime? get lastFailureAt => DateTime.tryParse(prefs.getString(_lastFailureKey) ?? '');
+  String? get lastError => prefs.getString(_lastErrorKey);
 
   /// How often a new automatic backup gets written — frequent enough that a
   /// lost phone rarely costs more than a day's changes, infrequent enough
@@ -76,16 +83,34 @@ class AutoBackupService {
     if (last != null && at.difference(last) < minInterval) return;
 
     _running = true;
+    File? partial;
+    var published = false;
     try {
+      await prefs.setString(_lastAttemptKey, at.toIso8601String());
       final dir = await _dir();
       final stamp = at.toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
       final file = File('${dir.path}/backup-$stamp.json');
-      await file.writeAsString(await backupService.buildJson());
+      partial = File('${file.path}.partial');
+      final raw = await backupService.buildJson();
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic> || decoded['events'] is! List || decoded['todos'] is! List) {
+        throw const FormatException('Invalid generated backup');
+      }
+      await partial.writeAsString(raw, flush: true);
+      await partial.rename(file.path);
+      published = true;
       await prefs.setString(_kLastRunAt, at.toIso8601String());
       await _prune();
+      await prefs.remove(_lastErrorKey);
     } catch (_) {
-      // Best-effort — see doc comment above.
+      // Failures remain visible in settings but never block app startup.
+      await prefs.setString(_lastFailureKey, at.toIso8601String());
+      await prefs.setString(_lastErrorKey, published ? 'cleanup' : 'write');
     } finally {
+      if (partial != null) {
+        try { if (await partial.exists()) await partial.delete(); }
+        on FileSystemException { /* Partial files are excluded from history. */ }
+      }
       _running = false;
     }
   }
@@ -96,7 +121,9 @@ class AutoBackupService {
   Future<List<File>> listBackups() async {
     final dir = await _dir();
     if (!await dir.exists()) return [];
-    final files = (await dir.list().toList()).whereType<File>().toList()
+    final files = (await dir.list().toList()).whereType<File>()
+      .where((file) => RegExp(r'^backup-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9-]+Z?\.json$')
+        .hasMatch(file.uri.pathSegments.last)).toList()
       ..sort((a, b) => b.path.compareTo(a.path));
     return files;
   }
