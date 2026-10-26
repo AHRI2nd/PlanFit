@@ -2267,6 +2267,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'검색 조건 초기화'**
   String get searchClearFilters;
+
+  /// No description provided for @searchOpenSchedule.
+  ///
+  /// In ko, this message translates to:
+  /// **'시간표에서 보기'**
+  String get searchOpenSchedule;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

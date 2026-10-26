@@ -1230,4 +1230,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get searchClearFilters => 'Clear filters';
+
+  @override
+  String get searchOpenSchedule => 'Show in schedule';
 }

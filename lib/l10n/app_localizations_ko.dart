@@ -1162,4 +1162,7 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get searchClearFilters => '검색 조건 초기화';
+
+  @override
+  String get searchOpenSchedule => '시간표에서 보기';
 }

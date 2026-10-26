@@ -496,5 +496,6 @@
   "searchInvalidColor": "Enter a color such as #112233",
   "searchMoreEvents": "More events",
   "searchMoreTodos": "More to-dos",
-  "searchClearFilters": "Clear filters"
+  "searchClearFilters": "Clear filters",
+  "searchOpenSchedule": "Show in schedule"
 }

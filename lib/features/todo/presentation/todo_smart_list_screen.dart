@@ -8,6 +8,7 @@ import '../../../design/glass/glass_nav_bar.dart'
     show navBarClearance, navBarControlClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
+import '../../../design/widgets/open_app_search.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../schedule/application/schedule_providers.dart' show todayProvider;
 import '../../settings/application/settings_controller.dart';
@@ -80,7 +81,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
     final palette = context.palette;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.smartListTitle)),
+      appBar: AppBar(title: Text(l10n.smartListTitle), actions: const [AppSearchButton()]),
       // This screen (unlike the day view's own inline field) has no single
       // day to anchor a quick-add row to, so it gets the app's other
       // "add" affordance — a FAB opening a tiny quick-add sheet — instead.

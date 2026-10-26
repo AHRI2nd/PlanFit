@@ -88,7 +88,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
   }
 
   testWidgets('the FAB opens the quick-add sheet', (tester) async {

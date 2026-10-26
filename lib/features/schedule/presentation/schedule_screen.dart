@@ -22,7 +22,7 @@ import 'draggable_add_button.dart';
 import 'event_edit/event_editor_sheet.dart';
 import 'event_edit/quick_add_sheet.dart';
 import 'month_view/month_view.dart';
-import 'search/event_search_screen.dart';
+import '../../../design/widgets/open_app_search.dart';
 import 'week_view/week_view.dart';
 import 'year_view/year_view.dart';
 
@@ -122,18 +122,7 @@ class ScheduleScreen extends ConsumerWidget {
                             .select(target),
                       ),
                     ),
-                    IconButton(
-                      tooltip: l10n.searchTooltip,
-                      icon: const Icon(Icons.search),
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => DisplayFeatureSubScreen(
-                            anchorPoint: AppLayout.anchorPointOf(context),
-                            child: const EventSearchScreen(),
-                          ),
-                        ),
-                      ),
-                    ),
+                    const AppSearchButton(),
                     TextButton(
                       onPressed: () =>
                           ref.read(selectedDateProvider.notifier).jumpToToday(),

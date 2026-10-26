@@ -268,8 +268,7 @@ void main() {
     },
   );
 
-  testWidgets('tapping an event result closes search and opens the read-only '
-      'preview over the day view it jumped to', (tester) async {
+  testWidgets('tapping an event result keeps search beneath the read-only preview', (tester) async {
     when(
       eventRepository.search('team', options: anyNamed('options')),
     ).thenAnswer((_) async => [event(title: 'Team standup')]);
@@ -283,15 +282,13 @@ void main() {
     await tester.tap(find.text('Team standup'));
     await tester.pumpAndSettle();
 
-    // The search box itself is gone (this tap closes search first, same
-    // as it always has) — a lone "편집하기" button and no title-prefilled
-    // TextField is what distinguishes the preview from the full editor.
-    expect(find.byType(TextField), findsNothing);
+    // Search stays beneath the preview, preserving its query and filters.
+    expect(find.byType(TextField), findsOneWidget);
     expect(find.text('편집하기'), findsOneWidget);
   });
 
   testWidgets(
-    'long-pressing an event result closes search and skips straight to '
+    'long-pressing an event result preserves search and opens '
     'the editor, title pre-filled',
     (tester) async {
       when(

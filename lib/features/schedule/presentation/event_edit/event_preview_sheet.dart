@@ -35,18 +35,19 @@ import 'event_editor_sheet.dart';
 /// whose row layout and read-only copy now live on in this sheet's mirrored
 /// branch — is the single "look at this event" surface the whole app funnels
 /// through.
-Future<void> showEventPreview(BuildContext context, {required EventRow event}) {
+Future<void> showEventPreview(BuildContext context, {required EventRow event, VoidCallback? onShowInSchedule}) {
   return showAdaptiveBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
-    builder: (_) => EventPreviewSheet(event: event),
+    builder: (_) => EventPreviewSheet(event: event, onShowInSchedule: onShowInSchedule),
   );
 }
 
 class EventPreviewSheet extends ConsumerWidget {
-  const EventPreviewSheet({super.key, required this.event});
+  const EventPreviewSheet({super.key, required this.event, this.onShowInSchedule});
 
   final EventRow event;
+  final VoidCallback? onShowInSchedule;
 
   /// An event mirrored in from a subscribed device calendar or a holiday
   /// calendar (both pulled in read-only — see CalendarImportService's and
@@ -375,6 +376,13 @@ class EventPreviewSheet extends ConsumerWidget {
                   ),
                 ),
               ),
+              if (onShowInSchedule != null)
+                Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                  child: OutlinedButton.icon(icon: const Icon(Icons.calendar_month),
+                    label: Text(l10n.searchOpenSchedule), onPressed: () {
+                      Navigator.of(context).pop();
+                      onShowInSchedule!();
+                    })),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.gutter,

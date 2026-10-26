@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/db/app_database.dart';
 import '../../../../core/date_math.dart';
@@ -26,10 +27,8 @@ import '../../application/search_memory.dart';
 import '../event_edit/event_editor_sheet.dart';
 import '../event_edit/event_preview_sheet.dart';
 
-/// Full-text search over both events (title/memo) and to-dos (title).
-/// Tapping an event result jumps the schedule tab to that day (in day view)
-/// and opens it for editing; a to-do result opens its detail sheet above the
-/// search results so the query stays available when the detail is dismissed.
+/// Shared event/to-do search. Detail routes preserve this search underneath;
+/// switching to the schedule is an explicit preview action.
 class EventSearchScreen extends ConsumerStatefulWidget {
   const EventSearchScreen({super.key});
 
@@ -233,27 +232,37 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     }
   }
 
-  /// Tap target: closes search, jumps the day view to the event's own day,
-  /// then opens the read-only preview over it — same as every other event
-  /// surface's tap now does.
-  void _previewEvent(EventRow event) {
-    ref.read(selectedDateProvider.notifier).select(event.startAt);
-    ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
-    Navigator.of(context).pop();
-    showEventPreview(context, event: event);
+  bool _openingDetail = false;
+
+  Future<void> _previewEvent(EventRow event) async {
+    if (_openingDetail) return;
+    _openingDetail = true;
+    FocusScope.of(context).unfocus();
+    final router = GoRouter.maybeOf(context);
+    try {
+      await showEventPreview(context, event: event,
+        onShowInSchedule: router == null ? null : () {
+          if (!mounted) return;
+          ref.read(selectedDateProvider.notifier).select(event.startAt);
+          ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
+          Navigator.of(context).pop();
+          router.go('/schedule');
+        });
+    } finally { _openingDetail = false; }
   }
 
-  /// Long-press target: same jump-and-close, but straight to the full
-  /// editor instead of the preview.
-  void _editEvent(EventRow event) {
-    ref.read(selectedDateProvider.notifier).select(event.startAt);
-    ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
-    Navigator.of(context).pop();
-    showEventEditor(context, existing: event);
+  Future<void> _editEvent(EventRow event) async {
+    if (_openingDetail) return;
+    _openingDetail = true;
+    try { await showEventEditor(context, existing: event); }
+    finally { _openingDetail = false; }
   }
 
-  void _openTodo(TodoRow todo) {
-    showTodoDetailSheet(context, todo);
+  Future<void> _openTodo(TodoRow todo) async {
+    if (_openingDetail) return;
+    _openingDetail = true;
+    try { await showTodoDetailSheet(context, todo); }
+    finally { _openingDetail = false; }
   }
 
   @override

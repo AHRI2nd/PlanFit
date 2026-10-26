@@ -15,6 +15,7 @@ import '../../../design/tokens/app_spacing.dart';
 import '../../../design/tokens/app_typography.dart';
 import '../../../design/tokens/event_color_tag.dart';
 import '../../../design/widgets/section_header.dart';
+import '../../../design/widgets/open_app_search.dart';
 import '../../../design/widgets/async_content.dart';
 import '../../../design/widgets/time_gradient_background.dart';
 import '../../../l10n/app_localizations.dart';
@@ -587,12 +588,11 @@ class _Hero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _greeting(),
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: palette.inkSoft),
-          ),
+          Row(children: [
+            Expanded(child: Text(_greeting(), style: Theme.of(context)
+              .textTheme.titleMedium?.copyWith(color: palette.inkSoft))),
+            const AppSearchButton(),
+          ]),
           const SizedBox(height: AppSpacing.xs),
           Text(
             Fmt.time(now, locale, use24Hour: use24Hour),
