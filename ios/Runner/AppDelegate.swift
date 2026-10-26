@@ -15,5 +15,8 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "RemindersPlugin") {
       RemindersPlugin.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "WindowLayoutPlugin") {
+      WindowLayoutPlugin.register(with: registrar)
+    }
   }
 }
