@@ -48,6 +48,8 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
   String _draftText = '';
   QuickAddDraft? _draft;
   bool _saving = false;
+  bool _saveFailed = false;
+  bool _committed = false;
 
   @override
   void dispose() {
@@ -56,6 +58,7 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
   }
 
   Future<void> _submit() async {
+    if (_saving || _committed) return;
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     final resolved = _draftText == text && _draft != null
@@ -71,12 +74,13 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
     final startAt = resolved.startAt;
     final endAt = resolved.endAt;
 
-    setState(() => _saving = true);
+    setState(() { _saving = true; _saveFailed = false; });
     try {
       await ref
           .read(eventRepositoryProvider)
-          .save(EventInput(title: title, startAt: startAt, endAt: endAt));
+          .save(EventInput(id: resolved.id, title: title, startAt: startAt, endAt: endAt));
       if (!mounted) return;
+      _committed = true;
       navigator.pop();
       final use24 = resolveUse24Hour(
         ref.read(
@@ -97,6 +101,8 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
           ),
         ),
       );
+    } catch (_) {
+      if (mounted) setState(() => _saveFailed = true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -128,18 +134,19 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
   Future<void> _openDetails() async {
     final draft = _draft;
     if (_saving || draft == null) return;
-    setState(() => _saving = true);
+    setState(() { _saving = true; _saveFailed = false; });
     var saved = false;
-    await showEventEditor(context, initialTitle: draft.title,
+    await showEventEditor(context, initialId: draft.id, initialTitle: draft.title,
       initialStart: draft.startAt, initialEnd: draft.endAt, onSaved: () => saved = true);
     if (!mounted) return;
-    if (saved) { Navigator.of(context).pop(); }
+    if (saved) { _committed = true; Navigator.of(context).pop(); }
     else { setState(() => _saving = false); }
   }
 
   void _onChanged(String value) {
     final text = value.trim();
     setState(() {
+      _saveFailed = false;
       _draftText = text;
       _draft = text.isEmpty ? null : _resolve(text);
     });
@@ -237,6 +244,8 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
                 ).textTheme.bodySmall?.copyWith(color: palette.inkFaint),
               ),
           ],
+          if (_saveFailed) Text(l10n.eventSaveFailed,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.danger)),
           const SizedBox(height: AppSpacing.sm),
           SizedBox(
             width: double.infinity,

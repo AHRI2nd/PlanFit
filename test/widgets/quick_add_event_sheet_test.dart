@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -173,4 +174,44 @@ void main() {
     expect(captured.endAt, captured.startAt.add(const Duration(hours: 1)));
     await tester.pump(const Duration(seconds: 5));
   });
+  testWidgets('repeated keyboard submission starts only one save', (tester) async {
+    final seed = await events.save(EventInput(title: 'seed', startAt: DateTime(2030),
+      endAt: DateTime(2030, 1, 1, 1)));
+    clearInteractions(events);
+    final pending = Completer<EventRow>();
+    when(events.save(any)).thenAnswer((_) => pending.future);
+    await pumpSheet(tester);
+    await tester.enterText(find.byType(TextField), '회의');
+    final submit = tester.widget<TextField>(find.byType(TextField)).onSubmitted!;
+    submit('회의'); submit('회의');
+    await tester.pump();
+    verify(events.save(any)).called(1);
+    pending.complete(seed);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+  testWidgets('a failed save retains input and retry uses the same id', (tester) async {
+    final seed = await events.save(EventInput(title: 'seed', startAt: DateTime(2030),
+      endAt: DateTime(2030, 1, 1, 1)));
+    clearInteractions(events);
+    var attempt = 0;
+    when(events.save(any)).thenAnswer((_) async {
+      if (attempt++ == 0) throw Exception('disk unavailable');
+      return seed;
+    });
+    await pumpSheet(tester);
+    await tester.enterText(find.byType(TextField), '회의');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '회의');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+    final attempts = verify(events.save(captureAny)).captured.cast<EventInput>();
+    expect(attempts, hasLength(2));
+    expect(attempts.first.id, attempts.last.id);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
 }

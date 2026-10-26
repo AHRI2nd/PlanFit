@@ -578,5 +578,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "eventSaveFailed": "Could not save. Your input is still here; try again."
 }

@@ -1278,4 +1278,7 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get quickAddDetails => '상세 편집';
+
+  @override
+  String get eventSaveFailed => '저장하지 못했어요. 입력을 유지했으니 다시 시도해주세요.';
 }

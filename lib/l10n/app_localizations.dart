@@ -2471,6 +2471,12 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'상세 편집'**
   String get quickAddDetails;
+
+  /// No description provided for @eventSaveFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'저장하지 못했어요. 입력을 유지했으니 다시 시도해주세요.'**
+  String get eventSaveFailed;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

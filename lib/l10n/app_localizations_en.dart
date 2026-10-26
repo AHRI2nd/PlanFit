@@ -1350,4 +1350,8 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get quickAddDetails => 'Edit details';
+
+  @override
+  String get eventSaveFailed =>
+      'Could not save. Your input is still here; try again.';
 }

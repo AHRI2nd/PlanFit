@@ -62,6 +62,7 @@ Future<void> showEventEditor(
   DateTime? initialStart,
   DateTime? initialEnd,
   String? initialTitle,
+  String? initialId,
   VoidCallback? onSaved,
 }) {
   if (existing != null && existing.importSourceCalendarId != null) {
@@ -79,6 +80,7 @@ Future<void> showEventEditor(
           initialStart: initialStart,
           initialEnd: initialEnd,
           initialTitle: initialTitle,
+          initialId: initialId,
           onSaved: onSaved,
         ),
       ),
@@ -159,6 +161,7 @@ class EventEditorSheet extends ConsumerStatefulWidget {
     this.initialStart,
     this.initialEnd,
     this.initialTitle,
+    this.initialId,
     this.onSaved,
   });
 
@@ -172,6 +175,7 @@ class EventEditorSheet extends ConsumerStatefulWidget {
   final DateTime? initialStart;
   final DateTime? initialEnd;
   final String? initialTitle;
+  final String? initialId;
   final VoidCallback? onSaved;
 
   @override
@@ -505,7 +509,23 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     });
   }
 
+  bool _saving = false;
+  final String _newEventId = const Uuid().v4();
+
   Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try { await _persist(); }
+    catch (_) {
+      if (mounted) {
+        final l10n = AppL10n.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.eventSaveFailed),
+          action: SnackBarAction(label: l10n.commonRetry, onPressed: _save)));
+      }
+    } finally { if (mounted) setState(() => _saving = false); }
+  }
+
+  Future<void> _persist() async {
     if (_title.text.trim().isEmpty) {
       setState(() => _titleError = true);
       return;
@@ -538,7 +558,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     final endAt = _allDay ? addCalendarDays(dateOnly(_end), 1) : _end;
 
     final input = EventInput(
-      id: widget.existing?.id,
+      id: widget.existing?.id ?? widget.initialId ?? _newEventId,
       title: _title.text.trim(),
       memo: _memo.text.trim().isEmpty ? null : _memo.text.trim(),
       location: _location.text.trim().isEmpty ? null : _location.text.trim(),
@@ -775,7 +795,10 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(canPop: !_saving,
+    child: AbsorbPointer(absorbing: _saving, child: _buildEditor(context)));
+
+  Widget _buildEditor(BuildContext context) {
     final l10n = AppL10n.of(context);
     final palette = context.palette;
     final locale = Localizations.localeOf(context).toLanguageTag();
@@ -1162,7 +1185,7 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
                 Expanded(
                   flex: 2,
                   child: FilledButton(
-                    onPressed: _save,
+                    onPressed: _saving ? null : _save,
                     style: FilledButton.styleFrom(
                       backgroundColor: accent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
