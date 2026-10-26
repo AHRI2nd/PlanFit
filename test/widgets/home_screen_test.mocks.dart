@@ -253,9 +253,25 @@ class MockEventRepository extends _i1.Mock implements _i7.EventRepository {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<void> restoreEvents(List<_i2.EventRow>? rows) =>
+  _i6.Future<void> restoreEvents(
+    List<_i2.EventRow>? rows, {
+    bool? synchronize = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#restoreEvents, [rows]),
+            Invocation.method(
+              #restoreEvents,
+              [rows],
+              {#synchronize: synchronize},
+            ),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
+
+  @override
+  _i6.Future<void> synchronizeRestoredEvents(List<String>? ids) =>
+      (super.noSuchMethod(
+            Invocation.method(#synchronizeRestoredEvents, [ids]),
             returnValue: _i6.Future<void>.value(),
             returnValueForMissingStub: _i6.Future<void>.value(),
           )

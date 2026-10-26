@@ -2297,6 +2297,18 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'가져오기'**
   String get backupImportConfirmAction;
+
+  /// No description provided for @backupIntegrationDeferred.
+  ///
+  /// In ko, this message translates to:
+  /// **'기기에 저장했어요. 일부 알림·연동 작업은 다시 시도해요.'**
+  String get backupIntegrationDeferred;
+
+  /// No description provided for @backupRecoveryLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'가져오기 전 보호용 사본'**
+  String get backupRecoveryLabel;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

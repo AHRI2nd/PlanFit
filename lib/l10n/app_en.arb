@@ -514,5 +514,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "backupIntegrationDeferred": "Saved locally. Some notification or sync work will be retried.",
+  "backupRecoveryLabel": "Before-import recovery copy"
 }

@@ -1248,4 +1248,11 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get backupImportConfirmAction => 'Import';
+
+  @override
+  String get backupIntegrationDeferred =>
+      'Saved locally. Some notification or sync work will be retried.';
+
+  @override
+  String get backupRecoveryLabel => 'Before-import recovery copy';
 }

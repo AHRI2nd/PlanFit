@@ -56,5 +56,8 @@ abstract class EventRepository {
   /// open across hundreds of individual commits. Use this instead of a loop
   /// of [restoreEvent] calls whenever more than one row is being restored
   /// at once.
-  Future<void> restoreEvents(List<EventRow> rows);
+  Future<void> restoreEvents(List<EventRow> rows, {bool synchronize = true});
+
+  /// Applies platform work after an outer database restoration commits.
+  Future<void> synchronizeRestoredEvents(List<String> ids);
 }

@@ -22,6 +22,8 @@ class _FakePathProvider extends PathProviderPlatform {
 
   @override
   Future<String?> getTemporaryPath() async => dir.path;
+  @override
+  Future<String?> getApplicationSupportPath() async => dir.path;
 }
 
 @GenerateMocks([NotificationPort, CalendarPort])
@@ -900,4 +902,25 @@ void main() {
       );
     },
   );
+  test('database restore failure rolls back events before any platform work', () async {
+    final db = newDb();
+    addTearDown(db.close);
+    final notifications = MockNotificationPort();
+    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+    final service = BackupService(
+      eventRepository: EventRepositoryImpl(dao: db.eventDao,
+        notifications: notifications, calendar: disabledCalendar()),
+      todoDao: db.todoDao, eventTemplateDao: db.eventTemplateDao,
+      notifications: notifications);
+    await db.customStatement("CREATE TRIGGER fail_import BEFORE INSERT ON todo_items BEGIN SELECT RAISE(ABORT, 'disk failure'); END");
+    final file = File('${tempDir.path}/atomic-import.json');
+    await file.writeAsString(jsonEncode({'schemaVersion': 2,
+      'events': [{'id': 'event', 'title': 'Event', 'notify': false,
+        'startAt': '2030-01-01T10:00:00', 'endAt': '2030-01-01T11:00:00'}],
+      'todos': [{'id': 'todo', 'title': 'Todo', 'slotStart': '2030-01-01T12:00:00'}]}));
+    await expectLater(service.importFromFile(file.path), throwsA(anything));
+    expect(await db.eventDao.all(), isEmpty);
+    verifyNever(notifications.cancelForEvent(any));
+  });
+
 }

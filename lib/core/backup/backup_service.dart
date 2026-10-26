@@ -21,7 +21,9 @@ class BackupImportSummary {
     required this.todoCount,
     required this.templateCount,
     required this.legacyFormat,
+    this.deferredCount = 0,
   });
+  final int deferredCount;
   final int eventCount;
   final int todoCount;
   final int templateCount;
@@ -120,6 +122,35 @@ class BackupService {
   // expected is still there), purely so importFromFile can tell an
   // old-format file apart from a new one.
   static const int _schemaVersion = 2;
+  bool _importing = false;
+
+  Future<List<File>> listRecoveryBackups() async {
+    final base = await getApplicationSupportDirectory();
+    final dir = Directory('${base.path}/recovery_backups');
+    if (!await dir.exists()) return [];
+    final files = (await dir.list().toList()).whereType<File>()
+      .where((file) => RegExp(r'^recovery-[0-9]+\.json$').hasMatch(file.uri.pathSegments.last))
+      .toList()..sort((a, b) => b.path.compareTo(a.path));
+    return files;
+  }
+
+  Future<void> _writeRecoverySnapshot() async {
+    final base = await getApplicationSupportDirectory();
+    final dir = await Directory('${base.path}/recovery_backups').create(recursive: true);
+    final file = File('${dir.path}/recovery-${DateTime.now().microsecondsSinceEpoch}.json');
+    final partial = File('${file.path}.partial');
+    try {
+      final raw = await buildJson();
+      await compute(_decodeBackupJson, raw);
+      await partial.writeAsString(raw, flush: true);
+      await partial.rename(file.path);
+    } finally {
+      if (await partial.exists()) await partial.delete();
+    }
+    for (final old in (await listRecoveryBackups()).skip(3)) {
+      try { await old.delete(); } on FileSystemException { /* Retry on a later import. */ }
+    }
+  }
 
   /// Serializes the full database to a JSON string — the same content
   /// [exportToFile] writes out, exposed separately so [AutoBackupService]
@@ -227,41 +258,39 @@ class BackupService {
       importPrepared(await prepareFromFile(path));
 
   Future<BackupImportSummary> importPrepared(PreparedBackup prepared) async {
-    final events = prepared.events;
-    final todoCompanions = prepared.todos;
-    final subtaskCompanions = prepared.subtasks;
-    final templateCompanions = prepared.templates;
-    final legacyFormat = prepared.legacyFormat;
-    await eventRepository.restoreEvents(events);
-
-    // Same DB-writes-in-one-transaction, side-effects-after split as
-    // restoreEvents — a large restore must not hold the database open
-    // across hundreds of notification-scheduling platform-channel calls.
-    final restoredTodos = <TodoRow>[];
-    await todoDao.transaction(() async {
-      for (final companion in todoCompanions) {
-        await todoDao.upsert(companion);
-        final restored = await todoDao.findById(companion.id.value);
-        if (restored != null) restoredTodos.add(restored);
+    if (_importing) throw StateError('A backup import is already running');
+    _importing = true;
+    try {
+      await _writeRecoverySnapshot();
+      final restoredTodos = <TodoRow>[];
+      // All participating DAOs/repository share this application database.
+      // External calls must happen only after this transaction commits.
+      await todoDao.transaction(() async {
+        await eventRepository.restoreEvents(prepared.events, synchronize: false);
+        for (final companion in prepared.todos) {
+          await todoDao.upsert(companion);
+          final row = await todoDao.findById(companion.id.value);
+          if (row != null) restoredTodos.add(row);
+        }
+        for (final companion in prepared.subtasks) {
+          await todoDao.upsertSubtask(companion);
+        }
+        for (final companion in prepared.templates) {
+          await eventTemplateDao.upsert(companion);
+        }
+      });
+      var deferred = 0;
+      try {
+        await eventRepository.synchronizeRestoredEvents(prepared.events.map((e) => e.id).toList());
+      } catch (_) { deferred += prepared.events.length; }
+      for (final todo in restoredTodos) {
+        try { await syncTodoNotification(notifications, todo); }
+        catch (_) { deferred++; }
       }
-      for (final companion in subtaskCompanions) {
-        await todoDao.upsertSubtask(companion);
-      }
-    });
-    for (final todo in restoredTodos) {
-      await syncTodoNotification(notifications, todo);
-    }
-
-    for (final companion in templateCompanions) {
-      await eventTemplateDao.upsert(companion);
-    }
-
-    return BackupImportSummary(
-      eventCount: events.length,
-      todoCount: todoCompanions.length,
-      templateCount: templateCompanions.length,
-      legacyFormat: legacyFormat,
-    );
+      return BackupImportSummary(eventCount: prepared.events.length,
+        todoCount: prepared.todos.length, templateCount: prepared.templates.length,
+        legacyFormat: prepared.legacyFormat, deferredCount: deferred);
+    } finally { _importing = false; }
   }
 
   Map<String, dynamic> _eventToJson(EventRow e) => {

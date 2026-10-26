@@ -1180,4 +1180,10 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get backupImportConfirmAction => '가져오기';
+
+  @override
+  String get backupIntegrationDeferred => '기기에 저장했어요. 일부 알림·연동 작업은 다시 시도해요.';
+
+  @override
+  String get backupRecoveryLabel => '가져오기 전 보호용 사본';
 }

@@ -418,7 +418,7 @@ class EventRepositoryImpl implements EventRepository {
   Future<void> restoreEvent(EventRow row) => restoreEvents([row]);
 
   @override
-  Future<void> restoreEvents(List<EventRow> rows) async {
+  Future<void> restoreEvents(List<EventRow> rows, {bool synchronize = true}) async {
     if (rows.isEmpty) return;
     // Same split as save()'s recurring branch: every DB write happens inside
     // one transaction (a full-backup restore can be hundreds of rows), and
@@ -436,8 +436,18 @@ class EventRepositoryImpl implements EventRepository {
       }
     });
 
-    for (final row in rowsToSync) {
-      await _applySideEffects(row, notify: row.notify);
+    if (synchronize) {
+      for (final row in rowsToSync) {
+        await _applySideEffects(row, notify: row.notify);
+      }
+    }
+  }
+
+  @override
+  Future<void> synchronizeRestoredEvents(List<String> ids) async {
+    for (final id in ids.toSet()) {
+      final row = await _dao.findById(id);
+      if (row != null) await _applySideEffects(row, notify: row.notify);
     }
   }
 

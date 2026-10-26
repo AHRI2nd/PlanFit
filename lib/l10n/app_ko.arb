@@ -514,5 +514,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "backupIntegrationDeferred": "기기에 저장했어요. 일부 알림·연동 작업은 다시 시도해요.",
+  "backupRecoveryLabel": "가져오기 전 보호용 사본"
 }

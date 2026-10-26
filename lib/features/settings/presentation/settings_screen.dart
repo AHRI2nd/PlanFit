@@ -191,7 +191,7 @@ class SettingsScreen extends ConsumerWidget {
             : l10n.backupImportSuccess(summary.eventCount, summary.todoCount);
         messenger.showAutoDismissSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text(summary.deferredCount > 0 ? '$message\n${l10n.backupIntegrationDeferred}' : message),
             duration: summary.legacyFormat
                 ? const Duration(seconds: 8)
                 : const Duration(seconds: 4),
