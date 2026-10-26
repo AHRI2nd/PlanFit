@@ -9,7 +9,7 @@ import '../../../design/glass/glass_nav_bar.dart'
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../schedule/application/schedule_providers.dart' show dateOnly;
+import '../../schedule/application/schedule_providers.dart' show todayProvider;
 import '../../settings/application/settings_controller.dart';
 import '../application/todo_providers.dart';
 import '../domain/todo_delete_flow.dart';
@@ -172,7 +172,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
       case _SmartListTab.today:
         return _TodoListView(
           watch: (ref) =>
-              ref.watch(todosForDayProvider(dateOnly(DateTime.now()))),
+              ref.watch(todosForDayProvider(ref.watch(todayProvider))),
           emptyMessage: l10n.smartListEmptyToday,
           selectionMode: selectionMode,
           selectedIds: selectedIds,

@@ -11,6 +11,7 @@ import 'core/app_badge/app_badge_sync.dart';
 import 'core/calendar_sync/holiday_calendar_service.dart'
     show holidayCountrySourceId, holidayCustomSourceId;
 import 'core/di.dart';
+import 'core/clock.dart';
 import 'core/home_widget/home_widget_sync.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/notifications/notification_tap_target.dart';
@@ -141,6 +142,8 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.invalidate(nowTickerProvider);
+      ref.invalidate(todayProvider);
       _reconcile();
       _reconcileReminders();
       _syncHomeWidget();

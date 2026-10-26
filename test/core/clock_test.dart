@@ -1,9 +1,30 @@
+import 'dart:async';
+
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planfit/core/clock.dart';
+import 'package:planfit/features/schedule/application/schedule_providers.dart';
 
 void main() {
+  test('today follows clock changes without rebuilding a route', () async {
+    final clock = StreamController<DateTime>();
+    final container = ProviderContainer(overrides: [
+      nowTickerProvider.overrideWith((ref) => clock.stream),
+    ]);
+    final subscription = container.listen(todayProvider, (_, _) {});
+    addTearDown(() {
+      subscription.close();
+      container.dispose();
+      unawaited(clock.close());
+    });
+    clock.add(DateTime(2031, 1, 1, 23, 59));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(todayProvider), DateTime(2031, 1, 1));
+    clock.add(DateTime(2031, 1, 2));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(todayProvider), DateTime(2031, 1, 2));
+  });
   test('emits the current time immediately on first listen', () {
     fakeAsync((async) {
       final container = ProviderContainer();

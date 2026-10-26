@@ -1,7 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/clock.dart';
 import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/di.dart';
@@ -27,24 +26,10 @@ DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 /// entirely, since Riverpod rebuilds a watching widget itself regardless of
 /// its position in (or its ancestors' relationship to) the route tree.
 class TodayDate extends Notifier<DateTime> {
-  Timer? _midnightTimer;
-
   @override
-  DateTime build() {
-    ref.onDispose(() => _midnightTimer?.cancel());
-    _scheduleMidnightRefresh();
-    return dateOnly(DateTime.now());
-  }
-
-  void _scheduleMidnightRefresh() {
-    final now = DateTime.now();
-    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
-    final delay = nextMidnight.difference(now) + const Duration(seconds: 2);
-    _midnightTimer = Timer(delay, () {
-      state = dateOnly(DateTime.now());
-      _scheduleMidnightRefresh();
-    });
-  }
+  DateTime build() => dateOnly(
+    ref.watch(nowTickerProvider).asData?.value ?? DateTime.now(),
+  );
 }
 
 final todayProvider = NotifierProvider<TodayDate, DateTime>(TodayDate.new);
