@@ -291,11 +291,8 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   Future<void> deleteSubtask(String id) =>
       (delete(todoSubtasks)..where((s) => s.id.equals(id))).go();
 
-  /// Not-done, timed to-dos whose slot has already passed [asOf] — the
-  /// "overdue" smart list, and the day/home screens' overdue highlight. Not
-  /// re-evaluated as time itself passes (only when something in the DB
-  /// changes, like any watch query) — same accepted staleness as the rest
-  /// of the app's "as of last write" reactivity, not worth a ticking timer.
+  /// Not-done, timed to-dos whose slot has passed the supplied clock value.
+  /// Time-based providers recreate this query when the shared clock advances.
   Stream<List<TodoRow>> watchOverdue(DateTime asOf) {
     return (select(todoItems)
           ..where(

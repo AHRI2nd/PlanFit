@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/clock.dart';
 import '../../../core/date_math.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/sync_status.dart';
@@ -96,7 +97,8 @@ final todoSubtasksProvider = StreamProvider.autoDispose
 /// screen's own to-do list (see [upcomingNotOverdueTodosProvider] for the
 /// other half).
 final overdueTodosProvider = StreamProvider<List<TodoRow>>((ref) {
-  return ref.watch(todoDaoProvider).watchOverdue(DateTime.now());
+  final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
+  return ref.watch(todoDaoProvider).watchOverdue(now);
 });
 
 /// Every retained to-do, including completed items — the smart-list screen's
@@ -110,7 +112,8 @@ final allTodosProvider = StreamProvider<List<TodoRow>>((ref) {
 /// two combine). No smart-list tab of its own; unlike every other provider
 /// here, this one exists solely for that one screen.
 final upcomingNotOverdueTodosProvider = StreamProvider<List<TodoRow>>((ref) {
-  return ref.watch(todoDaoProvider).watchUpcomingNotOverdue(DateTime.now());
+  final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
+  return ref.watch(todoDaoProvider).watchUpcomingNotOverdue(now);
 });
 
 /// The smart list screen's "우선순위 높음" (high priority) tab.
