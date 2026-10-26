@@ -16,7 +16,9 @@ import 'core/notifications/notification_tap_target.dart';
 import 'core/onboarding_prefs.dart';
 import 'core/routing/app_router.dart';
 import 'core/sync_prefs.dart';
+import 'core/layout/window_layout_provider.dart';
 import 'design/theme/app_theme.dart';
+import 'design/layout/app_layout.dart';
 import 'features/schedule/application/schedule_providers.dart';
 import 'features/schedule/presentation/event_edit/event_editor_sheet.dart';
 import 'features/settings/application/settings_controller.dart';
@@ -428,6 +430,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     final themeMode = ref.watch(
       settingsControllerProvider.select((s) => s.themeMode),
     );
+    final windowLayout = ref.watch(windowLayoutProvider).asData?.value;
     final languageOverride = ref.watch(
       settingsControllerProvider.select((s) => s.languageOverride),
     );
@@ -448,6 +451,11 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       routerConfig: appRouter,
+      builder: (context, child) => AppLayoutScope(
+        snapshot: windowLayout,
+        windowSize: MediaQuery.sizeOf(context),
+        child: child ?? const SizedBox.shrink(),
+      ),
       localizationsDelegates: const [
         AppL10n.delegate,
         GlobalMaterialLocalizations.delegate,
