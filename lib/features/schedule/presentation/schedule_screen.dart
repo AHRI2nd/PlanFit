@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +8,6 @@ import '../../../core/format.dart';
 import '../../../core/lunar/lunar_date.dart';
 import '../../../core/lunar/lunar_format.dart';
 import '../../../design/tokens/app_colors.dart';
-import '../../../design/tokens/app_motion.dart';
 import '../../../design/tokens/app_spacing.dart';
 import '../../../design/layout/app_layout.dart';
 import '../../../design/widgets/swipe_navigation_detector.dart';
@@ -107,29 +107,26 @@ class ScheduleScreen extends ConsumerWidget {
                   AppSpacing.gutter,
                   AppSpacing.xs,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _SwipeableTitle(
-                        view: view,
-                        selected: selected,
-                        title: title,
-                        lunarSubtitle: lunarSubtitle,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                        chevronColor: palette.inkFaint,
-                        onNavigate: (target) => ref
-                            .read(selectedDateProvider.notifier)
-                            .select(target),
-                      ),
-                    ),
-                    const AppSearchButton(),
-                    TextButton(
-                      onPressed: () =>
-                          ref.read(selectedDateProvider.notifier).jumpToToday(),
-                      child: Text(l10n.commonToday),
-                    ),
-                  ],
-                ),
+                child: LayoutBuilder(builder: (context, constraints) {
+                  final heading = _SwipeableTitle(view: view, selected: selected,
+                    title: title, lunarSubtitle: lunarSubtitle,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    chevronColor: palette.inkFaint,
+                    onNavigate: (target) => ref.read(selectedDateProvider.notifier).select(target));
+                  final actions = <Widget>[const AppSearchButton(),
+                    TextButton(onPressed: () => ref.read(selectedDateProvider.notifier).jumpToToday(),
+                      child: Text(l10n.commonToday))];
+                  final painter = TextPainter(text: TextSpan(text: l10n.commonToday,
+                    style: Theme.of(context).textTheme.labelLarge),
+                    textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))..layout();
+                  final actionWidth = math.max(64.0, painter.width + 32) + 48;
+                  painter.dispose();
+                  if (constraints.maxWidth < 160 + actionWidth) {
+                    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [heading,
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: actions)]);
+                  }
+                  return Row(children: [Expanded(child: heading), ...actions]);
+                }),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -694,13 +691,8 @@ class _DayLayoutToggle extends ConsumerWidget {
 }
 
 class _ViewSwitcher extends StatelessWidget {
-  const _ViewSwitcher({
-    required this.current,
-    required this.accent,
-    required this.labels,
-    required this.onChanged,
-  });
-
+  const _ViewSwitcher({required this.current, required this.accent,
+    required this.labels, required this.onChanged});
   final ScheduleView current;
   final Color accent;
   final (String, String, String, String, String) labels;
@@ -709,67 +701,45 @@ class _ViewSwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final entries = [
-      (ScheduleView.day, labels.$1),
-      (ScheduleView.week, labels.$2),
-      (ScheduleView.month, labels.$3),
-      (ScheduleView.year, labels.$4),
-      (ScheduleView.agenda, labels.$5),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: AppRadius.allPill,
-        border: Border.all(color: palette.hairline),
-      ),
-      child: Row(
-        children: [
-          for (final (v, label) in entries)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(v),
-                child: AnimatedContainer(
-                  duration: context.motionDuration(
-                    const Duration(milliseconds: 220),
-                  ),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(vertical: 9),
-                  decoration: BoxDecoration(
-                    color: v == current ? accent : Colors.transparent,
-                    borderRadius: AppRadius.allPill,
-                  ),
-                  alignment: Alignment.center,
-                  // FittedBox instead of letting a long label either
-                  // truncate or wrap: this 5-way pill is a tighter budget
-                  // than settings_screen.dart's own 3-way rows, and
-                  // "Month"/"Agenda" are real English words here, not
-                  // single ko/ja characters. An earlier fix removed
-                  // maxLines/overflow/softWrap:false so labels would wrap
-                  // instead of truncating to "Mont…"/"Agend…" — but on a
-                  // real (narrower than flutter_test's own default)
-                  // screen width, "Agenda" wraps mid-word to "Agend"/"a"
-                  // on its own second line, an equally broken-looking
-                  // result the other 4 (single-line) pills don't share.
-                  // Scaling the whole label down to fit on one line reads
-                  // correctly regardless of word length or screen width,
-                  // same fix as the swipeable title's own header uses.
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: v == current ? Colors.white : palette.inkSoft,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+    final entries = [(ScheduleView.day, labels.$1), (ScheduleView.week, labels.$2),
+      (ScheduleView.month, labels.$3), (ScheduleView.year, labels.$4),
+      (ScheduleView.agenda, labels.$5)];
+    final style = Theme.of(context).textTheme.labelLarge;
+    final requiredWidth = entries.fold<double>(6, (total, entry) {
+      final painter = TextPainter(text: TextSpan(text: entry.$2, style: style),
+        textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))..layout();
+      final width = math.max(48.0, painter.width + 24);
+      painter.dispose();
+      return total + width;
+    });
+    final decoration = BoxDecoration(color: palette.surface,
+      borderRadius: AppRadius.allPill, border: Border.all(color: palette.hairline));
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < requiredWidth) {
+        return PopupMenuButton<ScheduleView>(key: const Key('schedule-view-menu'),
+          initialValue: current, onSelected: onChanged,
+          tooltip: entries.firstWhere((entry) => entry.$1 == current).$2,
+          itemBuilder: (_) => [for (final entry in entries)
+            CheckedPopupMenuItem(value: entry.$1, checked: current == entry.$1,
+              child: Text(entry.$2))],
+          child: Container(height: 48, padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: decoration, child: Row(children: [
+              Expanded(child: Text(entries.firstWhere((entry) => entry.$1 == current).$2, style: style)),
+              const Icon(Icons.arrow_drop_down),
+            ])),
+        );
+      }
+      return Container(padding: const EdgeInsets.all(3), decoration: decoration,
+        child: Row(children: [for (final entry in entries) Expanded(
+          child: Semantics(selected: entry.$1 == current, button: true,
+            child: TextButton(onPressed: () => onChanged(entry.$1),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                backgroundColor: entry.$1 == current ? accent : Colors.transparent,
+                foregroundColor: entry.$1 == current ? Colors.white : palette.inkSoft),
+              child: Text(entry.$2, style: style?.copyWith(
+                color: entry.$1 == current ? Colors.white : palette.inkSoft)))),
+        )]));
+    });
   }
 }

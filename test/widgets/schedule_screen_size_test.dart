@@ -63,6 +63,8 @@ void main() {
     WidgetTester tester, {
     required ScheduleView view,
     required DateTime selected,
+    TextScaler textScaler = TextScaler.noScaling,
+    Locale locale = const Locale('ko'),
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
@@ -76,7 +78,9 @@ void main() {
         ],
         child: MaterialApp(
           theme: AppTheme.light(),
-          locale: const Locale('ko'),
+          locale: locale,
+          builder: (context, child) => MediaQuery(data: MediaQuery.of(context)
+            .copyWith(textScaler: textScaler), child: child!),
           localizationsDelegates: const [
             AppL10n.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -173,4 +177,14 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'and back out again');
     });
   }
+  testWidgets('large text in a narrow window uses a readable view menu', (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpSchedule(tester, view: ScheduleView.day, selected: sixRowMonth,
+      textScaler: const TextScaler.linear(2), locale: const Locale('en'));
+    expect(find.byKey(const Key('schedule-view-menu')), findsOneWidget);
+  });
+
 }

@@ -625,7 +625,9 @@ void main() {
         // "exceed" it — wrapping to 2 lines and wrapping to 1 both
         // report false. Comparing actual rendered heights instead
         // catches wrapping directly, whichever way a label handles it.
-        final singleLineHeight = tester.getSize(find.text('Day')).height;
+        await tester.tap(find.byKey(const Key('schedule-view-menu')));
+        await tester.pumpAndSettle();
+        final singleLineHeight = tester.getSize(find.text('Day').last).height;
         for (final label in ['Week', 'Month', 'Year', 'Agenda']) {
           expect(
             tester.getSize(find.text(label)).height,

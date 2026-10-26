@@ -382,8 +382,9 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
+          LayoutBuilder(builder: (context, constraints) {
+            final field = Row(children: [
+
               Icon(Icons.add, size: 20, color: palette.inkFaint),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
@@ -405,6 +406,8 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                   ),
                 ),
               ),
+            ]);
+            final controls = <Widget>[
               // Date chip — sits left of the time chip. Muted until the user
               // picks a date explicitly; before that it just shows the auto
               // "nearest upcoming hour" date. Shown only when there's no
@@ -478,8 +481,14 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
                   color: hasActiveOption ? palette.accent : palette.inkFaint,
                 ),
               ),
-            ],
-          ),
+            ];
+            if (constraints.maxWidth < 280 || MediaQuery.textScalerOf(context).scale(14) > 18) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                field, Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: controls),
+              ]);
+            }
+            return Row(children: [Expanded(child: field), ...controls]);
+          }),
           AnimatedSize(
             duration: context.motionDuration(const Duration(milliseconds: 180)),
             curve: Curves.easeOut,
