@@ -440,6 +440,14 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
           as _i6.Future<void>);
 
   @override
+  _i6.Stream<List<_i2.TodoRow>> watchEarlierUnfinished(DateTime? before) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchEarlierUnfinished, [before]),
+            returnValue: _i6.Stream<List<_i2.TodoRow>>.empty(),
+          )
+          as _i6.Stream<List<_i2.TodoRow>>);
+
+  @override
   _i6.Future<List<_i2.TodoRow>> all() =>
       (super.noSuchMethod(
             Invocation.method(#all, []),

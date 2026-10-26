@@ -63,7 +63,9 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/todos',
-              builder: (_, _) => const TodoSmartListScreen(),
+              builder: (_, state) => TodoSmartListScreen(initialTab:
+                state.uri.queryParameters['filter'] == 'earlier'
+                  ? SmartListInitialTab.earlier : SmartListInitialTab.all),
             ),
             GoRoute(
               path: '/todos/all',

@@ -102,6 +102,9 @@ final overdueTodosProvider = StreamProvider<List<TodoRow>>((ref) {
   return ref.watch(todoDaoProvider).watchOverdue(now);
 });
 
+final earlierUnfinishedTodosProvider = StreamProvider<List<TodoRow>>((ref) =>
+  ref.watch(todoDaoProvider).watchEarlierUnfinished(ref.watch(todayProvider)));
+
 /// Every retained to-do, including completed items — the smart-list screen's
 /// unfiltered "전체" tab.
 final allTodosProvider = StreamProvider<List<TodoRow>>((ref) {

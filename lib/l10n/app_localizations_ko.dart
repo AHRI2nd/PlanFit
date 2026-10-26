@@ -1321,4 +1321,10 @@ class AppL10nKo extends AppL10n {
   String todoMoveDeferred(int count) {
     return '$count개는 저장했고 알림·연동 처리를 기다려요';
   }
+
+  @override
+  String get smartListEarlier => '이전 날짜 미완료';
+
+  @override
+  String get smartListEarlierEmpty => '이전 날짜에 남은 할 일이 없어요';
 }

@@ -201,6 +201,14 @@ class MockRemindersService extends _i1.Mock implements _i8.RemindersService {
           as _i6.Future<bool>);
 
   @override
+  _i6.Future<bool> hasExistingTarget() =>
+      (super.noSuchMethod(
+            Invocation.method(#hasExistingTarget, []),
+            returnValue: _i6.Future<bool>.value(false),
+          )
+          as _i6.Future<bool>);
+
+  @override
   _i6.Future<String?> resolveTargetListId() =>
       (super.noSuchMethod(
             Invocation.method(#resolveTargetListId, []),
@@ -404,6 +412,14 @@ class MockTodoDao extends _i1.Mock implements _i5.TodoDao {
             returnValueForMissingStub: _i6.Future<void>.value(),
           )
           as _i6.Future<void>);
+
+  @override
+  _i6.Stream<List<_i2.TodoRow>> watchEarlierUnfinished(DateTime? before) =>
+      (super.noSuchMethod(
+            Invocation.method(#watchEarlierUnfinished, [before]),
+            returnValue: _i6.Stream<List<_i2.TodoRow>>.empty(),
+          )
+          as _i6.Stream<List<_i2.TodoRow>>);
 
   @override
   _i6.Future<List<_i2.TodoRow>> all() =>

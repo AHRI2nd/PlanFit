@@ -45,6 +45,12 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   Future<void> upsert(TodoItemsCompanion companion) =>
       into(todoItems).insertOnConflictUpdate(companion);
 
+  /// Previous-date unfinished items, including tasks without a clock time.
+  Stream<List<TodoRow>> watchEarlierUnfinished(DateTime before) =>
+    (select(todoItems)..where((t) => t.isDone.equals(false) & t.slotStart.isSmallerThanValue(before))
+      ..orderBy([(t) => OrderingTerm(expression: t.slotStart),
+        (t) => OrderingTerm(expression: t.id)])).watch();
+
   /// Every to-do, for a full-database export.
   Future<List<TodoRow>> all() => select(todoItems).get();
 

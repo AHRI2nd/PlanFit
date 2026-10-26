@@ -2537,6 +2537,18 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'{count}개는 저장했고 알림·연동 처리를 기다려요'**
   String todoMoveDeferred(int count);
+
+  /// No description provided for @smartListEarlier.
+  ///
+  /// In ko, this message translates to:
+  /// **'이전 날짜 미완료'**
+  String get smartListEarlier;
+
+  /// No description provided for @smartListEarlierEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'이전 날짜에 남은 할 일이 없어요'**
+  String get smartListEarlierEmpty;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

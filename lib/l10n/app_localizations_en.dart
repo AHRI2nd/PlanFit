@@ -1396,4 +1396,10 @@ class AppL10nEn extends AppL10n {
   String todoMoveDeferred(int count) {
     return '$count items saved; notification or sync work is waiting';
   }
+
+  @override
+  String get smartListEarlier => 'Earlier unfinished';
+
+  @override
+  String get smartListEarlierEmpty => 'No unfinished items from previous dates';
 }

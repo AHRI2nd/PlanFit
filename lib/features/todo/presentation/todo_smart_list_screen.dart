@@ -21,13 +21,13 @@ import 'quick_add_todo_sheet.dart';
 import 'todo_detail_sheet.dart';
 import 'todo_selection.dart';
 
-enum _SmartListTab { all, today, overdue, highPriority, pinned, byTag }
+enum _SmartListTab { all, today, overdue, earlier, highPriority, pinned, byTag }
 
 /// Which tab [TodoSmartListScreen] opens on — only the tabs another screen
 /// actually has a reason to deep-link into (e.g. the home screen's overdue
 /// list linking to "see the rest here") are exposed; the others are only
 /// ever reached by tapping a chip inside this screen itself.
-enum SmartListInitialTab { all, today, overdue }
+enum SmartListInitialTab { all, today, overdue, earlier }
 
 /// A cross-day view of to-dos, filtered by one of a few fixed "smart list"
 /// criteria — the counterpart to the day/week/month views' own per-day
@@ -48,11 +48,21 @@ class TodoSmartListScreen extends ConsumerStatefulWidget {
 
 class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
     with TodoSelectionMixin<TodoSmartListScreen> {
-  late _SmartListTab _tab = switch (widget.initialTab) {
+  static _SmartListTab _initial(SmartListInitialTab tab) => switch (tab) {
     SmartListInitialTab.all => _SmartListTab.all,
     SmartListInitialTab.today => _SmartListTab.today,
     SmartListInitialTab.overdue => _SmartListTab.overdue,
+    SmartListInitialTab.earlier => _SmartListTab.earlier,
   };
+  late _SmartListTab _tab = _initial(widget.initialTab);
+  @override
+  void didUpdateWidget(TodoSmartListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      _tab = _initial(widget.initialTab);
+      selectionMode = false; selectedIds.clear();
+    }
+  }
   String? _selectedTag;
 
   /// Switching tabs (or the selected tag, within the 태그별 tab) swaps the
@@ -156,6 +166,7 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
     _SmartListTab.all => l10n.smartListAll,
     _SmartListTab.today => l10n.smartListToday,
     _SmartListTab.overdue => l10n.smartListOverdue,
+    _SmartListTab.earlier => l10n.smartListEarlier,
     _SmartListTab.highPriority => l10n.smartListHighPriority,
     _SmartListTab.pinned => l10n.smartListPinned,
     _SmartListTab.byTag => l10n.smartListByTag,
@@ -192,6 +203,10 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
           onToggleSelected: toggleSelected,
           onEnterSelection: enterSelection,
         );
+      case _SmartListTab.earlier:
+        return _TodoListView(watch: (ref) => ref.watch(earlierUnfinishedTodosProvider),
+          emptyMessage: l10n.smartListEarlierEmpty, selectionMode: selectionMode,
+          selectedIds: selectedIds, onToggleSelected: toggleSelected, onEnterSelection: enterSelection);
       case _SmartListTab.highPriority:
         return _TodoListView(
           watch: (ref) => ref.watch(highPriorityTodosProvider),

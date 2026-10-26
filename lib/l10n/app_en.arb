@@ -624,5 +624,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "smartListEarlier": "Earlier unfinished",
+  "smartListEarlierEmpty": "No unfinished items from previous dates"
 }
