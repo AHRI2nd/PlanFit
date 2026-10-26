@@ -29,10 +29,12 @@ class AppLayout {
     final media = MediaQuery.of(context);
     final scope = context.dependOnInheritedWidgetOfExactType<AppLayoutScope>();
     final snapshot = scope?.snapshot;
+    final windowSize = scope?.windowSize;
     final origin = _viewOrigin(context);
     final snapshotMatches = snapshot != null &&
-        (snapshot.viewSize.width - scope!.windowSize.width).abs() <= 2 &&
-        (snapshot.viewSize.height - scope.windowSize.height).abs() <= 2;
+        windowSize != null &&
+        (snapshot.viewSize.width - windowSize.width).abs() <= 2 &&
+        (snapshot.viewSize.height - windowSize.height).abs() <= 2;
     final regions = snapshotMatches
         ? snapshot.regions
             .map((region) => region.bounds.shift(-origin))
@@ -68,12 +70,14 @@ class AppLayout {
     final horizontalClass = snapshotMatches
         ? snapshot.horizontalSizeClass
         : 'unspecified';
-    final wideLandscape =
-        media.size.width >= 960 && media.size.width / media.size.height >= 1.5;
+    final rootWindowSize = windowSize ?? media.size;
+    final rootPadding = scope?.windowPadding ?? media.padding;
+    final wideLandscape = rootWindowSize.width >= 960 &&
+        rootWindowSize.width / rootWindowSize.height >= 1.5;
     final useRail = horizontalClass == 'regular' && wideLandscape;
     final placement = !useRail
         ? NavigationPlacement.bottom
-        : media.padding.left > media.padding.right
+        : rootPadding.left > rootPadding.right
         ? NavigationPlacement.trailing
         : NavigationPlacement.leading;
 
@@ -147,13 +151,17 @@ class AppLayoutScope extends InheritedWidget {
     super.key,
     required this.snapshot,
     required this.windowSize,
+    required this.windowPadding,
     required super.child,
   });
 
   final WindowLayoutSnapshot? snapshot;
   final Size windowSize;
+  final EdgeInsets windowPadding;
 
   @override
   bool updateShouldNotify(AppLayoutScope oldWidget) =>
-      snapshot != oldWidget.snapshot || windowSize != oldWidget.windowSize;
+      snapshot != oldWidget.snapshot ||
+      windowSize != oldWidget.windowSize ||
+      windowPadding != oldWidget.windowPadding;
 }

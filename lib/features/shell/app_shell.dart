@@ -7,6 +7,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 import '../../core/clock.dart';
 import '../../design/glass/glass_nav_bar.dart';
 import '../../design/glass/glass_surface.dart' show ProgressiveBlur;
+import '../../design/layout/app_layout.dart';
 import '../../design/tokens/app_colors.dart';
 import '../../design/tokens/app_spacing.dart' show AppBlur;
 import '../../l10n/app_localizations.dart';
@@ -56,6 +57,7 @@ class AppShell extends ConsumerWidget {
     // branch switch alone never triggers.
     final now = ref.watch(nowTickerProvider).asData?.value ?? DateTime.now();
     final accent = AppColors.timeGradient(now).first;
+    final layout = AppLayout.of(context);
 
     // Today's undone to-dos, surfaced as a badge on the to-do tab. Watches `todayProvider`
     // rather than computing `dateOnly(DateTime.now())` directly — see that
@@ -95,6 +97,24 @@ class AppShell extends ConsumerWidget {
       index,
       initialLocation: index == navigationShell.currentIndex,
     );
+
+    if (layout.usesSideNavigation) {
+      final rail = GlassNavRail(
+        items: items,
+        currentIndex: navigationShell.currentIndex,
+        accent: accent,
+        onTap: onTap,
+      );
+      return Scaffold(
+        body: Row(
+          children: [
+            if (layout.navigationPlacement == NavigationPlacement.leading) rail,
+            Expanded(child: navigationShell),
+            if (layout.navigationPlacement == NavigationPlacement.trailing) rail,
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       extendBody: true,

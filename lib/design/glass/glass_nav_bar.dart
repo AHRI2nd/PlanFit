@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../tokens/app_colors.dart';
 import '../tokens/app_motion.dart';
 import '../tokens/app_spacing.dart';
+import '../layout/app_layout.dart';
 import 'glass_surface.dart';
 
 /// Whether the app renders the native iOS Liquid Glass tab bar
@@ -67,7 +68,9 @@ const double kIosNavBarVerticalPadding = 20;
 /// gesture navigation as the settings list's last card still crossing under
 /// the bar despite "full" clearance: 76 reserved against a bar 100 tall.
 double navBarClearance(BuildContext context) =>
-    navBarVisibleHeight(context) +
+    AppLayout.of(context).usesSideNavigation
+    ? 0
+    : navBarVisibleHeight(context) +
     // The one place the two bars' footprints differ from their pills:
     // GlassTabBar.bottom pads above its pill as well as below, so its
     // widget stands this much taller than anything it draws. GlassNavBar
@@ -78,6 +81,7 @@ double navBarClearance(BuildContext context) =>
 /// glass pill — what content has to clear to be *seen*, as opposed to
 /// [navBarClearance]'s whole-widget footprint.
 double navBarVisibleHeight(BuildContext context) {
+  if (AppLayout.of(context).usesSideNavigation) return 0;
   if (useNativeLiquidGlassNavBar) {
     return kNavBarPillHeight + kIosNavBarVerticalPadding;
   }
@@ -117,7 +121,9 @@ const double kNavBarControlGap = 20;
 /// two agree: iOS lands on the same 104 it already used, and Android goes
 /// back to the 120 it had before any of this was unified.
 double navBarControlClearance(BuildContext context) =>
-    navBarVisibleHeight(context) + kNavBarControlGap;
+    AppLayout.of(context).usesSideNavigation
+    ? 0
+    : navBarVisibleHeight(context) + kNavBarControlGap;
 
 /// A single destination in the [GlassNavBar].
 class GlassNavItem {
@@ -265,6 +271,76 @@ class GlassNavBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Vertical tab rail for wide, short regular windows. The shell reserves its
+/// width, so content never needs a second horizontal clearance calculation.
+class GlassNavRail extends StatelessWidget {
+  const GlassNavRail({
+    super.key,
+    required this.items,
+    required this.currentIndex,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final List<GlassNavItem> items;
+  final int currentIndex;
+  final Color accent;
+  final ValueChanged<int> onTap;
+
+  static const double extent = 88;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return SizedBox(
+      width: extent,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: palette.glassTint,
+          border: Border(
+            right: BorderSide(color: palette.glassBorder.withValues(alpha: 0.7)),
+          ),
+        ),
+        child: SafeArea(
+          child: NavigationRail(
+            backgroundColor: Colors.transparent,
+            minWidth: extent,
+            selectedIndex: currentIndex,
+            labelType: NavigationRailLabelType.all,
+            groupAlignment: -1,
+            indicatorColor: accent,
+            selectedIconTheme: const IconThemeData(color: Colors.white),
+            unselectedIconTheme: IconThemeData(color: palette.inkSoft),
+            selectedLabelTextStyle: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: Colors.white),
+            unselectedLabelTextStyle: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: palette.inkSoft),
+            onDestinationSelected: onTap,
+            destinations: [
+              for (final item in items)
+                NavigationRailDestination(
+                  icon: NavBadgeIcon(
+                    count: item.badgeCount,
+                    icon: Icon(item.icon),
+                  ),
+                  selectedIcon: NavBadgeIcon(
+                    count: item.badgeCount,
+                    icon: Icon(item.activeIcon),
+                  ),
+                  label: Text(item.label),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

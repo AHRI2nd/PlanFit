@@ -454,6 +454,7 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       builder: (context, child) => AppLayoutScope(
         snapshot: windowLayout,
         windowSize: MediaQuery.sizeOf(context),
+        windowPadding: MediaQuery.paddingOf(context),
         child: child ?? const SizedBox.shrink(),
       ),
       localizationsDelegates: const [
