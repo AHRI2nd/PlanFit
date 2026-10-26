@@ -189,6 +189,9 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
   Future<void> _reconcileReminders() async {
     try {
       await ref.read(remindersReconcilerProvider).reconcile();
+      if (ref.read(remindersServiceProvider).isEnabled) {
+        await ref.read(lastRemindersSyncAtProvider.notifier).record(DateTime.now());
+      }
     } catch (_) {
       // Sync is best-effort; never surface reconciliation failures to the user.
     }

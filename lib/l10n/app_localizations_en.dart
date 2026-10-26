@@ -1279,4 +1279,54 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get backupCreateNow => 'Back up now';
+
+  @override
+  String get healthTitle => 'Notifications and sync status';
+
+  @override
+  String get healthExactAlarms => 'Exact alarm access';
+
+  @override
+  String get healthOff => 'Turned off';
+
+  @override
+  String get healthPermission => 'Permission required';
+
+  @override
+  String get healthTarget => 'Choose or prepare a destination';
+
+  @override
+  String get healthReady => 'Available';
+
+  @override
+  String get healthPending => 'Waiting for processing';
+
+  @override
+  String get healthUnavailable => 'Not supported on this platform';
+
+  @override
+  String get healthFailed => 'Could not complete the check';
+
+  @override
+  String get healthRunNow => 'Try now';
+
+  @override
+  String get healthChooseTarget => 'Choose calendar';
+
+  @override
+  String get healthHistory => 'Backup history';
+
+  @override
+  String healthPendingCount(int count) {
+    return '$count items waiting';
+  }
+
+  @override
+  String healthLastPass(String time) {
+    return 'Last processing pass: $time';
+  }
+
+  @override
+  String get healthDescription =>
+      'Review access and pending work. Notification access does not confirm that an individual alert has been scheduled.';
 }

@@ -10,6 +10,7 @@ import '../../features/settings/presentation/calendar_picker_screen.dart';
 import '../../features/settings/presentation/holiday_calendar_source_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/sync_log_screen.dart';
+import '../../features/settings/presentation/integration_status_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/todo/presentation/todo_smart_list_screen.dart';
 import '../di.dart';
@@ -76,6 +77,10 @@ final appRouter = GoRouter(
               path: '/settings',
               builder: (_, _) => const SettingsScreen(),
               routes: [
+                GoRoute(
+                  path: 'integration-status',
+                  builder: (_, _) => const IntegrationStatusScreen(),
+                ),
                 GoRoute(
                   path: 'sync-log',
                   builder: (_, _) => const SyncLogScreen(),

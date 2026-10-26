@@ -87,7 +87,7 @@ class SyncLogScreen extends ConsumerWidget {
                           ),
                         const SizedBox(height: 2),
                         Text(
-                          Fmt.time(row.at, locale, use24Hour: use24),
+                          '${Fmt.monthDay(row.at, locale)} ${Fmt.time(row.at, locale, use24Hour: use24)}',
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(color: palette.inkFaint),
                         ),

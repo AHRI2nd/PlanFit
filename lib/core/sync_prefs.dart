@@ -8,6 +8,7 @@ class SyncPrefs {
   const SyncPrefs._();
 
   static const String lastCalendarSyncAt = 'sync.lastCalendarSyncAt';
+  static const String lastRemindersSyncAt = 'sync.lastRemindersSyncAt';
 
   /// Set once [HolidayCalendarService.migrateLegacySources] has run —
   /// cleans up mirrored rows from before country/custom holiday-calendar

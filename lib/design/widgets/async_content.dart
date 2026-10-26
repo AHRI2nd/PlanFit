@@ -15,9 +15,11 @@ class AsyncContent<T> extends StatelessWidget {
     if (value.hasValue) {
       final content = builder(value.requireValue);
       if (!value.hasError) return content;
-      return Column(mainAxisSize: MainAxisSize.min, children: [
-        AsyncStateNotice(onRetry: onRetry), content,
-      ]);
+      return LayoutBuilder(builder: (context, constraints) => Column(
+        mainAxisSize: constraints.hasBoundedHeight ? MainAxisSize.max : MainAxisSize.min,
+        children: [AsyncStateNotice(onRetry: onRetry),
+          if (constraints.hasBoundedHeight) Expanded(child: content) else content],
+      ));
     }
     if (value.hasError) return AsyncStateNotice(onRetry: onRetry);
     return const Center(child: CircularProgressIndicator());

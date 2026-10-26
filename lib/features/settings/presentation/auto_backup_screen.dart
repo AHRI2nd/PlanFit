@@ -127,8 +127,10 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen>
         '${summary.legacyFormat ? '\n${l10n.backupImportLegacyWarning}' : ''}')));
       await _refresh();
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showAutoDismissSnackBar(
-        SnackBar(content: Text(l10n.backupImportFailed)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showAutoDismissSnackBar(
+          SnackBar(content: Text(l10n.backupImportFailed)));
+      }
     } finally {
       activity.finish();
       if (mounted) setState(() => _restoring = false);

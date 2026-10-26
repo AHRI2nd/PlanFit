@@ -41,6 +41,13 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "hasTargetList":
+      guard let id = call.arguments as? String else { result(false); return }
+      let currentStore = store
+      DispatchQueue.global(qos: .userInitiated).async {
+        let exists = currentStore.calendars(for: .reminder).contains { $0.calendarIdentifier == id }
+        DispatchQueue.main.async { result(exists) }
+      }
     case "requestAccess":
       requestAccess(result: result)
     case "resolveTargetListId":

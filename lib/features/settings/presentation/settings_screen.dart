@@ -294,6 +294,9 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
 
+                SectionCard(children: [_NavRow(title: l10n.healthTitle,
+                  onTap: () => context.go('/settings/integration-status'))]),
+                const SizedBox(height: AppSpacing.lg),
                 SectionHeader(l10n.settingsNotifications),
                 SectionCard(
                   children: [

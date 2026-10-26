@@ -536,5 +536,34 @@
         "type": "String"
       }
     }
+  },
+  "healthTitle": "Notifications and sync status",
+  "healthExactAlarms": "Exact alarm access",
+  "healthOff": "Turned off",
+  "healthPermission": "Permission required",
+  "healthTarget": "Choose or prepare a destination",
+  "healthReady": "Available",
+  "healthPending": "Waiting for processing",
+  "healthUnavailable": "Not supported on this platform",
+  "healthFailed": "Could not complete the check",
+  "healthRunNow": "Try now",
+  "healthChooseTarget": "Choose calendar",
+  "healthHistory": "Backup history",
+  "healthPendingCount": "{count} items waiting",
+  "healthLastPass": "Last processing pass: {time}",
+  "healthDescription": "Review access and pending work. Notification access does not confirm that an individual alert has been scheduled.",
+  "@healthPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@healthLastPass": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

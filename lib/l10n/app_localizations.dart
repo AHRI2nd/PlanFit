@@ -2345,6 +2345,96 @@ abstract class AppL10n {
   /// In ko, this message translates to:
   /// **'지금 백업'**
   String get backupCreateNow;
+
+  /// No description provided for @healthTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림·연동 상태'**
+  String get healthTitle;
+
+  /// No description provided for @healthExactAlarms.
+  ///
+  /// In ko, this message translates to:
+  /// **'정확한 알람 권한'**
+  String get healthExactAlarms;
+
+  /// No description provided for @healthOff.
+  ///
+  /// In ko, this message translates to:
+  /// **'꺼져 있어요'**
+  String get healthOff;
+
+  /// No description provided for @healthPermission.
+  ///
+  /// In ko, this message translates to:
+  /// **'권한이 필요해요'**
+  String get healthPermission;
+
+  /// No description provided for @healthTarget.
+  ///
+  /// In ko, this message translates to:
+  /// **'대상을 선택하거나 준비해야 해요'**
+  String get healthTarget;
+
+  /// No description provided for @healthReady.
+  ///
+  /// In ko, this message translates to:
+  /// **'사용할 수 있어요'**
+  String get healthReady;
+
+  /// No description provided for @healthPending.
+  ///
+  /// In ko, this message translates to:
+  /// **'처리를 기다리고 있어요'**
+  String get healthPending;
+
+  /// No description provided for @healthUnavailable.
+  ///
+  /// In ko, this message translates to:
+  /// **'이 플랫폼에서 지원하지 않아요'**
+  String get healthUnavailable;
+
+  /// No description provided for @healthFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'확인을 마치지 못했어요'**
+  String get healthFailed;
+
+  /// No description provided for @healthRunNow.
+  ///
+  /// In ko, this message translates to:
+  /// **'지금 시도'**
+  String get healthRunNow;
+
+  /// No description provided for @healthChooseTarget.
+  ///
+  /// In ko, this message translates to:
+  /// **'캘린더 선택'**
+  String get healthChooseTarget;
+
+  /// No description provided for @healthHistory.
+  ///
+  /// In ko, this message translates to:
+  /// **'백업 기록'**
+  String get healthHistory;
+
+  /// No description provided for @healthPendingCount.
+  ///
+  /// In ko, this message translates to:
+  /// **'{count}개 처리 대기'**
+  String healthPendingCount(int count);
+
+  /// No description provided for @healthLastPass.
+  ///
+  /// In ko, this message translates to:
+  /// **'마지막 처리: {time}'**
+  String healthLastPass(String time);
+
+  /// No description provided for @healthDescription.
+  ///
+  /// In ko, this message translates to:
+  /// **'권한과 처리 대기 상태를 확인해요. 알림 권한과 개별 항목의 알림 예약 여부는 다를 수 있어요.'**
+  String get healthDescription;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

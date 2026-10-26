@@ -1208,4 +1208,54 @@ class AppL10nKo extends AppL10n {
 
   @override
   String get backupCreateNow => '지금 백업';
+
+  @override
+  String get healthTitle => '알림·연동 상태';
+
+  @override
+  String get healthExactAlarms => '정확한 알람 권한';
+
+  @override
+  String get healthOff => '꺼져 있어요';
+
+  @override
+  String get healthPermission => '권한이 필요해요';
+
+  @override
+  String get healthTarget => '대상을 선택하거나 준비해야 해요';
+
+  @override
+  String get healthReady => '사용할 수 있어요';
+
+  @override
+  String get healthPending => '처리를 기다리고 있어요';
+
+  @override
+  String get healthUnavailable => '이 플랫폼에서 지원하지 않아요';
+
+  @override
+  String get healthFailed => '확인을 마치지 못했어요';
+
+  @override
+  String get healthRunNow => '지금 시도';
+
+  @override
+  String get healthChooseTarget => '캘린더 선택';
+
+  @override
+  String get healthHistory => '백업 기록';
+
+  @override
+  String healthPendingCount(int count) {
+    return '$count개 처리 대기';
+  }
+
+  @override
+  String healthLastPass(String time) {
+    return '마지막 처리: $time';
+  }
+
+  @override
+  String get healthDescription =>
+      '권한과 처리 대기 상태를 확인해요. 알림 권한과 개별 항목의 알림 예약 여부는 다를 수 있어요.';
 }

@@ -34,6 +34,11 @@ class RemindersService implements RemindersPort {
     return granted ?? false;
   }
 
+  Future<bool> hasExistingTarget() async {
+    if (!_supported || targetListId == null) return false;
+    return await _channel.invokeMethod<bool>('hasTargetList', targetListId) ?? false;
+  }
+
   Future<String?>? _resolving;
 
   /// Resolves where PlanFit writes to-dos — same single-flight-guarded
