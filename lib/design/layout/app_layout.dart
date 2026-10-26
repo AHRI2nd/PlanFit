@@ -38,10 +38,17 @@ class AppLayout {
         windowSize != null &&
         (snapshot.viewSize.width - windowSize.width).abs() <= 2 &&
         (snapshot.viewSize.height - windowSize.height).abs() <= 2;
-    final regions = snapshotMatches
+    final List<ReservedRegion> regions = snapshotMatches
         ? snapshot.regions
-            .map((region) => region.bounds.shift(-origin))
-            .where((rect) => rect.overlaps(Offset.zero & size))
+            .map<ReservedRegion>(
+              (region) => ReservedRegion(
+                id: region.id,
+                kind: region.kind,
+                bounds: region.bounds.shift(-origin),
+                isActive: region.isActive,
+              ),
+            )
+            .where((region) => region.bounds.overlaps(Offset.zero & size))
             .toList(growable: false)
         : const <ReservedRegion>[];
 
