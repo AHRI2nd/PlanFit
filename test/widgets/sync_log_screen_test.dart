@@ -68,14 +68,15 @@ void main() {
     );
   }
 
-  testWidgets('shows a placeholder dash when there is no sync activity yet', (
-    tester,
-  ) async {
-    await pumpScreen(tester);
+  testWidgets(
+    'shows an explicit empty state when there is no sync activity yet',
+    (tester) async {
+      await pumpScreen(tester);
 
-    expect(find.text('동기화 기록'), findsOneWidget);
-    expect(find.text('—'), findsOneWidget);
-  });
+      expect(find.text('동기화 기록'), findsOneWidget);
+      expect(find.text('아직 기록이 없어요'), findsOneWidget);
+    },
+  );
 
   testWidgets('renders a logged entry\'s title and detail', (tester) async {
     await pumpScreen(

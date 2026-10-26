@@ -9,16 +9,16 @@ import '../tables.dart';
 
 part 'todo_dao.g.dart';
 
-@DriftAccessor(
-  tables: [TodoItems, TodoSubtasks, PendingReminderDeletions],
-)
+@DriftAccessor(tables: [TodoItems, TodoSubtasks, PendingReminderDeletions])
 class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   TodoDao(super.db);
 
   Expression<bool> _inWindow(DateTime from, DateTime to) =>
-    todoItems.slotStart.isSmallerThanValue(to) &
-    (todoItems.slotStart.isBiggerOrEqualValue(from) |
-      (todoItems.hasTime.equals(true) & todoItems.slotEnd.isBiggerThanValue(from) & todoItems.slotEnd.isBiggerThan(todoItems.slotStart)));
+      todoItems.slotStart.isSmallerThanValue(to) &
+      (todoItems.slotStart.isBiggerOrEqualValue(from) |
+          (todoItems.hasTime.equals(true) &
+              todoItems.slotEnd.isBiggerThanValue(from) &
+              todoItems.slotEnd.isBiggerThan(todoItems.slotStart)));
 
   /// To-dos whose slot starts within [from, to). No-time to-dos (see
   /// [TodoItems.hasTime]) sort first as a group — they belong to the day but
@@ -26,10 +26,7 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   /// sort order.
   Stream<List<TodoRow>> watchBetween(DateTime from, DateTime to) {
     return (select(todoItems)
-          ..where(
-            (t) =>
-                _inWindow(from, to),
-          )
+          ..where((t) => _inWindow(from, to))
           ..orderBy([
             (t) => OrderingTerm(expression: t.hasTime),
             (t) => OrderingTerm(expression: t.slotStart),
@@ -39,29 +36,52 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   }
 
   Future<List<TodoRow>> between(DateTime from, DateTime to) {
-    return (select(todoItems)..where(
-          (t) =>
-              _inWindow(from, to),
-        ))
-        .get();
+    return (select(todoItems)..where((t) => _inWindow(from, to))).get();
   }
 
   Stream<List<TodoRow>> watchScheduledBetween(DateTime from, DateTime to) =>
-      (select(todoItems)..where((t) => t.slotStart.isBiggerOrEqualValue(from) & t.slotStart.isSmallerThanValue(to))
-        ..orderBy([(t) => OrderingTerm(expression: t.slotStart), (t) => OrderingTerm(expression: t.id)])).watch();
+      (select(todoItems)
+            ..where(
+              (t) =>
+                  t.slotStart.isBiggerOrEqualValue(from) &
+                  t.slotStart.isSmallerThanValue(to),
+            )
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.slotStart),
+              (t) => OrderingTerm(expression: t.id),
+            ]))
+          .watch();
 
   Stream<List<TodoRow>> watchCompletedBetween(DateTime from, DateTime to) =>
-      (select(todoItems)..where((t) => t.isDone.equals(true) & t.completedAt.isBiggerOrEqualValue(from) & t.completedAt.isSmallerThanValue(to))
-        ..orderBy([(t) => OrderingTerm(expression: t.completedAt), (t) => OrderingTerm(expression: t.id)])).watch();
+      (select(todoItems)
+            ..where(
+              (t) =>
+                  t.isDone.equals(true) &
+                  t.completedAt.isBiggerOrEqualValue(from) &
+                  t.completedAt.isSmallerThanValue(to),
+            )
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.completedAt),
+              (t) => OrderingTerm(expression: t.id),
+            ]))
+          .watch();
 
   Future<void> upsert(TodoItemsCompanion companion) =>
       into(todoItems).insertOnConflictUpdate(companion);
 
   /// Previous-date unfinished items, including tasks without a clock time.
   Stream<List<TodoRow>> watchEarlierUnfinished(DateTime before) =>
-    (select(todoItems)..where((t) => t.isDone.equals(false) & t.slotStart.isSmallerThanValue(before))
-      ..orderBy([(t) => OrderingTerm(expression: t.slotStart),
-        (t) => OrderingTerm(expression: t.id)])).watch();
+      (select(todoItems)
+            ..where(
+              (t) =>
+                  t.isDone.equals(false) &
+                  t.slotStart.isSmallerThanValue(before),
+            )
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.slotStart),
+              (t) => OrderingTerm(expression: t.id),
+            ]))
+          .watch();
 
   /// Every to-do, for a full-database export.
   Future<List<TodoRow>> all() => select(todoItems).get();
@@ -111,14 +131,29 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
 
   /// Sets a concrete time — implicitly turns a no-time to-do back into a
   /// timed one, since picking a time is exactly how a user opts back in.
-  Future<void> updateSlotStart(String id, DateTime slotStart) => transaction(() async {
-    final row = await findById(id);
-    if (row == null) return;
-    final end = row.hasTime && row.slotEnd != null && row.slotEnd!.isAfter(row.slotStart)
-      ? shiftTimeOfDay(slotStart, calendarDuration(row.slotStart, row.slotEnd!)) : null;
-    await patch(id, TodoItemsCompanion(slotStart: Value(slotStart), slotEnd: Value(end),
-      hasTime: const Value(true), reminderSyncStatus: const Value(SyncStatus.pendingPush)));
-  });
+  Future<void> updateSlotStart(String id, DateTime slotStart) =>
+      transaction(() async {
+        final row = await findById(id);
+        if (row == null) return;
+        final end =
+            row.hasTime &&
+                row.slotEnd != null &&
+                row.slotEnd!.isAfter(row.slotStart)
+            ? shiftTimeOfDay(
+                slotStart,
+                calendarDuration(row.slotStart, row.slotEnd!),
+              )
+            : null;
+        await patch(
+          id,
+          TodoItemsCompanion(
+            slotStart: Value(slotStart),
+            slotEnd: Value(end),
+            hasTime: const Value(true),
+            reminderSyncStatus: const Value(SyncStatus.pendingPush),
+          ),
+        );
+      });
 
   /// Moves [id] onto [day], keeping both its time-of-day and whether it has
   /// one at all.
@@ -149,10 +184,17 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
           )
         : DateTime(day.year, day.month, day.day);
     await (update(todoItems)..where((t) => t.id.equals(id))).write(
-      TodoItemsCompanion(slotStart: Value(moved),
-        slotEnd: Value(existing.hasTime && existing.slotEnd != null && existing.slotEnd!.isAfter(s)
-          ? shiftTimeOfDay(moved, calendarDuration(s, existing.slotEnd!)) : null),
-        reminderSyncStatus: const Value(SyncStatus.pendingPush)),
+      TodoItemsCompanion(
+        slotStart: Value(moved),
+        slotEnd: Value(
+          existing.hasTime &&
+                  existing.slotEnd != null &&
+                  existing.slotEnd!.isAfter(s)
+              ? shiftTimeOfDay(moved, calendarDuration(s, existing.slotEnd!))
+              : null,
+        ),
+        reminderSyncStatus: const Value(SyncStatus.pendingPush),
+      ),
     );
   });
 
@@ -174,7 +216,12 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
       existing.slotStart.day,
     );
     await (update(todoItems)..where((t) => t.id.equals(id))).write(
-      TodoItemsCompanion(hasTime: const Value(false), slotStart: Value(day), slotEnd: const Value(null), reminderSyncStatus: const Value(SyncStatus.pendingPush)),
+      TodoItemsCompanion(
+        hasTime: const Value(false),
+        slotStart: Value(day),
+        slotEnd: const Value(null),
+        reminderSyncStatus: const Value(SyncStatus.pendingPush),
+      ),
     );
   });
 
@@ -228,9 +275,16 @@ class TodoDao extends DatabaseAccessor<AppDatabase> with _$TodoDaoMixin {
   /// See [buildLikeSubstringPattern]'s doc for why the query can't be
   /// dropped straight into a `%...%` pattern as-is.
   Future<List<TodoRow>> search(String query, {SearchOptions? options}) async {
-    final statement = SearchStatement(query, options ?? const SearchOptions(), events: false);
-    final rows = await customSelect(statement.sql, variables: statement.variables,
-      readsFrom: {todoItems}).get();
+    final statement = SearchStatement(
+      query,
+      options ?? const SearchOptions(),
+      events: false,
+    );
+    final rows = await customSelect(
+      statement.sql,
+      variables: statement.variables,
+      readsFrom: {todoItems},
+    ).get();
     return Future.wait(rows.map((row) => todoItems.mapFromRow(row)));
   }
 

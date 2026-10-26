@@ -129,10 +129,20 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
       final current = await ref.read(todoDaoProvider).findById(widget.todo.id);
       if (!mounted || current == null) return;
       final updated = await showTodoTimeBlockSheet(context, current);
-      if (mounted && updated != null) setState(() {
-        _slotStart = updated.slotStart; _slotEnd = updated.slotEnd; _hasTime = updated.hasTime;
-      });
-    } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppL10n.of(context).todoUpdateFailed))); }
+      if (mounted && updated != null) {
+        setState(() {
+          _slotStart = updated.slotStart;
+          _slotEnd = updated.slotEnd;
+          _hasTime = updated.hasTime;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppL10n.of(context).todoUpdateFailed)),
+        );
+      }
+    }
   }
 
   Future<void> _pickDate() async {
@@ -146,8 +156,21 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
     await _guard(
       () => ref.read(todoControllerProvider).updateDate(widget.todo.id, picked),
       () {
-        final next = _hasTime ? DateTime(picked.year, picked.month, picked.day, _slotStart.hour, _slotStart.minute) : dateOnly(picked);
-        if (_slotEnd != null) _slotEnd = shiftTimeOfDay(next, calendarDuration(_slotStart, _slotEnd!));
+        final next = _hasTime
+            ? DateTime(
+                picked.year,
+                picked.month,
+                picked.day,
+                _slotStart.hour,
+                _slotStart.minute,
+              )
+            : dateOnly(picked);
+        if (_slotEnd != null) {
+          _slotEnd = shiftTimeOfDay(
+            next,
+            calendarDuration(_slotStart, _slotEnd!),
+          );
+        }
         _slotStart = next;
       },
     );
@@ -174,7 +197,12 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
       () {
         // updateTime turns a no-time to-do back into a timed one — picking a
         // time is exactly how a user opts back in (TodoDao.updateSlotStart).
-        if (_slotEnd != null) _slotEnd = shiftTimeOfDay(next, calendarDuration(_slotStart, _slotEnd!));
+        if (_slotEnd != null) {
+          _slotEnd = shiftTimeOfDay(
+            next,
+            calendarDuration(_slotStart, _slotEnd!),
+          );
+        }
         _slotStart = next;
         _hasTime = true;
       },
@@ -489,10 +517,23 @@ class _TodoDetailSheetState extends ConsumerState<_TodoDetailSheet> {
                           ),
                       ],
                     ),
-                    if (!widget.todo.isDone) Align(alignment: Alignment.centerLeft, child: TextButton.icon(
-                      onPressed: _editBlock, icon: const Icon(Icons.view_agenda_outlined), label: Text(_slotEnd == null ? l10n.blockTitle : l10n.blockEdit))),
-                    if (_hasTime && _slotEnd != null && _slotEnd!.isAfter(_slotStart))
-                      Text('${Fmt.monthDay(_slotStart, locale)} ${Fmt.time(_slotStart, locale, use24Hour: use24Hour)} – ${Fmt.monthDay(_slotEnd!, locale)} ${Fmt.time(_slotEnd!, locale, use24Hour: use24Hour)} · ${l10n.durationMinutes(_slotEnd!.difference(_slotStart).inMinutes)}'),
+                    if (!widget.todo.isDone)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _editBlock,
+                          icon: const Icon(Icons.view_agenda_outlined),
+                          label: Text(
+                            _slotEnd == null ? l10n.blockTitle : l10n.blockEdit,
+                          ),
+                        ),
+                      ),
+                    if (_hasTime &&
+                        _slotEnd != null &&
+                        _slotEnd!.isAfter(_slotStart))
+                      Text(
+                        '${Fmt.monthDay(_slotStart, locale)} ${Fmt.time(_slotStart, locale, use24Hour: use24Hour)} – ${Fmt.monthDay(_slotEnd!, locale)} ${Fmt.time(_slotEnd!, locale, use24Hour: use24Hour)} · ${l10n.durationMinutes(_slotEnd!.difference(_slotStart).inMinutes)}',
+                      ),
                     const SizedBox(height: AppSpacing.xs),
                     Row(
                       children: [

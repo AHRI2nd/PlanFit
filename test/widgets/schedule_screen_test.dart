@@ -309,15 +309,14 @@ void main() {
       expect(container.read(selectedDateProvider), DateTime(2026, 4, 15));
     });
 
-    testWidgets(
-      'agenda view: no chevrons render at all — no period to page',
-      (tester) async {
-        final selected = DateTime(2026, 3, 15);
-        await pumpSchedule(tester, view: ScheduleView.agenda, selected: selected);
-        expect(find.byIcon(Icons.chevron_left), findsNothing);
-        expect(find.byIcon(Icons.chevron_right), findsNothing);
-      },
-    );
+    testWidgets('agenda view: no chevrons render at all — no period to page', (
+      tester,
+    ) async {
+      final selected = DateTime(2026, 3, 15);
+      await pumpSchedule(tester, view: ScheduleView.agenda, selected: selected);
+      expect(find.byIcon(Icons.chevron_left), findsNothing);
+      expect(find.byIcon(Icons.chevron_right), findsNothing);
+    });
 
     testWidgets(
       "agenda view: the missing chevrons leave behind a 44x44 invisible "
@@ -332,7 +331,11 @@ void main() {
       'an Android emulator before being fixed here',
       (tester) async {
         final selected = DateTime(2026, 3, 15);
-        await pumpSchedule(tester, view: ScheduleView.agenda, selected: selected);
+        await pumpSchedule(
+          tester,
+          view: ScheduleView.agenda,
+          selected: selected,
+        );
 
         final spacers = find.byWidgetPredicate(
           (w) => w is SizedBox && w.width == 44 && w.height == 44,
@@ -341,27 +344,24 @@ void main() {
       },
     );
 
-    testWidgets(
-      'both chevrons carry a screen-reader label — regression test: '
-      'neither had a tooltip or Semantics at all, so a VoiceOver/TalkBack '
-      'user tapping through the header heard nothing meaningful for the '
-      'only tap-based way to page the calendar',
-      (tester) async {
-        final handle = tester.ensureSemantics();
-        final selected = DateTime(2026, 3, 10);
-        await pumpSchedule(tester, view: ScheduleView.day, selected: selected);
+    testWidgets('both chevrons carry a screen-reader label — regression test: '
+        'neither had a tooltip or Semantics at all, so a VoiceOver/TalkBack '
+        'user tapping through the header heard nothing meaningful for the '
+        'only tap-based way to page the calendar', (tester) async {
+      final handle = tester.ensureSemantics();
+      final selected = DateTime(2026, 3, 10);
+      await pumpSchedule(tester, view: ScheduleView.day, selected: selected);
 
-        // Literal Korean strings, not the l10n getters themselves — this
-        // harness pumps Locale('ko') (see its own MaterialApp setup), so
-        // asserting against the real resolved text is what actually proves
-        // a screen reader would announce something meaningful, not just
-        // that some string was passed through.
-        expect(find.bySemanticsLabel('이전으로'), findsOneWidget);
-        expect(find.bySemanticsLabel('다음으로'), findsOneWidget);
+      // Literal Korean strings, not the l10n getters themselves — this
+      // harness pumps Locale('ko') (see its own MaterialApp setup), so
+      // asserting against the real resolved text is what actually proves
+      // a screen reader would announce something meaningful, not just
+      // that some string was passed through.
+      expect(find.bySemanticsLabel('이전으로'), findsOneWidget);
+      expect(find.bySemanticsLabel('다음으로'), findsOneWidget);
 
-        handle.dispose();
-      },
-    );
+      handle.dispose();
+    });
 
     testWidgets(
       'both chevrons have a tappable area of at least 44x44 — regression '
@@ -553,46 +553,40 @@ void main() {
   });
 
   group('the title and view switcher stay legible in every locale', () {
-    testWidgets(
-      "the week view's title uses abbreviated month names in en — "
-      'regression test: the full names ("August 31 – September 6") '
-      'overflowed the swipeable title\'s own tight header, ellipsizing '
-      'mid-word ("August 31 – Septe…")',
-      (tester) async {
-        // 2026-08-31 is a Monday, so with the default Sunday week start the
-        // week runs Aug 30 – Sep 5 — a range straddling a month boundary,
-        // which is what makes the full month names long enough to overflow.
-        final selected = DateTime(2026, 8, 31);
-        await pumpSchedule(
-          tester,
-          view: ScheduleView.week,
-          selected: selected,
-          locale: const Locale('en'),
-        );
+    testWidgets("the week view's title uses abbreviated month names in en — "
+        'regression test: the full names ("August 31 – September 6") '
+        'overflowed the swipeable title\'s own tight header, ellipsizing '
+        'mid-word ("August 31 – Septe…")', (tester) async {
+      // 2026-08-31 is a Monday, so with the default Sunday week start the
+      // week runs Aug 30 – Sep 5 — a range straddling a month boundary,
+      // which is what makes the full month names long enough to overflow.
+      final selected = DateTime(2026, 8, 31);
+      await pumpSchedule(
+        tester,
+        view: ScheduleView.week,
+        selected: selected,
+        locale: const Locale('en'),
+      );
 
-        expect(find.text('Aug 30 – Sep 5'), findsOneWidget);
-        expect(find.textContaining('August'), findsNothing);
-      },
-    );
+      expect(find.text('Aug 30 – Sep 5'), findsOneWidget);
+      expect(find.textContaining('August'), findsNothing);
+    });
 
-    testWidgets(
-      "the month view's title uses the abbreviated month in en — "
-      'regression test: this sits in the same header the week-range '
-      'title above overflowed in, and the full "September 2026" is long '
-      'enough to risk the same thing',
-      (tester) async {
-        final selected = DateTime(2026, 9, 4);
-        await pumpSchedule(
-          tester,
-          view: ScheduleView.month,
-          selected: selected,
-          locale: const Locale('en'),
-        );
+    testWidgets("the month view's title uses the abbreviated month in en — "
+        'regression test: this sits in the same header the week-range '
+        'title above overflowed in, and the full "September 2026" is long '
+        'enough to risk the same thing', (tester) async {
+      final selected = DateTime(2026, 9, 4);
+      await pumpSchedule(
+        tester,
+        view: ScheduleView.month,
+        selected: selected,
+        locale: const Locale('en'),
+      );
 
-        expect(find.text('Sep 2026'), findsOneWidget);
-        expect(find.textContaining('September'), findsNothing);
-      },
-    );
+      expect(find.text('Sep 2026'), findsOneWidget);
+      expect(find.textContaining('September'), findsNothing);
+    });
 
     testWidgets(
       'the view-switcher labels (일/주/월/년/목록) neither truncate nor wrap '
@@ -678,8 +672,7 @@ void main() {
               reason: '$view/$locale should render at least a title',
             );
             for (final element in titleTexts.evaluate()) {
-              final renderParagraph =
-                  element.renderObject! as RenderParagraph;
+              final renderParagraph = element.renderObject! as RenderParagraph;
               expect(
                 renderParagraph.didExceedMaxLines,
                 isFalse,

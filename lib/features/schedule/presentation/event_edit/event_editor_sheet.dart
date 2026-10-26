@@ -241,7 +241,9 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
     // row actually being edited in place) always wins when both are set,
     // though callers never pass both.
     final source = e ?? widget.duplicateFrom;
-    _title = TextEditingController(text: source?.title ?? widget.initialTitle ?? '');
+    _title = TextEditingController(
+      text: source?.title ?? widget.initialTitle ?? '',
+    );
     _memo = TextEditingController(text: source?.memo ?? '');
     _location = TextEditingController(text: source?.location ?? '');
     final anchor = widget.initialDay ?? DateTime.now();
@@ -515,14 +517,21 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _saving = true);
-    try { await _persist(); }
-    catch (_) {
+    try {
+      await _persist();
+    } catch (_) {
       if (mounted) {
         final l10n = AppL10n.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.eventSaveFailed),
-          action: SnackBarAction(label: l10n.commonRetry, onPressed: _save)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.eventSaveFailed),
+            action: SnackBarAction(label: l10n.commonRetry, onPressed: _save),
+          ),
+        );
       }
-    } finally { if (mounted) setState(() => _saving = false); }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _persist() async {
@@ -795,8 +804,10 @@ class _EventEditorSheetState extends ConsumerState<EventEditorSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(canPop: !_saving,
-    child: AbsorbPointer(absorbing: _saving, child: _buildEditor(context)));
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: AbsorbPointer(absorbing: _saving, child: _buildEditor(context)),
+  );
 
   Widget _buildEditor(BuildContext context) {
     final l10n = AppL10n.of(context);

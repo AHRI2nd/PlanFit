@@ -92,7 +92,8 @@ class _HourlyTodoListState extends ConsumerState<HourlyTodoList>
             onCancel: exitSelection,
             onComplete: bulkComplete,
             onDelete: bulkDelete,
-                onReschedule: bulkReschedule, busy: selectionBusy,
+            onReschedule: bulkReschedule,
+            busy: selectionBusy,
           ),
         todosAsync.maybeWhen(
           data: (todos) {
@@ -398,34 +399,44 @@ class _TodoTile extends ConsumerWidget {
                   ),
                 ),
               ),
-              Flexible(child: GestureDetector(
-                onTap: () => TodoTimeBlock.of(todo) != null ? showTodoTimeBlockSheet(context, todo) : _pickTime(context, ref),
-                // Long-press clears back to "no time" — picking a time via
-                // the tap above is the way back in (see TodoDao.updateSlotStart).
-                onLongPress: todo.hasTime
-                    ? () => ref.read(todoControllerProvider).clearTime(todo.id)
-                    : null,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xxs,
-                    vertical: AppSpacing.xxs,
-                  ),
-                  child: Text(
-                    todo.hasTime
-                        ? TodoTimeBlock.of(todo) == null ? Fmt.time(todo.slotStart, locale, use24Hour: use24)
-                          : '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)} – ${Fmt.monthDay(todo.slotEnd!, locale)} ${Fmt.time(todo.slotEnd!, locale, use24Hour: use24)}' 
-                        : l10n.todoNoTime,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: isOverdue
-                          ? palette.danger
-                          : todo.hasTime
-                          ? palette.inkFaint
-                          : palette.accent,
-                      fontWeight: isOverdue ? FontWeight.w700 : null,
+              Flexible(
+                child: GestureDetector(
+                  onTap: () => TodoTimeBlock.of(todo) != null
+                      ? showTodoTimeBlockSheet(context, todo)
+                      : _pickTime(context, ref),
+                  // Long-press clears back to "no time" — picking a time via
+                  // the tap above is the way back in (see TodoDao.updateSlotStart).
+                  onLongPress: todo.hasTime
+                      ? () =>
+                            ref.read(todoControllerProvider).clearTime(todo.id)
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xxs,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    child: Text(
+                      todo.hasTime
+                          ? TodoTimeBlock.of(todo) == null
+                                ? Fmt.time(
+                                    todo.slotStart,
+                                    locale,
+                                    use24Hour: use24,
+                                  )
+                                : '${Fmt.monthDay(todo.slotStart, locale)} ${Fmt.time(todo.slotStart, locale, use24Hour: use24)} – ${Fmt.monthDay(todo.slotEnd!, locale)} ${Fmt.time(todo.slotEnd!, locale, use24Hour: use24)}'
+                          : l10n.todoNoTime,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: isOverdue
+                            ? palette.danger
+                            : todo.hasTime
+                            ? palette.inkFaint
+                            : palette.accent,
+                        fontWeight: isOverdue ? FontWeight.w700 : null,
+                      ),
                     ),
                   ),
                 ),
-              )),
+              ),
               if (dragHandleIndex != null)
                 ReorderableDragStartListener(
                   index: dragHandleIndex!,

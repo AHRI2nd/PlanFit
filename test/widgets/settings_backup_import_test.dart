@@ -29,15 +29,21 @@ class _SettingsController extends SettingsController {
 class _PreparedBackup extends Fake implements PreparedBackup {
   @override
   BackupFilePreview get preview => const BackupFilePreview(
-    eventCount: 3, todoCount: 2, templateCount: 1, legacyFormat: false);
+    eventCount: 3,
+    todoCount: 2,
+    templateCount: 1,
+    legacyFormat: false,
+  );
 }
 
 class _RecordingBackupService extends Fake implements BackupService {
   int importCalls = 0;
   @override
-  Future<PreparedBackup> prepareFromFile(String path) async => _PreparedBackup();
+  Future<PreparedBackup> prepareFromFile(String path) async =>
+      _PreparedBackup();
   @override
-  Future<BackupImportSummary> importPrepared(PreparedBackup prepared) => importFromFile('confirmed');
+  Future<BackupImportSummary> importPrepared(PreparedBackup prepared) =>
+      importFromFile('confirmed');
 
   @override
   Future<BackupFilePreview> previewFromFile(String path) async =>
@@ -97,8 +103,11 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.scrollUntilVisible(find.text('전체 백업 가져오기'), 300,
-      scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('전체 백업 가져오기'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
   }
 

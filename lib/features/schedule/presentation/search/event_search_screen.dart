@@ -65,15 +65,18 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
   void initState() {
     super.initState();
     final memory = ref.read(searchMemoryProvider);
-    _priorityFilter = memory.options.priority == null ? null
+    _priorityFilter = memory.options.priority == null
+        ? null
         : TodoPriority.fromValue(memory.options.priority!);
     _tagFilter = memory.options.tag;
     _colorFilter = memory.options.colorTag;
     _includeCompleted = memory.options.includeCompleted;
     _type = memory.type;
     if (memory.options.from != null && memory.options.to != null) {
-      _dateRangeFilter = DateTimeRange(start: memory.options.from!,
-        end: addCalendarDays(memory.options.to!, -1));
+      _dateRangeFilter = DateTimeRange(
+        start: memory.options.from!,
+        end: addCalendarDays(memory.options.to!, -1),
+      );
     }
     final query = ref.read(eventSearchQueryProvider);
     _controller = TextEditingController(text: query);
@@ -86,14 +89,21 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
 
   SearchOptions get _options => SearchOptions(
     from: _dateRangeFilter?.start,
-    to: _dateRangeFilter == null ? null : addCalendarDays(_dateRangeFilter!.end, 1),
-    colorTag: _colorFilter, priority: _priorityFilter?.value, tag: _tagFilter,
-    includeCompleted: _includeCompleted, limit: _pageSize,
+    to: _dateRangeFilter == null
+        ? null
+        : addCalendarDays(_dateRangeFilter!.end, 1),
+    colorTag: _colorFilter,
+    priority: _priorityFilter?.value,
+    tag: _tagFilter,
+    includeCompleted: _includeCompleted,
+    limit: _pageSize,
   );
 
   void _changeFilters(VoidCallback update) {
     setState(update);
-    ref.read(searchMemoryProvider.notifier).save(SearchMemory(options: _options, type: _type));
+    ref
+        .read(searchMemoryProvider.notifier)
+        .save(SearchMemory(options: _options, type: _type));
     _onChanged(_controller.text);
   }
 
@@ -105,8 +115,12 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     if (todos == null) return const [];
     return todos.where((todo) {
       if (!_includeCompleted && todo.isDone) return false;
-      if (_options.from != null && todo.slotStart.isBefore(_options.from!)) return false;
-      if (_options.to != null && !todo.slotStart.isBefore(_options.to!)) return false;
+      if (_options.from != null && todo.slotStart.isBefore(_options.from!)) {
+        return false;
+      }
+      if (_options.to != null && !todo.slotStart.isBefore(_options.to!)) {
+        return false;
+      }
       if (_priorityFilter != null && todo.priority != _priorityFilter!.value) {
         return false;
       }
@@ -153,11 +167,16 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     final trimmed = query.trim();
     ref.read(eventSearchQueryProvider.notifier).set(trimmed);
     setState(() {
-      _eventResults = null; _todoResults = null;
-      _eventError = null; _todoError = null;
-      _hasMoreEvents = false; _hasMoreTodos = false;
-      _loadingMoreEvents = false; _loadingMoreTodos = false;
-      _eventsLoading = trimmed.isNotEmpty; _todosLoading = trimmed.isNotEmpty;
+      _eventResults = null;
+      _todoResults = null;
+      _eventError = null;
+      _todoError = null;
+      _hasMoreEvents = false;
+      _hasMoreTodos = false;
+      _loadingMoreEvents = false;
+      _loadingMoreTodos = false;
+      _eventsLoading = trimmed.isNotEmpty;
+      _todosLoading = trimmed.isNotEmpty;
     });
     if (trimmed.isEmpty) return;
     final options = _options;
@@ -167,33 +186,67 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     });
   }
 
-  Future<void> _loadFirst(bool events, String query, SearchOptions options, int generation) async {
+  Future<void> _loadFirst(
+    bool events,
+    String query,
+    SearchOptions options,
+    int generation,
+  ) async {
     try {
       if (events) {
-        final rows = await ref.read(eventRepositoryProvider).search(query, options: options);
+        final rows = await ref
+            .read(eventRepositoryProvider)
+            .search(query, options: options);
         if (!mounted || generation != _searchGeneration) return;
-        setState(() { _eventResults = rows; _hasMoreEvents = rows.length == _pageSize; });
+        setState(() {
+          _eventResults = rows;
+          _hasMoreEvents = rows.length == options.limit;
+        });
       } else {
-        final rows = await ref.read(todoDaoProvider).search(query, options: options);
+        final rows = await ref
+            .read(todoDaoProvider)
+            .search(query, options: options);
         if (!mounted || generation != _searchGeneration) return;
-        setState(() { _todoResults = rows; _hasMoreTodos = rows.length == _pageSize; });
+        setState(() {
+          _todoResults = rows;
+          _hasMoreTodos = rows.length == options.limit;
+        });
       }
     } catch (error) {
       if (!mounted || generation != _searchGeneration) return;
-      setState(() { if (events) { _eventError = error; } else { _todoError = error; } });
+      setState(() {
+        if (events) {
+          _eventError = error;
+        } else {
+          _todoError = error;
+        }
+      });
     } finally {
       if (mounted && generation == _searchGeneration) {
-        setState(() { if (events) { _eventsLoading = false; } else { _todosLoading = false; } });
+        setState(() {
+          if (events) {
+            _eventsLoading = false;
+          } else {
+            _todosLoading = false;
+          }
+        });
       }
     }
   }
 
   void _retrySource(bool events) {
     setState(() {
-      if (events) { _eventError = null; _eventsLoading = true; }
-      else { _todoError = null; _todosLoading = true; }
+      if (events) {
+        _eventError = null;
+        _eventsLoading = true;
+      } else {
+        _todoError = null;
+        _todosLoading = true;
+      }
     });
-    unawaited(_loadFirst(events, _controller.text.trim(), _options, _searchGeneration));
+    unawaited(
+      _loadFirst(events, _controller.text.trim(), _options, _searchGeneration),
+    );
   }
 
   Future<void> _loadMore(bool events) async {
@@ -204,31 +257,86 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
         ? SearchCursor(_eventResults!.last.startAt, _eventResults!.last.id)
         : SearchCursor(_todoResults!.last.slotStart, _todoResults!.last.id);
     final options = _options.pageAfter(cursor);
-    setState(() { if (events) { _loadingMoreEvents = true; } else { _loadingMoreTodos = true; } });
+    setState(() {
+      if (events) {
+        _loadingMoreEvents = true;
+      } else {
+        _loadingMoreTodos = true;
+      }
+    });
     try {
       if (events) {
-        final rows = await ref.read(eventRepositoryProvider).search(query, options: options);
+        final rows = await ref
+            .read(eventRepositoryProvider)
+            .search(query, options: options);
         if (!mounted || generation != _searchGeneration) return;
         setState(() {
-          _eventResults = {for (final row in [..._eventResults!, ...rows]) row.id: row}.values.toList();
-          _hasMoreEvents = rows.length == _pageSize;
+          _eventResults = {
+            for (final row in [..._eventResults!, ...rows]) row.id: row,
+          }.values.toList();
+          _hasMoreEvents = rows.length == options.limit;
         });
       } else {
-        final rows = await ref.read(todoDaoProvider).search(query, options: options);
+        final rows = await ref
+            .read(todoDaoProvider)
+            .search(query, options: options);
         if (!mounted || generation != _searchGeneration) return;
         setState(() {
-          _todoResults = {for (final row in [..._todoResults!, ...rows]) row.id: row}.values.toList();
-          _hasMoreTodos = rows.length == _pageSize;
+          _todoResults = {
+            for (final row in [..._todoResults!, ...rows]) row.id: row,
+          }.values.toList();
+          _hasMoreTodos = rows.length == options.limit;
         });
       }
     } catch (_) {
       if (mounted && generation == _searchGeneration) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppL10n.of(context).errorWidgetFallback)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppL10n.of(context).errorWidgetFallback)),
+        );
       }
     } finally {
       if (mounted && generation == _searchGeneration) {
-        setState(() { if (events) { _loadingMoreEvents = false; } else { _loadingMoreTodos = false; } });
+        setState(() {
+          if (events) {
+            _loadingMoreEvents = false;
+          } else {
+            _loadingMoreTodos = false;
+          }
+        });
       }
+    }
+  }
+
+  Future<void> _refreshVisibleResults() async {
+    if (!mounted || _controller.text.trim().isEmpty) return;
+    _debounce?.cancel();
+    final generation = ++_searchGeneration;
+    final query = _controller.text.trim();
+    final eventLimit = (_eventResults?.length ?? 0) < _pageSize
+        ? _pageSize
+        : _eventResults!.length;
+    final todoLimit = (_todoResults?.length ?? 0) < _pageSize
+        ? _pageSize
+        : _todoResults!.length;
+    setState(() {
+      _eventsLoading = true;
+      _todosLoading = true;
+      _eventError = null;
+      _todoError = null;
+      _loadingMoreEvents = false;
+      _loadingMoreTodos = false;
+    });
+    await Future.wait([
+      _loadFirst(true, query, _options.withLimit(eventLimit), generation),
+      _loadFirst(false, query, _options.withLimit(todoLimit), generation),
+    ]);
+  }
+
+  void _detailFailure() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppL10n.of(context).errorWidgetFallback)),
+      );
     }
   }
 
@@ -240,29 +348,61 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     FocusScope.of(context).unfocus();
     final router = GoRouter.maybeOf(context);
     try {
-      await showEventPreview(context, event: event,
-        onShowInSchedule: router == null ? null : () {
-          if (!mounted) return;
-          ref.read(selectedDateProvider.notifier).select(event.startAt);
-          ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
-          Navigator.of(context).pop();
-          router.go('/schedule');
-        });
-    } finally { _openingDetail = false; }
+      final current = await ref
+          .read(eventRepositoryProvider)
+          .findById(event.id);
+      if (!mounted || current == null) return;
+      await showEventPreview(
+        context,
+        event: current,
+        onShowInSchedule: router == null
+            ? null
+            : () {
+                if (!mounted) return;
+                ref.read(selectedDateProvider.notifier).select(current.startAt);
+                ref.read(scheduleViewProvider.notifier).set(ScheduleView.day);
+                Navigator.of(context).pop();
+                router.go('/schedule');
+              },
+      );
+    } catch (_) {
+      _detailFailure();
+    } finally {
+      _openingDetail = false;
+      if (mounted) await _refreshVisibleResults();
+    }
   }
 
   Future<void> _editEvent(EventRow event) async {
     if (_openingDetail) return;
     _openingDetail = true;
-    try { await showEventEditor(context, existing: event); }
-    finally { _openingDetail = false; }
+    try {
+      final current = await ref
+          .read(eventRepositoryProvider)
+          .findById(event.id);
+      if (!mounted || current == null) return;
+      await showEventEditor(context, existing: current);
+    } catch (_) {
+      _detailFailure();
+    } finally {
+      _openingDetail = false;
+      if (mounted) await _refreshVisibleResults();
+    }
   }
 
   Future<void> _openTodo(TodoRow todo) async {
     if (_openingDetail) return;
     _openingDetail = true;
-    try { await showTodoDetailSheet(context, todo); }
-    finally { _openingDetail = false; }
+    try {
+      final current = await ref.read(todoDaoProvider).findById(todo.id);
+      if (!mounted || current == null) return;
+      await showTodoDetailSheet(context, current);
+    } catch (_) {
+      _detailFailure();
+    } finally {
+      _openingDetail = false;
+      if (mounted) await _refreshVisibleResults();
+    }
   }
 
   @override
@@ -274,11 +414,20 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        actions: [IconButton(icon: const Icon(Icons.filter_alt_off_outlined),
-          tooltip: l10n.searchClearFilters, onPressed: () => _changeFilters(() {
-            _priorityFilter = null; _tagFilter = null; _colorFilter = null;
-            _dateRangeFilter = null; _includeCompleted = true; _type = SearchResultType.all;
-          }))],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_alt_off_outlined),
+            tooltip: l10n.searchClearFilters,
+            onPressed: () => _changeFilters(() {
+              _priorityFilter = null;
+              _tagFilter = null;
+              _colorFilter = null;
+              _dateRangeFilter = null;
+              _includeCompleted = true;
+              _type = SearchResultType.all;
+            }),
+          ),
+        ],
         title: TextField(
           controller: _controller,
           autofocus: true,
@@ -319,12 +468,18 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
     ThemeData theme,
     String locale,
   ) {
-    if (_loading && _eventResults == null && _todoResults == null &&
-        _eventError == null && _todoError == null) {
+    if (_loading &&
+        _eventResults == null &&
+        _todoResults == null &&
+        _eventError == null &&
+        _todoError == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (!_loading && _eventResults == null && _todoResults == null &&
-        _eventError == null && _todoError == null) {
+    if (!_loading &&
+        _eventResults == null &&
+        _todoResults == null &&
+        _eventError == null &&
+        _todoError == null) {
       return _Placeholder(icon: Icons.search, message: l10n.searchPrompt);
     }
     final events = _eventResults ?? const <EventRow>[];
@@ -347,21 +502,43 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
           AsyncStateNotice(onRetry: () => _retrySource(false)),
         ],
         DropdownButton<SearchResultType>(
-          value: _type, isExpanded: true,
+          value: _type,
+          isExpanded: true,
           items: [
-            DropdownMenuItem(value: SearchResultType.all, child: Text(l10n.searchFilterAll)),
-            DropdownMenuItem(value: SearchResultType.events, child: Text(l10n.searchSectionEvents)),
-            DropdownMenuItem(value: SearchResultType.todos, child: Text(l10n.searchSectionTodos)),
+            DropdownMenuItem(
+              value: SearchResultType.all,
+              child: Text(l10n.searchFilterAll),
+            ),
+            DropdownMenuItem(
+              value: SearchResultType.events,
+              child: Text(l10n.searchSectionEvents),
+            ),
+            DropdownMenuItem(
+              value: SearchResultType.todos,
+              child: Text(l10n.searchSectionTodos),
+            ),
           ],
-          onChanged: (type) { if (type != null) _changeFilters(() => _type = type); },
+          onChanged: (type) {
+            if (type != null) _changeFilters(() => _type = type);
+          },
         ),
-        _EventFilterRow(colorFilter: _colorFilter, dateRangeFilter: _dateRangeFilter,
-          locale: locale, onColorChanged: (c) => _changeFilters(() => _colorFilter = c),
-          onDateRangeChanged: (r) => _changeFilters(() => _dateRangeFilter = r)),
+        _EventFilterRow(
+          colorFilter: _colorFilter,
+          dateRangeFilter: _dateRangeFilter,
+          locale: locale,
+          onColorChanged: (c) => _changeFilters(() => _colorFilter = c),
+          onDateRangeChanged: (r) => _changeFilters(() => _dateRangeFilter = r),
+        ),
         if (_type != SearchResultType.events)
-          FilterChip(label: Text(l10n.searchIncludeCompleted), selected: _includeCompleted,
-            onSelected: (value) => _changeFilters(() => _includeCompleted = value)),
-        if (!_loading && _eventError == null && _todoError == null &&
+          FilterChip(
+            label: Text(l10n.searchIncludeCompleted),
+            selected: _includeCompleted,
+            onSelected: (value) =>
+                _changeFilters(() => _includeCompleted = value),
+          ),
+        if (!_loading &&
+            _eventError == null &&
+            _todoError == null &&
             (_type == SearchResultType.todos || filteredEvents.isEmpty) &&
             (_type == SearchResultType.events || filteredTodos.isEmpty))
           _Placeholder(icon: Icons.search_off, message: l10n.searchEmpty),
@@ -386,8 +563,11 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
               onTap: () => _previewEvent(event),
               onLongPress: () => _editEvent(event),
             ),
-          if (_hasMoreEvents) TextButton(onPressed: _loadingMoreEvents ? null : () => _loadMore(true),
-            child: Text(l10n.searchMoreEvents)),
+          if (_hasMoreEvents)
+            TextButton(
+              onPressed: _loadingMoreEvents ? null : () => _loadMore(true),
+              child: Text(l10n.searchMoreEvents),
+            ),
           const SizedBox(height: AppSpacing.md),
         ],
         if (todos.isNotEmpty && _type != SearchResultType.events) ...[
@@ -415,8 +595,11 @@ class _EventSearchScreenState extends ConsumerState<EventSearchScreen> {
               locale: locale,
               onTap: () => _openTodo(todo),
             ),
-          if (_hasMoreTodos) TextButton(onPressed: _loadingMoreTodos ? null : () => _loadMore(false),
-            child: Text(l10n.searchMoreTodos)),
+          if (_hasMoreTodos)
+            TextButton(
+              onPressed: _loadingMoreTodos ? null : () => _loadMore(false),
+              child: Text(l10n.searchMoreTodos),
+            ),
         ],
       ],
     );
@@ -442,24 +625,12 @@ class _EventFilterRow extends StatelessWidget {
   final ValueChanged<DateTimeRange?> onDateRangeChanged;
 
   Future<void> _pickCustomColor(BuildContext context) async {
-    final l10n = AppL10n.of(context);
-    final controller = TextEditingController(text: colorFilter?.startsWith('#') == true ? colorFilter : '');
-    String? error;
-    final value = await showAppDialog<String>(context: context, builder: (dialogContext) =>
-      StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
-        title: Text(l10n.searchCustomColor),
-        content: TextField(controller: controller, decoration: InputDecoration(
-          hintText: '#RRGGBB', errorText: error)),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(l10n.commonCancel)),
-          FilledButton(onPressed: () {
-            final color = controller.text.trim().toUpperCase();
-            if (!RegExp(r'^#[0-9A-F]{6}$').hasMatch(color)) {
-              setDialogState(() => error = l10n.searchInvalidColor); return;
-            }
-            Navigator.pop(dialogContext, color);
-          }, child: Text(l10n.eventSave))],
-      )));
-    controller.dispose();
+    final value = await showAppDialog<String>(
+      context: context,
+      builder: (_) => _CustomColorDialog(
+        initial: colorFilter?.startsWith('#') == true ? colorFilter! : '',
+      ),
+    );
     if (value != null && context.mounted) onColorChanged(value);
   }
 
@@ -502,9 +673,14 @@ class _EventFilterRow extends StatelessWidget {
                 onSelected: (_) => onColorChanged(tag.name),
                 showCheckmark: false,
               ),
-            ActionChip(label: Text(colorFilter?.startsWith('#') == true
-                ? colorFilter! : l10n.searchCustomColor),
-              onPressed: () => _pickCustomColor(context)),
+            ActionChip(
+              label: Text(
+                colorFilter?.startsWith('#') == true
+                    ? colorFilter!
+                    : l10n.searchCustomColor,
+              ),
+              onPressed: () => _pickCustomColor(context),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -759,6 +935,55 @@ class _Placeholder extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CustomColorDialog extends StatefulWidget {
+  const _CustomColorDialog({required this.initial});
+  final String initial;
+  @override
+  State<_CustomColorDialog> createState() => _CustomColorDialogState();
+}
+
+class _CustomColorDialogState extends State<_CustomColorDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+  bool _invalid = false;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final color = _controller.text.trim().toUpperCase();
+    if (!RegExp(r'^#[0-9A-F]{6}$').hasMatch(color)) {
+      setState(() => _invalid = true);
+      return;
+    }
+    Navigator.pop(context, color);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    return AlertDialog(
+      title: Text(l10n.searchCustomColor),
+      content: TextField(
+        controller: _controller,
+        onSubmitted: (_) => _submit(),
+        decoration: InputDecoration(
+          hintText: '#RRGGBB',
+          errorText: _invalid ? l10n.searchInvalidColor : null,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(onPressed: _submit, child: Text(l10n.eventSave)),
+      ],
     );
   }
 }

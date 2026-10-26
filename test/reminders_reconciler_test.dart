@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -74,9 +75,9 @@ void main() {
   group('pending reminder deletions', () {
     test('retries OS deletion and clears the tombstone on success', () async {
       when(service.isEnabled).thenReturn(true);
-      when(dao.pendingReminderDeletionIds()).thenAnswer(
-        (_) async => {'os-stale'},
-      );
+      when(
+        dao.pendingReminderDeletionIds(),
+      ).thenAnswer((_) async => {'os-stale'});
       when(service.deleteTodoById('os-stale')).thenAnswer((_) async {});
       when(dao.clearReminderDeletion('os-stale')).thenAnswer((_) async {});
 
@@ -89,12 +90,12 @@ void main() {
 
     test('keeps the tombstone when OS deletion still fails', () async {
       when(service.isEnabled).thenReturn(true);
-      when(dao.pendingReminderDeletionIds()).thenAnswer(
-        (_) async => {'os-stale'},
-      );
-      when(service.deleteTodoById('os-stale')).thenThrow(
-        Exception('reminders unavailable'),
-      );
+      when(
+        dao.pendingReminderDeletionIds(),
+      ).thenAnswer((_) async => {'os-stale'});
+      when(
+        service.deleteTodoById('os-stale'),
+      ).thenThrow(Exception('reminders unavailable'));
 
       final changes = await reconciler.reconcile();
 
@@ -115,32 +116,32 @@ void main() {
   });
 
   group('concurrency guard', () {
+    test('a reconcile() call started while one is already running is a '
+        'no-op, not a second overlapping run', () async {
+      when(service.isEnabled).thenReturn(true);
+
+      // Not awaited between the two calls — the same shape as two
+      // AppLifecycleState.resumed events firing in quick succession (see
+      // RemindersReconciler._reconciling's doc).
+      final first = reconciler.reconcile();
+      final second = reconciler.reconcile();
+
+      expect(await second, 0);
+      expect(await first, 0);
+      verify(dao.needingReminderPush()).called(1);
+    });
+
     test(
-      'a reconcile() call started while one is already running is a '
-      'no-op, not a second overlapping run',
+      'a later call succeeds normally once the first has finished',
       () async {
         when(service.isEnabled).thenReturn(true);
 
-        // Not awaited between the two calls — the same shape as two
-        // AppLifecycleState.resumed events firing in quick succession (see
-        // RemindersReconciler._reconciling's doc).
-        final first = reconciler.reconcile();
-        final second = reconciler.reconcile();
+        await reconciler.reconcile();
+        await reconciler.reconcile();
 
-        expect(await second, 0);
-        expect(await first, 0);
-        verify(dao.needingReminderPush()).called(1);
+        verify(dao.needingReminderPush()).called(2);
       },
     );
-
-    test('a later call succeeds normally once the first has finished', () async {
-      when(service.isEnabled).thenReturn(true);
-
-      await reconciler.reconcile();
-      await reconciler.reconcile();
-
-      verify(dao.needingReminderPush()).called(2);
-    });
   });
 
   group('push', () {
@@ -182,38 +183,129 @@ void main() {
       },
     );
 
-    test(
-      'a push that succeeds after the to-do was deleted locally cleans up '
-      'the now-orphaned OS reminder instead of leaving it dangling forever '
-      '— regression test: pushTodo is a real platform-channel round trip, '
-      "so TodoController.remove's own reminders.deleteTodo call (which ran "
-      'while osReminderId was still null, since this push had not resolved '
-      'yet) could not have known to delete the reminder this push was '
-      'about to create; without this check, patch below would silently '
-      'affect zero rows and the new OS reminder would never be linked to '
-      'anything that could clean it up later',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        final pending = row(id: 't1', slotStart: DateTime(2026, 1, 1));
-        when(dao.needingReminderPush()).thenAnswer((_) async => [pending]);
-        when(service.pushTodo(pending)).thenAnswer((_) async => 'os-1');
-        when(service.targetListId).thenReturn('list-1');
-        // The row is gone by the time pushTodo resolves.
-        when(dao.findById('t1')).thenAnswer((_) async => null);
-        when(service.deleteTodo(any)).thenAnswer((_) async {});
+    test('a push that succeeds after the to-do was deleted locally cleans up '
+        'the now-orphaned OS reminder instead of leaving it dangling forever '
+        '— regression test: pushTodo is a real platform-channel round trip, '
+        "so TodoController.remove's own reminders.deleteTodo call (which ran "
+        'while osReminderId was still null, since this push had not resolved '
+        'yet) could not have known to delete the reminder this push was '
+        'about to create; without this check, patch below would silently '
+        'affect zero rows and the new OS reminder would never be linked to '
+        'anything that could clean it up later', () async {
+      when(service.isEnabled).thenReturn(true);
+      final pending = row(id: 't1', slotStart: DateTime(2026, 1, 1));
+      when(dao.needingReminderPush()).thenAnswer((_) async => [pending]);
+      when(service.pushTodo(pending)).thenAnswer((_) async => 'os-1');
+      when(service.targetListId).thenReturn('list-1');
+      // The row is gone by the time pushTodo resolves.
+      when(dao.findById('t1')).thenAnswer((_) async => null);
+      when(service.deleteTodo(any)).thenAnswer((_) async {});
 
-        final changes = await reconciler.reconcile();
+      final changes = await reconciler.reconcile();
 
-        expect(changes, 0);
-        verifyNever(dao.patch(any, any));
-        final deleted =
-            verify(service.deleteTodo(captureAny)).captured.single as TodoRow;
-        expect(deleted.osReminderId, 'os-1');
-      },
-    );
+      expect(changes, 0);
+      verifyNever(dao.patch(any, any));
+      final deleted =
+          verify(service.deleteTodo(captureAny)).captured.single as TodoRow;
+      expect(deleted.osReminderId, 'os-1');
+    });
   });
 
   group('pull', () {
+    test('unknown remote completion dates remain unknown', () async {
+      when(service.isEnabled).thenReturn(true);
+      final linked = row(
+        id: 't1',
+        slotStart: DateTime(2030),
+        osReminderId: 'os-1',
+        reminderSyncStatus: SyncStatus.synced,
+      );
+      when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
+      when(service.fetchReminders()).thenAnswer(
+        (_) async => [
+          const OsReminder(
+            osReminderId: 'os-1',
+            title: 'todo',
+            isCompleted: true,
+          ),
+        ],
+      );
+      when(dao.patch(any, any)).thenAnswer((_) async {});
+      when(dao.findById('t1')).thenAnswer((_) async => linked);
+      await reconciler.reconcile();
+      final patch =
+          verify(dao.patch('t1', captureAny)).captured.single
+              as TodoItemsCompanion;
+      expect(patch.completedAt.value, isNull);
+    });
+    test(
+      'remote date edits preserve block length and original completion date',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        final start = DateTime(2030, 1, 1, 9), completed = DateTime(2030, 1, 2);
+        final linked =
+            row(
+              id: 't1',
+              slotStart: start,
+              osReminderId: 'os-1',
+              isDone: true,
+              reminderSyncStatus: SyncStatus.synced,
+            ).copyWith(
+              slotEnd: Value(DateTime(2030, 1, 1, 10)),
+              completedAt: Value(completed),
+            );
+        when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
+        when(service.fetchReminders()).thenAnswer(
+          (_) async => [
+            OsReminder(
+              osReminderId: 'os-1',
+              title: 'renamed',
+              isCompleted: true,
+              dueDate: DateTime(2030, 1, 8, 9),
+            ),
+          ],
+        );
+        when(dao.patch(any, any)).thenAnswer((_) async {});
+        when(dao.findById('t1')).thenAnswer((_) async => linked);
+        await reconciler.reconcile(now: DateTime(2030, 1, 10));
+        final patch =
+            verify(dao.patch('t1', captureAny)).captured.single
+                as TodoItemsCompanion;
+        expect(patch.slotEnd.value, DateTime(2030, 1, 8, 10));
+        expect(patch.completedAt.value, completed);
+      },
+    );
+    test(
+      'removing remote due date also clears the local interval end',
+      () async {
+        when(service.isEnabled).thenReturn(true);
+        final linked = row(
+          id: 't1',
+          slotStart: DateTime(2030, 1, 1, 9),
+          osReminderId: 'os-1',
+          reminderSyncStatus: SyncStatus.synced,
+        ).copyWith(slotEnd: Value(DateTime(2030, 1, 1, 10)));
+        when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
+        when(service.fetchReminders()).thenAnswer(
+          (_) async => [
+            const OsReminder(
+              osReminderId: 'os-1',
+              title: 'todo',
+              isCompleted: false,
+            ),
+          ],
+        );
+        when(dao.patch(any, any)).thenAnswer((_) async {});
+        when(dao.findById('t1')).thenAnswer((_) async => linked);
+        await reconciler.reconcile();
+        final patch =
+            verify(dao.patch('t1', captureAny)).captured.single
+                as TodoItemsCompanion;
+        expect(patch.slotEnd.present, true);
+        expect(patch.slotEnd.value, isNull);
+      },
+    );
+
     test('a synced row matching the OS reminder is left untouched', () async {
       when(service.isEnabled).thenReturn(true);
       final slot = DateTime(2026, 1, 1, 9);
@@ -259,6 +351,7 @@ void main() {
           OsReminder(
             osReminderId: 'os-1',
             title: 'Standup (renamed)',
+            completionDate: now,
             isCompleted: true,
             dueDate: slot,
           ),
@@ -366,33 +459,30 @@ void main() {
       verifyNever(dao.deleteById(any));
     });
 
-    test(
-      "fetchReminders returning null (Reminders access revoked, or the "
-      'PlanFit list itself deleted from the Reminders app) never deletes '
-      'any synced to-do — regression test: fetchReminders used to return '
-      'a plain empty list for this exact case (EventKit raises no error '
-      'for either), indistinguishable from "the list is genuinely empty", '
-      'so every synced to-do got permanently deleted (and its notification '
-      'cancelled) the moment Reminders permission was revoked, with none '
-      'of the underlying reminders actually gone',
-      () async {
-        when(service.isEnabled).thenReturn(true);
-        final linked = row(
-          id: 't1',
-          slotStart: DateTime(2026, 1, 1),
-          osReminderId: 'os-1',
-          reminderSyncStatus: SyncStatus.synced,
-        );
-        when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
-        when(service.fetchReminders()).thenAnswer((_) async => null);
+    test("fetchReminders returning null (Reminders access revoked, or the "
+        'PlanFit list itself deleted from the Reminders app) never deletes '
+        'any synced to-do — regression test: fetchReminders used to return '
+        'a plain empty list for this exact case (EventKit raises no error '
+        'for either), indistinguishable from "the list is genuinely empty", '
+        'so every synced to-do got permanently deleted (and its notification '
+        'cancelled) the moment Reminders permission was revoked, with none '
+        'of the underlying reminders actually gone', () async {
+      when(service.isEnabled).thenReturn(true);
+      final linked = row(
+        id: 't1',
+        slotStart: DateTime(2026, 1, 1),
+        osReminderId: 'os-1',
+        reminderSyncStatus: SyncStatus.synced,
+      );
+      when(dao.linkedToReminders()).thenAnswer((_) async => [linked]);
+      when(service.fetchReminders()).thenAnswer((_) async => null);
 
-        final changes = await reconciler.reconcile();
+      final changes = await reconciler.reconcile();
 
-        expect(changes, 0);
-        verifyNever(dao.deleteById(any));
-        verifyNever(notifications.cancelForTodo(any));
-        verifyNever(dao.patch(any, any));
-      },
-    );
+      expect(changes, 0);
+      verifyNever(dao.deleteById(any));
+      verifyNever(notifications.cancelForTodo(any));
+      verifyNever(dao.patch(any, any));
+    });
   });
 }

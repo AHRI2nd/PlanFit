@@ -50,6 +50,57 @@ void main() {
     return calendar;
   }
 
+  test(
+    'rejects invalid todo endpoints before replacing existing data',
+    () async {
+      final db = newDb();
+      addTearDown(db.close);
+      await db.todoDao.upsert(
+        TodoItemsCompanion.insert(
+          id: 'safe',
+          title: const Value('Original'),
+          slotStart: DateTime(2030, 1, 1, 9),
+          slotEnd: Value(DateTime(2030, 1, 1, 10)),
+        ),
+      );
+      final service = BackupService(
+        eventRepository: EventRepositoryImpl(
+          dao: db.eventDao,
+          notifications: MockNotificationPort(),
+          calendar: disabledCalendar(),
+        ),
+        todoDao: db.todoDao,
+        eventTemplateDao: db.eventTemplateDao,
+        notifications: MockNotificationPort(),
+      );
+      final file = File('${tempDir.path}/invalid-todo.json');
+      await file.writeAsString(
+        jsonEncode({
+          'schemaVersion': 2,
+          'events': [],
+          'todos': [
+            {
+              'id': 'safe',
+              'title': 'Corrupt',
+              'slotStart': '2030-01-02T09:00:00Z',
+              'slotEnd': '2030-01-01T10:00:00Z',
+              'hasTime': true,
+            },
+          ],
+        }),
+      );
+      await expectLater(
+        service.prepareFromFile(file.path),
+        throwsFormatException,
+      );
+      expect((await db.todoDao.findById('safe'))!.title, 'Original');
+      expect(
+        (await db.todoDao.findById('safe'))!.slotEnd,
+        DateTime(2030, 1, 1, 10),
+      );
+    },
+  );
+
   test('previews backup counts without changing the destination', () async {
     final sourceDb = newDb();
     final destinationDb = newDb();
@@ -902,25 +953,47 @@ void main() {
       );
     },
   );
-  test('database restore failure rolls back events before any platform work', () async {
-    final db = newDb();
-    addTearDown(db.close);
-    final notifications = MockNotificationPort();
-    when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
-    final service = BackupService(
-      eventRepository: EventRepositoryImpl(dao: db.eventDao,
-        notifications: notifications, calendar: disabledCalendar()),
-      todoDao: db.todoDao, eventTemplateDao: db.eventTemplateDao,
-      notifications: notifications);
-    await db.customStatement("CREATE TRIGGER fail_import BEFORE INSERT ON todo_items BEGIN SELECT RAISE(ABORT, 'disk failure'); END");
-    final file = File('${tempDir.path}/atomic-import.json');
-    await file.writeAsString(jsonEncode({'schemaVersion': 2,
-      'events': [{'id': 'event', 'title': 'Event', 'notify': false,
-        'startAt': '2030-01-01T10:00:00', 'endAt': '2030-01-01T11:00:00'}],
-      'todos': [{'id': 'todo', 'title': 'Todo', 'slotStart': '2030-01-01T12:00:00'}]}));
-    await expectLater(service.importFromFile(file.path), throwsA(anything));
-    expect(await db.eventDao.all(), isEmpty);
-    verifyNever(notifications.cancelForEvent(any));
-  });
-
+  test(
+    'database restore failure rolls back events before any platform work',
+    () async {
+      final db = newDb();
+      addTearDown(db.close);
+      final notifications = MockNotificationPort();
+      when(notifications.cancelForEvent(any)).thenAnswer((_) async {});
+      final service = BackupService(
+        eventRepository: EventRepositoryImpl(
+          dao: db.eventDao,
+          notifications: notifications,
+          calendar: disabledCalendar(),
+        ),
+        todoDao: db.todoDao,
+        eventTemplateDao: db.eventTemplateDao,
+        notifications: notifications,
+      );
+      await db.customStatement(
+        "CREATE TRIGGER fail_import BEFORE INSERT ON todo_items BEGIN SELECT RAISE(ABORT, 'disk failure'); END",
+      );
+      final file = File('${tempDir.path}/atomic-import.json');
+      await file.writeAsString(
+        jsonEncode({
+          'schemaVersion': 2,
+          'events': [
+            {
+              'id': 'event',
+              'title': 'Event',
+              'notify': false,
+              'startAt': '2030-01-01T10:00:00',
+              'endAt': '2030-01-01T11:00:00',
+            },
+          ],
+          'todos': [
+            {'id': 'todo', 'title': 'Todo', 'slotStart': '2030-01-01T12:00:00'},
+          ],
+        }),
+      );
+      await expectLater(service.importFromFile(file.path), throwsA(anything));
+      expect(await db.eventDao.all(), isEmpty);
+      verifyNever(notifications.cancelForEvent(any));
+    },
+  );
 }

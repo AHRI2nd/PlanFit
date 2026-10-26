@@ -9,42 +9,69 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     for (var i = 0; i < 105; i++) {
-      await db.eventDao.upsert(EventsCompanion.insert(
-        id: '$i', title: const Value('meeting'),
-        startAt: DateTime(2030, 1, 1).add(Duration(days: i)),
-        endAt: DateTime(2030, 1, 2).add(Duration(days: i)),
-        colorTag: Value(i == 0 ? '#112233' : 'amber'),
-      ));
+      await db.eventDao.upsert(
+        EventsCompanion.insert(
+          id: '$i',
+          title: const Value('meeting'),
+          startAt: DateTime(2030, 1, 1).add(Duration(days: i)),
+          endAt: DateTime(2030, 1, 2).add(Duration(days: i)),
+          colorTag: Value(i == 0 ? '#112233' : 'amber'),
+        ),
+      );
     }
-    final rows = await db.eventDao.search('meeting',
-      options: const SearchOptions(colorTag: '#112233'));
+    final rows = await db.eventDao.search(
+      'meeting',
+      options: const SearchOptions(colorTag: '#112233'),
+    );
     expect(rows.map((e) => e.id), ['0']);
   });
   test('tags use trimmed whole tokens and dates filter todos', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     for (final entry in {'a': '  work  , other', 'b': 'homework'}.entries) {
-      await db.todoDao.upsert(TodoItemsCompanion.insert(
-        id: entry.key, title: const Value('task'),
-        slotStart: DateTime(2030, 1, 1), tags: Value(entry.value),
-      ));
+      await db.todoDao.upsert(
+        TodoItemsCompanion.insert(
+          id: entry.key,
+          title: const Value('task'),
+          slotStart: DateTime(2030, 1, 1),
+          tags: Value(entry.value),
+        ),
+      );
     }
-    final rows = await db.todoDao.search('task',
-      options: SearchOptions(tag: 'work', from: DateTime(2030), to: DateTime(2030, 1, 2)));
+    final rows = await db.todoDao.search(
+      'task',
+      options: SearchOptions(
+        tag: 'work',
+        from: DateTime(2030),
+        to: DateTime(2030, 1, 2),
+      ),
+    );
     expect(rows.map((t) => t.id), ['a']);
   });
   test('cursor pages do not repeat or omit same-time rows', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     for (final id in ['a', 'b', 'c']) {
-      await db.todoDao.upsert(TodoItemsCompanion.insert(
-        id: id, title: const Value('task'), slotStart: DateTime(2030)));
+      await db.todoDao.upsert(
+        TodoItemsCompanion.insert(
+          id: id,
+          title: const Value('task'),
+          slotStart: DateTime(2030),
+        ),
+      );
     }
-    final first = await db.todoDao.search('task', options: const SearchOptions(limit: 2));
+    final first = await db.todoDao.search(
+      'task',
+      options: const SearchOptions(limit: 2),
+    );
     expect(first.map((t) => t.id), ['c', 'b']);
-    final next = await db.todoDao.search('task', options: SearchOptions(limit: 2,
-      before: SearchCursor(first.last.slotStart, first.last.id)));
+    final next = await db.todoDao.search(
+      'task',
+      options: SearchOptions(
+        limit: 2,
+        before: SearchCursor(first.last.slotStart, first.last.id),
+      ),
+    );
     expect(next.map((t) => t.id), ['a']);
   });
-
 }

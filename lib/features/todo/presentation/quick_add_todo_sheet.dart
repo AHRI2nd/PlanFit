@@ -382,113 +382,129 @@ class _QuickAddTodoFieldState extends ConsumerState<QuickAddTodoField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LayoutBuilder(builder: (context, constraints) {
-            final field = Row(children: [
-
-              Icon(Icons.add, size: 20, color: palette.inkFaint),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  autofocus: widget.autofocus,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submit(),
-                  decoration: InputDecoration(
-                    hintText: l10n.todoHint,
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.sm,
-                    ),
-                  ),
-                ),
-              ),
-            ]);
-            final controls = <Widget>[
-              // Date chip — sits left of the time chip. Muted until the user
-              // picks a date explicitly; before that it just shows the auto
-              // "nearest upcoming hour" date. Shown only when there's no
-              // day already in context: the day view (`widget.day` set) is
-              // *on* a specific day, so re-picking a date there is redundant
-              // (a "내일 …" phrase still retargets it), and squeezing a third
-              // chip into that row overflows it on a narrow phone.
-              if (widget.day == null)
-                Tooltip(
-                  message: l10n.todoDate,
-                  child: InkWell(
-                    onTap: _pickAddDate,
-                    borderRadius: BorderRadius.all(AppRadius.xs),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                        vertical: AppSpacing.xxs,
-                      ),
-                      child: Text(
-                        _dateChipLabel(l10n, locale),
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: _pickedDate == null
-                              ? palette.inkFaint
-                              : palette.inkSoft,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final field = Row(
+                children: [
+                  Icon(Icons.add, size: 20, color: palette.inkFaint),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      autofocus: widget.autofocus,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _submit(),
+                      decoration: InputDecoration(
+                        hintText: l10n.todoHint,
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm,
                         ),
                       ),
                     ),
                   ),
-                ),
-              InkWell(
-                onTap: _pickAddTime,
-                borderRadius: BorderRadius.all(AppRadius.xs),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                    vertical: AppSpacing.xxs,
+                ],
+              );
+              final controls = <Widget>[
+                // Date chip — sits left of the time chip. Muted until the user
+                // picks a date explicitly; before that it just shows the auto
+                // "nearest upcoming hour" date. Shown only when there's no
+                // day already in context: the day view (`widget.day` set) is
+                // *on* a specific day, so re-picking a date there is redundant
+                // (a "내일 …" phrase still retargets it), and squeezing a third
+                // chip into that row overflows it on a narrow phone.
+                if (widget.day == null)
+                  Tooltip(
+                    message: l10n.todoDate,
+                    child: InkWell(
+                      onTap: _pickAddDate,
+                      borderRadius: BorderRadius.all(AppRadius.xs),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs,
+                          vertical: AppSpacing.xxs,
+                        ),
+                        child: Text(
+                          _dateChipLabel(l10n, locale),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: _pickedDate == null
+                                ? palette.inkFaint
+                                : palette.inkSoft,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    _timeEnabled
-                        ? _effectiveTime.format(context)
-                        : l10n.todoNoTime,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: !_timeEnabled
-                          ? palette.accent
-                          : _pickedTime == null
-                          ? palette.inkFaint
-                          : palette.inkSoft,
+                InkWell(
+                  onTap: _pickAddTime,
+                  borderRadius: BorderRadius.all(AppRadius.xs),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    child: Text(
+                      _timeEnabled
+                          ? _effectiveTime.format(context)
+                          : l10n.todoNoTime,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: !_timeEnabled
+                            ? palette.accent
+                            : _pickedTime == null
+                            ? palette.inkFaint
+                            : palette.inkSoft,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // The details panel (tags, no-time/repeat/priority) sits behind
-              // this toggle — tinted accent whenever one of those is set to
-              // something non-default, so a collapsed panel never silently
-              // hides an active choice from view.
-              IconButton(
-                tooltip: _addOptionsExpanded
-                    ? l10n.todoFewerOptions
-                    : l10n.todoMoreOptions,
-                onPressed: widget.forceOptionsExpanded
-                    ? null
-                    : () {
-                        final next = !_addOptionsExpanded;
-                        setState(() => _addOptionsExpanded = next);
-                        widget.onOptionsExpandedChanged?.call(next);
-                      },
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  _addOptionsExpanded ? Icons.expand_less : Icons.tune,
-                  size: 18,
-                  color: hasActiveOption ? palette.accent : palette.inkFaint,
+                // The details panel (tags, no-time/repeat/priority) sits behind
+                // this toggle — tinted accent whenever one of those is set to
+                // something non-default, so a collapsed panel never silently
+                // hides an active choice from view.
+                IconButton(
+                  tooltip: _addOptionsExpanded
+                      ? l10n.todoFewerOptions
+                      : l10n.todoMoreOptions,
+                  onPressed: widget.forceOptionsExpanded
+                      ? null
+                      : () {
+                          final next = !_addOptionsExpanded;
+                          setState(() => _addOptionsExpanded = next);
+                          widget.onOptionsExpandedChanged?.call(next);
+                        },
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    _addOptionsExpanded ? Icons.expand_less : Icons.tune,
+                    size: 18,
+                    color: hasActiveOption ? palette.accent : palette.inkFaint,
+                  ),
                 ),
-              ),
-            ];
-            if (constraints.maxWidth < 280 || MediaQuery.textScalerOf(context).scale(14) > 18) {
-              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                field, Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: controls),
-              ]);
-            }
-            return Row(children: [Expanded(child: field), ...controls]);
-          }),
+              ];
+              if (constraints.maxWidth < 280 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 18) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    field,
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: controls,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: field),
+                  ...controls,
+                ],
+              );
+            },
+          ),
           AnimatedSize(
             duration: context.motionDuration(const Duration(milliseconds: 180)),
             curve: Curves.easeOut,

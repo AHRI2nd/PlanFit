@@ -47,10 +47,19 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
         .watch();
   }
 
-  Stream<EventRow?> watchNextTimed(DateTime from) => (select(events)
-    ..where((t) => t.isAllDay.equals(false) & t.startAt.isBiggerOrEqualValue(from))
-    ..orderBy([(t) => OrderingTerm(expression: t.startAt), (t) => OrderingTerm(expression: t.id)])
-    ..limit(1)).watchSingleOrNull();
+  Stream<EventRow?> watchNextTimed(DateTime from) =>
+      (select(events)
+            ..where(
+              (t) =>
+                  t.isAllDay.equals(false) &
+                  t.startAt.isBiggerOrEqualValue(from),
+            )
+            ..orderBy([
+              (t) => OrderingTerm(expression: t.startAt),
+              (t) => OrderingTerm(expression: t.id),
+            ])
+            ..limit(1))
+          .watchSingleOrNull();
 
   Future<EventRow?> findById(String id) =>
       (select(events)..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -62,9 +71,16 @@ class EventDao extends DatabaseAccessor<AppDatabase> with _$EventDaoMixin {
   /// recent start time first. See [buildLikeSubstringPattern]'s doc for why
   /// the query can't be dropped straight into a `%...%` pattern as-is.
   Future<List<EventRow>> search(String query, {SearchOptions? options}) async {
-    final statement = SearchStatement(query, options ?? const SearchOptions(), events: true);
-    final rows = await customSelect(statement.sql, variables: statement.variables,
-      readsFrom: {events}).get();
+    final statement = SearchStatement(
+      query,
+      options ?? const SearchOptions(),
+      events: true,
+    );
+    final rows = await customSelect(
+      statement.sql,
+      variables: statement.variables,
+      readsFrom: {events},
+    ).get();
     return Future.wait(rows.map((row) => events.mapFromRow(row)));
   }
 

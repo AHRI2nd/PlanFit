@@ -42,7 +42,11 @@ class _NoopEventTemplateDao extends Mock implements EventTemplateDao {}
 class _NoopNotificationPort extends Mock implements NotificationPort {}
 
 class _ToggleAutoBackup extends AutoBackupService {
-  _ToggleAutoBackup({required super.backupService, required super.prefs, this.failListing = false});
+  _ToggleAutoBackup({
+    required super.backupService,
+    required super.prefs,
+    this.failListing = false,
+  });
   final bool failListing;
   @override
   Future<List<File>> listBackups() async {
@@ -172,10 +176,11 @@ void main() {
       expect(find.text('이 백업으로 복원할까요?'), findsOneWidget);
     },
   );
-  testWidgets('listing failure offers retry instead of endless loading', (tester) async {
+  testWidgets('listing failure offers retry instead of endless loading', (
+    tester,
+  ) async {
     await pumpScreen(tester, failListing: true);
     expect(find.text('다시 시도'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
-
 }

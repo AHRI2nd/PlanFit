@@ -162,9 +162,10 @@ void main() {
   test('history excludes unfinished and unrelated files', () async {
     await autoBackupService.runIfDue(now: DateTime(2030));
     final dir = Directory('${rootDir.path}/auto_backups');
-    await File('${dir.path}/backup-2030-01-02T00-00-00-000.json.partial').writeAsString('{');
+    await File(
+      '${dir.path}/backup-2030-01-02T00-00-00-000.json.partial',
+    ).writeAsString('{');
     await File('${dir.path}/notes.json').writeAsString('{}');
     expect(await autoBackupService.listBackups(), hasLength(1));
   });
-
 }

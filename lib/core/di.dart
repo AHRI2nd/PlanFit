@@ -178,11 +178,19 @@ final lastCalendarSyncAtProvider =
 
 class LastRemindersSyncAt extends Notifier<DateTime?> {
   @override
-  DateTime? build() => DateTime.tryParse(ref.watch(sharedPreferencesProvider)
-    .getString(SyncPrefs.lastRemindersSyncAt) ?? '');
+  DateTime? build() => DateTime.tryParse(
+    ref
+            .watch(sharedPreferencesProvider)
+            .getString(SyncPrefs.lastRemindersSyncAt) ??
+        '',
+  );
   Future<void> record(DateTime at) async {
     state = at;
-    await ref.read(sharedPreferencesProvider).setString(SyncPrefs.lastRemindersSyncAt, at.toIso8601String());
+    await ref
+        .read(sharedPreferencesProvider)
+        .setString(SyncPrefs.lastRemindersSyncAt, at.toIso8601String());
   }
 }
-final lastRemindersSyncAtProvider = NotifierProvider<LastRemindersSyncAt, DateTime?>(LastRemindersSyncAt.new);
+
+final lastRemindersSyncAtProvider =
+    NotifierProvider<LastRemindersSyncAt, DateTime?>(LastRemindersSyncAt.new);

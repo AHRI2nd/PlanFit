@@ -103,8 +103,11 @@ final overdueTodosProvider = StreamProvider<List<TodoRow>>((ref) {
   return ref.watch(todoDaoProvider).watchOverdue(now);
 });
 
-final earlierUnfinishedTodosProvider = StreamProvider<List<TodoRow>>((ref) =>
-  ref.watch(todoDaoProvider).watchEarlierUnfinished(ref.watch(todayProvider)));
+final earlierUnfinishedTodosProvider = StreamProvider<List<TodoRow>>(
+  (ref) => ref
+      .watch(todoDaoProvider)
+      .watchEarlierUnfinished(ref.watch(todayProvider)),
+);
 
 /// Every retained to-do, including completed items — the smart-list screen's
 /// unfiltered "전체" tab.
@@ -263,34 +266,70 @@ class TodoController {
     await _syncReminder(id);
   }
 
-  Future<void> updateTime(String id, DateTime slotStart) => _placementQueue.run(() async {
-    await _ref.read(todoDaoProvider).updateSlotStart(id, slotStart);
-    try { await _syncPlacement(id); } catch (_) { /* Local placement is already committed. */ }
-  });
+  Future<void> updateTime(String id, DateTime slotStart) =>
+      _placementQueue.run(() async {
+        await _ref.read(todoDaoProvider).updateSlotStart(id, slotStart);
+        try {
+          await _syncPlacement(id);
+        } catch (_) {
+          /* Local placement is already committed. */
+        }
+      });
 
   /// Moves [id] to a different day, keeping its time-of-day and whether it
   /// has one — see [TodoDao.updateSlotDate] for why that isn't [updateTime]
   /// with a recomposed date.
   final _placementQueue = SerialQueue();
-  Future<TimeBlockSaveResult> setTimeBlock(String id, TodoTimeBlock block, {Set<String> acknowledgedConflicts = const {}, bool blockAllDay = false}) =>
-    _placementQueue.run(() => TodoTimeBlockWriter(dao: _ref.read(todoDaoProvider), synchronize: _syncPlacement).save(id, block, acknowledgedConflicts: acknowledgedConflicts, blockAllDay: blockAllDay));
+  Future<TimeBlockSaveResult> setTimeBlock(
+    String id,
+    TodoTimeBlock block, {
+    Set<String> acknowledgedConflicts = const {},
+    bool blockAllDay = false,
+  }) => _placementQueue.run(
+    () =>
+        TodoTimeBlockWriter(
+          dao: _ref.read(todoDaoProvider),
+          synchronize: _syncPlacement,
+        ).save(
+          id,
+          block,
+          acknowledgedConflicts: acknowledgedConflicts,
+          blockAllDay: blockAllDay,
+        ),
+  );
 
   Future<TodoRescheduleResult> reschedule(Iterable<String> ids, DateTime day) {
     final selected = ids.toSet();
-    return _placementQueue.run(() => TodoRescheduler(dao: _ref.read(todoDaoProvider),
-      synchronize: _syncPlacement).move(selected, day));
+    return _placementQueue.run(
+      () => TodoRescheduler(
+        dao: _ref.read(todoDaoProvider),
+        synchronize: _syncPlacement,
+      ).move(selected, day),
+    );
   }
 
   Future<TodoRescheduleResult> undoReschedule(Iterable<TodoMove> moves) {
     final snapshot = moves.toList(growable: false);
-    return _placementQueue.run(() => TodoRescheduler(dao: _ref.read(todoDaoProvider),
-      synchronize: _syncPlacement).undo(snapshot));
+    return _placementQueue.run(
+      () => TodoRescheduler(
+        dao: _ref.read(todoDaoProvider),
+        synchronize: _syncPlacement,
+      ).undo(snapshot),
+    );
   }
 
   Future<void> _syncPlacement(String id) async {
     var deferred = false;
-    try { await _syncNotification(id); } catch (_) { deferred = true; }
-    try { await _syncReminder(id); } catch (_) { deferred = true; }
+    try {
+      await _syncNotification(id);
+    } catch (_) {
+      deferred = true;
+    }
+    try {
+      await _syncReminder(id);
+    } catch (_) {
+      deferred = true;
+    }
     if (_ref.read(remindersPortProvider).isEnabled) {
       final row = await _ref.read(todoDaoProvider).findById(id);
       if (row?.reminderSyncStatus == SyncStatus.pendingPush) deferred = true;
@@ -298,14 +337,23 @@ class TodoController {
     if (deferred) throw StateError('Placement saved; platform work deferred');
   }
 
-  Future<void> updateDate(String id, DateTime day) => _placementQueue.run(() async {
-    await _ref.read(todoDaoProvider).updateSlotDate(id, day);
-    try { await _syncPlacement(id); } catch (_) { /* Local placement is already committed. */ }
-  });
+  Future<void> updateDate(String id, DateTime day) =>
+      _placementQueue.run(() async {
+        await _ref.read(todoDaoProvider).updateSlotDate(id, day);
+        try {
+          await _syncPlacement(id);
+        } catch (_) {
+          /* Local placement is already committed. */
+        }
+      });
 
   Future<void> clearTime(String id) => _placementQueue.run(() async {
     await _ref.read(todoDaoProvider).clearTime(id);
-    try { await _syncPlacement(id); } catch (_) { /* Local placement is already committed. */ }
+    try {
+      await _syncPlacement(id);
+    } catch (_) {
+      /* Local placement is already committed. */
+    }
   });
 
   Future<void> setPriority(String id, int priority) =>

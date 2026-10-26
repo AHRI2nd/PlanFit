@@ -11,21 +11,43 @@ class _Settings extends SettingsController {
   @override
   AppSettings build() => const AppSettings();
 }
+
 void main() {
-  testWidgets('disabled features and missing permissions have distinct states', (tester) async {
-    await tester.pumpWidget(ProviderScope(overrides: [
-      settingsControllerProvider.overrideWith(_Settings.new),
-      integrationHealthProvider.overrideWith((ref) async => const [
-        IntegrationHealth(IntegrationFeature.notifications, IntegrationState.needsPermission),
-        IntegrationHealth(IntegrationFeature.calendar, IntegrationState.off),
-      ]),
-    ], child: MaterialApp(locale: const Locale('ko'),
-      supportedLocales: AppL10n.supportedLocales,
-      localizationsDelegates: AppL10n.localizationsDelegates,
-      home: const IntegrationStatusScreen())));
-    await tester.pumpAndSettle();
-    expect(find.text('권한이 필요해요'), findsOneWidget);
-    expect(find.text('꺼져 있어요'), findsOneWidget);
-    expect(find.byKey(const Key('health-notifications-action')), findsOneWidget);
-  });
+  testWidgets(
+    'disabled features and missing permissions have distinct states',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsControllerProvider.overrideWith(_Settings.new),
+            integrationHealthProvider.overrideWith(
+              (ref) async => const [
+                IntegrationHealth(
+                  IntegrationFeature.notifications,
+                  IntegrationState.needsPermission,
+                ),
+                IntegrationHealth(
+                  IntegrationFeature.calendar,
+                  IntegrationState.off,
+                ),
+              ],
+            ),
+          ],
+          child: MaterialApp(
+            locale: const Locale('ko'),
+            supportedLocales: AppL10n.supportedLocales,
+            localizationsDelegates: AppL10n.localizationsDelegates,
+            home: const IntegrationStatusScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('권한이 필요해요'), findsOneWidget);
+      expect(find.text('꺼져 있어요'), findsOneWidget);
+      expect(
+        find.byKey(const Key('health-notifications-action')),
+        findsOneWidget,
+      );
+    },
+  );
 }

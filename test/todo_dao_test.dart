@@ -38,14 +38,23 @@ void main() {
       expect(rows.map((todo) => todo.id).toSet(), {'future', 'completed'});
     },
   );
-  test('earlier unfinished includes untimed past items but not done or future', () async {
-    for (final id in ['past', 'done', 'future']) {
-      await db.todoDao.upsert(TodoItemsCompanion.insert(id: id,
-        slotStart: id == 'future' ? DateTime(2030, 2) : DateTime(2030),
-        hasTime: const Value(false), isDone: Value(id == 'done')));
-    }
-    final rows = await db.todoDao.watchEarlierUnfinished(DateTime(2030, 1, 2)).first;
-    expect(rows.map((row) => row.id), ['past']);
-  });
-
+  test(
+    'earlier unfinished includes untimed past items but not done or future',
+    () async {
+      for (final id in ['past', 'done', 'future']) {
+        await db.todoDao.upsert(
+          TodoItemsCompanion.insert(
+            id: id,
+            slotStart: id == 'future' ? DateTime(2030, 2) : DateTime(2030),
+            hasTime: const Value(false),
+            isDone: Value(id == 'done'),
+          ),
+        );
+      }
+      final rows = await db.todoDao
+          .watchEarlierUnfinished(DateTime(2030, 1, 2))
+          .first;
+      expect(rows.map((row) => row.id), ['past']);
+    },
+  );
 }

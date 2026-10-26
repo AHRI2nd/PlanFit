@@ -765,7 +765,8 @@ class _WeekGrid extends ConsumerStatefulWidget {
   ConsumerState<_WeekGrid> createState() => _WeekGridState();
 }
 
-class _WeekGridState extends ConsumerState<_WeekGrid> with WidgetsBindingObserver {
+class _WeekGridState extends ConsumerState<_WeekGrid>
+    with WidgetsBindingObserver {
   /// Long-press-drag-to-create state, mirroring DayView's own — see its doc
   /// comment. [_createDayIndex] pins the drag to whichever column it started
   /// in even if the finger wanders sideways into a neighboring one.
@@ -870,8 +871,17 @@ class _WeekGridState extends ConsumerState<_WeekGrid> with WidgetsBindingObserve
     final onTapDay = widget.onTapDay;
     final use24 = widget.use24Hour;
     final pendingCreate = _pendingCreateRange;
-    final blocks = (ref.watch(todosForWeekProvider(days.first)).value ?? const <TodoRow>[]).where((r) => !r.isDone && TodoTimeBlock.of(r) != null).toList();
-    List<TodoRow> onDay(DateTime day) => blocks.where((r) => r.slotStart.isBefore(addCalendarDays(day, 1)) && r.slotEnd!.isAfter(day)).toList();
+    final blocks =
+        (ref.watch(todosForWeekProvider(days.first)).value ?? const <TodoRow>[])
+            .where((r) => !r.isDone && TodoTimeBlock.of(r) != null)
+            .toList();
+    List<TodoRow> onDay(DateTime day) => blocks
+        .where(
+          (r) =>
+              r.slotStart.isBefore(addCalendarDays(day, 1)) &&
+              r.slotEnd!.isAfter(day),
+        )
+        .toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
       child: LayoutBuilder(
@@ -1006,9 +1016,19 @@ class _WeekGridState extends ConsumerState<_WeekGrid> with WidgetsBindingObserve
                 ),
 
               for (var i = 0; i < days.length; i++)
-                if (onDay(days[i]).isNotEmpty) Positioned(top: 0, left: railInset + i * columnWidth + columnWidth * .65,
-                  width: columnWidth * .35, height: hourHeight * 24,
-                  child: TodoBlockLane(rows: onDay(days[i]), day: days[i], hourHeight: hourHeight, use24Hour: use24)),
+                if (onDay(days[i]).isNotEmpty)
+                  Positioned(
+                    top: 0,
+                    left: railInset + i * columnWidth + columnWidth * .65,
+                    width: columnWidth * .35,
+                    height: hourHeight * 24,
+                    child: TodoBlockLane(
+                      rows: onDay(days[i]),
+                      day: days[i],
+                      hourHeight: hourHeight,
+                      use24Hour: use24,
+                    ),
+                  ),
 
               // Events, positioned by day column + time. Laid out into
               // non-overlapping columns within each day column the same
@@ -1021,7 +1041,8 @@ class _WeekGridState extends ConsumerState<_WeekGrid> with WidgetsBindingObserve
                   Builder(
                     builder: (context) {
                       final e = c.event;
-                      final columnAvailable = columnWidth * (onDay(days[i]).isEmpty ? 1 : .65) - 2;
+                      final columnAvailable =
+                          columnWidth * (onDay(days[i]).isEmpty ? 1 : .65) - 2;
                       final eventWidth = columnAvailable / c.columnCount;
                       final leftInset = c.column * eventWidth;
                       final crowded = c.columnCount > 1;

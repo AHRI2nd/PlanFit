@@ -36,7 +36,8 @@ class RemindersService implements RemindersPort {
 
   Future<bool> hasExistingTarget() async {
     if (!_supported || targetListId == null) return false;
-    return await _channel.invokeMethod<bool>('hasTargetList', targetListId) ?? false;
+    return await _channel.invokeMethod<bool>('hasTargetList', targetListId) ??
+        false;
   }
 
   Future<String?>? _resolving;
@@ -88,9 +89,7 @@ class RemindersService implements RemindersPort {
   /// is used by the durable deletion-tombstone retry path.
   Future<void> deleteTodoById(String osReminderId) async {
     if (!_supported) return;
-    await _channel.invokeMethod('deleteTodo', {
-      'osReminderId': osReminderId,
-    });
+    await _channel.invokeMethod('deleteTodo', {'osReminderId': osReminderId});
   }
 
   /// Reads every reminder currently in PlanFit's list back — used by
@@ -125,6 +124,7 @@ class OsReminder {
     required this.title,
     required this.isCompleted,
     this.dueDate,
+    this.completionDate,
   });
 
   final String osReminderId;
@@ -136,6 +136,9 @@ class OsReminder {
   /// false.
   final DateTime? dueDate;
 
+  /// Actual platform completion date; unknown dates remain unknown.
+  final DateTime? completionDate;
+
   static OsReminder _fromMap(Map<Object?, Object?> m) {
     DateTime? millisToDate(Object? v) =>
         v == null ? null : DateTime.fromMillisecondsSinceEpoch(v as int);
@@ -144,6 +147,7 @@ class OsReminder {
       title: m['title'] as String? ?? '',
       isCompleted: m['isCompleted'] as bool? ?? false,
       dueDate: millisToDate(m['dueDateMillis']),
+      completionDate: millisToDate(m['completionDateMillis']),
     );
   }
 }

@@ -173,16 +173,26 @@ class SettingsScreen extends ConsumerWidget {
         final prepared = await backup.prepareFromFile(path);
         if (!context.mounted) return;
         final preview = prepared.preview;
-        final confirmed = await showAppDialog<bool>(context: context,
+        final confirmed = await showAppDialog<bool>(
+          context: context,
           builder: (dialogContext) => AlertDialog(
             title: Text(l10n.backupImportConfirmTitle),
-            content: Text('${l10n.backupImportPreviewBody(preview.eventCount, preview.todoCount, preview.templateCount)}\n\n${l10n.backupImportMergeNote}'
-              '${preview.legacyFormat ? '\n\n${l10n.backupImportLegacyWarning}' : ''}'),
-            actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(l10n.commonCancel)),
-              FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(l10n.backupImportConfirmAction))],
-          ));
+            content: Text(
+              '${l10n.backupImportPreviewBody(preview.eventCount, preview.todoCount, preview.templateCount)}\n\n${l10n.backupImportMergeNote}'
+              '${preview.legacyFormat ? '\n\n${l10n.backupImportLegacyWarning}' : ''}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(l10n.backupImportConfirmAction),
+              ),
+            ],
+          ),
+        );
         if (confirmed != true || !context.mounted) return;
         final summary = await backup.importPrepared(prepared);
         final message = summary.legacyFormat
@@ -191,7 +201,11 @@ class SettingsScreen extends ConsumerWidget {
             : l10n.backupImportSuccess(summary.eventCount, summary.todoCount);
         messenger.showAutoDismissSnackBar(
           SnackBar(
-            content: Text(summary.deferredCount > 0 ? '$message\n${l10n.backupIntegrationDeferred}' : message),
+            content: Text(
+              summary.deferredCount > 0
+                  ? '$message\n${l10n.backupIntegrationDeferred}'
+                  : message,
+            ),
             duration: summary.legacyFormat
                 ? const Duration(seconds: 8)
                 : const Duration(seconds: 4),
@@ -294,8 +308,14 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
 
-                SectionCard(children: [_NavRow(title: l10n.healthTitle,
-                  onTap: () => context.go('/settings/integration-status'))]),
+                SectionCard(
+                  children: [
+                    _NavRow(
+                      title: l10n.healthTitle,
+                      onTap: () => context.go('/settings/integration-status'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: AppSpacing.lg),
                 SectionHeader(l10n.settingsNotifications),
                 SectionCard(

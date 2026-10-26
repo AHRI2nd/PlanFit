@@ -16,14 +16,19 @@ class _AppSearchButtonState extends State<AppSearchButton> {
     setState(() => _opening = true);
     final anchor = AppLayout.anchorPointOf(context);
     try {
-      await Navigator.of(context).push<void>(MaterialPageRoute(
-        builder: (_) => DisplayFeatureSubScreen(anchorPoint: anchor,
-          child: const EventSearchScreen()),
-      ));
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => DisplayFeatureSubScreen(
+            anchorPoint: anchor,
+            child: const EventSearchScreen(),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _opening = false);
     }
   }
+
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: AppL10n.of(context).searchTooltip,

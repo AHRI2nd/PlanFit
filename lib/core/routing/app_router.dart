@@ -49,7 +49,16 @@ final appRouter = GoRouter(
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/home', builder: (_, _) => const HomeScreen(), routes: [GoRoute(path: 'review', builder: (_, _) => const WeeklyReviewScreen())]),
+            GoRoute(
+              path: '/home',
+              builder: (_, _) => const HomeScreen(),
+              routes: [
+                GoRoute(
+                  path: 'review',
+                  builder: (_, _) => const WeeklyReviewScreen(),
+                ),
+              ],
+            ),
           ],
         ),
         StatefulShellBranch(
@@ -64,9 +73,13 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/todos',
-              builder: (_, state) => TodoSmartListScreen(initialTab:
-                state.uri.queryParameters['filter'] == 'earlier'
-                  ? SmartListInitialTab.earlier : SmartListInitialTab.all),
+              builder: (_, state) => TodoSmartListScreen(
+                initialTab: state.uri.queryParameters['filter'] == 'earlier'
+                    ? SmartListInitialTab.earlier
+                    : state.uri.queryParameters['filter'] == 'today'
+                    ? SmartListInitialTab.today
+                    : SmartListInitialTab.all,
+              ),
             ),
             GoRoute(
               path: '/todos/all',

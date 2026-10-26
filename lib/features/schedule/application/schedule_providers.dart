@@ -27,9 +27,8 @@ DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 /// its position in (or its ancestors' relationship to) the route tree.
 class TodayDate extends Notifier<DateTime> {
   @override
-  DateTime build() => dateOnly(
-    ref.watch(nowTickerProvider).asData?.value ?? DateTime.now(),
-  );
+  DateTime build() =>
+      dateOnly(ref.watch(nowTickerProvider).asData?.value ?? DateTime.now());
 }
 
 final todayProvider = NotifierProvider<TodayDate, DateTime>(TodayDate.new);
@@ -229,12 +228,16 @@ final eventsForYearProvider = StreamProvider.autoDispose
 final upcomingEventsProvider = StreamProvider<List<EventRow>>((ref) {
   return ref
       .watch(eventRepositoryProvider)
-      .watchUpcoming(ref.watch(nowTickerProvider).value ?? DateTime.now(), limit: 4);
+      .watchUpcoming(
+        ref.watch(nowTickerProvider).value ?? DateTime.now(),
+        limit: 4,
+      );
 });
 
 final nextTimedEventProvider = StreamProvider.autoDispose<EventRow?>((ref) {
-  return ref.watch(eventRepositoryProvider).watchNextTimed(
-    ref.watch(nowTickerProvider).value ?? DateTime.now());
+  return ref
+      .watch(eventRepositoryProvider)
+      .watchNextTimed(ref.watch(nowTickerProvider).value ?? DateTime.now());
 });
 
 /// Events in the week containing [anyDayInWeek] (per the week-start setting)

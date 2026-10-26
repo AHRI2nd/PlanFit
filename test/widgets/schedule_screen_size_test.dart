@@ -79,8 +79,10 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.light(),
           locale: locale,
-          builder: (context, child) => MediaQuery(data: MediaQuery.of(context)
-            .copyWith(textScaler: textScaler), child: child!),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          ),
           localizationsDelegates: const [
             AppL10n.delegate,
             GlobalMaterialLocalizations.delegate,
@@ -177,13 +179,20 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'and back out again');
     });
   }
-  testWidgets('large text in a narrow window uses a readable view menu', (tester) async {
+  testWidgets('large text in a narrow window uses a readable view menu', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(320, 700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await pumpSchedule(tester, view: ScheduleView.day, selected: sixRowMonth,
-      textScaler: const TextScaler.linear(2), locale: const Locale('en'));
+    await pumpSchedule(
+      tester,
+      view: ScheduleView.day,
+      selected: sixRowMonth,
+      textScaler: const TextScaler.linear(2),
+      locale: const Locale('en'),
+    );
     expect(find.byKey(const Key('schedule-view-menu')), findsOneWidget);
   });
 
@@ -194,5 +203,4 @@ void main() {
     expect(size.width, greaterThanOrEqualTo(48));
     expect(size.height, greaterThanOrEqualTo(48));
   });
-
 }

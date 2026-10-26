@@ -8,8 +8,9 @@ class BackupImportActivity extends Notifier<bool> {
     state = true;
     return true;
   }
+
   void finish() => state = false;
 }
 
-final backupImportActivityProvider = NotifierProvider<BackupImportActivity, bool>(
-  BackupImportActivity.new);
+final backupImportActivityProvider =
+    NotifierProvider<BackupImportActivity, bool>(BackupImportActivity.new);

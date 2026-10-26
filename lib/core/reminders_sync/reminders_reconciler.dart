@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../features/schedule/domain/ports.dart';
 import '../../features/todo/domain/todo_notification_sync.dart';
 import '../db/app_database.dart';
+import '../date_math.dart';
 import '../db/daos/sync_log_dao.dart';
 import '../db/daos/todo_dao.dart';
 import '../db/sync_status.dart';
@@ -184,9 +185,24 @@ class RemindersReconciler {
     return TodoItemsCompanion(
       title: Value(r.title),
       isDone: Value(r.isCompleted),
-      completedAt: Value(r.isCompleted ? at : null),
+      completedAt: Value(
+        r.isCompleted
+            ? (row.isDone ? row.completedAt : r.completionDate)
+            : null,
+      ),
       hasTime: Value(r.dueDate != null),
       slotStart: Value(slotStart),
+      slotEnd: Value(
+        r.dueDate != null &&
+                row.hasTime &&
+                row.slotEnd != null &&
+                row.slotEnd!.isAfter(row.slotStart)
+            ? shiftTimeOfDay(
+                slotStart,
+                calendarDuration(row.slotStart, row.slotEnd!),
+              )
+            : null,
+      ),
       osReminderLastKnownModified: Value(at),
       reminderSyncStatus: const Value(SyncStatus.synced),
     );

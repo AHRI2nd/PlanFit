@@ -65,17 +65,27 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen>
     final automatic = await service.listBackups();
     final recovery = await service.backupService.listRecoveryBackups();
     final entries = await Future.wait([
-      for (final file in [...automatic, ...recovery]) (() async {
-        FileStat? stat;
-        try {
-          final value = await file.stat();
-          if (value.type == FileSystemEntityType.file) stat = value;
-        } on FileSystemException { /* The row remains visible with a retry action. */ }
-        return _BackupEntry(file, stat, recovery.any((r) => r.path == file.path));
-      })(),
+      for (final file in [...automatic, ...recovery])
+        (() async {
+          FileStat? stat;
+          try {
+            final value = await file.stat();
+            if (value.type == FileSystemEntityType.file) stat = value;
+          } on FileSystemException {
+            /* The row remains visible with a retry action. */
+          }
+          return _BackupEntry(
+            file,
+            stat,
+            recovery.any((r) => r.path == file.path),
+          );
+        })(),
     ]);
-    entries.sort((a, b) => (b.stat?.modified ?? DateTime(1970))
-      .compareTo(a.stat?.modified ?? DateTime(1970)));
+    entries.sort(
+      (a, b) => (b.stat?.modified ?? DateTime(1970)).compareTo(
+        a.stat?.modified ?? DateTime(1970),
+      ),
+    );
     if (mounted) _previous = entries;
     return entries;
   }
@@ -84,15 +94,23 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen>
     if (!mounted) return;
     final future = _load();
     setState(() => _future = future);
-    try { await future; } catch (_) { /* FutureBuilder exposes retry. */ }
+    try {
+      await future;
+    } catch (_) {
+      /* FutureBuilder exposes retry. */
+    }
   }
 
   Future<void> _createNow() async {
     if (_creating) return;
     setState(() => _creating = true);
-    try { await ref.read(autoBackupServiceProvider).runIfDue(force: true); }
-    finally {
-      if (mounted) { setState(() => _creating = false); await _refresh(); }
+    try {
+      await ref.read(autoBackupServiceProvider).runIfDue(force: true);
+    } finally {
+      if (mounted) {
+        setState(() => _creating = false);
+        await _refresh();
+      }
     }
   }
 
@@ -107,29 +125,45 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen>
       if (!mounted) return;
       final preview = prepared.preview;
       setState(() => _restoring = false);
-      final confirmed = await showAppDialog<bool>(context: context,
+      final confirmed = await showAppDialog<bool>(
+        context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(l10n.autoBackupRestoreConfirmTitle),
-          content: Text('${l10n.backupImportPreviewBody(preview.eventCount, preview.todoCount, preview.templateCount)}\n\n${l10n.backupImportMergeNote}'
-            '${preview.legacyFormat ? '\n\n${l10n.backupImportLegacyWarning}' : ''}'),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(l10n.commonCancel)),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(l10n.autoBackupRestore))],
-        ));
+          content: Text(
+            '${l10n.backupImportPreviewBody(preview.eventCount, preview.todoCount, preview.templateCount)}\n\n${l10n.backupImportMergeNote}'
+            '${preview.legacyFormat ? '\n\n${l10n.backupImportLegacyWarning}' : ''}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(l10n.commonCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(l10n.autoBackupRestore),
+            ),
+          ],
+        ),
+      );
       if (confirmed != true || !mounted) return;
       setState(() => _restoring = true);
       final summary = await backup.importPrepared(prepared);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showAutoDismissSnackBar(SnackBar(content: Text(
-        '${l10n.backupImportSuccess(summary.eventCount, summary.todoCount)}'
-        '${summary.deferredCount > 0 ? '\n${l10n.backupIntegrationDeferred}' : ''}'
-        '${summary.legacyFormat ? '\n${l10n.backupImportLegacyWarning}' : ''}')));
+      ScaffoldMessenger.of(context).showAutoDismissSnackBar(
+        SnackBar(
+          content: Text(
+            '${l10n.backupImportSuccess(summary.eventCount, summary.todoCount)}'
+            '${summary.deferredCount > 0 ? '\n${l10n.backupIntegrationDeferred}' : ''}'
+            '${summary.legacyFormat ? '\n${l10n.backupImportLegacyWarning}' : ''}',
+          ),
+        ),
+      );
       await _refresh();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showAutoDismissSnackBar(
-          SnackBar(content: Text(l10n.backupImportFailed)));
+          SnackBar(content: Text(l10n.backupImportFailed)),
+        );
       }
     } finally {
       activity.finish();
@@ -143,57 +177,134 @@ class _AutoBackupScreenState extends ConsumerState<AutoBackupScreen>
     final service = ref.watch(autoBackupServiceProvider);
     final importing = ref.watch(backupImportActivityProvider);
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final use24 = resolveUse24Hour(ref.watch(settingsControllerProvider
-      .select((s) => s.displayTimeFormatPreference)), context);
-    String formatted(DateTime value) => '${Fmt.monthDay(value, locale)} ${Fmt.time(value, locale, use24Hour: use24)}';
+    final use24 = resolveUse24Hour(
+      ref.watch(
+        settingsControllerProvider.select((s) => s.displayTimeFormatPreference),
+      ),
+      context,
+    );
+    String formatted(DateTime value) =>
+        '${Fmt.monthDay(value, locale)} ${Fmt.time(value, locale, use24Hour: use24)}';
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.autoBackupTitle), actions: [
-        IconButton(tooltip: l10n.backupRefresh, onPressed: _refresh,
-          icon: const Icon(Icons.refresh))]),
-      body: Stack(children: [
-        FutureBuilder<List<_BackupEntry>>(future: _future, builder: (context, snapshot) {
-          final entries = snapshot.data ?? _previous;
-          if (entries == null) {
-            if (snapshot.hasError) return AsyncStateNotice(onRetry: _refresh);
-            return const Center(child: CircularProgressIndicator());
-          }
-          return RefreshIndicator(onRefresh: _refresh, child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.gutter,
-              AppSpacing.gutter, navBarClearance(context)),
-            children: [
-              if (snapshot.connectionState == ConnectionState.waiting) const LinearProgressIndicator(),
-              if (snapshot.hasError) AsyncStateNotice(onRetry: _refresh),
-              Text(l10n.autoBackupDesc),
-              const SizedBox(height: AppSpacing.sm),
-              Text(l10n.autoBackupLocalProtection),
-              if (service.lastRunAt != null) Text(l10n.backupLastSuccess(formatted(service.lastRunAt!))),
-              if (service.lastAttemptAt != null) Text(l10n.backupLastAttempt(formatted(service.lastAttemptAt!))),
-              if (service.lastError != null) Text(service.lastError == 'cleanup'
-                ? l10n.backupCleanupPending : l10n.backupWriteFailed),
-              Wrap(spacing: AppSpacing.sm, children: [
-                OutlinedButton.icon(onPressed: () => shareFullBackup(context, service.backupService),
-                  icon: const Icon(Icons.ios_share), label: Text(l10n.autoBackupExportFull)),
-                TextButton.icon(onPressed: _creating || importing ? null : _createNow,
-                  icon: const Icon(Icons.backup_outlined), label: Text(l10n.backupCreateNow)),
-              ]),
-              if (entries.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text(l10n.autoBackupEmpty)),
-              for (final entry in entries) ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(entry.recovery ? Icons.restore_page : Icons.history),
-                title: Text(entry.stat == null ? entry.file.uri.pathSegments.last : formatted(entry.stat!.modified)),
-                subtitle: Text(entry.stat == null ? l10n.errorWidgetFallback
-                  : '${entry.recovery ? '${l10n.backupRecoveryLabel} · ' : ''}${(entry.stat!.size / 1024).ceil()} KB'),
-                trailing: entry.stat == null ? IconButton(onPressed: _refresh,
-                  tooltip: l10n.commonRetry, icon: const Icon(Icons.refresh))
-                  : TextButton(onPressed: importing ? null : () => _restore(entry),
-                      child: Text(l10n.autoBackupRestore)),
+      appBar: AppBar(
+        title: Text(l10n.autoBackupTitle),
+        actions: [
+          IconButton(
+            tooltip: l10n.backupRefresh,
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          FutureBuilder<List<_BackupEntry>>(
+            future: _future,
+            builder: (context, snapshot) {
+              final entries = snapshot.data ?? _previous;
+              if (entries == null) {
+                if (snapshot.hasError) {
+                  return AsyncStateNotice(onRetry: _refresh);
+                }
+                return const Center(child: CircularProgressIndicator());
+              }
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.gutter,
+                    AppSpacing.gutter,
+                    AppSpacing.gutter,
+                    navBarClearance(context),
+                  ),
+                  children: [
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      const LinearProgressIndicator(),
+                    if (snapshot.hasError) AsyncStateNotice(onRetry: _refresh),
+                    Text(l10n.autoBackupDesc),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(l10n.autoBackupLocalProtection),
+                    if (service.lastRunAt != null)
+                      Text(
+                        l10n.backupLastSuccess(formatted(service.lastRunAt!)),
+                      ),
+                    if (service.lastAttemptAt != null)
+                      Text(
+                        l10n.backupLastAttempt(
+                          formatted(service.lastAttemptAt!),
+                        ),
+                      ),
+                    if (service.lastError != null)
+                      Text(
+                        service.lastError == 'cleanup'
+                            ? l10n.backupCleanupPending
+                            : l10n.backupWriteFailed,
+                      ),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              shareFullBackup(context, service.backupService),
+                          icon: const Icon(Icons.ios_share),
+                          label: Text(l10n.autoBackupExportFull),
+                        ),
+                        TextButton.icon(
+                          onPressed: _creating || importing ? null : _createNow,
+                          icon: const Icon(Icons.backup_outlined),
+                          label: Text(l10n.backupCreateNow),
+                        ),
+                      ],
+                    ),
+                    if (entries.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(l10n.autoBackupEmpty),
+                      ),
+                    for (final entry in entries)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          entry.recovery ? Icons.restore_page : Icons.history,
+                        ),
+                        title: Text(
+                          entry.stat == null
+                              ? entry.file.uri.pathSegments.last
+                              : formatted(entry.stat!.modified),
+                        ),
+                        subtitle: Text(
+                          entry.stat == null
+                              ? l10n.errorWidgetFallback
+                              : '${entry.recovery ? '${l10n.backupRecoveryLabel} · ' : ''}${(entry.stat!.size / 1024).ceil()} KB',
+                        ),
+                        trailing: entry.stat == null
+                            ? IconButton(
+                                onPressed: _refresh,
+                                tooltip: l10n.commonRetry,
+                                icon: const Icon(Icons.refresh),
+                              )
+                            : TextButton(
+                                onPressed: importing
+                                    ? null
+                                    : () => _restore(entry),
+                                child: Text(l10n.autoBackupRestore),
+                              ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          if (_restoring)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x33000000),
+                child: Center(child: CircularProgressIndicator()),
               ),
-            ]));
-        }),
-        if (_restoring) const Positioned.fill(child: ColoredBox(color: Color(0x33000000),
-          child: Center(child: CircularProgressIndicator()))),
-      ]),
+            ),
+        ],
+      ),
     );
   }
 }

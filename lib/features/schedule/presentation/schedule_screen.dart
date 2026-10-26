@@ -107,26 +107,58 @@ class ScheduleScreen extends ConsumerWidget {
                   AppSpacing.gutter,
                   AppSpacing.xs,
                 ),
-                child: LayoutBuilder(builder: (context, constraints) {
-                  final heading = _SwipeableTitle(view: view, selected: selected,
-                    title: title, lunarSubtitle: lunarSubtitle,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    chevronColor: palette.inkFaint,
-                    onNavigate: (target) => ref.read(selectedDateProvider.notifier).select(target));
-                  final actions = <Widget>[const AppSearchButton(),
-                    TextButton(onPressed: () => ref.read(selectedDateProvider.notifier).jumpToToday(),
-                      child: Text(l10n.commonToday))];
-                  final painter = TextPainter(text: TextSpan(text: l10n.commonToday,
-                    style: Theme.of(context).textTheme.labelLarge),
-                    textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))..layout();
-                  final actionWidth = math.max(64.0, painter.width + 32) + 48;
-                  painter.dispose();
-                  if (constraints.maxWidth < 160 + actionWidth) {
-                    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [heading,
-                      Row(mainAxisAlignment: MainAxisAlignment.end, children: actions)]);
-                  }
-                  return Row(children: [Expanded(child: heading), ...actions]);
-                }),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final heading = _SwipeableTitle(
+                      view: view,
+                      selected: selected,
+                      title: title,
+                      lunarSubtitle: lunarSubtitle,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                      chevronColor: palette.inkFaint,
+                      onNavigate: (target) => ref
+                          .read(selectedDateProvider.notifier)
+                          .select(target),
+                    );
+                    final actions = <Widget>[
+                      const AppSearchButton(),
+                      TextButton(
+                        onPressed: () => ref
+                            .read(selectedDateProvider.notifier)
+                            .jumpToToday(),
+                        child: Text(l10n.commonToday),
+                      ),
+                    ];
+                    final painter = TextPainter(
+                      text: TextSpan(
+                        text: l10n.commonToday,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      textDirection: Directionality.of(context),
+                      textScaler: MediaQuery.textScalerOf(context),
+                    )..layout();
+                    final actionWidth = math.max(64.0, painter.width + 32) + 48;
+                    painter.dispose();
+                    if (constraints.maxWidth < 160 + actionWidth) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          heading,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: actions,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: heading),
+                        ...actions,
+                      ],
+                    );
+                  },
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -197,9 +229,11 @@ class ScheduleScreen extends ConsumerWidget {
                                     (region.top - regions.first.top).abs() < 1,
                               );
                               final ordered = [...regions]
-                                ..sort(horizontal
-                                    ? (a, b) => a.left.compareTo(b.left)
-                                    : (a, b) => a.top.compareTo(b.top));
+                                ..sort(
+                                  horizontal
+                                      ? (a, b) => a.left.compareTo(b.left)
+                                      : (a, b) => a.top.compareTo(b.top),
+                                );
                               if (horizontal &&
                                   ordered.length >= 2 &&
                                   ordered[0].width >=
@@ -223,7 +257,8 @@ class ScheduleScreen extends ConsumerWidget {
                               }
                               final vertical = regions.every(
                                 (region) =>
-                                    (region.left - regions.first.left).abs() < 1,
+                                    (region.left - regions.first.left).abs() <
+                                    1,
                               );
                               if (vertical &&
                                   ordered.length >= 2 &&
@@ -262,7 +297,8 @@ class ScheduleScreen extends ConsumerWidget {
                             // visible together. Narrow/short windows retain
                             // the existing full-width month view so the grid
                             // remains usable in Split View and landscape.
-                            final twoPane = size.width >= _monthTwoPaneMinWidth &&
+                            final twoPane =
+                                size.width >= _monthTwoPaneMinWidth &&
                                 size.height >= 600;
                             if (!twoPane) return const MonthView();
                             // PageView-backed day content is sensitive to
@@ -536,7 +572,11 @@ class _TitleChevron extends StatelessWidget {
 enum _ScheduleTool { legend, layout }
 
 class _HeaderTrailingIcons extends ConsumerWidget {
-  const _HeaderTrailingIcons({required this.view, required this.onQuickAdd, required this.onLegend});
+  const _HeaderTrailingIcons({
+    required this.view,
+    required this.onQuickAdd,
+    required this.onLegend,
+  });
   final ScheduleView view;
   final VoidCallback onQuickAdd;
   final VoidCallback onLegend;
@@ -544,31 +584,67 @@ class _HeaderTrailingIcons extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
     final mode = ref.watch(dayViewLayoutModeProvider);
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      SizedBox(width: 48, height: 48, child: IconButton(
-        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-        tooltip: l10n.quickAddEventTitle, icon: const Icon(Icons.bolt_outlined), onPressed: onQuickAdd)),
-      SizedBox(width: 48, height: 48, child: PopupMenuButton<_ScheduleTool>(
-        tooltip: l10n.scheduleTools, icon: const Icon(Icons.more_vert),
-        onSelected: (tool) {
-          if (tool == _ScheduleTool.legend) { onLegend(); }
-          else { ref.read(dayViewLayoutModeProvider.notifier).set(
-            mode == DayViewLayoutMode.timeline ? DayViewLayoutMode.clock : DayViewLayoutMode.timeline); }
-        },
-        itemBuilder: (_) => [
-          PopupMenuItem(value: _ScheduleTool.legend, child: Text(l10n.calendarLegendTooltip)),
-          if (view == ScheduleView.day) PopupMenuItem(value: _ScheduleTool.layout,
-            child: Text(mode == DayViewLayoutMode.timeline
-              ? l10n.dayLayoutSwitchToClock : l10n.dayLayoutSwitchToTimeline)),
-        ],
-      )),
-    ]);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: IconButton(
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+            tooltip: l10n.quickAddEventTitle,
+            icon: const Icon(Icons.bolt_outlined),
+            onPressed: onQuickAdd,
+          ),
+        ),
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: PopupMenuButton<_ScheduleTool>(
+            tooltip: l10n.scheduleTools,
+            icon: const Icon(Icons.more_vert),
+            onSelected: (tool) {
+              if (tool == _ScheduleTool.legend) {
+                onLegend();
+              } else {
+                ref
+                    .read(dayViewLayoutModeProvider.notifier)
+                    .set(
+                      mode == DayViewLayoutMode.timeline
+                          ? DayViewLayoutMode.clock
+                          : DayViewLayoutMode.timeline,
+                    );
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: _ScheduleTool.legend,
+                child: Text(l10n.calendarLegendTooltip),
+              ),
+              if (view == ScheduleView.day)
+                PopupMenuItem(
+                  value: _ScheduleTool.layout,
+                  child: Text(
+                    mode == DayViewLayoutMode.timeline
+                        ? l10n.dayLayoutSwitchToClock
+                        : l10n.dayLayoutSwitchToTimeline,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
 class _ViewSwitcher extends StatelessWidget {
-  const _ViewSwitcher({required this.current, required this.accent,
-    required this.labels, required this.onChanged});
+  const _ViewSwitcher({
+    required this.current,
+    required this.accent,
+    required this.labels,
+    required this.onChanged,
+  });
   final ScheduleView current;
   final Color accent;
   final (String, String, String, String, String) labels;
@@ -577,45 +653,100 @@ class _ViewSwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final entries = [(ScheduleView.day, labels.$1), (ScheduleView.week, labels.$2),
-      (ScheduleView.month, labels.$3), (ScheduleView.year, labels.$4),
-      (ScheduleView.agenda, labels.$5)];
+    final entries = [
+      (ScheduleView.day, labels.$1),
+      (ScheduleView.week, labels.$2),
+      (ScheduleView.month, labels.$3),
+      (ScheduleView.year, labels.$4),
+      (ScheduleView.agenda, labels.$5),
+    ];
     final style = Theme.of(context).textTheme.labelLarge;
     final requiredWidth = entries.fold<double>(6, (total, entry) {
-      final painter = TextPainter(text: TextSpan(text: entry.$2, style: style),
-        textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))..layout();
+      final painter = TextPainter(
+        text: TextSpan(text: entry.$2, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
       final width = math.max(48.0, painter.width + 24);
       painter.dispose();
       return total + width;
     });
-    final decoration = BoxDecoration(color: palette.surface,
-      borderRadius: AppRadius.allPill, border: Border.all(color: palette.hairline));
-    return LayoutBuilder(builder: (context, constraints) {
-      if (constraints.maxWidth < requiredWidth) {
-        return PopupMenuButton<ScheduleView>(key: const Key('schedule-view-menu'),
-          initialValue: current, onSelected: onChanged,
-          tooltip: entries.firstWhere((entry) => entry.$1 == current).$2,
-          itemBuilder: (_) => [for (final entry in entries)
-            CheckedPopupMenuItem(value: entry.$1, checked: current == entry.$1,
-              child: Text(entry.$2))],
-          child: Container(height: 48, padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: decoration, child: Row(children: [
-              Expanded(child: Text(entries.firstWhere((entry) => entry.$1 == current).$2, style: style)),
-              const Icon(Icons.arrow_drop_down),
-            ])),
+    final decoration = BoxDecoration(
+      color: palette.surface,
+      borderRadius: AppRadius.allPill,
+      border: Border.all(color: palette.hairline),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < requiredWidth) {
+          return PopupMenuButton<ScheduleView>(
+            key: const Key('schedule-view-menu'),
+            initialValue: current,
+            onSelected: onChanged,
+            tooltip: entries.firstWhere((entry) => entry.$1 == current).$2,
+            itemBuilder: (_) => [
+              for (final entry in entries)
+                CheckedPopupMenuItem(
+                  value: entry.$1,
+                  checked: current == entry.$1,
+                  child: Text(entry.$2),
+                ),
+            ],
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: decoration,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entries.firstWhere((entry) => entry.$1 == current).$2,
+                      style: style,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+          );
+        }
+        return Container(
+          padding: const EdgeInsets.all(3),
+          decoration: decoration,
+          child: Row(
+            children: [
+              for (final entry in entries)
+                Expanded(
+                  child: Semantics(
+                    selected: entry.$1 == current,
+                    button: true,
+                    child: TextButton(
+                      onPressed: () => onChanged(entry.$1),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        backgroundColor: entry.$1 == current
+                            ? accent
+                            : Colors.transparent,
+                        foregroundColor: entry.$1 == current
+                            ? Colors.white
+                            : palette.inkSoft,
+                      ),
+                      child: Text(
+                        entry.$2,
+                        style: style?.copyWith(
+                          color: entry.$1 == current
+                              ? Colors.white
+                              : palette.inkSoft,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
-      }
-      return Container(padding: const EdgeInsets.all(3), decoration: decoration,
-        child: Row(children: [for (final entry in entries) Expanded(
-          child: Semantics(selected: entry.$1 == current, button: true,
-            child: TextButton(onPressed: () => onChanged(entry.$1),
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                backgroundColor: entry.$1 == current ? accent : Colors.transparent,
-                foregroundColor: entry.$1 == current ? Colors.white : palette.inkSoft),
-              child: Text(entry.$2, style: style?.copyWith(
-                color: entry.$1 == current ? Colors.white : palette.inkSoft)))),
-        )]));
-    });
+      },
+    );
   }
 }

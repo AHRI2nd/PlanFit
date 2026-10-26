@@ -42,7 +42,8 @@ class EventRepositoryImpl implements EventRepository {
   Future<EventRow?> findById(String id) => _dao.findById(id);
 
   @override
-  Future<List<EventRow>> search(String query, {SearchOptions? options}) => _dao.search(query, options: options);
+  Future<List<EventRow>> search(String query, {SearchOptions? options}) =>
+      _dao.search(query, options: options);
 
   @override
   Future<List<EventRow>> allEvents() => _dao.all();
@@ -421,7 +422,10 @@ class EventRepositoryImpl implements EventRepository {
   Future<void> restoreEvent(EventRow row) => restoreEvents([row]);
 
   @override
-  Future<void> restoreEvents(List<EventRow> rows, {bool synchronize = true}) async {
+  Future<void> restoreEvents(
+    List<EventRow> rows, {
+    bool synchronize = true,
+  }) async {
     if (rows.isEmpty) return;
     // Same split as save()'s recurring branch: every DB write happens inside
     // one transaction (a full-backup restore can be hundreds of rows), and

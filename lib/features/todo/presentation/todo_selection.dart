@@ -60,41 +60,98 @@ mixin TodoSelectionMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     final l10n = AppL10n.of(context);
     setState(() => selectionBusy = true);
     try {
-      final choice = await showAppDialog<int>(context: context, builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.todoMoveTitle(ids.length)), content: Text(l10n.todoMoveKeepTime),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(l10n.commonCancel)),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, 0), child: Text(l10n.commonToday)),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, 1), child: Text(l10n.todoMoveTomorrow)),
-          if (suggestedDay != null) TextButton(onPressed: () => Navigator.pop(dialogContext, 3), child: Text('${l10n.reviewNextWeek} · ${suggestedDay.year}/${suggestedDay.month}/${suggestedDay.day}')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, 2), child: Text(l10n.todoMoveChooseDate))],
-      ));
+      final choice = await showAppDialog<int>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(l10n.todoMoveTitle(ids.length)),
+          content: Text(l10n.todoMoveKeepTime),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.commonCancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 0),
+              child: Text(l10n.commonToday),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 1),
+              child: Text(l10n.todoMoveTomorrow),
+            ),
+            if (suggestedDay != null)
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 3),
+                child: Text(
+                  '${l10n.reviewNextWeek} · ${suggestedDay.year}/${suggestedDay.month}/${suggestedDay.day}',
+                ),
+              ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 2),
+              child: Text(l10n.todoMoveChooseDate),
+            ),
+          ],
+        ),
+      );
       if (!mounted || choice == null) return;
       final today = ref.read(todayProvider);
-      final day = choice == 2 ? await showAppDatePicker(context: context, initialDate: today,
-        firstDate: DateTime(1900), lastDate: DateTime(2200)) : choice == 3 ? suggestedDay : addCalendarDays(today, choice);
+      final day = choice == 2
+          ? await showAppDatePicker(
+              context: context,
+              initialDate: today,
+              firstDate: DateTime(1900),
+              lastDate: DateTime(2200),
+            )
+          : choice == 3
+          ? suggestedDay
+          : addCalendarDays(today, choice);
       if (day == null || !mounted) return;
       final controller = ref.read(todoControllerProvider);
       final result = await controller.reschedule(ids, day);
       if (!mounted) return;
       exitSelection();
       final messenger = ScaffoldMessenger.of(context);
-      messenger.showAutoDismissSnackBar(SnackBar(duration: const Duration(seconds: 6),
-        content: Text(_placementReport(l10n, result)),
-        action: result.moves.isEmpty ? null : SnackBarAction(label: l10n.eventUndo, onPressed: () async {
-          try {
-            final undone = await controller.undoReschedule(result.moves);
-            if (messenger.mounted) messenger.showAutoDismissSnackBar(
-              SnackBar(content: Text(_placementReport(l10n, undone, undo: true))));
-          } catch (_) {
-            if (messenger.mounted) messenger.showAutoDismissSnackBar(
-              SnackBar(content: Text(l10n.todoMoveFailed)));
-          }
-        })));
-
+      messenger.showAutoDismissSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 6),
+          content: Text(_placementReport(l10n, result)),
+          action: result.moves.isEmpty
+              ? null
+              : SnackBarAction(
+                  label: l10n.eventUndo,
+                  onPressed: () async {
+                    try {
+                      final undone = await controller.undoReschedule(
+                        result.moves,
+                      );
+                      if (messenger.mounted) {
+                        messenger.showAutoDismissSnackBar(
+                          SnackBar(
+                            content: Text(
+                              _placementReport(l10n, undone, undo: true),
+                            ),
+                          ),
+                        );
+                      }
+                    } catch (_) {
+                      if (messenger.mounted) {
+                        messenger.showAutoDismissSnackBar(
+                          SnackBar(content: Text(l10n.todoMoveFailed)),
+                        );
+                      }
+                    }
+                  },
+                ),
+        ),
+      );
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showAutoDismissSnackBar(
-        SnackBar(content: Text(l10n.todoMoveFailed)));
-    } finally { if (mounted) setState(() => selectionBusy = false); }
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showAutoDismissSnackBar(SnackBar(content: Text(l10n.todoMoveFailed)));
+      }
+    } finally {
+      if (mounted) setState(() => selectionBusy = false);
+    }
   }
 
   Future<void> bulkComplete() async {
@@ -176,10 +233,18 @@ class TodoSelectionToolbar extends StatelessWidget {
               ).textTheme.bodyMedium?.copyWith(color: palette.inkSoft),
             ),
           ),
-          if (busy) const SizedBox(width: 16, height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2)),
-          if (onReschedule != null) IconButton(tooltip: l10n.todoSelectionReschedule,
-            onPressed: busy ? null : onReschedule, icon: const Icon(Icons.event_repeat)),
+          if (busy)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          if (onReschedule != null)
+            IconButton(
+              tooltip: l10n.todoSelectionReschedule,
+              onPressed: busy ? null : onReschedule,
+              icon: const Icon(Icons.event_repeat),
+            ),
           IconButton(
             tooltip: l10n.todoSelectionComplete,
             onPressed: busy ? null : onComplete,
@@ -198,8 +263,16 @@ class TodoSelectionToolbar extends StatelessWidget {
   }
 }
 
-String _placementReport(AppL10n l10n, TodoRescheduleResult result, {bool undo = false}) => [
-  undo ? l10n.todoMoveUndone(result.moves.length) : l10n.todoMoveCompleted(result.moves.length),
-  if (result.skippedIds.isNotEmpty) l10n.todoMoveSkipped(result.skippedIds.length),
-  if (result.deferredIds.isNotEmpty) l10n.todoMoveDeferred(result.deferredIds.length),
+String _placementReport(
+  AppL10n l10n,
+  TodoRescheduleResult result, {
+  bool undo = false,
+}) => [
+  undo
+      ? l10n.todoMoveUndone(result.moves.length)
+      : l10n.todoMoveCompleted(result.moves.length),
+  if (result.skippedIds.isNotEmpty)
+    l10n.todoMoveSkipped(result.skippedIds.length),
+  if (result.deferredIds.isNotEmpty)
+    l10n.todoMoveDeferred(result.deferredIds.length),
 ].join('\n');

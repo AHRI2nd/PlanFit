@@ -74,11 +74,21 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
     final startAt = resolved.startAt;
     final endAt = resolved.endAt;
 
-    setState(() { _saving = true; _saveFailed = false; });
+    setState(() {
+      _saving = true;
+      _saveFailed = false;
+    });
     try {
       await ref
           .read(eventRepositoryProvider)
-          .save(EventInput(id: resolved.id, title: title, startAt: startAt, endAt: endAt));
+          .save(
+            EventInput(
+              id: resolved.id,
+              title: title,
+              startAt: startAt,
+              endAt: endAt,
+            ),
+          );
       if (!mounted) return;
       _committed = true;
       navigator.pop();
@@ -108,39 +118,72 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
     }
   }
 
-  QuickAddDraft _resolve(String text) => _draft?.withText(text, now: DateTime.now()) ??
-    QuickAddDraft.parse(text, anchorDay: widget.anchorDay, now: DateTime.now());
+  QuickAddDraft _resolve(String text) =>
+      _draft?.withText(text, now: DateTime.now()) ??
+      QuickAddDraft.parse(
+        text,
+        anchorDay: widget.anchorDay,
+        now: DateTime.now(),
+      );
 
   Future<void> _editDay() async {
     final draft = _draft;
     if (draft == null) return;
-    final day = await showAppDatePicker(context: context, initialDate: draft.startAt,
-      firstDate: DateTime(1900), lastDate: DateTime(2200));
+    final day = await showAppDatePicker(
+      context: context,
+      initialDate: draft.startAt,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2200),
+    );
     if (day != null && mounted) setState(() => _draft = draft.withDay(day));
   }
+
   Future<void> _editTime() async {
     final draft = _draft;
     if (draft == null) return;
-    final time = await showAppTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(draft.startAt),
-      dialFormat: ref.read(settingsControllerProvider).dialTimeFormatPreference);
+    final time = await showAppTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(draft.startAt),
+      dialFormat: ref.read(settingsControllerProvider).dialTimeFormatPreference,
+    );
     if (time != null && mounted) setState(() => _draft = draft.withTime(time));
   }
+
   Future<void> _editDuration() async {
     final draft = _draft;
     if (draft == null) return;
-    final minutes = await showMinutesPicker(context, initialMinutes: draft.durationMinutes);
-    if (minutes != null && mounted) setState(() => _draft = draft.withDuration(minutes));
+    final minutes = await showMinutesPicker(
+      context,
+      initialMinutes: draft.durationMinutes,
+    );
+    if (minutes != null && mounted) {
+      setState(() => _draft = draft.withDuration(minutes));
+    }
   }
+
   Future<void> _openDetails() async {
     final draft = _draft;
     if (_saving || draft == null) return;
-    setState(() { _saving = true; _saveFailed = false; });
+    setState(() {
+      _saving = true;
+      _saveFailed = false;
+    });
     var saved = false;
-    await showEventEditor(context, initialId: draft.id, initialTitle: draft.title,
-      initialStart: draft.startAt, initialEnd: draft.endAt, onSaved: () => saved = true);
+    await showEventEditor(
+      context,
+      initialId: draft.id,
+      initialTitle: draft.title,
+      initialStart: draft.startAt,
+      initialEnd: draft.endAt,
+      onSaved: () => saved = true,
+    );
     if (!mounted) return;
-    if (saved) { _committed = true; Navigator.of(context).pop(); }
-    else { setState(() => _saving = false); }
+    if (saved) {
+      _committed = true;
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _saving = false);
+    }
   }
 
   void _onChanged(String value) {
@@ -164,98 +207,124 @@ class _QuickAddEventSheetState extends ConsumerState<QuickAddEventSheet> {
       ),
       context,
     );
-    return SingleChildScrollView(child: Padding(
-      padding: EdgeInsets.only(
-        left: AppSpacing.gutter,
-        right: AppSpacing.gutter,
-        top: AppSpacing.sm,
-        // The keyboard inset (when it's up, dwarfing the tab bar clearance
-        // below) plus enough to clear the floating tab bar when it isn't —
-        // see navBarClearance's own doc. Without this, the Save
-        // button (this column's last element) sat directly behind the tab
-        // bar with the keyboard down — not just visually hidden but
-        // literally untappable, since the tab bar itself still consumed the
-        // touch.
-        bottom:
-            MediaQuery.of(context).viewInsets.bottom +
-            AppSpacing.lg +
-            navBarControlClearance(context),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.quickAddEventTitle,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            l10n.quickAddEventHint,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: palette.inkFaint),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: _controller,
-            enabled: !_saving,
-            autofocus: true,
-            onChanged: _onChanged,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(hintText: l10n.quickAddEventExample),
-          ),
-          if (draft != null) ...[
-            Wrap(spacing: 8, children: [
-              ActionChip(label: Text(Fmt.monthDay(draft.startAt, locale)), onPressed: _saving ? null : _editDay),
-              ActionChip(label: Text(Fmt.time(draft.startAt, locale, use24Hour: use24)), onPressed: _saving ? null : _editTime),
-              ActionChip(label: Text(l10n.durationMinutes(draft.durationMinutes)), onPressed: _saving ? null : _editDuration),
-            ]),
-            if (draft.hasOverrides) TextButton(onPressed: _saving ? null : () => setState(() =>
-              _draft = draft.withoutOverrides().withText(_controller.text.trim(), now: DateTime.now())),
-              child: Text(l10n.quickAddResetInterpretation)),
-            OutlinedButton.icon(onPressed: _saving ? null : _openDetails,
-              icon: const Icon(Icons.open_in_full), label: Text(l10n.quickAddDetails)),
-            const SizedBox(height: AppSpacing.xs),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: AppSpacing.gutter,
+          right: AppSpacing.gutter,
+          top: AppSpacing.sm,
+          // The keyboard inset (when it's up, dwarfing the tab bar clearance
+          // below) plus enough to clear the floating tab bar when it isn't —
+          // see navBarClearance's own doc. Without this, the Save
+          // button (this column's last element) sat directly behind the tab
+          // bar with the keyboard down — not just visually hidden but
+          // literally untappable, since the tab bar itself still consumed the
+          // touch.
+          bottom:
+              MediaQuery.of(context).viewInsets.bottom +
+              AppSpacing.lg +
+              navBarControlClearance(context),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              l10n.quickAddEventPreview(
-                Fmt.monthDay(draft.startAt, locale),
-                Fmt.time(draft.startAt, locale, use24Hour: use24),
-                Fmt.monthDay(
-                  draft.endAt,
-                  locale,
-                ),
-                Fmt.time(
-                  draft.endAt,
-                  locale,
-                  use24Hour: use24,
-                ),
-              ),
-              key: const Key('quick-add-event-preview'),
-              style: Theme.of(context).textTheme.bodyMedium,
+              l10n.quickAddEventTitle,
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            if (draft.usedDefaultTime)
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              l10n.quickAddEventHint,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: palette.inkFaint),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _controller,
+              enabled: !_saving,
+              autofocus: true,
+              onChanged: _onChanged,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(hintText: l10n.quickAddEventExample),
+            ),
+            if (draft != null) ...[
+              Wrap(
+                spacing: 8,
+                children: [
+                  ActionChip(
+                    label: Text(Fmt.monthDay(draft.startAt, locale)),
+                    onPressed: _saving ? null : _editDay,
+                  ),
+                  ActionChip(
+                    label: Text(
+                      Fmt.time(draft.startAt, locale, use24Hour: use24),
+                    ),
+                    onPressed: _saving ? null : _editTime,
+                  ),
+                  ActionChip(
+                    label: Text(l10n.durationMinutes(draft.durationMinutes)),
+                    onPressed: _saving ? null : _editDuration,
+                  ),
+                ],
+              ),
+              if (draft.hasOverrides)
+                TextButton(
+                  onPressed: _saving
+                      ? null
+                      : () => setState(
+                          () => _draft = draft.withoutOverrides().withText(
+                            _controller.text.trim(),
+                            now: DateTime.now(),
+                          ),
+                        ),
+                  child: Text(l10n.quickAddResetInterpretation),
+                ),
+              OutlinedButton.icon(
+                onPressed: _saving ? null : _openDetails,
+                icon: const Icon(Icons.open_in_full),
+                label: Text(l10n.quickAddDetails),
+              ),
+              const SizedBox(height: AppSpacing.xs),
               Text(
-                l10n.quickAddEventDefaultTime,
-                key: const Key('quick-add-event-default-time'),
+                l10n.quickAddEventPreview(
+                  Fmt.monthDay(draft.startAt, locale),
+                  Fmt.time(draft.startAt, locale, use24Hour: use24),
+                  Fmt.monthDay(draft.endAt, locale),
+                  Fmt.time(draft.endAt, locale, use24Hour: use24),
+                ),
+                key: const Key('quick-add-event-preview'),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (draft.usedDefaultTime)
+                Text(
+                  l10n.quickAddEventDefaultTime,
+                  key: const Key('quick-add-event-default-time'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: palette.inkFaint),
+                ),
+            ],
+            if (_saveFailed)
+              Text(
+                l10n.eventSaveFailed,
                 style: Theme.of(
                   context,
-                ).textTheme.bodySmall?.copyWith(color: palette.inkFaint),
+                ).textTheme.bodyMedium?.copyWith(color: palette.danger),
               ),
-          ],
-          if (_saveFailed) Text(l10n.eventSaveFailed,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: palette.danger)),
-          const SizedBox(height: AppSpacing.sm),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _saving ? null : _submit,
-              child: Text(l10n.eventSave),
+            const SizedBox(height: AppSpacing.sm),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _submit,
+                child: Text(l10n.eventSave),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ));
+    );
   }
 }

@@ -87,19 +87,27 @@ Map<String, dynamic> _decodeBackupJson(String raw) =>
 /// get pushed to the device calendar as if the user had created it.
 /// Validated immutable contents of the exact file the user confirmed.
 class PreparedBackup {
-  PreparedBackup._({required List<EventRow> events,
+  PreparedBackup._({
+    required List<EventRow> events,
     required List<TodoItemsCompanion> todos,
     required List<TodoSubtasksCompanion> subtasks,
-    required List<EventTemplatesCompanion> templates, required this.legacyFormat})
-    : events = List.unmodifiable(events), todos = List.unmodifiable(todos),
-      subtasks = List.unmodifiable(subtasks), templates = List.unmodifiable(templates);
+    required List<EventTemplatesCompanion> templates,
+    required this.legacyFormat,
+  }) : events = List.unmodifiable(events),
+       todos = List.unmodifiable(todos),
+       subtasks = List.unmodifiable(subtasks),
+       templates = List.unmodifiable(templates);
   final List<EventRow> events;
   final List<TodoItemsCompanion> todos;
   final List<TodoSubtasksCompanion> subtasks;
   final List<EventTemplatesCompanion> templates;
   final bool legacyFormat;
-  BackupFilePreview get preview => BackupFilePreview(eventCount: events.length,
-    todoCount: todos.length, templateCount: templates.length, legacyFormat: legacyFormat);
+  BackupFilePreview get preview => BackupFilePreview(
+    eventCount: events.length,
+    todoCount: todos.length,
+    templateCount: templates.length,
+    legacyFormat: legacyFormat,
+  );
 }
 
 class BackupService {
@@ -128,16 +136,27 @@ class BackupService {
     final base = await getApplicationSupportDirectory();
     final dir = Directory('${base.path}/recovery_backups');
     if (!await dir.exists()) return [];
-    final files = (await dir.list().toList()).whereType<File>()
-      .where((file) => RegExp(r'^recovery-[0-9]+\.json$').hasMatch(file.uri.pathSegments.last))
-      .toList()..sort((a, b) => b.path.compareTo(a.path));
+    final files =
+        (await dir.list().toList())
+            .whereType<File>()
+            .where(
+              (file) => RegExp(
+                r'^recovery-[0-9]+\.json$',
+              ).hasMatch(file.uri.pathSegments.last),
+            )
+            .toList()
+          ..sort((a, b) => b.path.compareTo(a.path));
     return files;
   }
 
   Future<void> _writeRecoverySnapshot() async {
     final base = await getApplicationSupportDirectory();
-    final dir = await Directory('${base.path}/recovery_backups').create(recursive: true);
-    final file = File('${dir.path}/recovery-${DateTime.now().microsecondsSinceEpoch}.json');
+    final dir = await Directory(
+      '${base.path}/recovery_backups',
+    ).create(recursive: true);
+    final file = File(
+      '${dir.path}/recovery-${DateTime.now().microsecondsSinceEpoch}.json',
+    );
     final partial = File('${file.path}.partial');
     try {
       final raw = await buildJson();
@@ -148,7 +167,11 @@ class BackupService {
       if (await partial.exists()) await partial.delete();
     }
     for (final old in (await listRecoveryBackups()).skip(3)) {
-      try { await old.delete(); } on FileSystemException { /* Retry on a later import. */ }
+      try {
+        await old.delete();
+      } on FileSystemException {
+        /* Retry on a later import. */
+      }
     }
   }
 
@@ -203,9 +226,13 @@ class BackupService {
       (await prepareFromFile(path)).preview;
 
   Future<PreparedBackup> prepareFromFile(String path) async {
-    final json = await compute(_decodeBackupJson, await File(path).readAsString());
+    final json = await compute(
+      _decodeBackupJson,
+      await File(path).readAsString(),
+    );
     final version = json['schemaVersion'] as int? ?? 1;
-    if (version < 1 || version > _schemaVersion ||
+    if (version < 1 ||
+        version > _schemaVersion ||
         (!json.containsKey('events') && !json.containsKey('todos'))) {
       throw const FormatException('Unsupported backup format');
     }
@@ -245,13 +272,25 @@ class BackupService {
         _eventTemplateFromJson(t as Map<String, dynamic>),
     ];
 
-    if (events.any((e) => !e.endAt.isAfter(e.startAt)) ||
+    if (todoCompanions.any(
+          (t) =>
+              t.slotEnd.value != null &&
+              (!t.hasTime.value ||
+                  !t.slotEnd.value!.isAfter(t.slotStart.value)),
+        ) ||
+        events.any((e) => !e.endAt.isAfter(e.startAt)) ||
         events.map((e) => e.id).toSet().length != events.length ||
-        todoCompanions.map((t) => t.id.value).toSet().length != todoCompanions.length) {
+        todoCompanions.map((t) => t.id.value).toSet().length !=
+            todoCompanions.length) {
       throw const FormatException('Invalid or duplicate backup records');
     }
-    return PreparedBackup._(events: events, todos: todoCompanions,
-      subtasks: subtaskCompanions, templates: templateCompanions, legacyFormat: legacyFormat);
+    return PreparedBackup._(
+      events: events,
+      todos: todoCompanions,
+      subtasks: subtaskCompanions,
+      templates: templateCompanions,
+      legacyFormat: legacyFormat,
+    );
   }
 
   Future<BackupImportSummary> importFromFile(String path) async =>
@@ -266,7 +305,10 @@ class BackupService {
       // All participating DAOs/repository share this application database.
       // External calls must happen only after this transaction commits.
       await todoDao.transaction(() async {
-        await eventRepository.restoreEvents(prepared.events, synchronize: false);
+        await eventRepository.restoreEvents(
+          prepared.events,
+          synchronize: false,
+        );
         for (final companion in prepared.todos) {
           await todoDao.upsert(companion);
           final row = await todoDao.findById(companion.id.value);
@@ -281,16 +323,29 @@ class BackupService {
       });
       var deferred = 0;
       try {
-        await eventRepository.synchronizeRestoredEvents(prepared.events.map((e) => e.id).toList());
-      } catch (_) { deferred += prepared.events.length; }
-      for (final todo in restoredTodos) {
-        try { await syncTodoNotification(notifications, todo); }
-        catch (_) { deferred++; }
+        await eventRepository.synchronizeRestoredEvents(
+          prepared.events.map((e) => e.id).toList(),
+        );
+      } catch (_) {
+        deferred += prepared.events.length;
       }
-      return BackupImportSummary(eventCount: prepared.events.length,
-        todoCount: prepared.todos.length, templateCount: prepared.templates.length,
-        legacyFormat: prepared.legacyFormat, deferredCount: deferred);
-    } finally { _importing = false; }
+      for (final todo in restoredTodos) {
+        try {
+          await syncTodoNotification(notifications, todo);
+        } catch (_) {
+          deferred++;
+        }
+      }
+      return BackupImportSummary(
+        eventCount: prepared.events.length,
+        todoCount: prepared.todos.length,
+        templateCount: prepared.templates.length,
+        legacyFormat: prepared.legacyFormat,
+        deferredCount: deferred,
+      );
+    } finally {
+      _importing = false;
+    }
   }
 
   Map<String, dynamic> _eventToJson(EventRow e) => {

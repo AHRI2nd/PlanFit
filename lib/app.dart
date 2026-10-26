@@ -190,7 +190,9 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
     try {
       await ref.read(remindersReconcilerProvider).reconcile();
       if (ref.read(remindersServiceProvider).isEnabled) {
-        await ref.read(lastRemindersSyncAtProvider.notifier).record(DateTime.now());
+        await ref
+            .read(lastRemindersSyncAtProvider.notifier)
+            .record(DateTime.now());
       }
     } catch (_) {
       // Sync is best-effort; never surface reconciliation failures to the user.
@@ -461,7 +463,8 @@ class _PlanFitAppState extends ConsumerState<PlanFitApp>
       routerConfig: appRouter,
       builder: (context, child) {
         final media = MediaQuery.of(context);
-        final reservedFeatures = windowLayout?.regions
+        final reservedFeatures =
+            windowLayout?.regions
                 .where((region) => region.isActive)
                 .map(
                   (region) => DisplayFeature(

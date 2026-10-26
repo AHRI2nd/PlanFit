@@ -6,8 +6,7 @@ import '../../../core/db/sync_status.dart';
 import '../../../core/di.dart';
 import '../../../core/format.dart';
 import '../../../core/time_format.dart';
-import '../../../design/glass/glass_nav_bar.dart'
-    show navBarClearance;
+import '../../../design/glass/glass_nav_bar.dart' show navBarClearance;
 import '../../../design/tokens/app_colors.dart';
 import '../../../design/widgets/async_content.dart';
 import '../../../design/tokens/app_spacing.dart';
@@ -38,9 +37,13 @@ class SyncLogScreen extends ConsumerWidget {
         stream: logs,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return AsyncStateNotice(onRetry: () => ref.invalidate(syncLogDaoProvider));
+            return AsyncStateNotice(
+              onRetry: () => ref.invalidate(syncLogDaoProvider),
+            );
           }
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final rows = snapshot.data!;
           if (rows.isEmpty) {
             return Center(

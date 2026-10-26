@@ -93,6 +93,10 @@ void main() {
   setUp(() {
     eventRepository = MockEventRepository();
     todoDao = MockTodoDao();
+    when(eventRepository.findById(any)).thenAnswer(
+      (call) async => event(id: call.positionalArguments.first as String),
+    );
+    when(todoDao.findById(any)).thenAnswer((_) async => todo());
     SharedPreferences.setMockInitialValues({});
     when(
       todoDao.watchSubtasks(any),
@@ -139,13 +143,78 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('custom color dialog owns its controller through dismissal', (
+    tester,
+  ) async {
+    when(
+      eventRepository.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => [event()]);
+    when(
+      todoDao.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => []);
+    await pumpScreen(tester);
+    await tester.enterText(find.byType(TextField), 'team');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    await tester.ensureVisible(find.text('사용자 지정 색상'));
+    await tester.tap(find.text('사용자 지정 색상'));
+    await tester.pumpAndSettle();
+    final field = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(field, '#123456');
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('#123456'), findsOneWidget);
+  });
+
+  testWidgets(
+    'opening a cached result fetches the latest row and refreshes on return',
+    (tester) async {
+      final latest = event(title: 'Team updated');
+      var returned = false;
+      when(
+        eventRepository.search('team', options: anyNamed('options')),
+      ).thenAnswer((_) async => [returned ? latest : event()]);
+      when(
+        todoDao.search('team', options: anyNamed('options')),
+      ).thenAnswer((_) async => []);
+      when(eventRepository.findById('e1')).thenAnswer((_) async => latest);
+      await pumpScreen(tester);
+      await tester.enterText(find.byType(TextField), 'team');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      await tester.longPress(find.text('Team standup'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'Team updated'), findsOneWidget);
+      returned = true;
+      Navigator.of(
+        tester.element(find.widgetWithText(TextField, 'Team updated')),
+      ).pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Team updated'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'team'), findsOneWidget);
+    },
+  );
+
   testWidgets(
     'clearing the search box while a slower search is still in flight does '
     'not let its stale results reappear once it finally resolves',
     (tester) async {
       final pending = Completer<List<EventRow>>();
-      when(eventRepository.search('abc', options: anyNamed('options'))).thenAnswer((_) => pending.future);
-      when(todoDao.search('abc', options: anyNamed('options'))).thenAnswer((_) async => <TodoRow>[]);
+      when(
+        eventRepository.search('abc', options: anyNamed('options')),
+      ).thenAnswer((_) => pending.future);
+      when(
+        todoDao.search('abc', options: anyNamed('options')),
+      ).thenAnswer((_) async => <TodoRow>[]);
 
       await pumpScreen(tester);
 
@@ -174,7 +243,9 @@ void main() {
     when(
       eventRepository.search('xyz', options: anyNamed('options')),
     ).thenAnswer((_) async => [event(title: 'Xylophone lesson')]);
-    when(todoDao.search('xyz', options: anyNamed('options'))).thenAnswer((_) async => <TodoRow>[]);
+    when(
+      todoDao.search('xyz', options: anyNamed('options')),
+    ).thenAnswer((_) async => <TodoRow>[]);
 
     await pumpScreen(tester);
 
@@ -191,8 +262,12 @@ void main() {
   testWidgets(
     'tapping a to-do result opens its detail while keeping search underneath',
     (tester) async {
-      when(eventRepository.search('team', options: anyNamed('options'))).thenAnswer((_) async => []);
-      when(todoDao.search('team', options: anyNamed('options'))).thenAnswer((_) async => [todo()]);
+      when(
+        eventRepository.search('team', options: anyNamed('options')),
+      ).thenAnswer((_) async => []);
+      when(
+        todoDao.search('team', options: anyNamed('options')),
+      ).thenAnswer((_) async => [todo()]);
 
       await pumpScreen(tester);
       await tester.enterText(find.byType(TextField), 'team');
@@ -249,7 +324,9 @@ void main() {
   testWidgets(
     'search includes completed to-dos without a time and all-day events',
     (tester) async {
-      when(eventRepository.search('review', options: anyNamed('options'))).thenAnswer(
+      when(
+        eventRepository.search('review', options: anyNamed('options')),
+      ).thenAnswer(
         (_) async => [event(title: 'Annual review', isAllDay: true)],
       );
       when(todoDao.search('review', options: anyNamed('options'))).thenAnswer(
@@ -268,49 +345,59 @@ void main() {
     },
   );
 
-  testWidgets('tapping an event result keeps search beneath the read-only preview', (tester) async {
-    when(
-      eventRepository.search('team', options: anyNamed('options')),
-    ).thenAnswer((_) async => [event(title: 'Team standup')]);
-    when(todoDao.search('team', options: anyNamed('options'))).thenAnswer((_) async => <TodoRow>[]);
-
-    await pumpScreen(tester);
-    await tester.enterText(find.byType(TextField), 'team');
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump();
-
-    await tester.tap(find.text('Team standup'));
-    await tester.pumpAndSettle();
-
-    // Search stays beneath the preview, preserving its query and filters.
-    expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('편집하기'), findsOneWidget);
-  });
-
   testWidgets(
-    'long-pressing an event result preserves search and opens '
-    'the editor, title pre-filled',
+    'tapping an event result keeps search beneath the read-only preview',
     (tester) async {
       when(
         eventRepository.search('team', options: anyNamed('options')),
       ).thenAnswer((_) async => [event(title: 'Team standup')]);
-      when(todoDao.search('team', options: anyNamed('options'))).thenAnswer((_) async => <TodoRow>[]);
+      when(
+        todoDao.search('team', options: anyNamed('options')),
+      ).thenAnswer((_) async => <TodoRow>[]);
 
       await pumpScreen(tester);
       await tester.enterText(find.byType(TextField), 'team');
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
 
-      await tester.longPress(find.text('Team standup'));
+      await tester.tap(find.text('Team standup'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(TextField, 'Team standup'), findsOneWidget);
-      expect(find.text('편집하기'), findsNothing);
+      // Search stays beneath the preview, preserving its query and filters.
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('편집하기'), findsOneWidget);
     },
   );
-  testWidgets('date filters remain available when only todos match', (tester) async {
-    when(eventRepository.search('team', options: anyNamed('options'))).thenAnswer((_) async => []);
-    when(todoDao.search('team', options: anyNamed('options'))).thenAnswer((_) async => [todo()]);
+
+  testWidgets('long-pressing an event result preserves search and opens '
+      'the editor, title pre-filled', (tester) async {
+    when(
+      eventRepository.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => [event(title: 'Team standup')]);
+    when(
+      todoDao.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => <TodoRow>[]);
+
+    await pumpScreen(tester);
+    await tester.enterText(find.byType(TextField), 'team');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    await tester.longPress(find.text('Team standup'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'Team standup'), findsOneWidget);
+    expect(find.text('편집하기'), findsNothing);
+  });
+  testWidgets('date filters remain available when only todos match', (
+    tester,
+  ) async {
+    when(
+      eventRepository.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => []);
+    when(
+      todoDao.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => [todo()]);
     await pumpScreen(tester);
     await tester.enterText(find.byType(TextField), 'team');
     await tester.pump(const Duration(milliseconds: 300));
@@ -318,11 +405,15 @@ void main() {
     expect(find.byIcon(Icons.date_range), findsOneWidget);
   });
 
-  testWidgets('one source failure retains the other results and offers retry', (tester) async {
-    when(eventRepository.search('team', options: anyNamed('options')))
-      .thenAnswer((_) async => throw StateError('unavailable'));
-    when(todoDao.search('team', options: anyNamed('options')))
-      .thenAnswer((_) async => [todo()]);
+  testWidgets('one source failure retains the other results and offers retry', (
+    tester,
+  ) async {
+    when(
+      eventRepository.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => throw StateError('unavailable'));
+    when(
+      todoDao.search('team', options: anyNamed('options')),
+    ).thenAnswer((_) async => [todo()]);
     await pumpScreen(tester);
     await tester.enterText(find.byType(TextField), 'team');
     await tester.pump(const Duration(milliseconds: 300));
@@ -330,5 +421,4 @@ void main() {
     expect(find.text('Team prep'), findsOneWidget);
     expect(find.text('다시 시도'), findsOneWidget);
   });
-
 }

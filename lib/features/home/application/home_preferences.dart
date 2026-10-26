@@ -7,15 +7,23 @@ enum HomeLayoutMode { clock, compact }
 class HomeLayout extends Notifier<HomeLayoutMode> {
   final _writes = SerialQueue();
   @override
-  HomeLayoutMode build() => ref.read(sharedPreferencesProvider).getString('home.layout') == 'compact'
-      ? HomeLayoutMode.compact : HomeLayoutMode.clock;
+  HomeLayoutMode build() =>
+      ref.read(sharedPreferencesProvider).getString('home.layout') == 'compact'
+      ? HomeLayoutMode.compact
+      : HomeLayoutMode.clock;
 
   Future<void> toggle() async {
-    state = state == HomeLayoutMode.clock ? HomeLayoutMode.compact : HomeLayoutMode.clock;
+    state = state == HomeLayoutMode.clock
+        ? HomeLayoutMode.compact
+        : HomeLayoutMode.clock;
     final value = state.name;
     final prefs = ref.read(sharedPreferencesProvider);
-    await _writes.run(() async { await prefs.setString('home.layout', value); });
+    await _writes.run(() async {
+      await prefs.setString('home.layout', value);
+    });
   }
 }
 
-final homeLayoutProvider = NotifierProvider<HomeLayout, HomeLayoutMode>(HomeLayout.new);
+final homeLayoutProvider = NotifierProvider<HomeLayout, HomeLayoutMode>(
+  HomeLayout.new,
+);

@@ -257,6 +257,7 @@ public class RemindersPlugin: NSObject, FlutterPlugin {
             "osReminderId": r.calendarItemIdentifier,
             "title": r.title ?? "",
             "isCompleted": r.isCompleted,
+            "completionDateMillis": r.completionDate.map { Int64($0.timeIntervalSince1970 * 1000) },
             "dueDateMillis": dueDate.map { Int64($0.timeIntervalSince1970 * 1000) },
             "lastModifiedMillis": r.lastModifiedDate.map {
               Int64($0.timeIntervalSince1970 * 1000)

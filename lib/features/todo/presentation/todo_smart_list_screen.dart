@@ -60,9 +60,11 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
       _tab = _initial(widget.initialTab);
-      selectionMode = false; selectedIds.clear();
+      selectionMode = false;
+      selectedIds.clear();
     }
   }
+
   String? _selectedTag;
 
   /// Switching tabs (or the selected tag, within the 태그별 tab) swaps the
@@ -93,7 +95,10 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
     final palette = context.palette;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.smartListTitle), actions: const [AppSearchButton()]),
+      appBar: AppBar(
+        title: Text(l10n.smartListTitle),
+        actions: const [AppSearchButton()],
+      ),
       // This screen (unlike the day view's own inline field) has no single
       // day to anchor a quick-add row to, so it gets the app's other
       // "add" affordance — a FAB opening a tiny quick-add sheet — instead.
@@ -122,7 +127,8 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
                 onCancel: exitSelection,
                 onComplete: bulkComplete,
                 onDelete: bulkDelete,
-                onReschedule: bulkReschedule, busy: selectionBusy,
+                onReschedule: bulkReschedule,
+                busy: selectionBusy,
               ),
             )
           else
@@ -204,9 +210,14 @@ class _TodoSmartListScreenState extends ConsumerState<TodoSmartListScreen>
           onEnterSelection: enterSelection,
         );
       case _SmartListTab.earlier:
-        return _TodoListView(watch: (ref) => ref.watch(earlierUnfinishedTodosProvider),
-          emptyMessage: l10n.smartListEarlierEmpty, selectionMode: selectionMode,
-          selectedIds: selectedIds, onToggleSelected: toggleSelected, onEnterSelection: enterSelection);
+        return _TodoListView(
+          watch: (ref) => ref.watch(earlierUnfinishedTodosProvider),
+          emptyMessage: l10n.smartListEarlierEmpty,
+          selectionMode: selectionMode,
+          selectedIds: selectedIds,
+          onToggleSelected: toggleSelected,
+          onEnterSelection: enterSelection,
+        );
       case _SmartListTab.highPriority:
         return _TodoListView(
           watch: (ref) => ref.watch(highPriorityTodosProvider),

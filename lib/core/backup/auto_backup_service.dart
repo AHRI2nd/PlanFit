@@ -25,8 +25,10 @@ class AutoBackupService {
   static const _lastAttemptKey = 'backup.lastAttemptAt';
   static const _lastFailureKey = 'backup.lastFailureAt';
   static const _lastErrorKey = 'backup.lastError';
-  DateTime? get lastAttemptAt => DateTime.tryParse(prefs.getString(_lastAttemptKey) ?? '');
-  DateTime? get lastFailureAt => DateTime.tryParse(prefs.getString(_lastFailureKey) ?? '');
+  DateTime? get lastAttemptAt =>
+      DateTime.tryParse(prefs.getString(_lastAttemptKey) ?? '');
+  DateTime? get lastFailureAt =>
+      DateTime.tryParse(prefs.getString(_lastFailureKey) ?? '');
   String? get lastError => prefs.getString(_lastErrorKey);
 
   /// How often a new automatic backup gets written — frequent enough that a
@@ -97,7 +99,9 @@ class AutoBackupService {
       partial = File('${file.path}.partial');
       final raw = await backupService.buildJson();
       final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic> || decoded['events'] is! List || decoded['todos'] is! List) {
+      if (decoded is! Map<String, dynamic> ||
+          decoded['events'] is! List ||
+          decoded['todos'] is! List) {
         throw const FormatException('Invalid generated backup');
       }
       await partial.writeAsString(raw, flush: true);
@@ -112,8 +116,11 @@ class AutoBackupService {
       await prefs.setString(_lastErrorKey, published ? 'cleanup' : 'write');
     } finally {
       if (partial != null) {
-        try { if (await partial.exists()) await partial.delete(); }
-        on FileSystemException { /* Partial files are excluded from history. */ }
+        try {
+          if (await partial.exists()) await partial.delete();
+        } on FileSystemException {
+          /* Partial files are excluded from history. */
+        }
       }
       _running = false;
       if (!_changes.isClosed) _changes.add(null);
@@ -126,10 +133,16 @@ class AutoBackupService {
   Future<List<File>> listBackups() async {
     final dir = await _dir();
     if (!await dir.exists()) return [];
-    final files = (await dir.list().toList()).whereType<File>()
-      .where((file) => RegExp(r'^backup-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9-]+Z?\.json$')
-        .hasMatch(file.uri.pathSegments.last)).toList()
-      ..sort((a, b) => b.path.compareTo(a.path));
+    final files =
+        (await dir.list().toList())
+            .whereType<File>()
+            .where(
+              (file) => RegExp(
+                r'^backup-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9-]+Z?\.json$',
+              ).hasMatch(file.uri.pathSegments.last),
+            )
+            .toList()
+          ..sort((a, b) => b.path.compareTo(a.path));
     return files;
   }
 

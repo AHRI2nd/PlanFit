@@ -285,16 +285,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   children: [
                     SafeArea(
                       bottom: false,
-                      child: _Hero(now: now, l10n: l10n, use24Hour: use24, compact: compact, onToggle: () => ref.read(homeLayoutProvider.notifier).toggle()),
+                      child: _Hero(
+                        now: now,
+                        l10n: l10n,
+                        use24Hour: use24,
+                        compact: compact,
+                        onToggle: () =>
+                            ref.read(homeLayoutProvider.notifier).toggle(),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     if (compact) ...[
-                      _NextAppointment(now: now, locale: locale, use24Hour: use24),
-                      ListTile(title: Text(l10n.smartListEarlier), trailing: const Icon(Icons.arrow_forward),
-                        onTap: () => context.go('/todos?filter=earlier')),
+                      _NextAppointment(
+                        now: now,
+                        locale: locale,
+                        use24Hour: use24,
+                      ),
+                      ListTile(
+                        title: Text(l10n.smartListEarlier),
+                        trailing: const Icon(Icons.arrow_forward),
+                        onTap: () => context.go('/todos?filter=earlier'),
+                      ),
                     ],
                     SectionHeader(l10n.homeToday),
+                    if (compact)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: () => context.go('/todos?filter=today'),
+                          child: Text(l10n.smartListToday),
+                        ),
+                      ),
                     _TodayFeed(
+                      pendingOnly: compact,
                       now: now,
                       locale: locale,
                       l10n: l10n,
@@ -303,8 +326,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     const SizedBox(height: AppSpacing.xl),
                     SectionHeader(l10n.homeWeekTitle),
                     _WeeklyStats(now: now, locale: locale, l10n: l10n),
-                    TextButton.icon(onPressed: () => context.push('/home/review'),
-                      icon: const Icon(Icons.history), label: Text(l10n.reviewTitle)),
+                    TextButton.icon(
+                      onPressed: () => context.push('/home/review'),
+                      icon: const Icon(Icons.history),
+                      label: Text(l10n.reviewTitle),
+                    ),
                   ],
                 ),
               ),
@@ -573,7 +599,13 @@ class _TodoAddPeek extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.now, required this.l10n, required this.use24Hour, required this.compact, required this.onToggle});
+  const _Hero({
+    required this.now,
+    required this.l10n,
+    required this.use24Hour,
+    required this.compact,
+    required this.onToggle,
+  });
 
   final bool compact;
   final VoidCallback onToggle;
@@ -599,18 +631,33 @@ class _Hero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Expanded(child: Text(_greeting(), style: Theme.of(context)
-              .textTheme.titleMedium?.copyWith(color: palette.inkSoft))),
-            IconButton(onPressed: onToggle, tooltip: compact ? l10n.homeUseClock : l10n.homeUseCompact,
-              icon: Icon(compact ? Icons.schedule : Icons.view_compact_outlined)),
-            const AppSearchButton(),
-          ]),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _greeting(),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: palette.inkSoft),
+                ),
+              ),
+              IconButton(
+                onPressed: onToggle,
+                tooltip: compact ? l10n.homeUseClock : l10n.homeUseCompact,
+                icon: Icon(
+                  compact ? Icons.schedule : Icons.view_compact_outlined,
+                ),
+              ),
+              const AppSearchButton(),
+            ],
+          ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             Fmt.time(now, locale, use24Hour: use24Hour),
             key: compact ? const ValueKey('home-compact-clock') : null,
-            style: compact ? Theme.of(context).textTheme.headlineMedium : AppTypography.clock.copyWith(color: palette.ink),
+            style: compact
+                ? Theme.of(context).textTheme.headlineMedium
+                : AppTypography.clock.copyWith(color: palette.ink),
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
@@ -630,7 +677,11 @@ class _Hero extends StatelessWidget {
 }
 
 class _NextAppointment extends ConsumerWidget {
-  const _NextAppointment({required this.now, required this.locale, required this.use24Hour});
+  const _NextAppointment({
+    required this.now,
+    required this.locale,
+    required this.use24Hour,
+  });
   final DateTime now;
   final String locale;
   final bool use24Hour;
@@ -641,20 +692,57 @@ class _NextAppointment extends ConsumerWidget {
     final l10n = AppL10n.of(context);
     return AsyncContent<List<EventRow>>(
       value: today,
-      onRetry: () { ref.invalidate(eventsForDayProvider(dateOnly(now))); ref.invalidate(nextTimedEventProvider); },
+      onRetry: () {
+        ref.invalidate(eventsForDayProvider(dateOnly(now)));
+        ref.invalidate(nextTimedEventProvider);
+      },
       builder: (rows) {
-        final ongoing = rows.where((e) => !e.isAllDay && !e.startAt.isAfter(now) && e.endAt.isAfter(now)).firstOrNull;
-        if (ongoing != null) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SectionHeader(l10n.homeOngoing),
-          _UpcomingTile(event: ongoing, now: now, locale: locale, use24Hour: use24Hour),
-        ]);
-        return AsyncContent<EventRow?>(value: next, onRetry: () => ref.invalidate(nextTimedEventProvider),
-          builder: (event) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SectionHeader(l10n.homeNext),
-            if (event == null) ListTile(title: Text(l10n.homeNoNext), onTap: () => showEventEditor(context))
-            else _UpcomingTile(event: event, now: now, locale: locale, use24Hour: use24Hour),
-          ]));
-      });
+        final ongoing = rows
+            .where(
+              (e) =>
+                  !e.isAllDay &&
+                  !e.startAt.isAfter(now) &&
+                  e.endAt.isAfter(now),
+            )
+            .firstOrNull;
+        if (ongoing != null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionHeader(l10n.homeOngoing),
+              _UpcomingTile(
+                event: ongoing,
+                now: now,
+                locale: locale,
+                use24Hour: use24Hour,
+              ),
+            ],
+          );
+        }
+        return AsyncContent<EventRow?>(
+          value: next,
+          onRetry: () => ref.invalidate(nextTimedEventProvider),
+          builder: (event) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionHeader(l10n.homeNext),
+              if (event == null)
+                ListTile(
+                  title: Text(l10n.homeNoNext),
+                  onTap: () => showEventEditor(context),
+                )
+              else
+                _UpcomingTile(
+                  event: event,
+                  now: now,
+                  locale: locale,
+                  use24Hour: use24Hour,
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -703,8 +791,10 @@ class _TodayFeed extends ConsumerWidget {
     required this.locale,
     required this.l10n,
     required this.use24Hour,
+    this.pendingOnly = false,
   });
 
+  final bool pendingOnly;
   final DateTime now;
   final String locale;
   final AppL10n l10n;
@@ -727,13 +817,19 @@ class _TodayFeed extends ConsumerWidget {
     // schedule-tab badge) — those aren't making a "today" claim.
     final eventsState = ref.watch(eventsForDayProvider(today));
     final todosState = ref.watch(todosForDayProvider(today));
-    final placeholder = asyncGroupPlaceholder(context, [eventsState, todosState], () {
-      ref.invalidate(eventsForDayProvider(today));
-      ref.invalidate(todosForDayProvider(today));
-    });
+    final placeholder = asyncGroupPlaceholder(
+      context,
+      [eventsState, todosState],
+      () {
+        ref.invalidate(eventsForDayProvider(today));
+        ref.invalidate(todosForDayProvider(today));
+      },
+    );
     if (placeholder != null) return placeholder;
     final events = eventsState.value ?? const <EventRow>[];
-    final todos = todosState.value ?? const <TodoRow>[];
+    final todos = (todosState.value ?? const <TodoRow>[])
+        .where((row) => !pendingOnly || !row.isDone)
+        .toList();
 
     if (events.isEmpty && todos.isEmpty) {
       return _EmptyCard(
@@ -1097,10 +1193,14 @@ class _HomeTodoList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final overdueState = ref.watch(overdueTodosProvider);
     final upcomingState = ref.watch(upcomingNotOverdueTodosProvider);
-    final placeholder = asyncGroupPlaceholder(context, [overdueState, upcomingState], () {
-      ref.invalidate(overdueTodosProvider);
-      ref.invalidate(upcomingNotOverdueTodosProvider);
-    });
+    final placeholder = asyncGroupPlaceholder(
+      context,
+      [overdueState, upcomingState],
+      () {
+        ref.invalidate(overdueTodosProvider);
+        ref.invalidate(upcomingNotOverdueTodosProvider);
+      },
+    );
     if (placeholder != null) return placeholder;
     final overdue = overdueState.value ?? const <TodoRow>[];
     final upcoming = upcomingState.value ?? const <TodoRow>[];
@@ -1225,10 +1325,14 @@ class _WeeklyStats extends ConsumerWidget {
     final today = dateOnly(now);
     final eventsState = ref.watch(eventsForWeekProvider(today));
     final todosState = ref.watch(todosForWeekProvider(today));
-    final placeholder = asyncGroupPlaceholder(context, [eventsState, todosState], () {
-      ref.invalidate(eventsForWeekProvider(today));
-      ref.invalidate(todosForWeekProvider(today));
-    });
+    final placeholder = asyncGroupPlaceholder(
+      context,
+      [eventsState, todosState],
+      () {
+        ref.invalidate(eventsForWeekProvider(today));
+        ref.invalidate(todosForWeekProvider(today));
+      },
+    );
     if (placeholder != null) return placeholder;
     final events = eventsState.value ?? const <EventRow>[];
     final todos = todosState.value ?? const <TodoRow>[];
